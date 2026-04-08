@@ -30,15 +30,15 @@ import { AuthService } from '../../core/services/auth.service';
 
           <mat-form-field appearance="fill" class="full-width">
             <mat-label>Phone</mat-label>
-            <input matInput type="tel" formControlName="visitorPhone">
-            @if (form.get('visitorPhone')?.invalid && form.get('visitorPhone')?.touched) {
+            <input matInput type="tel" formControlName="Phone">
+            @if (form.get('Phone')?.invalid && form.get('Phone')?.touched) {
               <mat-error>Phone is required</mat-error>
             }
           </mat-form-field>
 
           <mat-form-field appearance="fill" class="full-width">
             <mat-label>Email (optional)</mat-label>
-            <input matInput type="email" formControlName="visitorEmail">
+            <input matInput type="email" formControlName="Email">
           </mat-form-field>
 
           <mat-form-field appearance="fill" class="full-width">
@@ -74,8 +74,8 @@ export class VisitorRegisterComponent {
 
   readonly form = this.fb.group({
     visitorName:   ['', Validators.required],
-    visitorPhone:  ['', Validators.required],
-    visitorEmail:  [''],
+    Phone:  ['', Validators.required],
+    Email:  [''],
     purpose:       ['', Validators.required],
     vehicleNumber: [''],
   });
@@ -88,7 +88,7 @@ export class VisitorRegisterComponent {
     this.svc.register(sid, {
       ...this.form.value as any,
       hostUserId:      user.id,
-      hostApartmentId: user.apartmentId ?? '',
+      hostApartmentId: user.apartmentId ?? ''
     }).subscribe({
       next: () => { this.loading.set(false); this.router.navigate(['/visitors']); },
       error: () => this.loading.set(false),

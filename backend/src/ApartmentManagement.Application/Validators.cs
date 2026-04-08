@@ -115,7 +115,7 @@ public sealed class RegisterVisitorCommandValidator : AbstractValidator<Register
         RuleFor(x => x.VisitorName).NotEmpty();
         RuleFor(x => x.Phone).NotEmpty();
         RuleFor(x => x.Purpose).NotEmpty();
-        RuleFor(x => x.HostApartmentId).NotEmpty();
+        //RuleFor(x => x.HostApartmentId).NotEmpty(); -> TBD
         RuleFor(x => x.SocietyId).NotEmpty();
     }
 }
