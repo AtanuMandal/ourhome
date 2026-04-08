@@ -1,0 +1,154 @@
+// ============================================================================
+// APARTMENT MANAGEMENT APPLICATION PROJECT - FILE STRUCTURE GUIDE
+// ============================================================================
+// This file provides documentation for creating all required files
+// 
+// REQUIRED DIRECTORY STRUCTURE:
+// ============================================================================
+//
+// Common\Behaviors\
+//   - LoggingBehavior.cs
+//   - ValidationBehavior.cs
+//   - AuthorizationBehavior.cs
+//
+// Societies\Commands\
+//   - CreateSocietyCommand.cs
+//   - UpdateSocietyCommand.cs
+//   - PublishSocietyCommand.cs
+//   - AssignAdminCommand.cs
+//   - ConfigureFeeStructureCommand.cs
+//
+// Societies\Queries\
+//   - GetSocietyQuery.cs
+//
+// Apartments\Commands\
+//   - CreateApartmentCommand.cs
+//   - UpdateApartmentCommand.cs
+//   - DeleteApartmentCommand.cs
+//   - BulkImportApartmentsCommand.cs
+//   - UpdateApartmentStatusCommand.cs
+//
+// Apartments\Queries\
+//   - GetApartmentsQuery.cs
+//   - GetApartmentQuery.cs
+//
+// Users\Commands\
+//   - CreateUserCommand.cs
+//   - UpdateUserCommand.cs
+//   - DeactivateUserCommand.cs
+//   - SendOtpCommand.cs
+//   - VerifyOtpCommand.cs
+//   - UpdateUserRoleCommand.cs
+//
+// Users\Queries\
+//   - GetUsersQuery.cs
+//   - GetUserQuery.cs
+//
+// Amenities\Commands\
+//   - CreateAmenityCommand.cs
+//   - UpdateAmenityCommand.cs
+//   - CreateBookingCommand.cs
+//   - ApproveBookingCommand.cs
+//   - RejectBookingCommand.cs
+//   - CancelBookingCommand.cs
+//
+// Amenities\Queries\
+//   - GetAmenitiesQuery.cs
+//   - GetAmenityQuery.cs
+//   - GetBookingQuery.cs
+//   - GetAvailabilityQuery.cs
+//
+// Complaints\Commands\
+//   - CreateComplaintCommand.cs
+//   - UpdateComplaintStatusCommand.cs
+//   - AssignComplaintCommand.cs
+//   - AddComplaintFeedbackCommand.cs
+//
+// Complaints\Queries\
+//   - GetComplaintsQuery.cs
+//   - GetComplaintQuery.cs
+//
+// Notices\Commands\
+//   - CreateNoticeCommand.cs
+//   - UpdateNoticeCommand.cs
+//   - DeleteNoticeCommand.cs
+//   - ArchiveNoticeCommand.cs
+//
+// Notices\Queries\
+//   - GetNoticesQuery.cs
+//   - GetNoticeQuery.cs
+//   - GetArchivedNoticesQuery.cs
+//
+// Visitors\Commands\
+//   - CreateVisitorLogCommand.cs
+//   - ApproveVisitorCommand.cs
+//   - DenyVisitorCommand.cs
+//   - CheckInVisitorCommand.cs
+//   - CheckOutVisitorCommand.cs
+//
+// Visitors\Queries\
+//   - GetVisitorLogsQuery.cs
+//   - GetVisitorLogQuery.cs
+//   - GetActiveVisitorsQuery.cs
+//
+// Fees\Commands\
+//   - CreateFeeScheduleCommand.cs
+//   - RecordFeePaymentCommand.cs
+//
+// Fees\Queries\
+//   - GetFeeSchedulesQuery.cs
+//   - GetApartmentFeesQuery.cs
+//   - GetFeeHistoryQuery.cs
+//
+// Gamification\Commands\
+//   - CreateCompetitionCommand.cs
+//   - RegisterForCompetitionCommand.cs
+//   - UpdateCompetitionScoreCommand.cs
+//   - AwardPointsCommand.cs
+//
+// Gamification\Queries\
+//   - GetCompetitionsQuery.cs
+//   - GetLeaderboardQuery.cs
+//   - GetUserPointsQuery.cs
+//
+// ServiceProviders\Commands\
+//   - CreateServiceProviderCommand.cs
+//   - ApproveServiceProviderCommand.cs
+//   - RejectServiceProviderCommand.cs
+//   - CreateServiceRequestCommand.cs
+//   - AcceptServiceRequestCommand.cs
+//   - CompleteServiceRequestCommand.cs
+//   - ReviewServiceRequestCommand.cs
+//
+// ServiceProviders\Queries\
+//   - GetServiceProvidersQuery.cs
+//   - GetServiceRequestsQuery.cs
+//
+// ============================================================================
+// TO CREATE THESE DIRECTORIES AND FILES:
+// ============================================================================
+//
+// Option 1: Using Command Prompt (Recommended)
+// Execute the following commands:
+//
+// cd /d "C:\01. Atanu\Code\apartment_management\backend\src\ApartmentManagement.Application"
+// mkdir Common\Behaviors
+// mkdir Societies\Commands Societies\Queries
+// mkdir Apartments\Commands Apartments\Queries
+// mkdir Users\Commands Users\Queries
+// mkdir Amenities\Commands Amenities\Queries
+// mkdir Complaints\Commands Complaints\Queries
+// mkdir Notices\Commands Notices\Queries
+// mkdir Visitors\Commands Visitors\Queries
+// mkdir Fees\Commands Fees\Queries
+// mkdir Gamification\Commands Gamification\Queries
+// mkdir ServiceProviders\Commands ServiceProviders\Queries
+//
+// Option 2: In Visual Studio
+// Right-click on ApartmentManagement.Application project
+// Select "New Folder" and create each folder manually
+// Then create new class files in each folder with the corresponding C# code
+//
+// ============================================================================
+// ALL FILE CONTENTS ARE PROVIDED IN SEPARATE FILES
+// ============================================================================

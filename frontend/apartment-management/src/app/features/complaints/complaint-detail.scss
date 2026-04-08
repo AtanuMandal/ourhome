@@ -1,0 +1,60 @@
+.detail-card {
+  .detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 8px;
+    h2 { font-size: 17px; font-weight: 600; flex: 1; }
+  }
+  .detail-category {
+    display: flex; align-items: center; gap: 4px;
+    font-size: 13px; color: var(--text-secondary);
+    margin: 4px 0 12px;
+    .material-icons { font-size: 16px; }
+  }
+  .detail-desc { font-size: 15px; line-height: 1.6; margin: 0 0 16px; color: var(--on-surface); }
+  .meta-row {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 13px; color: var(--text-secondary);
+    margin-top: 10px;
+    .material-icons { font-size: 16px; }
+  }
+}
+
+.timeline-title { font-size: 14px; font-weight: 600; margin: 0 0 16px; }
+
+.timeline { display: flex; flex-direction: column; gap: 0; }
+
+.timeline-item {
+  display: flex;
+  gap: 12px;
+  position: relative;
+  padding-bottom: 16px;
+
+  &:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 14px;
+    bottom: 0;
+    width: 2px;
+    background: var(--border);
+  }
+
+  .tl-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--primary-light);
+    flex-shrink: 0;
+    margin-top: 4px;
+  }
+
+  .tl-body {
+    flex: 1;
+    .tl-event { font-size: 13px; font-weight: 500; }
+    .tl-note  { font-size: 13px; color: var(--text-secondary); margin: 4px 0; }
+    .tl-time  { font-size: 11px; color: var(--text-secondary); }
+  }
+}

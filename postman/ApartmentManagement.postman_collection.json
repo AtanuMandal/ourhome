@@ -1,0 +1,4279 @@
+{
+  "info": {
+    "_postman_id": "ams-2025-api-collection",
+    "name": "Apartment Management System API",
+    "description": "Complete Postman collection for the **Apartment Management System** Azure Functions API.\n\n## Quick Start\n1. Import this collection and the accompanying environment file.\n2. Select the `AMS – Local Dev` environment.\n3. Run **Auth → Login** to populate `bearerToken` automatically.\n4. All subsequent requests use `{{bearerToken}}` and `{{societyId}}` from the environment.\n\n## Modules\nAuth · Society · Apartments · Users/Residents · Amenities · Amenity Bookings · Complaints · Notices · Visitor Log · Fee Schedules · Fee Payments · Gamification · Service Providers",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:7071",
+      "type": "string"
+    },
+    {
+      "key": "bearerToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "societyId",
+      "value": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "type": "string"
+    },
+    {
+      "key": "apartmentId",
+      "value": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "c3d4e5f6-a7b8-9012-cdef-012345678902",
+      "type": "string"
+    },
+    {
+      "key": "amenityId",
+      "value": "d4e5f6a7-b8c9-0123-def0-123456789012",
+      "type": "string"
+    },
+    {
+      "key": "bookingId",
+      "value": "e5f6a7b8-c9d0-1234-ef01-234567890123",
+      "type": "string"
+    },
+    {
+      "key": "competitionId",
+      "value": "f6a7b8c9-d0e1-2345-f012-345678901234",
+      "type": "string"
+    },
+    {
+      "key": "paymentId",
+      "value": "a7b8c9d0-e1f2-3456-0123-456789012345",
+      "type": "string"
+    },
+    {
+      "key": "complaintId",
+      "value": "b8c9d0e1-f2a3-4567-1234-567890123456",
+      "type": "string"
+    },
+    {
+      "key": "noticeId",
+      "value": "c9d0e1f2-a3b4-5678-2345-678901234567",
+      "type": "string"
+    },
+    {
+      "key": "visitorId",
+      "value": "d0e1f2a3-b4c5-6789-3456-789012345678",
+      "type": "string"
+    },
+    {
+      "key": "feeScheduleId",
+      "value": "e1f2a3b4-c5d6-7890-4567-890123456789",
+      "type": "string"
+    },
+    {
+      "key": "serviceProviderId",
+      "value": "f2a3b4c5-d6e7-8901-5678-901234567890",
+      "type": "string"
+    },
+    {
+      "key": "serviceRequestId",
+      "value": "a3b4c5d6-e7f8-9012-6789-012345678901",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "01 – Auth",
+      "description": "Authentication endpoints: OTP flow and direct login.",
+      "item": [
+        {
+          "name": "Send OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/otp",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "otp"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{userId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"message\": \"OTP sent successfully.\",\n  \"expiresInSeconds\": 300\n}"
+            }
+          ]
+        },
+        {
+          "name": "Verify OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/users/{{userId}}/verify-otp",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "users",
+                "{{userId}}",
+                "verify-otp"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{userId}}\",\n  \"otpCode\": \"123456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"message\": \"OTP verified successfully.\",\n  \"isVerified\": true\n}"
+            }
+          ]
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@greenvalley.com\",\n  \"password\": \"P@ssword123\",\n  \"societyId\": \"{{societyId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set(\"bearerToken\", json.token);",
+                  "    pm.collectionVariables.set(\"userId\", json.user.id);",
+                  "    console.log(\"Token saved:\", json.token.substring(0, 20) + \"...\");",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK – Token Response",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjM2Q0ZTVmNiIsInNvY2lldHlJZCI6ImExYjJjM2Q0In0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c\",\n  \"refreshToken\": \"rt_7f3d9e2b1a4c8f6e0d5b2a9c7e1f4d8b\",\n  \"expiresAt\": \"2025-12-31T23:59:59Z\",\n  \"user\": {\n    \"id\": \"c3d4e5f6-a7b8-9012-cdef-012345678902\",\n    \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"fullName\": \"Admin User\",\n    \"email\": \"admin@greenvalley.com\",\n    \"phone\": \"+91-9876543210\",\n    \"role\": \"Admin\",\n    \"apartmentId\": null,\n    \"isActive\": true,\n    \"isVerified\": true,\n    \"createdAt\": \"2024-01-15T10:30:00Z\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Register User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "users"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Ravi Kumar\",\n  \"email\": \"ravi.kumar@example.com\",\n  \"phone\": \"+91-9812345678\",\n  \"role\": \"Resident\",\n  \"apartmentId\": \"{{apartmentId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set(\"userId\", json.id);",
+                  "    console.log(\"userId set to:\", json.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {},
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"c3d4e5f6-a7b8-9012-cdef-012345678902\",\n  \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"fullName\": \"Ravi Kumar\",\n  \"email\": \"ravi.kumar@example.com\",\n  \"phone\": \"+91-9812345678\",\n  \"role\": \"Resident\",\n  \"apartmentId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n  \"isActive\": true,\n  \"isVerified\": false,\n  \"createdAt\": \"2024-06-01T09:00:00Z\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02 – Society",
+      "description": "CRUD operations for Society management.",
+      "item": [
+        {
+          "name": "Create Society",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Green Valley Residency\",\n  \"street\": \"42 Palm Grove Avenue\",\n  \"city\": \"Bengaluru\",\n  \"state\": \"Karnataka\",\n  \"postalCode\": \"560001\",\n  \"country\": \"India\",\n  \"contactEmail\": \"admin@greenvalley.com\",\n  \"contactPhone\": \"+91-8012345678\",\n  \"totalBlocks\": 4,\n  \"totalApartments\": 120\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set(\"societyId\", json.id);",
+                  "    console.log(\"societyId set to:\", json.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {},
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"name\": \"Green Valley Residency\",\n  \"address\": {\n    \"street\": \"42 Palm Grove Avenue\",\n    \"city\": \"Bengaluru\",\n    \"state\": \"Karnataka\",\n    \"postalCode\": \"560001\",\n    \"country\": \"India\"\n  },\n  \"contactEmail\": \"admin@greenvalley.com\",\n  \"contactPhone\": \"+91-8012345678\",\n  \"totalBlocks\": 4,\n  \"totalApartments\": 120,\n  \"status\": \"Active\",\n  \"adminUserIds\": [\n    \"c3d4e5f6-a7b8-9012-cdef-012345678902\"\n  ],\n  \"createdAt\": \"2024-01-01T00:00:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "List Societies",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "disabled": false
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"items\": [\n    {\n      \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n      \"name\": \"Green Valley Residency\",\n      \"address\": {\n        \"street\": \"42 Palm Grove Avenue\",\n        \"city\": \"Bengaluru\",\n        \"state\": \"Karnataka\",\n        \"postalCode\": \"560001\",\n        \"country\": \"India\"\n      },\n      \"contactEmail\": \"admin@greenvalley.com\",\n      \"contactPhone\": \"+91-8012345678\",\n      \"totalBlocks\": 4,\n      \"totalApartments\": 120,\n      \"status\": \"Active\",\n      \"adminUserIds\": [\n        \"c3d4e5f6-a7b8-9012-cdef-012345678902\"\n      ],\n      \"createdAt\": \"2024-01-01T00:00:00Z\"\n    }\n  ],\n  \"totalCount\": 1,\n  \"page\": 1,\n  \"pageSize\": 20\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Society",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"name\": \"Green Valley Residency\",\n  \"address\": {\n    \"street\": \"42 Palm Grove Avenue\",\n    \"city\": \"Bengaluru\",\n    \"state\": \"Karnataka\",\n    \"postalCode\": \"560001\",\n    \"country\": \"India\"\n  },\n  \"contactEmail\": \"admin@greenvalley.com\",\n  \"contactPhone\": \"+91-8012345678\",\n  \"totalBlocks\": 4,\n  \"totalApartments\": 120,\n  \"status\": \"Active\",\n  \"adminUserIds\": [\n    \"c3d4e5f6-a7b8-9012-cdef-012345678902\"\n  ],\n  \"createdAt\": \"2024-01-01T00:00:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Society",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Green Valley Residency Phase 2\",\n  \"contactEmail\": \"contact@greenvalley.com\",\n  \"contactPhone\": \"+91-8098765432\",\n  \"totalBlocks\": 6,\n  \"totalApartments\": 200\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"name\": \"Green Valley Residency Phase 2\",\n  \"address\": {\n    \"street\": \"42 Palm Grove Avenue\",\n    \"city\": \"Bengaluru\",\n    \"state\": \"Karnataka\",\n    \"postalCode\": \"560001\",\n    \"country\": \"India\"\n  },\n  \"contactEmail\": \"admin@greenvalley.com\",\n  \"contactPhone\": \"+91-8012345678\",\n  \"totalBlocks\": 6,\n  \"totalApartments\": 200,\n  \"status\": \"Active\",\n  \"adminUserIds\": [\n    \"c3d4e5f6-a7b8-9012-cdef-012345678902\"\n  ],\n  \"createdAt\": \"2024-01-01T00:00:00Z\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03 – Apartments",
+      "description": "Apartment CRUD, status change, and bulk import operations.",
+      "item": [
+        {
+          "name": "Create Apartment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/apartments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "apartments"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"apartmentNumber\": \"A-101\",\n  \"blockName\": \"A\",\n  \"floorNumber\": 1,\n  \"numberOfRooms\": 3,\n  \"parkingSlots\": 1,\n  \"ownerId\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set(\"apartmentId\", json.id);",
+                  "    console.log(\"apartmentId set to:\", json.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {},
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n  \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"apartmentNumber\": \"A-101\",\n  \"blockName\": \"A\",\n  \"floorNumber\": 1,\n  \"numberOfRooms\": 3,\n  \"parkingSlots\": 1,\n  \"status\": \"Occupied\",\n  \"ownerId\": \"c3d4e5f6-a7b8-9012-cdef-012345678902\",\n  \"tenantId\": null,\n  \"createdAt\": \"2024-01-10T08:00:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "List Apartments",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/apartments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "apartments"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "disabled": false
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"items\": [\n    {\n      \"id\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n      \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n      \"apartmentNumber\": \"A-101\",\n      \"blockName\": \"A\",\n      \"floorNumber\": 1,\n      \"numberOfRooms\": 3,\n      \"parkingSlots\": 1,\n      \"status\": \"Occupied\",\n      \"ownerId\": \"c3d4e5f6-a7b8-9012-cdef-012345678902\",\n      \"tenantId\": null,\n      \"createdAt\": \"2024-01-10T08:00:00Z\"\n    }\n  ],\n  \"totalCount\": 1,\n  \"page\": 1,\n  \"pageSize\": 20\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Apartment",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/apartments/{{apartmentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "apartments",
+                "{{apartmentId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n  \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"apartmentNumber\": \"A-101\",\n  \"blockName\": \"A\",\n  \"floorNumber\": 1,\n  \"numberOfRooms\": 3,\n  \"parkingSlots\": 1,\n  \"status\": \"Occupied\",\n  \"ownerId\": \"c3d4e5f6-a7b8-9012-cdef-012345678902\",\n  \"tenantId\": null,\n  \"createdAt\": \"2024-01-10T08:00:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Apartment",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/apartments/{{apartmentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "apartments",
+                "{{apartmentId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"blockName\": \"A\",\n  \"floorNumber\": 1,\n  \"numberOfRooms\": 3,\n  \"parkingSlots\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n  \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"apartmentNumber\": \"A-101\",\n  \"blockName\": \"A\",\n  \"floorNumber\": 1,\n  \"numberOfRooms\": 3,\n  \"parkingSlots\": 2,\n  \"status\": \"Occupied\",\n  \"ownerId\": \"c3d4e5f6-a7b8-9012-cdef-012345678902\",\n  \"tenantId\": null,\n  \"createdAt\": \"2024-01-10T08:00:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Change Apartment Status",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/apartments/{{apartmentId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "apartments",
+                "{{apartmentId}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Vacant\",\n  \"reason\": \"Tenant vacated on lease expiry\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n  \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"apartmentNumber\": \"A-101\",\n  \"blockName\": \"A\",\n  \"floorNumber\": 1,\n  \"numberOfRooms\": 3,\n  \"parkingSlots\": 1,\n  \"status\": \"Vacant\",\n  \"ownerId\": \"c3d4e5f6-a7b8-9012-cdef-012345678902\",\n  \"tenantId\": null,\n  \"createdAt\": \"2024-01-10T08:00:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Bulk Import Apartments",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/apartments/bulk",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "apartments",
+                "bulk"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"apartments\": [\n    {\n      \"apartmentNumber\": \"B-201\",\n      \"blockName\": \"B\",\n      \"floorNumber\": 2,\n      \"numberOfRooms\": 2,\n      \"parkingSlots\": 1,\n      \"ownerId\": null\n    },\n    {\n      \"apartmentNumber\": \"B-202\",\n      \"blockName\": \"B\",\n      \"floorNumber\": 2,\n      \"numberOfRooms\": 2,\n      \"parkingSlots\": 0,\n      \"ownerId\": null\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {},
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"importedCount\": 2,\n  \"failedCount\": 0,\n  \"errors\": []\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 – Users / Residents",
+      "description": "User registration, lookup, update, and role management.",
+      "item": [
+        {
+          "name": "Register User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "users"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Priya Sharma\",\n  \"email\": \"priya.sharma@example.com\",\n  \"phone\": \"+91-9887654321\",\n  \"role\": \"Resident\",\n  \"apartmentId\": \"{{apartmentId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set(\"userId\", json.id);",
+                  "    console.log(\"userId set to:\", json.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {},
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"c3d4e5f6-a7b8-9012-cdef-012345678902\",\n  \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"fullName\": \"Ravi Kumar\",\n  \"email\": \"ravi.kumar@example.com\",\n  \"phone\": \"+91-9812345678\",\n  \"role\": \"Resident\",\n  \"apartmentId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n  \"isActive\": true,\n  \"isVerified\": true,\n  \"createdAt\": \"2024-06-01T09:00:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/users/{{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "users",
+                "{{userId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"c3d4e5f6-a7b8-9012-cdef-012345678902\",\n  \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"fullName\": \"Ravi Kumar\",\n  \"email\": \"ravi.kumar@example.com\",\n  \"phone\": \"+91-9812345678\",\n  \"role\": \"Resident\",\n  \"apartmentId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n  \"isActive\": true,\n  \"isVerified\": true,\n  \"createdAt\": \"2024-06-01T09:00:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/users/{{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "users",
+                "{{userId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Priya Sharma Gupta\",\n  \"phone\": \"+91-9000012345\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"c3d4e5f6-a7b8-9012-cdef-012345678902\",\n  \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"fullName\": \"Priya Sharma Gupta\",\n  \"email\": \"ravi.kumar@example.com\",\n  \"phone\": \"+91-9000012345\",\n  \"role\": \"Resident\",\n  \"apartmentId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n  \"isActive\": true,\n  \"isVerified\": true,\n  \"createdAt\": \"2024-06-01T09:00:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update User Role",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/users/{{userId}}/role",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "users",
+                "{{userId}}",
+                "role"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"CommitteeMember\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"c3d4e5f6-a7b8-9012-cdef-012345678902\",\n  \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"fullName\": \"Ravi Kumar\",\n  \"email\": \"ravi.kumar@example.com\",\n  \"phone\": \"+91-9812345678\",\n  \"role\": \"CommitteeMember\",\n  \"apartmentId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n  \"isActive\": true,\n  \"isVerified\": true,\n  \"createdAt\": \"2024-06-01T09:00:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "disabled": false
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"items\": [\n    {\n      \"id\": \"c3d4e5f6-a7b8-9012-cdef-012345678902\",\n      \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n      \"fullName\": \"Ravi Kumar\",\n      \"email\": \"ravi.kumar@example.com\",\n      \"phone\": \"+91-9812345678\",\n      \"role\": \"Resident\",\n      \"apartmentId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n      \"isActive\": true,\n      \"isVerified\": true,\n      \"createdAt\": \"2024-06-01T09:00:00Z\"\n    }\n  ],\n  \"totalCount\": 1,\n  \"page\": 1,\n  \"pageSize\": 20\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "05 – Amenities",
+      "description": "Amenity CRUD and availability queries.",
+      "item": [
+        {
+          "name": "Create Amenity",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/amenities",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "amenities"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Swimming Pool\",\n  \"description\": \"Olympic-size swimming pool on ground floor.\",\n  \"capacity\": 30,\n  \"rules\": \"No diving. Swim cap mandatory.\",\n  \"bookingSlotMinutes\": 60,\n  \"operatingStart\": \"06:00\",\n  \"operatingEnd\": \"21:00\",\n  \"advanceBookingDays\": 7\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set(\"amenityId\", json.id);",
+                  "    console.log(\"amenityId set to:\", json.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {},
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"d4e5f6a7-b8c9-0123-def0-123456789012\",\n  \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"name\": \"Swimming Pool\",\n  \"description\": \"Olympic-size swimming pool on ground floor.\",\n  \"capacity\": 30,\n  \"rules\": \"No diving. Swim cap mandatory. No food inside.\",\n  \"isActive\": true,\n  \"bookingSlotMinutes\": 60,\n  \"operatingStart\": \"06:00\",\n  \"operatingEnd\": \"21:00\",\n  \"advanceBookingDays\": 7\n}"
+            }
+          ]
+        },
+        {
+          "name": "List Amenities",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/amenities",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "amenities"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "[\n  {\n    \"id\": \"d4e5f6a7-b8c9-0123-def0-123456789012\",\n    \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"name\": \"Swimming Pool\",\n    \"description\": \"Olympic-size swimming pool on ground floor.\",\n    \"capacity\": 30,\n    \"rules\": \"No diving. Swim cap mandatory. No food inside.\",\n    \"isActive\": true,\n    \"bookingSlotMinutes\": 60,\n    \"operatingStart\": \"06:00\",\n    \"operatingEnd\": \"21:00\",\n    \"advanceBookingDays\": 7\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "Get Amenity Availability",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/amenities/{{amenityId}}/availability",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "amenities",
+                "{{amenityId}}",
+                "availability"
+              ],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "2025-07-20",
+                  "disabled": false
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"amenityId\": \"d4e5f6a7-b8c9-0123-def0-123456789012\",\n  \"date\": \"2025-07-20\",\n  \"slots\": [\n    {\n      \"start\": \"2025-07-20T06:00:00Z\",\n      \"end\": \"2025-07-20T07:00:00Z\",\n      \"isAvailable\": true\n    },\n    {\n      \"start\": \"2025-07-20T07:00:00Z\",\n      \"end\": \"2025-07-20T08:00:00Z\",\n      \"isAvailable\": false\n    },\n    {\n      \"start\": \"2025-07-20T08:00:00Z\",\n      \"end\": \"2025-07-20T09:00:00Z\",\n      \"isAvailable\": true\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Amenity",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/amenities/{{amenityId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "amenities",
+                "{{amenityId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Swimming Pool\",\n  \"description\": \"Heated Olympic-size swimming pool.\",\n  \"capacity\": 35,\n  \"rules\": \"No diving. Swim cap mandatory. Children under 12 must be supervised.\",\n  \"bookingSlotMinutes\": 60,\n  \"operatingStart\": \"05:30\",\n  \"operatingEnd\": \"22:00\",\n  \"advanceBookingDays\": 14\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"d4e5f6a7-b8c9-0123-def0-123456789012\",\n  \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"name\": \"Swimming Pool\",\n  \"description\": \"Olympic-size swimming pool on ground floor.\",\n  \"capacity\": 35,\n  \"rules\": \"No diving. Swim cap mandatory. No food inside.\",\n  \"isActive\": true,\n  \"bookingSlotMinutes\": 60,\n  \"operatingStart\": \"06:00\",\n  \"operatingEnd\": \"21:00\",\n  \"advanceBookingDays\": 14\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "06 – Amenity Bookings",
+      "description": "Book amenities, list bookings, and approve or reject requests.",
+      "item": [
+        {
+          "name": "Book Amenity",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/amenity-bookings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "amenity-bookings"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amenityId\": \"{{amenityId}}\",\n  \"apartmentId\": \"{{apartmentId}}\",\n  \"startTime\": \"2025-07-20T09:00:00Z\",\n  \"endTime\": \"2025-07-20T10:00:00Z\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set(\"bookingId\", json.id);",
+                  "    console.log(\"bookingId set to:\", json.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {},
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"e5f6a7b8-c9d0-1234-ef01-234567890123\",\n  \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"amenityId\": \"d4e5f6a7-b8c9-0123-def0-123456789012\",\n  \"amenityName\": \"Swimming Pool\",\n  \"bookedByUserId\": \"c3d4e5f6-a7b8-9012-cdef-012345678902\",\n  \"bookedByApartmentId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n  \"startTime\": \"2025-07-20T09:00:00Z\",\n  \"endTime\": \"2025-07-20T10:00:00Z\",\n  \"status\": \"Pending\",\n  \"adminNotes\": null,\n  \"duration\": 1.0,\n  \"createdAt\": \"2025-07-15T08:00:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "List Amenity Bookings",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/amenity-bookings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "amenity-bookings"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "disabled": false
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"items\": [\n    {\n      \"id\": \"e5f6a7b8-c9d0-1234-ef01-234567890123\",\n      \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n      \"amenityId\": \"d4e5f6a7-b8c9-0123-def0-123456789012\",\n      \"amenityName\": \"Swimming Pool\",\n      \"bookedByUserId\": \"c3d4e5f6-a7b8-9012-cdef-012345678902\",\n      \"bookedByApartmentId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n      \"startTime\": \"2025-07-20T09:00:00Z\",\n      \"endTime\": \"2025-07-20T10:00:00Z\",\n      \"status\": \"Pending\",\n      \"adminNotes\": null,\n      \"duration\": 1.0,\n      \"createdAt\": \"2025-07-15T08:00:00Z\"\n    }\n  ],\n  \"totalCount\": 1,\n  \"page\": 1,\n  \"pageSize\": 20\n}"
+            }
+          ]
+        },
+        {
+          "name": "Approve Booking",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/amenity-bookings/{{bookingId}}/approve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "amenity-bookings",
+                "{{bookingId}}",
+                "approve"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"adminNotes\": \"Booking confirmed. Please follow pool rules.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"e5f6a7b8-c9d0-1234-ef01-234567890123\",\n  \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"amenityId\": \"d4e5f6a7-b8c9-0123-def0-123456789012\",\n  \"amenityName\": \"Swimming Pool\",\n  \"bookedByUserId\": \"c3d4e5f6-a7b8-9012-cdef-012345678902\",\n  \"bookedByApartmentId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n  \"startTime\": \"2025-07-20T09:00:00Z\",\n  \"endTime\": \"2025-07-20T10:00:00Z\",\n  \"status\": \"Approved\",\n  \"adminNotes\": \"Booking confirmed. Please follow pool rules.\",\n  \"duration\": 1.0,\n  \"createdAt\": \"2025-07-15T08:00:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Reject Booking",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/amenity-bookings/{{bookingId}}/reject",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "amenity-bookings",
+                "{{bookingId}}",
+                "reject"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"adminNotes\": \"Amenity under maintenance on this date.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"e5f6a7b8-c9d0-1234-ef01-234567890123\",\n  \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"amenityId\": \"d4e5f6a7-b8c9-0123-def0-123456789012\",\n  \"amenityName\": \"Swimming Pool\",\n  \"bookedByUserId\": \"c3d4e5f6-a7b8-9012-cdef-012345678902\",\n  \"bookedByApartmentId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n  \"startTime\": \"2025-07-20T09:00:00Z\",\n  \"endTime\": \"2025-07-20T10:00:00Z\",\n  \"status\": \"Rejected\",\n  \"adminNotes\": \"Amenity under maintenance on this date.\",\n  \"duration\": 1.0,\n  \"createdAt\": \"2025-07-15T08:00:00Z\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "07 – Complaints",
+      "description": "Raise and manage resident complaints with status updates and feedback.",
+      "item": [
+        {
+          "name": "Raise Complaint",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/complaints",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "complaints"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Water leakage in bathroom\",\n  \"description\": \"Persistent water leakage from the ceiling of the master bathroom.\",\n  \"category\": \"Plumbing\",\n  \"priority\": \"High\",\n  \"attachmentUrls\": [\n    \"https://storage.example.com/complaints/img1.jpg\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set(\"complaintId\", json.id);",
+                  "    console.log(\"complaintId set to:\", json.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {},
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"b8c9d0e1-f2a3-4567-1234-567890123456\",\n  \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"apartmentId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n  \"raisedByUserId\": \"c3d4e5f6-a7b8-9012-cdef-012345678902\",\n  \"title\": \"Water leakage in bathroom\",\n  \"description\": \"There is a persistent water leakage from the ceiling of the master bathroom.\",\n  \"category\": \"Plumbing\",\n  \"status\": \"Open\",\n  \"priority\": \"High\",\n  \"assignedToUserId\": null,\n  \"attachmentUrls\": [],\n  \"createdAt\": \"2025-07-10T10:00:00Z\",\n  \"updatedAt\": \"2025-07-10T10:00:00Z\",\n  \"resolvedAt\": null,\n  \"feedbackRating\": null,\n  \"feedbackComment\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "List Complaints",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/complaints",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "complaints"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "disabled": false
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"items\": [\n    {\n      \"id\": \"b8c9d0e1-f2a3-4567-1234-567890123456\",\n      \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n      \"apartmentId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n      \"raisedByUserId\": \"c3d4e5f6-a7b8-9012-cdef-012345678902\",\n      \"title\": \"Water leakage in bathroom\",\n      \"description\": \"There is a persistent water leakage from the ceiling of the master bathroom.\",\n      \"category\": \"Plumbing\",\n      \"status\": \"Open\",\n      \"priority\": \"High\",\n      \"assignedToUserId\": null,\n      \"attachmentUrls\": [],\n      \"createdAt\": \"2025-07-10T10:00:00Z\",\n      \"updatedAt\": \"2025-07-10T10:00:00Z\",\n      \"resolvedAt\": null,\n      \"feedbackRating\": null,\n      \"feedbackComment\": null\n    }\n  ],\n  \"totalCount\": 1,\n  \"page\": 1,\n  \"pageSize\": 20\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Complaint",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/complaints/{{complaintId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "complaints",
+                "{{complaintId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"b8c9d0e1-f2a3-4567-1234-567890123456\",\n  \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"apartmentId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n  \"raisedByUserId\": \"c3d4e5f6-a7b8-9012-cdef-012345678902\",\n  \"title\": \"Water leakage in bathroom\",\n  \"description\": \"There is a persistent water leakage from the ceiling of the master bathroom.\",\n  \"category\": \"Plumbing\",\n  \"status\": \"Open\",\n  \"priority\": \"High\",\n  \"assignedToUserId\": null,\n  \"attachmentUrls\": [],\n  \"createdAt\": \"2025-07-10T10:00:00Z\",\n  \"updatedAt\": \"2025-07-10T10:00:00Z\",\n  \"resolvedAt\": null,\n  \"feedbackRating\": null,\n  \"feedbackComment\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Complaint Status",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/complaints/{{complaintId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "complaints",
+                "{{complaintId}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"InProgress\",\n  \"assignedToUserId\": \"{{userId}}\",\n  \"notes\": \"Plumber assigned, will visit on 2025-07-12.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"b8c9d0e1-f2a3-4567-1234-567890123456\",\n  \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"apartmentId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n  \"raisedByUserId\": \"c3d4e5f6-a7b8-9012-cdef-012345678902\",\n  \"title\": \"Water leakage in bathroom\",\n  \"description\": \"There is a persistent water leakage from the ceiling of the master bathroom.\",\n  \"category\": \"Plumbing\",\n  \"status\": \"InProgress\",\n  \"priority\": \"High\",\n  \"assignedToUserId\": \"c3d4e5f6-a7b8-9012-cdef-012345678902\",\n  \"attachmentUrls\": [],\n  \"createdAt\": \"2025-07-10T10:00:00Z\",\n  \"updatedAt\": \"2025-07-10T10:00:00Z\",\n  \"resolvedAt\": null,\n  \"feedbackRating\": null,\n  \"feedbackComment\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Resolve Complaint",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/complaints/{{complaintId}}/resolve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "complaints",
+                "{{complaintId}}",
+                "resolve"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Resolved\",\n  \"assignedToUserId\": \"{{userId}}\",\n  \"notes\": \"Leakage fixed by plumber on 2025-07-12.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"b8c9d0e1-f2a3-4567-1234-567890123456\",\n  \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"apartmentId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n  \"raisedByUserId\": \"c3d4e5f6-a7b8-9012-cdef-012345678902\",\n  \"title\": \"Water leakage in bathroom\",\n  \"description\": \"There is a persistent water leakage from the ceiling of the master bathroom.\",\n  \"category\": \"Plumbing\",\n  \"status\": \"Resolved\",\n  \"priority\": \"High\",\n  \"assignedToUserId\": null,\n  \"attachmentUrls\": [],\n  \"createdAt\": \"2025-07-10T10:00:00Z\",\n  \"updatedAt\": \"2025-07-10T10:00:00Z\",\n  \"resolvedAt\": \"2025-07-12T15:00:00Z\",\n  \"feedbackRating\": null,\n  \"feedbackComment\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Add Complaint Feedback",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/complaints/{{complaintId}}/feedback",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "complaints",
+                "{{complaintId}}",
+                "feedback"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 4,\n  \"comment\": \"Issue was resolved promptly. Satisfied with the response.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"b8c9d0e1-f2a3-4567-1234-567890123456\",\n  \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"apartmentId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n  \"raisedByUserId\": \"c3d4e5f6-a7b8-9012-cdef-012345678902\",\n  \"title\": \"Water leakage in bathroom\",\n  \"description\": \"There is a persistent water leakage from the ceiling of the master bathroom.\",\n  \"category\": \"Plumbing\",\n  \"status\": \"Closed\",\n  \"priority\": \"High\",\n  \"assignedToUserId\": null,\n  \"attachmentUrls\": [],\n  \"createdAt\": \"2025-07-10T10:00:00Z\",\n  \"updatedAt\": \"2025-07-10T10:00:00Z\",\n  \"resolvedAt\": null,\n  \"feedbackRating\": 4,\n  \"feedbackComment\": \"Issue was resolved promptly.\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "08 – Notices",
+      "description": "Post, retrieve, list, update, and archive society notices.",
+      "item": [
+        {
+          "name": "Post Notice",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/notices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "notices"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Annual General Meeting \\u2013 July 2025\",\n  \"content\": \"All residents are invited to the AGM on 20 July 2025 at 6 PM in the Community Hall.\",\n  \"category\": \"Meeting\",\n  \"publishAt\": \"2025-07-10T09:00:00Z\",\n  \"expiresAt\": \"2025-07-20T18:00:00Z\",\n  \"targetApartmentIds\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set(\"noticeId\", json.id);",
+                  "    console.log(\"noticeId set to:\", json.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {},
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"c9d0e1f2-a3b4-5678-2345-678901234567\",\n  \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"title\": \"Annual General Meeting \\u2013 July 2025\",\n  \"content\": \"All residents are invited to attend the AGM on 20 July 2025 at 6 PM in the Community Hall. Agenda: Budget review, election of new committee members, upcoming maintenance plans.\",\n  \"category\": \"Meeting\",\n  \"postedByUserId\": \"c3d4e5f6-a7b8-9012-cdef-012345678902\",\n  \"isArchived\": false,\n  \"publishAt\": \"2025-07-10T09:00:00Z\",\n  \"expiresAt\": \"2025-07-20T18:00:00Z\",\n  \"isActive\": true,\n  \"createdAt\": \"2025-07-10T08:00:00Z\",\n  \"targetApartmentIds\": []\n}"
+            }
+          ]
+        },
+        {
+          "name": "List Notices",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/notices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "notices"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "disabled": false
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"items\": [\n    {\n      \"id\": \"c9d0e1f2-a3b4-5678-2345-678901234567\",\n      \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n      \"title\": \"Annual General Meeting \\u2013 July 2025\",\n      \"content\": \"All residents are invited to attend the AGM on 20 July 2025 at 6 PM in the Community Hall. Agenda: Budget review, election of new committee members, upcoming maintenance plans.\",\n      \"category\": \"Meeting\",\n      \"postedByUserId\": \"c3d4e5f6-a7b8-9012-cdef-012345678902\",\n      \"isArchived\": false,\n      \"publishAt\": \"2025-07-10T09:00:00Z\",\n      \"expiresAt\": \"2025-07-20T18:00:00Z\",\n      \"isActive\": true,\n      \"createdAt\": \"2025-07-10T08:00:00Z\",\n      \"targetApartmentIds\": []\n    }\n  ],\n  \"totalCount\": 1,\n  \"page\": 1,\n  \"pageSize\": 20\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Notice",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/notices/{{noticeId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "notices",
+                "{{noticeId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"c9d0e1f2-a3b4-5678-2345-678901234567\",\n  \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"title\": \"Annual General Meeting \\u2013 July 2025\",\n  \"content\": \"All residents are invited to attend the AGM on 20 July 2025 at 6 PM in the Community Hall. Agenda: Budget review, election of new committee members, upcoming maintenance plans.\",\n  \"category\": \"Meeting\",\n  \"postedByUserId\": \"c3d4e5f6-a7b8-9012-cdef-012345678902\",\n  \"isArchived\": false,\n  \"publishAt\": \"2025-07-10T09:00:00Z\",\n  \"expiresAt\": \"2025-07-20T18:00:00Z\",\n  \"isActive\": true,\n  \"createdAt\": \"2025-07-10T08:00:00Z\",\n  \"targetApartmentIds\": []\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Notice",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/notices/{{noticeId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "notices",
+                "{{noticeId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"UPDATED: Annual General Meeting \\u2013 July 2025\",\n  \"content\": \"Venue changed to Terrace Hall. All other details remain the same.\",\n  \"expiresAt\": \"2025-07-21T18:00:00Z\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"c9d0e1f2-a3b4-5678-2345-678901234567\",\n  \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"title\": \"UPDATED: Annual General Meeting \\u2013 July 2025\",\n  \"content\": \"All residents are invited to attend the AGM on 20 July 2025 at 6 PM in the Community Hall. Agenda: Budget review, election of new committee members, upcoming maintenance plans.\",\n  \"category\": \"Meeting\",\n  \"postedByUserId\": \"c3d4e5f6-a7b8-9012-cdef-012345678902\",\n  \"isArchived\": false,\n  \"publishAt\": \"2025-07-10T09:00:00Z\",\n  \"expiresAt\": \"2025-07-20T18:00:00Z\",\n  \"isActive\": true,\n  \"createdAt\": \"2025-07-10T08:00:00Z\",\n  \"targetApartmentIds\": []\n}"
+            }
+          ]
+        },
+        {
+          "name": "Archive Notice",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/notices/{{noticeId}}/archive",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "notices",
+                "{{noticeId}}",
+                "archive"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"c9d0e1f2-a3b4-5678-2345-678901234567\",\n  \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"title\": \"Annual General Meeting \\u2013 July 2025\",\n  \"content\": \"All residents are invited to attend the AGM on 20 July 2025 at 6 PM in the Community Hall. Agenda: Budget review, election of new committee members, upcoming maintenance plans.\",\n  \"category\": \"Meeting\",\n  \"postedByUserId\": \"c3d4e5f6-a7b8-9012-cdef-012345678902\",\n  \"isArchived\": true,\n  \"publishAt\": \"2025-07-10T09:00:00Z\",\n  \"expiresAt\": \"2025-07-20T18:00:00Z\",\n  \"isActive\": false,\n  \"createdAt\": \"2025-07-10T08:00:00Z\",\n  \"targetApartmentIds\": []\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "09 – Visitor Log",
+      "description": "Register visitors, list active visitors, check out, and view history.",
+      "item": [
+        {
+          "name": "Register Visitor",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/visitors",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "visitors"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"visitorName\": \"Suresh Patel\",\n  \"visitorPhone\": \"+91-9765432100\",\n  \"visitorEmail\": \"suresh.patel@example.com\",\n  \"purpose\": \"Family visit\",\n  \"hostApartmentId\": \"{{apartmentId}}\",\n  \"vehicleNumber\": \"KA01AB1234\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set(\"visitorId\", json.id);",
+                  "    console.log(\"visitorId set to:\", json.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {},
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"d0e1f2a3-b4c5-6789-3456-789012345678\",\n  \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"visitorName\": \"Suresh Patel\",\n  \"visitorPhone\": \"+91-9765432100\",\n  \"purpose\": \"Family visit\",\n  \"hostApartmentId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n  \"status\": \"CheckedIn\",\n  \"qrCode\": \"data:image/png;base64,iVBORw0KGgo...\",\n  \"passCode\": \"VIS-2345\",\n  \"checkInTime\": \"2025-07-15T14:30:00Z\",\n  \"checkOutTime\": null,\n  \"duration\": null,\n  \"createdAt\": \"2025-07-15T14:28:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "List Visitors",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/visitors",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "visitors"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "disabled": false
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"items\": [\n    {\n      \"id\": \"d0e1f2a3-b4c5-6789-3456-789012345678\",\n      \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n      \"visitorName\": \"Suresh Patel\",\n      \"visitorPhone\": \"+91-9765432100\",\n      \"purpose\": \"Family visit\",\n      \"hostApartmentId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n      \"status\": \"CheckedIn\",\n      \"qrCode\": \"data:image/png;base64,iVBORw0KGgo...\",\n      \"passCode\": \"VIS-2345\",\n      \"checkInTime\": \"2025-07-15T14:30:00Z\",\n      \"checkOutTime\": null,\n      \"duration\": null,\n      \"createdAt\": \"2025-07-15T14:28:00Z\"\n    }\n  ],\n  \"totalCount\": 1,\n  \"page\": 1,\n  \"pageSize\": 20\n}"
+            }
+          ]
+        },
+        {
+          "name": "Checkout Visitor",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/visitors/{{visitorId}}/checkout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "visitors",
+                "{{visitorId}}",
+                "checkout"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"d0e1f2a3-b4c5-6789-3456-789012345678\",\n  \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"visitorName\": \"Suresh Patel\",\n  \"visitorPhone\": \"+91-9765432100\",\n  \"purpose\": \"Family visit\",\n  \"hostApartmentId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n  \"status\": \"CheckedOut\",\n  \"qrCode\": \"data:image/png;base64,iVBORw0KGgo...\",\n  \"passCode\": \"VIS-2345\",\n  \"checkInTime\": \"2025-07-15T14:30:00Z\",\n  \"checkOutTime\": \"2025-07-15T17:45:00Z\",\n  \"duration\": 3.25,\n  \"createdAt\": \"2025-07-15T14:28:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Visitor History (by Apartment)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/visitors",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "visitors"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "disabled": false
+                },
+                {
+                  "key": "apartmentId",
+                  "value": "{{apartmentId}}",
+                  "disabled": false
+                },
+                {
+                  "key": "status",
+                  "value": "CheckedOut",
+                  "disabled": false
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"items\": [\n    {\n      \"id\": \"d0e1f2a3-b4c5-6789-3456-789012345678\",\n      \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n      \"visitorName\": \"Suresh Patel\",\n      \"visitorPhone\": \"+91-9765432100\",\n      \"purpose\": \"Family visit\",\n      \"hostApartmentId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n      \"status\": \"CheckedOut\",\n      \"qrCode\": \"data:image/png;base64,iVBORw0KGgo...\",\n      \"passCode\": \"VIS-2345\",\n      \"checkInTime\": \"2025-07-15T14:30:00Z\",\n      \"checkOutTime\": \"2025-07-15T17:45:00Z\",\n      \"duration\": null,\n      \"createdAt\": \"2025-07-15T14:28:00Z\"\n    }\n  ],\n  \"totalCount\": 1,\n  \"page\": 1,\n  \"pageSize\": 20\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "10 – Fee Schedules",
+      "description": "Create and list fee schedules for apartments.",
+      "item": [
+        {
+          "name": "Create Fee Schedule",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/fee-schedules",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "fee-schedules"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"apartmentId\": \"{{apartmentId}}\",\n  \"description\": \"Monthly Maintenance Charge\",\n  \"amount\": 3500.0,\n  \"frequency\": \"Monthly\",\n  \"dueDay\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set(\"feeScheduleId\", json.id);",
+                  "    console.log(\"feeScheduleId set to:\", json.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {},
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"e1f2a3b4-c5d6-7890-4567-890123456789\",\n  \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"apartmentId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n  \"description\": \"Monthly Maintenance Charge\",\n  \"amount\": 3500.0,\n  \"frequency\": \"Monthly\",\n  \"dueDay\": 5,\n  \"nextDueDate\": \"2025-08-05T00:00:00Z\",\n  \"isActive\": true\n}"
+            }
+          ]
+        },
+        {
+          "name": "List Fee Schedules",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/fee-schedules",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "fee-schedules"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "[\n  {\n    \"id\": \"e1f2a3b4-c5d6-7890-4567-890123456789\",\n    \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"apartmentId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n    \"description\": \"Monthly Maintenance Charge\",\n    \"amount\": 3500.0,\n    \"frequency\": \"Monthly\",\n    \"dueDay\": 5,\n    \"nextDueDate\": \"2025-08-05T00:00:00Z\",\n    \"isActive\": true\n  }\n]"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "11 – Fee Payments",
+      "description": "Record payments and retrieve payment history.",
+      "item": [
+        {
+          "name": "Mark Payment Paid",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/payments/{{paymentId}}/mark-paid",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "payments",
+                "{{paymentId}}",
+                "mark-paid"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paymentMethod\": \"UPI\",\n  \"transactionId\": \"TXN20250803112233\",\n  \"receiptUrl\": \"https://storage.example.com/receipts/AUG2025.pdf\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"a7b8c9d0-e1f2-3456-0123-456789012345\",\n  \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"apartmentId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n  \"feeScheduleId\": \"e1f2a3b4-c5d6-7890-4567-890123456789\",\n  \"description\": \"Monthly Maintenance Charge \\u2013 Aug 2025\",\n  \"amount\": 3500.0,\n  \"status\": \"Paid\",\n  \"dueDate\": \"2025-08-05T00:00:00Z\",\n  \"paidAt\": \"2025-08-03T11:22:00Z\",\n  \"paymentMethod\": \"UPI\",\n  \"transactionId\": \"TXN20250803112233\",\n  \"receiptUrl\": \"https://storage.example.com/receipts/AUG2025.pdf\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Payment History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/apartments/{{apartmentId}}/payments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "apartments",
+                "{{apartmentId}}",
+                "payments"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "disabled": false
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"items\": [\n    {\n      \"id\": \"a7b8c9d0-e1f2-3456-0123-456789012345\",\n      \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n      \"apartmentId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n      \"feeScheduleId\": \"e1f2a3b4-c5d6-7890-4567-890123456789\",\n      \"description\": \"Monthly Maintenance Charge \\u2013 Aug 2025\",\n      \"amount\": 3500.0,\n      \"status\": \"Paid\",\n      \"dueDate\": \"2025-08-05T00:00:00Z\",\n      \"paidAt\": \"2025-08-03T11:22:00Z\",\n      \"paymentMethod\": \"UPI\",\n      \"transactionId\": \"TXN20250803112233\",\n      \"receiptUrl\": \"https://storage.example.com/receipts/AUG2025.pdf\"\n    }\n  ],\n  \"totalCount\": 1,\n  \"page\": 1,\n  \"pageSize\": 20\n}"
+            }
+          ]
+        },
+        {
+          "name": "List All Pending Payments",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/payments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "payments"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "disabled": false
+                },
+                {
+                  "key": "status",
+                  "value": "Pending",
+                  "disabled": false
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"items\": [\n    {\n      \"id\": \"a7b8c9d0-e1f2-3456-0123-456789012345\",\n      \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n      \"apartmentId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n      \"feeScheduleId\": \"e1f2a3b4-c5d6-7890-4567-890123456789\",\n      \"description\": \"Monthly Maintenance Charge \\u2013 Aug 2025\",\n      \"amount\": 3500.0,\n      \"status\": \"Pending\",\n      \"dueDate\": \"2025-08-05T00:00:00Z\",\n      \"paidAt\": null,\n      \"paymentMethod\": null,\n      \"transactionId\": null,\n      \"receiptUrl\": null\n    }\n  ],\n  \"totalCount\": 1,\n  \"page\": 1,\n  \"pageSize\": 20\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "12 – Gamification",
+      "description": "Competitions, leaderboard, and user points management.",
+      "item": [
+        {
+          "name": "Create Competition",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/competitions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "competitions"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Green Living Challenge 2025\",\n  \"description\": \"Residents who reduce energy and water usage the most win prizes!\",\n  \"startDate\": \"2025-08-01T00:00:00Z\",\n  \"endDate\": \"2025-08-31T23:59:59Z\",\n  \"prize\": \"Amazon Gift Voucher worth \\u20b95,000\",\n  \"maxParticipants\": 50\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set(\"competitionId\", json.id);",
+                  "    console.log(\"competitionId set to:\", json.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {},
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"f6a7b8c9-d0e1-2345-f012-345678901234\",\n  \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"title\": \"Green Living Challenge 2025\",\n  \"description\": \"Residents who reduce energy and water usage the most win exciting prizes!\",\n  \"startDate\": \"2025-08-01T00:00:00Z\",\n  \"endDate\": \"2025-08-31T23:59:59Z\",\n  \"status\": \"Upcoming\",\n  \"prize\": \"Amazon Gift Voucher worth \\u20b95,000\",\n  \"maxParticipants\": 50,\n  \"createdAt\": \"2025-07-15T08:00:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Join Competition",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/competitions/{{competitionId}}/join",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "competitions",
+                "{{competitionId}}",
+                "join"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"apartmentId\": \"{{apartmentId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {},
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"badf4453-b054-4ae1-8996-c93faf9593a3\",\n  \"competitionId\": \"f6a7b8c9-d0e1-2345-f012-345678901234\",\n  \"apartmentId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n  \"userId\": \"c3d4e5f6-a7b8-9012-cdef-012345678902\",\n  \"score\": 0,\n  \"rank\": 1,\n  \"registeredAt\": \"2025-07-16T09:00:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Leaderboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/competitions/{{competitionId}}/leaderboard",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "competitions",
+                "{{competitionId}}",
+                "leaderboard"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "[\n  {\n    \"rank\": 1,\n    \"userId\": \"c3d4e5f6-a7b8-9012-cdef-012345678902\",\n    \"apartmentId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n    \"score\": 850.5\n  },\n  {\n    \"rank\": 2,\n    \"userId\": \"d91f8d87-df58-47e4-ab7e-65a117d6b534\",\n    \"apartmentId\": \"9acd3255-b326-48bd-aa1e-d5ee7f16ac76\",\n    \"score\": 720.0\n  },\n  {\n    \"rank\": 3,\n    \"userId\": \"3338026b-930e-4535-bc79-35fd7d401076\",\n    \"apartmentId\": \"7190c5e0-a41d-4b86-8836-ac5cb19b8842\",\n    \"score\": 610.5\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "Get User Points",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/users/{{userId}}/points",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "users",
+                "{{userId}}",
+                "points"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"userId\": \"c3d4e5f6-a7b8-9012-cdef-012345678902\",\n  \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"totalPoints\": 1250,\n  \"history\": [\n    {\n      \"points\": 100,\n      \"reason\": \"Timely fee payment\",\n      \"createdAt\": \"2025-07-05T10:00:00Z\"\n    },\n    {\n      \"points\": 50,\n      \"reason\": \"Complaint resolution feedback\",\n      \"createdAt\": \"2025-07-12T15:30:00Z\"\n    },\n    {\n      \"points\": 200,\n      \"reason\": \"Competition participation bonus\",\n      \"createdAt\": \"2025-07-16T09:00:00Z\"\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Award Points to User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/users/{{userId}}/points",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "users",
+                "{{userId}}",
+                "points"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"score\": 150.0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {},
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"userId\": \"c3d4e5f6-a7b8-9012-cdef-012345678902\",\n  \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"totalPoints\": 1400,\n  \"history\": [\n    {\n      \"points\": 150,\n      \"reason\": \"Manual award\",\n      \"createdAt\": \"2025-07-20T12:00:00Z\"\n    }\n  ]\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "13 – Service Providers",
+      "description": "Register service providers, list them, submit service requests, and add reviews.",
+      "item": [
+        {
+          "name": "Register Service Provider",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/service-providers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "service-providers"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"providerName\": \"QuickFix Services Pvt. Ltd.\",\n  \"contactName\": \"Arvind Mehta\",\n  \"contactPhone\": \"+91-9011223344\",\n  \"contactEmail\": \"arvind@quickfix.in\",\n  \"serviceTypes\": [\n    \"Plumbing\",\n    \"Electrical\",\n    \"Carpentry\"\n  ],\n  \"description\": \"Professional home maintenance services with 5+ years of experience.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set(\"serviceProviderId\", json.id);",
+                  "    console.log(\"serviceProviderId set to:\", json.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {},
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"f2a3b4c5-d6e7-8901-5678-901234567890\",\n  \"providerName\": \"QuickFix Services Pvt. Ltd.\",\n  \"contactName\": \"Arvind Mehta\",\n  \"contactPhone\": \"+91-9011223344\",\n  \"serviceTypes\": [\n    \"Plumbing\",\n    \"Electrical\",\n    \"Carpentry\"\n  ],\n  \"description\": \"Professional home maintenance services with 5+ years of experience.\",\n  \"status\": \"Active\",\n  \"rating\": 4.3,\n  \"reviewCount\": 28\n}"
+            }
+          ]
+        },
+        {
+          "name": "List Service Providers",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/service-providers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "service-providers"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "disabled": false
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"items\": [\n    {\n      \"id\": \"f2a3b4c5-d6e7-8901-5678-901234567890\",\n      \"providerName\": \"QuickFix Services Pvt. Ltd.\",\n      \"contactName\": \"Arvind Mehta\",\n      \"contactPhone\": \"+91-9011223344\",\n      \"serviceTypes\": [\n        \"Plumbing\",\n        \"Electrical\",\n        \"Carpentry\"\n      ],\n      \"description\": \"Professional home maintenance services with 5+ years of experience.\",\n      \"status\": \"Active\",\n      \"rating\": 4.3,\n      \"reviewCount\": 28\n    }\n  ],\n  \"totalCount\": 1,\n  \"page\": 1,\n  \"pageSize\": 20\n}"
+            }
+          ]
+        },
+        {
+          "name": "Create Service Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/service-requests",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "service-requests"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"serviceType\": \"Plumbing\",\n  \"description\": \"Kitchen tap leaking \\u2013 needs washer replacement.\",\n  \"preferredDateTime\": \"2025-07-22T10:00:00Z\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set(\"serviceRequestId\", json.id);",
+                  "    console.log(\"serviceRequestId set to:\", json.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {},
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"a3b4c5d6-e7f8-9012-6789-012345678901\",\n  \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"apartmentId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n  \"serviceType\": \"Plumbing\",\n  \"description\": \"Kitchen tap leaking \\u2013 needs washer replacement.\",\n  \"preferredDateTime\": \"2025-07-22T10:00:00Z\",\n  \"status\": \"Pending\",\n  \"acceptedByProviderId\": null,\n  \"rating\": null,\n  \"reviewComment\": null,\n  \"createdAt\": \"2025-07-20T09:00:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "List Service Requests",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/societies/{{societyId}}/service-requests",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "societies",
+                "{{societyId}}",
+                "service-requests"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "disabled": false
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"items\": [\n    {\n      \"id\": \"a3b4c5d6-e7f8-9012-6789-012345678901\",\n      \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n      \"apartmentId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n      \"serviceType\": \"Plumbing\",\n      \"description\": \"Kitchen tap leaking \\u2013 needs washer replacement.\",\n      \"preferredDateTime\": \"2025-07-22T10:00:00Z\",\n      \"status\": \"Pending\",\n      \"acceptedByProviderId\": null,\n      \"rating\": null,\n      \"reviewComment\": null,\n      \"createdAt\": \"2025-07-20T09:00:00Z\"\n    }\n  ],\n  \"totalCount\": 1,\n  \"page\": 1,\n  \"pageSize\": 20\n}"
+            }
+          ]
+        },
+        {
+          "name": "Add Service Provider Review",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-society-id",
+                "value": "{{societyId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/service-providers/{{serviceProviderId}}/reviews",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "service-providers",
+                "{{serviceProviderId}}",
+                "reviews"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 5,\n  \"comment\": \"Excellent work! Tap fixed within 30 minutes. Very professional.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"Response is JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {},
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"7597e66e-a8cf-4298-8bd4-c0758a4520b8\",\n  \"serviceProviderId\": \"f2a3b4c5-d6e7-8901-5678-901234567890\",\n  \"rating\": 5,\n  \"comment\": \"Excellent work! Tap fixed within 30 minutes.\",\n  \"reviewedByUserId\": \"c3d4e5f6-a7b8-9012-cdef-012345678902\",\n  \"createdAt\": \"2025-07-22T12:30:00Z\"\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

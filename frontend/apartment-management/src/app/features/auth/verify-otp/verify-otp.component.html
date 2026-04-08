@@ -1,0 +1,40 @@
+<div class="auth-page">
+  <div class="auth-card">
+    <button mat-icon-button class="back-btn" (click)="back()">
+      <mat-icon>arrow_back</mat-icon>
+    </button>
+
+    <div class="auth-brand">
+      <span class="material-icons otp-icon">lock_open</span>
+      <h1>Verify OTP</h1>
+      <p>Enter the code sent to <strong>{{ email() }}</strong></p>
+    </div>
+
+    @if (loading()) {
+      <mat-progress-bar mode="indeterminate" class="progress-bar"></mat-progress-bar>
+    }
+
+    @if (error()) {
+      <div class="error-banner">
+        <mat-icon>error_outline</mat-icon>
+        <span>{{ error() }}</span>
+      </div>
+    }
+
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <mat-form-field appearance="fill" class="full-width otp-field">
+        <mat-label>OTP Code</mat-label>
+        <input matInput formControlName="otp" type="number" placeholder="123456"
+               inputmode="numeric" autocomplete="one-time-code" maxlength="8">
+        @if (form.get('otp')?.invalid && form.get('otp')?.touched) {
+          <mat-error>Please enter the OTP</mat-error>
+        }
+      </mat-form-field>
+
+      <button mat-raised-button color="primary" type="submit"
+              class="full-width submit-btn" [disabled]="loading() || form.invalid">
+        @if (loading()) { Verifying… } @else { Verify & Sign In }
+      </button>
+    </form>
+  </div>
+</div>

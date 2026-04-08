@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  This file is automatically imported by MSBuild for all projects in this directory tree.
+  The CreateDTOStructure target runs automatically before any build when DTOs\Society is missing.
+  It creates 10 DTO directories and 47 C# files using the Python setup script.
+  Once created, the Condition makes this target a no-op on subsequent builds.
+-->
+<Project>
+  <Target Name="CreateDTOStructure"
+          BeforeTargets="BeforeBuild;Build;CoreCompile;Restore;_GenerateRestoreProjectPathWalk"
+          Condition="!Exists('C:\01. Atanu\Code\apartment_management\backend\src\ApartmentManagement.Application\DTOs\Society')">
+    <Message Text="[DTO Setup] DTOs directory missing - running setup script..." Importance="high" />
+    <Exec Command="cmd /c python &quot;C:\01. Atanu\Code\apartment_management\create_complete_dtos.py&quot;"
+          WorkingDirectory="C:\01. Atanu\Code\apartment_management"
+          IgnoreExitCode="false" />
+    <Message Text="[DTO Setup] ✓ 10 directories and 47 C# files created successfully!" Importance="high" />
+  </Target>
+</Project>

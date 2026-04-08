@@ -1,0 +1,39 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>ApartmentManagement.Application</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MediatR" Version="12.2.0" />
+    <PackageReference Include="FluentValidation" Version="11.9.0" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="11.9.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ApartmentManagement.Domain\ApartmentManagement.Domain.csproj" />
+    <ProjectReference Include="..\ApartmentManagement.Shared\ApartmentManagement.Shared.csproj" />
+  </ItemGroup>
+
+
+  <!--
+    Auto-creates DTO directories and files on first build.
+    Runs only when DTOs\Society directory is missing.
+    Requires Python to be installed and available on PATH.
+  -->
+  <Target Name="CreateDTOStructure"
+          BeforeTargets="BeforeBuild;Restore"
+          Condition="!Exists('$(MSBuildThisFileDirectory)DTOs\Society')">
+    <Message Text="[DTO Setup] Creating 10 DTO directories and 47 C# files..." Importance="high" />
+    <Exec Command="cmd /c python &quot;C:\01. Atanu\Code\apartment_management\create_complete_dtos.py&quot;"
+          WorkingDirectory="C:\01. Atanu\Code\apartment_management"
+          IgnoreExitCode="false" />
+    <Message Text="[DTO Setup] DTO structure created successfully!" Importance="high" />
+  </Target>
+
+</Project>

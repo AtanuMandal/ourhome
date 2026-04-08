@@ -1,0 +1,82 @@
+<app-page-header [title]="'Good ' + greeting" [subtitle]="user()?.name ?? ''"></app-page-header>
+
+<div class="page-content">
+
+  @if (loading()) {
+    <app-loading-spinner></app-loading-spinner>
+  } @else {
+
+    <!-- Quick actions -->
+    <section class="section">
+      <h2 class="section-title">Quick Actions</h2>
+      <div class="quick-grid">
+        @for (action of quickActions; track action.route) {
+          <a [routerLink]="action.route" class="quick-action" [style.--action-color]="action.color">
+            <div class="action-icon">
+              <span class="material-icons">{{ action.icon }}</span>
+            </div>
+            <span class="action-label">{{ action.label }}</span>
+          </a>
+        }
+      </div>
+    </section>
+
+    <!-- Recent Complaints -->
+    <section class="section">
+      <div class="section-header">
+        <h2 class="section-title">Recent Complaints</h2>
+        <a [routerLink]="'/complaints'" class="see-all">See all</a>
+      </div>
+      @if (recentComplaints().length === 0) {
+        <div class="empty-card">
+          <span class="material-icons">check_circle</span>
+          <p>No open complaints</p>
+        </div>
+      } @else {
+        <div class="list-cards">
+          @for (c of recentComplaints(); track c.id) {
+            <a [routerLink]="['/complaints', c.id]" class="list-card">
+              <div class="list-card__icon complaint">
+                <span class="material-icons">report_problem</span>
+              </div>
+              <div class="list-card__content">
+                <span class="list-card__title">{{ c.title }}</span>
+                <span class="list-card__sub">{{ c.category }}</span>
+              </div>
+              <app-status-chip [status]="c.status"></app-status-chip>
+            </a>
+          }
+        </div>
+      }
+    </section>
+
+    <!-- Recent Notices -->
+    <section class="section">
+      <div class="section-header">
+        <h2 class="section-title">Latest Notices</h2>
+        <a [routerLink]="'/notices'" class="see-all">See all</a>
+      </div>
+      @if (recentNotices().length === 0) {
+        <div class="empty-card">
+          <span class="material-icons">notifications_none</span>
+          <p>No recent notices</p>
+        </div>
+      } @else {
+        <div class="list-cards">
+          @for (n of recentNotices(); track n.id) {
+            <a [routerLink]="['/notices', n.id]" class="list-card">
+              <div class="list-card__icon notice">
+                <span class="material-icons">campaign</span>
+              </div>
+              <div class="list-card__content">
+                <span class="list-card__title">{{ n.title }}</span>
+                <span class="list-card__sub">{{ n.publishedAt | date:'mediumDate' }}</span>
+              </div>
+            </a>
+          }
+        </div>
+      }
+    </section>
+
+  }
+</div>

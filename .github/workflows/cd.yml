@@ -1,0 +1,213 @@
+name: CD
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - prod
+
+# Prevent overlapping deployments to the same environment.
+# Queues new runs rather than cancelling to avoid torn deploys.
+concurrency:
+  group: deploy-${{ inputs.environment || 'dev' }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write   # Required for OIDC Azure login
+
+env:
+  DOTNET_VERSION: '8.x'
+  NODE_VERSION: '20.x'
+  TARGET_ENV: ${{ inputs.environment || 'dev' }}
+  AZURE_RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Job 1 – Deploy infrastructure via Bicep
+# For 'dev'  → auto-approved, runs immediately.
+# For 'prod' → protected by GitHub Environment required-reviewers gate.
+# ─────────────────────────────────────────────────────────────────────────────
+jobs:
+  deploy-infra:
+    name: Deploy · Infrastructure (${{ inputs.environment || 'dev' }})
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment || 'dev' }}
+
+    outputs:
+      function_app_name: ${{ steps.infra-outputs.outputs.function_app_name }}
+      storage_account_name: ${{ steps.infra-outputs.outputs.storage_account_name }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy Bicep template
+        id: bicep-deploy
+        run: |
+          az deployment group create \
+            --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+            --template-file infra/bicep/main.bicep \
+            --parameters environment="${{ env.TARGET_ENV }}" \
+            --name "deploy-${{ env.TARGET_ENV }}-${{ github.run_id }}" \
+            --output json
+
+      - name: Capture infrastructure outputs
+        id: infra-outputs
+        run: |
+          OUTPUTS=$(az deployment group show \
+            --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+            --name "deploy-${{ env.TARGET_ENV }}-${{ github.run_id }}" \
+            --query properties.outputs \
+            --output json)
+
+          FUNC_APP=$(echo "$OUTPUTS" | jq -r '.functionAppName.value // empty')
+          STORAGE=$(echo "$OUTPUTS" | jq -r '.storageAccountName.value // empty')
+
+          echo "function_app_name=${FUNC_APP}" >> "$GITHUB_OUTPUT"
+          echo "storage_account_name=${STORAGE}" >> "$GITHUB_OUTPUT"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Job 2 – Build & deploy Azure Functions backend
+  # Runs in parallel with deploy-frontend once infra is ready.
+  # ─────────────────────────────────────────────────────────────────────────────
+  deploy-backend:
+    name: Deploy · Backend Functions (${{ inputs.environment || 'dev' }})
+    runs-on: ubuntu-latest
+    needs: deploy-infra
+    environment: ${{ inputs.environment || 'dev' }}
+
+    env:
+      # Falls back to the Bicep output; override by setting the GitHub
+      # Environment variable FUNCTION_APP_NAME per environment.
+      FUNCTION_APP_NAME: >-
+        ${{ vars.FUNCTION_APP_NAME ||
+            needs.deploy-infra.outputs.function_app_name }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/Directory.Build.targets') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Restore & publish Functions project
+        run: |
+          dotnet restore apartment_management.sln
+          dotnet publish backend/src/ApartmentManagement.Functions/ApartmentManagement.Functions.csproj \
+            --configuration Release \
+            --output ./publish/functions
+
+      - name: Create deployment package
+        run: |
+          cd publish/functions
+          zip -r ../../function-app.zip .
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy to Azure Functions (zip deploy)
+        run: |
+          az functionapp deployment source config-zip \
+            --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ env.FUNCTION_APP_NAME }}" \
+            --src ./function-app.zip
+
+      - name: Apply environment-specific app settings
+        run: |
+          az functionapp config appsettings set \
+            --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ env.FUNCTION_APP_NAME }}" \
+            --settings \
+              ENVIRONMENT="${{ env.TARGET_ENV }}" \
+              ASPNETCORE_ENVIRONMENT="${{ env.TARGET_ENV == 'prod' && 'Production' || 'Development' }}"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Job 3 – Build Angular PWA & deploy to Azure Blob Storage + CDN
+  # Runs in parallel with deploy-backend once infra is ready.
+  # ─────────────────────────────────────────────────────────────────────────────
+  deploy-frontend:
+    name: Deploy · Frontend Angular (${{ inputs.environment || 'dev' }})
+    runs-on: ubuntu-latest
+    needs: deploy-infra
+    environment: ${{ inputs.environment || 'dev' }}
+
+    env:
+      # Set STORAGE_ACCOUNT_NAME per GitHub Environment or inherit from Bicep output.
+      STORAGE_ACCOUNT_NAME: >-
+        ${{ vars.STORAGE_ACCOUNT_NAME ||
+            needs.deploy-infra.outputs.storage_account_name }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/apartment-management/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend/apartment-management
+        run: npm ci
+
+      - name: Build Angular PWA (production)
+        working-directory: frontend/apartment-management
+        run: npm run build -- --configuration production
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Upload static files to Blob Storage ($web container)
+        run: |
+          az storage blob upload-batch \
+            --account-name "${{ env.STORAGE_ACCOUNT_NAME }}" \
+            --destination '$web' \
+            --source frontend/apartment-management/dist/apartment-management/browser \
+            --overwrite \
+            --auth-mode login
+
+      - name: Purge CDN endpoint cache
+        # Requires CDN_PROFILE_NAME and CDN_ENDPOINT_NAME set as Environment vars.
+        if: ${{ vars.CDN_PROFILE_NAME != '' && vars.CDN_ENDPOINT_NAME != '' }}
+        run: |
+          az cdn endpoint purge \
+            --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+            --profile-name "${{ vars.CDN_PROFILE_NAME }}" \
+            --name "${{ vars.CDN_ENDPOINT_NAME }}" \
+            --content-paths '/*'

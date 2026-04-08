@@ -1,0 +1,28 @@
+.provider-list { display: flex; flex-direction: column; gap: 10px; }
+
+.provider-card {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--surface); border-radius: var(--radius-md);
+  padding: 14px; box-shadow: var(--shadow-sm);
+
+  .pc-icon {
+    width: 48px; height: 48px; border-radius: 14px;
+    background: linear-gradient(135deg, #ff7043, #ef9a9a);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    .material-icons { font-size: 24px; color: white; }
+  }
+
+  .pc-info {
+    flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;
+    .pc-name { font-size: 14px; font-weight: 500; }
+    .pc-cat  { font-size: 12px; color: var(--text-secondary); }
+    .pc-rating { display: flex; align-items: center; gap: 2px; font-size: 12px; color: #fb8c00;
+      .material-icons { font-size: 14px; } }
+  }
+}
+
+.fab {
+  position: fixed;
+  bottom: calc(var(--bottom-nav-h) + 16px + var(--safe-bottom));
+  right: 16px; z-index: 200;
+}

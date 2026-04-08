@@ -1,0 +1,45 @@
+.slots-title { font-size: 14px; font-weight: 600; margin: 16px 0 8px; }
+
+.slots-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+  @media (min-width: 480px) { grid-template-columns: repeat(4, 1fr); }
+}
+
+.slot-btn {
+  padding: 8px 4px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: white;
+  cursor: pointer;
+  transition: all var(--transition);
+  color: var(--on-surface);
+
+  &.selected {
+    background: var(--primary-light);
+    color: white;
+    border-color: var(--primary-light);
+  }
+  &.unavailable {
+    background: #f3f4f6;
+    color: #9ca3af;
+    cursor: not-allowed;
+    text-decoration: line-through;
+  }
+  &:not(.unavailable):not(.selected):active {
+    background: rgba(25,118,210,.1);
+    border-color: var(--primary-light);
+  }
+}
+
+.selected-info {
+  display: flex; align-items: center; gap: 8px;
+  background: #e8f5e9; color: #2e7d32;
+  padding: 10px 12px; border-radius: var(--radius-sm);
+  font-size: 13px; font-weight: 500;
+  .material-icons { font-size: 18px; }
+}

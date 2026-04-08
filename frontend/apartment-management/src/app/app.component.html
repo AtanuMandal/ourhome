@@ -1,0 +1,40 @@
+@if (isLoggedIn() && !isAuthRoute()) {
+  <mat-sidenav-container class="app-container" autosize>
+    <mat-sidenav class="side-nav" mode="side" opened>
+      <div class="side-nav__brand">
+        <span class="material-icons brand-icon">apartment</span>
+        <span class="brand-name">ApartmentHub</span>
+      </div>
+      <div class="side-nav__user">
+        <div class="avatar avatar--lg">{{ userInitials() }}</div>
+        <div class="user-info">
+          <span class="user-name">{{ user()?.name }}</span>
+          <span class="user-role">{{ user()?.role }}</span>
+        </div>
+      </div>
+      <mat-divider></mat-divider>
+      <mat-nav-list class="side-nav__list">
+        @for (item of visibleNav(); track item.path) {
+          <a mat-list-item [routerLink]="item.path" routerLinkActive="active-link"
+             [routerLinkActiveOptions]="{ exact: item.path === '/dashboard' }">
+            <mat-icon matListItemIcon>{{ item.icon }}</mat-icon>
+            <span matListItemTitle>{{ item.label }}</span>
+          </a>
+        }
+      </mat-nav-list>
+      <div class="side-nav__footer">
+        <mat-divider></mat-divider>
+        <button mat-button class="logout-btn" (click)="logout()">
+          <mat-icon>logout</mat-icon>
+          <span>Sign out</span>
+        </button>
+      </div>
+    </mat-sidenav>
+    <mat-sidenav-content class="main-content">
+      <router-outlet></router-outlet>
+    </mat-sidenav-content>
+  </mat-sidenav-container>
+  <app-bottom-nav></app-bottom-nav>
+} @else {
+  <router-outlet></router-outlet>
+}

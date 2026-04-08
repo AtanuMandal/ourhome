@@ -1,0 +1,230 @@
+name: PR Check
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  id-token: write      # Required for OIDC Azure login (Bicep validation)
+  checks: write        # Required for test-reporter to publish check runs
+  pull-requests: write # Required to post PR summary comment
+
+concurrency:
+  group: pr-check-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_VERSION: '8.x'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Job 1 – Backend build + all test levels
+# This job is the REQUIRED status check that blocks merge on failure.
+# Configure it as a required check in: Settings → Branches → main protection rule.
+# ─────────────────────────────────────────────────────────────────────────────
+jobs:
+  backend-check:
+    name: PR · Backend Build & Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/Directory.Build.targets') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Restore dependencies
+        run: dotnet restore apartment_management.sln
+
+      - name: Build solution
+        run: dotnet build apartment_management.sln --no-restore --configuration Release
+
+      - name: Test · L0 (Unit)
+        id: test-l0
+        run: |
+          dotnet test backend_unittest/ApartmentManagement.Tests.L0/ApartmentManagement.Tests.L0.csproj \
+            --no-build --configuration Release \
+            --logger "trx;LogFileName=l0-results.trx" \
+            --results-directory ./test-results
+        continue-on-error: true
+
+      - name: Test · L1 (Integration)
+        id: test-l1
+        run: |
+          dotnet test backend_unittest/ApartmentManagement.Tests.L1/ApartmentManagement.Tests.L1.csproj \
+            --no-build --configuration Release \
+            --logger "trx;LogFileName=l1-results.trx" \
+            --results-directory ./test-results
+        continue-on-error: true
+
+      - name: Test · L2 (End-to-End)
+        id: test-l2
+        run: |
+          dotnet test backend_unittest/ApartmentManagement.Tests.L2/ApartmentManagement.Tests.L2.csproj \
+            --no-build --configuration Release \
+            --logger "trx;LogFileName=l2-results.trx" \
+            --results-directory ./test-results
+        continue-on-error: true
+
+      # Publishes individual test results as GitHub check runs (annotations on files).
+      - name: Publish test results as check run
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: '.NET Test Results'
+          path: './test-results/*.trx'
+          reporter: dotnet-trx
+          fail-on-error: true
+
+      # Upload raw TRX files for download / archiving.
+      - name: Upload test result artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pr-test-results-${{ github.event.pull_request.number }}
+          path: ./test-results/*.trx
+          retention-days: 14
+
+      # Fail the job explicitly when any test step failed (continue-on-error was set
+      # above only to ensure all levels run before reporting).
+      - name: Fail if any tests failed
+        if: >-
+          steps.test-l0.outcome == 'failure' ||
+          steps.test-l1.outcome == 'failure' ||
+          steps.test-l2.outcome == 'failure'
+        run: |
+          echo "One or more test suites failed. See annotations above for details."
+          exit 1
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Job 2 – Bicep lint/validate (non-blocking advisory check)
+  # ─────────────────────────────────────────────────────────────────────────────
+  bicep-check:
+    name: PR · Bicep Validate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Bicep build (lint)
+        id: bicep-lint
+        run: az bicep build --file infra/bicep/main.bicep
+        continue-on-error: true
+
+      - name: Deployment what-if (validate only)
+        id: bicep-whatif
+        run: |
+          az deployment sub what-if \
+            --location "${{ vars.AZURE_LOCATION || 'eastus' }}" \
+            --template-file infra/bicep/main.bicep \
+            --name "pr-validate-${{ github.event.pull_request.number }}" \
+            --result-format FullResourcePayloads \
+            --no-pretty-print
+        continue-on-error: true
+
+      - name: Set Bicep status outputs
+        id: bicep-status
+        run: |
+          LINT="${{ steps.bicep-lint.outcome }}"
+          WHATIF="${{ steps.bicep-whatif.outcome }}"
+          echo "lint=${LINT}" >> "$GITHUB_OUTPUT"
+          echo "whatif=${WHATIF}" >> "$GITHUB_OUTPUT"
+
+      # Fail if the Bicep files don't even compile (lint failure is a hard block).
+      - name: Fail if Bicep lint failed
+        if: steps.bicep-lint.outcome == 'failure'
+        run: |
+          echo "Bicep lint/compile failed. Fix syntax errors in infra/bicep/ before merging."
+          exit 1
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Job 3 – Post a consolidated summary comment on the PR
+  # Runs after both checks complete (success or failure).
+  # ─────────────────────────────────────────────────────────────────────────────
+  pr-summary-comment:
+    name: PR · Post Summary Comment
+    runs-on: ubuntu-latest
+    needs: [backend-check, bicep-check]
+    if: always()
+
+    steps:
+      - name: Post / update PR summary comment
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const backendStatus = '${{ needs.backend-check.result }}';
+            const bicepStatus   = '${{ needs.bicep-check.result }}';
+
+            const icon = (s) =>
+              s === 'success'  ? '✅' :
+              s === 'failure'  ? '❌' :
+              s === 'skipped'  ? '⏭️' : '⚠️';
+
+            const body = [
+              '## 🔍 PR Check Summary',
+              '',
+              '| Check | Status |',
+              '|-------|--------|',
+              `| **Backend Build & Tests** | ${icon(backendStatus)} \`${backendStatus}\` |`,
+              `| **Bicep Validate** | ${icon(bicepStatus)} \`${bicepStatus}\` |`,
+              '',
+              backendStatus !== 'success'
+                ? '> ⚠️ **Backend tests must pass before this PR can be merged.** See the _PR · Backend Build & Tests_ job for details and inline annotations.'
+                : '> ✅ All backend tests passed.',
+              '',
+              bicepStatus !== 'success'
+                ? '> ⚠️ **Bicep validation issues detected.** Review the _PR · Bicep Validate_ job logs.'
+                : '> ✅ Bicep templates are valid.',
+              '',
+              `_Updated: ${new Date().toUTCString()} · Run [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})_`,
+            ].join('\n');
+
+            const MARKER = '<!-- apartment-management-pr-check -->';
+            const fullBody = `${MARKER}\n${body}`;
+
+            // Find an existing comment to update rather than spamming new ones.
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existing = comments.find(c => c.body.includes(MARKER));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner:      context.repo.owner,
+                repo:       context.repo.repo,
+                comment_id: existing.id,
+                body:       fullBody,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner:       context.repo.owner,
+                repo:        context.repo.repo,
+                issue_number: context.issue.number,
+                body:        fullBody,
+              });
+            }

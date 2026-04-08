@@ -1,0 +1,8 @@
+namespace ApartmentManagement.Application.DTOs.Apartment;
+
+public record UpdateApartmentRequest(
+    string BlockName,
+    int FloorNumber,
+    int NumberOfRooms,
+    int ParkingSlots
+);

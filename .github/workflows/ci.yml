@@ -1,0 +1,145 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  id-token: write   # Required for OIDC Azure login
+  checks: write     # Required for test result publishing
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_VERSION: '8.x'
+  NODE_VERSION: '20.x'
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Job 1 – Backend: restore → build → test (L0 → L1 → L2)
+  # ─────────────────────────────────────────────────────────────────────────────
+  backend-build-test:
+    name: Backend · Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/Directory.Build.targets') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Restore dependencies
+        run: dotnet restore apartment_management.sln
+
+      - name: Build solution
+        run: dotnet build apartment_management.sln --no-restore --configuration Release
+
+      - name: Test · L0 (Unit)
+        run: |
+          dotnet test backend_unittest/ApartmentManagement.Tests.L0/ApartmentManagement.Tests.L0.csproj \
+            --no-build --configuration Release \
+            --logger "trx;LogFileName=l0-results.trx" \
+            --results-directory ./test-results
+
+      - name: Test · L1 (Integration)
+        run: |
+          dotnet test backend_unittest/ApartmentManagement.Tests.L1/ApartmentManagement.Tests.L1.csproj \
+            --no-build --configuration Release \
+            --logger "trx;LogFileName=l1-results.trx" \
+            --results-directory ./test-results
+
+      - name: Test · L2 (End-to-End)
+        run: |
+          dotnet test backend_unittest/ApartmentManagement.Tests.L2/ApartmentManagement.Tests.L2.csproj \
+            --no-build --configuration Release \
+            --logger "trx;LogFileName=l2-results.trx" \
+            --results-directory ./test-results
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-test-results-${{ github.run_number }}
+          path: ./test-results/*.trx
+          retention-days: 30
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Job 2 – Frontend: install → lint → build (production)
+  # ─────────────────────────────────────────────────────────────────────────────
+  frontend-build:
+    name: Frontend · Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/apartment-management/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend/apartment-management
+        run: npm ci
+
+      - name: Build (production)
+        working-directory: frontend/apartment-management
+        run: npm run build -- --configuration production
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist-${{ github.run_number }}
+          path: frontend/apartment-management/dist/
+          retention-days: 7
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Job 3 – Bicep: lint (az bicep build) + what-if (validate only, no deploy)
+  # ─────────────────────────────────────────────────────────────────────────────
+  bicep-validate:
+    name: Bicep · Validate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login (OIDC / federated credentials)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Bicep build (lint)
+        run: az bicep build --file infra/bicep/main.bicep
+
+      - name: Deployment what-if (lint/validate – no deploy)
+        run: |
+          az deployment sub what-if \
+            --location "${{ vars.AZURE_LOCATION || 'eastus' }}" \
+            --template-file infra/bicep/main.bicep \
+            --name "ci-validate-${{ github.run_id }}" \
+            --result-format FullResourcePayloads \
+            --no-pretty-print

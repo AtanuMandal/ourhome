@@ -1,0 +1,60 @@
+<div class="auth-page">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <span class="material-icons brand-icon">apartment</span>
+      <h1>ApartmentHub</h1>
+      <p>Sign in to your society portal</p>
+    </div>
+
+    @if (loading()) {
+      <mat-progress-bar mode="indeterminate" class="progress-bar"></mat-progress-bar>
+    }
+
+    @if (error()) {
+      <div class="error-banner">
+        <mat-icon>error_outline</mat-icon>
+        <span>{{ error() }}</span>
+      </div>
+    }
+
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <mat-form-field appearance="fill" class="full-width">
+        <mat-label>Society ID</mat-label>
+        <mat-icon matPrefix>location_city</mat-icon>
+        <input matInput formControlName="societyId" placeholder="Enter your society ID" autocomplete="off">
+        @if (form.get('societyId')?.invalid && form.get('societyId')?.touched) {
+          <mat-error>Society ID is required</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field appearance="fill" class="full-width">
+        <mat-label>Full Name</mat-label>
+        <mat-icon matPrefix>person</mat-icon>
+        <input matInput formControlName="name" placeholder="Your full name" autocomplete="name">
+        @if (form.get('name')?.invalid && form.get('name')?.touched) {
+          <mat-error>Name is required</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field appearance="fill" class="full-width">
+        <mat-label>Email Address</mat-label>
+        <mat-icon matPrefix>email</mat-icon>
+        <input matInput type="email" formControlName="email" placeholder="you@example.com" autocomplete="email">
+        @if (form.get('email')?.invalid && form.get('email')?.touched) {
+          <mat-error>Valid email is required</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field appearance="fill" class="full-width">
+        <mat-label>Phone (optional)</mat-label>
+        <mat-icon matPrefix>phone</mat-icon>
+        <input matInput type="tel" formControlName="phone" placeholder="+91 98765 43210" autocomplete="tel">
+      </mat-form-field>
+
+      <button mat-raised-button color="primary" type="submit"
+              class="full-width submit-btn" [disabled]="loading() || form.invalid">
+        @if (loading()) { Sending OTP… } @else { Send OTP }
+      </button>
+    </form>
+  </div>
+</div>

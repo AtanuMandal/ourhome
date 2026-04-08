@@ -1,0 +1,18 @@
+@use '../login/login.component.scss';
+
+.otp-icon { font-size: 56px; color: var(--accent); display: block; margin-bottom: 8px; }
+
+.otp-field input {
+  font-size: 28px;
+  letter-spacing: 0.4em;
+  text-align: center;
+  font-weight: 700;
+}
+
+.back-btn {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+}
+
+.auth-card { position: relative; }
