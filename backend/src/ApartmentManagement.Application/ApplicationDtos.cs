@@ -52,6 +52,13 @@ public record UserResponse(
     string Id, string SocietyId, string FullName, string Email, string Phone,
     string Role, string? ApartmentId, bool IsActive, bool IsVerified, DateTime CreatedAt);
 
+// Auth response user — field names intentionally match the Angular User model
+public record AuthUserDto(
+    string Id, string SocietyId, string Name, string Email, string? Phone,
+    string Role, string? ApartmentId, bool IsVerified);
+
+public record VerifyOtpResponse(string AccessToken, AuthUserDto User);
+
 public record VerifyOtpRequest(string UserId, string OtpCode);
 public record OtpCodeBody
 {

@@ -108,6 +108,7 @@ public static class InfrastructureDependencyInjection
             sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<OutboxRepository>>()));
 
         // Services
+        services.AddScoped<IAuthService, JwtAuthService>();
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<IEventPublisher, OutboxEventPublisher>();
         services.AddSingleton<IQrCodeService, QrCodeService>();

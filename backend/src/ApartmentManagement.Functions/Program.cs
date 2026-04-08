@@ -3,6 +3,7 @@ using ApartmentManagement.Infrastructure;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using System.Text.Json;
 
 var host = new HostBuilder()
     .ConfigureFunctionsWebApplication()
@@ -12,6 +13,11 @@ var host = new HostBuilder()
         services.ConfigureFunctionsApplicationInsights();
         services.AddApplication();
         services.AddInfrastructure(context.Configuration);
+
+        // Ensure all HTTP responses use camelCase JSON
+        services.ConfigureHttpJsonOptions(o =>
+            o.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase);
+
         services.AddAuthentication("Bearer")
             .AddJwtBearer("Bearer", options =>
             {
