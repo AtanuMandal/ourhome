@@ -6,6 +6,10 @@ export const RESIDENT_ROUTES: Routes = [
     loadComponent: () => import('./resident-list.component').then(m => m.ResidentListComponent),
   },
   {
+    path: 'new',
+    loadComponent: () => import('./resident-form.component').then(m => m.ResidentFormComponent),
+  },
+  {
     path: ':id',
     loadComponent: () => import('./resident-profile.component').then(m => m.ResidentProfileComponent),
   },

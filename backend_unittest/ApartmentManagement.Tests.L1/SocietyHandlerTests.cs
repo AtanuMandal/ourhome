@@ -13,15 +13,17 @@ namespace ApartmentManagement.Tests.L1.Handlers;
 public class CreateSocietyCommandHandlerTests
 {
     private readonly Mock<ISocietyRepository> _societyRepoMock = new();
+    private readonly Mock<IUserRepository> _userRepoMock = new();
     private readonly Mock<IEventPublisher> _eventPublisherMock = new();
     private readonly Mock<ILogger<CreateSocietyCommandHandler>> _loggerMock = new();
 
     private CreateSocietyCommandHandler CreateHandler() =>
-        new(_societyRepoMock.Object, _eventPublisherMock.Object, _loggerMock.Object);
+        new(_societyRepoMock.Object, _userRepoMock.Object, _eventPublisherMock.Object, _loggerMock.Object);
 
     private static CreateSocietyCommand ValidCommand() => new(
         "Green Valley", "123 Main St", "Mumbai", "Maharashtra", "400001", "India",
-        "admin@gv.com", "+91-9876543210", 3, 60);
+        "admin@gv.com", "+91-9876543210", 3, 60,
+        "Raj Kumar", "raj@gv.com", "+91-9000000001");
 
     [Fact]
     public async Task Handle_WithValidCommand_CreatesSocietyAndReturnsSuccess()
@@ -29,6 +31,12 @@ public class CreateSocietyCommandHandlerTests
         // Arrange
         _societyRepoMock
             .Setup(r => r.CreateAsync(It.IsAny<Society>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Society s, CancellationToken _) => s);
+        _userRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User u, CancellationToken _) => u);
+        _societyRepoMock
+            .Setup(r => r.UpdateAsync(It.IsAny<Society>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Society s, CancellationToken _) => s);
 
         var handler = CreateHandler();
@@ -39,8 +47,10 @@ public class CreateSocietyCommandHandlerTests
         // Assert
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().NotBeNull();
-        result.Value!.Id.Should().NotBeNullOrEmpty();
+        result.Value!.Society.Id.Should().NotBeNullOrEmpty();
+        result.Value!.Admin.Id.Should().NotBeNullOrEmpty();
         _societyRepoMock.Verify(r => r.CreateAsync(It.IsAny<Society>(), It.IsAny<CancellationToken>()), Times.Once);
+        _userRepoMock.Verify(r => r.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

@@ -110,7 +110,10 @@ File: `backend/src/ApartmentManagement.Functions/local.settings.json`
     "Infrastructure:CosmosDbConnectionString": "AccountEndpoint=https://localhost:8081/;AccountKey=C2y6y...",
     "Infrastructure:CosmosDbDatabaseName": "apartment-management",
 
-    // Event Grid — leave blank locally; outbox publisher logs errors but API still works
+    // Required by the Outbox Change Feed trigger (same value as above, different key name)
+    "CosmosDbConnection": "AccountEndpoint=https://localhost:8081/;AccountKey=C2y6y...",
+
+    // Event Grid — leave blank locally; outbox publisher skips publishing but API still works
     "Infrastructure:EventGridTopicEndpoint": "",
     "Infrastructure:EventGridTopicKey": "",
 
@@ -152,19 +155,54 @@ The API is now running at **`http://localhost:7071/api/`**
 3. Select the **ApartmentManagement - Local** environment
 4. Set `baseUrl` = `http://localhost:7071/api` (already pre-set)
 
-**First-time auth flow:**
+### Role hierarchy
+
+| Category | Role | Description |
+|----------|------|-------------|
+| **HQ** (HeadQuarters) | `HQAdmin` | Platform admin — creates societies, manages platform |
+| **HQ** | `HQUser` | Platform viewer — read-only access to society list |
+| **SU** (Society Users) | `SUAdmin` | Housing Officer — manages their society (residents, fees, complaints…) |
+| **SU** | `SUUser` | Regular resident within a society |
+
+### First-time setup flow (local)
+
+**Step 1 — Create a society (this also creates the first Housing Officer account):**
+
+Run **02 – Society → Create Society** in Postman. The request body includes both the society details and the initial `SUAdmin` (Housing Officer) credentials:
+
+```json
+{
+  "name": "Green Valley Residency",
+  "street": "42 Palm Grove Avenue", "city": "Bengaluru",
+  "state": "Karnataka", "postalCode": "560001", "country": "India",
+  "contactEmail": "admin@greenvalley.com", "contactPhone": "+91-8012345678",
+  "totalBlocks": 4, "totalApartments": 120,
+  "adminFullName": "Rajesh Kumar",
+  "adminEmail": "rajesh.kumar@greenvalley.com",
+  "adminPhone": "+91-9000000001"
+}
 ```
-...TBD - Needs correction...
-Auth → Register Society             → creates your tenant
-Auth → Request OTP (email)          → OTP stored in Cosmos (no email sent locally)
+
+The response is `201 Created` with:
+```json
+{
+  "society": { "id": "<societyId>", "status": "Draft", ... },
+  "admin":   { "id": "<adminUserId>", "role": "SUAdmin", "isVerified": false, ... }
+}
 ```
-Read the OTP directly from the emulator:
+
+The Postman test script **automatically saves** `societyId` and `adminUserId` as collection variables.
+
+**Step 2 — Generate OTP for the Housing Officer:**
+
+Run **Auth → Send OTP** for the admin user. Locally, no SMS is sent. Read the OTP directly from the emulator:
 - Open `https://localhost:8081/_explorer`
 - Browse `apartment-management` → `users` container
-- Find your user document and copy the `otpCode` field value
+- Find the admin document and copy the `otpCode` field value
 
+**Step 3 — Verify OTP:**
 ```
-Auth → Verify OTP (paste code)      → returns JWT token (auto-saved to collection)
+Auth → Verify OTP   → returns JWT token (auto-saved to {{bearerToken}})
 ```
 All subsequent requests use the saved token automatically.
 

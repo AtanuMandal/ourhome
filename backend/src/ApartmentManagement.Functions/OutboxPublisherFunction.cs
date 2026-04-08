@@ -27,17 +27,21 @@ public class OutboxPublisherFunction(
         [CosmosDBTrigger(
             databaseName: DbName,
             containerName: ContainerName,
-            Connection = "CosmosDb__ConnectionString",
+            Connection = "CosmosDbConnection",
             LeaseContainerName = "outbox-leases",
             CreateLeaseContainerIfNotExists = true)]
         IReadOnlyList<OutboxRecord> records)
     {
         if (records is null || records.Count == 0) return;
 
-        var endpoint = configuration["EventGrid__TopicEndpoint"]
-            ?? throw new InvalidOperationException("EventGrid__TopicEndpoint not configured");
-        var key = configuration["EventGrid__TopicKey"]
-            ?? throw new InvalidOperationException("EventGrid__TopicKey not configured");
+        var endpoint = configuration["Infrastructure:EventGridTopicEndpoint"];
+        var key = configuration["Infrastructure:EventGridTopicKey"];
+
+        if (string.IsNullOrWhiteSpace(endpoint) || string.IsNullOrWhiteSpace(key))
+        {
+            logger.LogWarning("EventGrid not configured — skipping outbox publishing for {Count} record(s).", records.Count);
+            return;
+        }
 
         var egClient = new EventGridPublisherClient(new Uri(endpoint), new AzureKeyCredential(key));
         var container = cosmosClient.GetContainer(DbName, ContainerName);

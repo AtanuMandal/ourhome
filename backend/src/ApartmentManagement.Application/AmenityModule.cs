@@ -258,7 +258,7 @@ public sealed class CancelBookingCommandHandler(
                 ?? throw new NotFoundException("Booking", request.BookingId);
 
             bool isOwner = booking.BookedByUserId == request.UserId;
-            bool isAdmin = currentUser.IsInRoles("SocietyAdmin", "SuperAdmin");
+            bool isAdmin = currentUser.IsInRoles("SUAdmin", "HQAdmin");
 
             if (!isOwner && !isAdmin)
                 throw new ForbiddenException("Only the booking owner or an admin can cancel a booking.");

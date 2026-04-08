@@ -8,7 +8,12 @@ public record AddressDto(string Street, string City, string State, string Postal
 
 public record CreateSocietyRequest(
     string Name, string Street, string City, string State, string PostalCode, string Country,
-    string ContactEmail, string ContactPhone, int TotalBlocks, int TotalApartments);
+    string ContactEmail, string ContactPhone, int TotalBlocks, int TotalApartments,
+    // Initial Housing Officer / Society Admin account
+    string AdminFullName, string AdminEmail, string AdminPhone);
+
+/// <summary>Returned when a society is registered — includes the society and the first HO admin account.</summary>
+public record CreateSocietyResponse(SocietyResponse Society, UserResponse Admin);
 
 public record UpdateSocietyRequest(
     string Name, string ContactEmail, string ContactPhone, int TotalBlocks, int TotalApartments);
@@ -38,16 +43,32 @@ public record BulkImportResult(int TotalRequested, int Succeeded, int Failed, Li
 
 public record CreateUserRequest(string FullName, string Email, string Phone, UserRole Role, string? ApartmentId);
 
+/// <summary>Request body for creating a platform-level HQ user (HQAdmin or HQUser only).</summary>
+public record CreateHQUserRequest(string FullName, string Email, string Phone, UserRole Role);
+
 public record UpdateUserRequest(string FullName, string Phone);
 
 public record UserResponse(
     string Id, string SocietyId, string FullName, string Email, string Phone,
     string Role, string? ApartmentId, bool IsActive, bool IsVerified, DateTime CreatedAt);
 
+// Auth response user — field names intentionally match the Angular User model
+public record AuthUserDto(
+    string Id, string SocietyId, string Name, string Email, string? Phone,
+    string Role, string? ApartmentId, bool IsVerified);
+
+public record VerifyOtpResponse(string AccessToken, AuthUserDto User);
+
 public record VerifyOtpRequest(string UserId, string OtpCode);
+public record OtpCodeBody
+{
+    public string OtpCode { get; init; } = string.Empty;
+}
 public record LoginRequest(string Email, string Password, string SocietyId);
 public record LoginResponse(string Token, string RefreshToken, DateTime ExpiresAt, UserResponse User);
 public record SendOtpRequest(string UserId);
+public record RequestOtpByEmailRequest(string Email);
+public record RequestOtpByEmailResponse(string UserId);
 
 // ─── Amenity ─────────────────────────────────────────────────────────────────
 

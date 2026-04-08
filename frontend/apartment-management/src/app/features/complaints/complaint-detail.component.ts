@@ -35,12 +35,7 @@ import { Complaint } from '../../core/models/complaint.model';
             <span class="material-icons">schedule</span>
             Raised {{ item()!.createdAt | date:'medium' }}
           </div>
-          @if (item()!.assignedToName) {
-            <div class="meta-row">
-              <span class="material-icons">person</span>
-              Assigned to {{ item()!.assignedToName }}
-            </div>
-          }
+          
 
           @if (isAdmin() && item()!.status !== 'Resolved') {
             <button mat-raised-button color="primary" style="margin-top:16px" (click)="resolve()">
@@ -48,25 +43,6 @@ import { Complaint } from '../../core/models/complaint.model';
             </button>
           }
         </div>
-
-        <!-- Timeline -->
-        @if (item()!.timeline?.length) {
-          <div class="card" style="margin-top:12px">
-            <h3 class="timeline-title">Activity Timeline</h3>
-            <div class="timeline">
-              @for (event of item()!.timeline; track event.at) {
-                <div class="timeline-item">
-                  <div class="tl-dot"></div>
-                  <div class="tl-body">
-                    <span class="tl-event">{{ event.event }}</span>
-                    @if (event.note) { <p class="tl-note">{{ event.note }}</p> }
-                    <span class="tl-time">{{ event.at | date:'medium' }}</span>
-                  </div>
-                </div>
-              }
-            </div>
-          </div>
-        }
       }
     </div>
   `,
@@ -93,8 +69,9 @@ export class ComplaintDetailComponent implements OnInit {
   resolve() {
     const sid = this.auth.societyId()!;
     const id  = this.item()!.id;
-    this.svc.resolve(sid, id, { resolution: 'Resolved by admin', resolvedBy: this.auth.user()!.id }).subscribe({
+    this.svc.resolve(sid, id, { resolutionNotes: 'Resolved by admin' }).subscribe({
       next: c => this.item.set(c),
     });
   }
 }
+

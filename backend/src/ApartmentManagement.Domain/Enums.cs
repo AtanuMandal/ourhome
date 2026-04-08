@@ -2,7 +2,12 @@ namespace ApartmentManagement.Domain.Enums;
 
 public enum SocietyStatus { Draft, Active, Inactive }
 public enum ApartmentStatus { Available, Occupied, UnderMaintenance }
-public enum UserRole { SuperAdmin, SocietyAdmin, Owner, Tenant, SecurityPersonnel, ServiceProvider, FamilyMember }
+/// <summary>
+/// HQ = HeadQuarters (platform-level). SU = Society Users (society-level).
+/// HQAdmin can create/manage societies. HQUser can view them.
+/// SUAdmin is the Housing Officer managing a society. SUUser is a regular resident.
+/// </summary>
+public enum UserRole { HQAdmin, HQUser, SUAdmin, SUUser }
 public enum BookingStatus { Pending, Approved, Rejected, Cancelled, Completed }
 public enum ComplaintCategory { Maintenance, Security, Noise, Cleanliness, Parking, Other }
 public enum ComplaintStatus { Open, InProgress, Resolved, Closed, Rejected }

@@ -25,7 +25,7 @@ import { Apartment } from '../../core/models/apartment.model';
         <mat-form-field appearance="fill" class="full-width" style="margin-bottom:-8px">
           <mat-icon matPrefix>search</mat-icon>
           <mat-label>Search apartments</mat-label>
-          <input matInput [(ngModel)]="search" placeholder="Unit, block, floor...">
+          <input matInput [(ngModel)]="search" placeholder="Number, block, floor...">
         </mat-form-field>
       </div>
 
@@ -41,11 +41,10 @@ import { Apartment } from '../../core/models/apartment.model';
         <div class="apt-list">
           @for (a of filtered(); track a.id) {
             <a [routerLink]="[a.id]" class="apt-card">
-              <div class="apt-unit">{{ a.unitNumber }}</div>
+              <div class="apt-unit">{{ a.apartmentNumber }}</div>
               <div class="apt-info">
-                <span class="apt-type">{{ a.type }} · Floor {{ a.floor }}</span>
-                @if (a.block) { <span class="apt-block">Block {{ a.block }}</span> }
-                <span class="apt-residents">{{ a.residents?.length ?? 0 }} resident(s)</span>
+                <span class="apt-type">{{ a.numberOfRooms }} Rooms &middot; Floor {{ a.floorNumber }}</span>
+                @if (a.blockName) { <span class="apt-block">{{ a.blockName }}</span> }
               </div>
               <app-status-chip [status]="a.status"></app-status-chip>
             </a>
@@ -71,9 +70,9 @@ export class ApartmentListComponent implements OnInit {
   filtered() {
     const q = this.search.toLowerCase();
     return this.items().filter(a =>
-      !q || a.unitNumber.toLowerCase().includes(q) ||
-      a.type.toLowerCase().includes(q) ||
-      (a.block ?? '').toLowerCase().includes(q)
+      !q || a.apartmentNumber.toLowerCase().includes(q) ||
+      (a.blockName ?? '').toLowerCase().includes(q) ||
+      String(a.floorNumber).includes(q)
     );
   }
 

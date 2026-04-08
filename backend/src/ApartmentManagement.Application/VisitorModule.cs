@@ -76,7 +76,7 @@ public sealed class ApproveVisitorCommandHandler(
                 ?? throw new NotFoundException("VisitorLog", request.VisitorLogId);
 
             bool isHost = log.HostUserId == request.UserId;
-            bool isAdmin = currentUser.IsInRoles("SocietyAdmin", "SuperAdmin");
+            bool isAdmin = currentUser.IsInRoles("SUAdmin", "HQAdmin");
             if (!isHost && !isAdmin)
                 throw new ForbiddenException("Only the host or an admin can approve a visitor.");
 
@@ -118,7 +118,7 @@ public sealed class DenyVisitorCommandHandler(
                 ?? throw new NotFoundException("VisitorLog", request.VisitorLogId);
 
             bool isHost = log.HostUserId == request.UserId;
-            bool isAdmin = currentUser.IsInRoles("SocietyAdmin", "SuperAdmin");
+            bool isAdmin = currentUser.IsInRoles("SUAdmin", "HQAdmin");
             if (!isHost && !isAdmin)
                 throw new ForbiddenException("Only the host or an admin can deny a visitor.");
 

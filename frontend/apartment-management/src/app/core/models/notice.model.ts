@@ -1,25 +1,27 @@
 export type NoticeCategory = 'General' | 'Maintenance' | 'Event' | 'Emergency' | 'Financial' | 'Bylaw';
 
+// Matches backend NoticeResponse DTO
 export interface Notice {
   id: string;
   societyId: string;
   title: string;
-  body: string;
+  content: string;
   category: NoticeCategory;
+  postedByUserId: string;
   isArchived: boolean;
-  isPinned: boolean;
-  postedBy: string;
-  postedByName?: string;
-  attachmentUrls?: string[];
-  publishedAt: string;
+  isActive: boolean;
+  publishAt: string;
   expiresAt?: string;
+  targetApartmentIds: string[];
+  createdAt: string;
 }
 
 export interface PostNoticeDto {
+  userId: string;
   title: string;
-  body: string;
+  content: string;
   category: NoticeCategory;
-  isPinned?: boolean;
-  postedBy: string;
+  publishAt: string;
   expiresAt?: string;
+  targetApartmentIds?: string[];
 }

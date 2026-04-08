@@ -1,54 +1,47 @@
 export type ServiceCategory = 'Plumber' | 'Electrician' | 'Carpenter' | 'Painter' | 'Cleaner' | 'AC_Repair' | 'Other';
 export type ServiceRequestStatus = 'Pending' | 'Accepted' | 'InProgress' | 'Completed' | 'Cancelled';
 
+// Matches backend ServiceProviderResponse DTO
 export interface ServiceProvider {
   id: string;
-  name: string;
-  category: ServiceCategory;
-  phone: string;
-  email?: string;
-  description?: string;
-  rating?: number;
-  totalJobs?: number;
-  isVerified: boolean;
-  availableSocieties?: string[];
-  createdAt: string;
+  providerName: string;
+  contactName: string;
+  contactPhone: string;
+  serviceTypes: string[];
+  description: string;
+  status: string;
+  rating: number;
+  reviewCount: number;
 }
 
+// Matches backend ServiceRequestResponse DTO
 export interface ServiceRequest {
   id: string;
   societyId: string;
   apartmentId: string;
-  apartmentUnit?: string;
-  requestedBy: string;
-  requestedByName?: string;
-  serviceProviderId?: string;
-  providerName?: string;
-  category: ServiceCategory;
-  title: string;
+  serviceType: string;
   description: string;
+  preferredDateTime: string;
   status: ServiceRequestStatus;
-  scheduledAt?: string;
-  completedAt?: string;
+  acceptedByProviderId?: string;
   rating?: number;
-  review?: string;
+  reviewComment?: string;
   createdAt: string;
+}
+
+export interface RegisterServiceProviderDto {
+  providerName: string;
+  contactName: string;
+  phone: string;
+  email: string;
+  serviceTypes: string[];
+  description: string;
 }
 
 export interface CreateServiceRequestDto {
   apartmentId: string;
-  requestedBy: string;
-  category: ServiceCategory;
-  title: string;
+  userId: string;
+  serviceType: string;
   description: string;
-  serviceProviderId?: string;
-  scheduledAt?: string;
-}
-
-export interface RegisterServiceProviderDto {
-  name: string;
-  category: ServiceCategory;
-  phone: string;
-  email?: string;
-  description?: string;
+  preferredDateTime: string;
 }

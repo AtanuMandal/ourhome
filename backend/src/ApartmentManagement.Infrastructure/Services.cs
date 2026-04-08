@@ -3,9 +3,82 @@ using ApartmentManagement.Application.Interfaces;
 using ApartmentManagement.Domain.Entities;
 using ApartmentManagement.Domain.Repositories;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 
 namespace ApartmentManagement.Infrastructure.Services;
+
+public class JwtAuthService(IOptions<InfrastructureSettings> options) : IAuthService
+{
+    private readonly InfrastructureSettings _s = options.Value;
+
+    public string GenerateOtp()
+    {
+        var bytes = new byte[4];
+        RandomNumberGenerator.Fill(bytes);
+        var num = BitConverter.ToUInt32(bytes) % 1_000_000;
+        return num.ToString("D6");
+    }
+
+    public Task<string> GenerateJwtTokenAsync(
+        string userId, string email, string role, string societyId,
+        CancellationToken ct = default)
+    {
+        var key   = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_s.JwtSecret));
+        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        var claims = new[]
+        {
+            new Claim(JwtRegisteredClaimNames.Sub,   userId),
+            new Claim(JwtRegisteredClaimNames.Email, email),
+            new Claim(ClaimTypes.Role,               role),
+            new Claim("societyId",                   societyId),
+            new Claim(JwtRegisteredClaimNames.Jti,   Guid.NewGuid().ToString()),
+        };
+
+        var token = new JwtSecurityToken(
+            issuer:            _s.JwtIssuer,
+            audience:          _s.JwtAudience,
+            claims:            claims,
+            expires:           DateTime.UtcNow.AddHours(_s.JwtExpiryHours),
+            signingCredentials: creds);
+
+        return Task.FromResult(new JwtSecurityTokenHandler().WriteToken(token));
+    }
+
+    public Task<bool> ValidateTokenAsync(string token, CancellationToken ct = default)
+    {
+        try
+        {
+            var key     = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_s.JwtSecret));
+            var handler = new JwtSecurityTokenHandler();
+            handler.ValidateToken(token, new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey         = key,
+                ValidateIssuer           = true,
+                ValidIssuer              = _s.JwtIssuer,
+                ValidateAudience         = true,
+                ValidAudience            = _s.JwtAudience,
+                ValidateLifetime         = true,
+                ClockSkew                = TimeSpan.Zero,
+            }, out _);
+            return Task.FromResult(true);
+        }
+        catch { return Task.FromResult(false); }
+    }
+
+    public string HashPassword(string password) =>
+        throw new NotSupportedException("Password-based login is not used; login is OTP-only.");
+
+    public bool VerifyPassword(string password, string hash) =>
+        throw new NotSupportedException("Password-based login is not used; login is OTP-only.");
+}
 
 public class OutboxEventPublisher(
     IOutboxRepository outboxRepository,

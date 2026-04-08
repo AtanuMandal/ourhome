@@ -29,18 +29,16 @@ export class LoginComponent {
 
   readonly form = this.fb.group({
     societyId: ['', Validators.required],
-    name:      ['', Validators.required],
     email:     ['', [Validators.required, Validators.email]],
-    phone:     [''],
   });
 
   submit() {
     if (this.form.invalid) return;
-    const { societyId, name, email, phone } = this.form.value;
+    const { societyId, email } = this.form.value;
     this.loading.set(true);
     this.error.set('');
 
-    this.auth.requestOtp(societyId!, name!, email!, phone ?? '').subscribe({
+    this.auth.requestOtp(societyId!, email!).subscribe({
       next: res => {
         this.loading.set(false);
         this.router.navigate(['/auth/verify-otp'], {

@@ -29,6 +29,10 @@ public sealed class CreateSocietyCommandValidator : AbstractValidator<CreateSoci
         RuleFor(x => x.State).NotEmpty();
         RuleFor(x => x.PostalCode).NotEmpty();
         RuleFor(x => x.Country).NotEmpty();
+        // Initial Housing Officer (SUAdmin) validation
+        RuleFor(x => x.AdminFullName).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.AdminEmail).NotEmpty().EmailAddress();
+        RuleFor(x => x.AdminPhone).NotEmpty();
     }
 }
 

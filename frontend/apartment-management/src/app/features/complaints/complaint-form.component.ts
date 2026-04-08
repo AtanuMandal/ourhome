@@ -9,7 +9,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 import { ComplaintService } from '../../core/services/complaint.service';
 import { AuthService } from '../../core/services/auth.service';
-import { ComplaintCategory } from '../../core/models/complaint.model';
+import { ComplaintCategory, ComplaintPriority } from '../../core/models/complaint.model';
 
 @Component({
   selector: 'app-complaint-form',
@@ -27,6 +27,15 @@ import { ComplaintCategory } from '../../core/models/complaint.model';
             <mat-select formControlName="category">
               @for (cat of categories; track cat) {
                 <mat-option [value]="cat">{{ cat }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="fill" class="full-width">
+            <mat-label>Priority</mat-label>
+            <mat-select formControlName="priority">
+              @for (p of priorities; track p) {
+                <mat-option [value]="p">{{ p }}</mat-option>
               }
             </mat-select>
           </mat-form-field>
@@ -69,22 +78,24 @@ export class ComplaintFormComponent {
   readonly categories: ComplaintCategory[] = [
     'Plumbing', 'Electrical', 'Cleaning', 'Security', 'Noise', 'Parking', 'Other'
   ];
+  readonly priorities: ComplaintPriority[] = ['Low', 'Medium', 'High', 'Critical'];
 
   readonly form = this.fb.group({
     category:    ['Plumbing' as ComplaintCategory, Validators.required],
+    priority:    ['Medium' as ComplaintPriority, Validators.required],
     title:       ['', Validators.required],
     description: ['', Validators.required],
   });
 
   submit() {
     if (this.form.invalid) return;
-    const sid = this.auth.societyId()!;
+    const sid  = this.auth.societyId()!;
     const user = this.auth.user()!;
     this.loading.set(true);
     this.svc.raise(sid, {
       ...this.form.value as any,
       apartmentId: user.apartmentId ?? '',
-      raisedBy:    user.id,
+      userId:      user.id,
     }).subscribe({
       next: c => { this.loading.set(false); this.router.navigate(['/complaints', c.id]); },
       error: () => this.loading.set(false),

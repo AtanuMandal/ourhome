@@ -164,14 +164,15 @@ public sealed class SendOtpCommandHandler(
 
 // ─── Verify OTP ───────────────────────────────────────────────────────────────
 
-public record VerifyOtpCommand(string SocietyId, string UserId, string OtpCode) : IRequest<Result<bool>>;
+public record VerifyOtpCommand(string SocietyId, string UserId, string OtpCode) : IRequest<Result<VerifyOtpResponse>>;
 
 public sealed class VerifyOtpCommandHandler(
     IUserRepository userRepository,
+    IAuthService authService,
     ILogger<VerifyOtpCommandHandler> logger)
-    : IRequestHandler<VerifyOtpCommand, Result<bool>>
+    : IRequestHandler<VerifyOtpCommand, Result<VerifyOtpResponse>>
 {
-    public async Task<Result<bool>> Handle(VerifyOtpCommand request, CancellationToken ct)
+    public async Task<Result<VerifyOtpResponse>> Handle(VerifyOtpCommand request, CancellationToken ct)
     {
         try
         {
@@ -179,20 +180,61 @@ public sealed class VerifyOtpCommandHandler(
                 ?? throw new NotFoundException("User", request.UserId);
 
             if (!user.ValidateOtp(request.OtpCode))
-                return Result<bool>.Failure(ErrorCodes.OtpInvalid, "OTP is invalid or has expired.");
+                return Result<VerifyOtpResponse>.Failure(ErrorCodes.OtpInvalid, "OTP is invalid or has expired.");
 
             user.Verify();
             await userRepository.UpdateAsync(user, ct);
-            return Result<bool>.Success(true);
+
+            var token    = await authService.GenerateJwtTokenAsync(user.Id, user.Email, user.Role.ToString(), user.SocietyId, ct);
+            var authUser = new AuthUserDto(user.Id, user.SocietyId, user.FullName, user.Email, user.Phone, user.Role.ToString(), user.ApartmentId, user.IsVerified);
+
+            return Result<VerifyOtpResponse>.Success(new VerifyOtpResponse(token, authUser));
         }
         catch (NotFoundException ex)
         {
-            return Result<bool>.Failure(ErrorCodes.UserNotFound, ex.Message);
+            return Result<VerifyOtpResponse>.Failure(ErrorCodes.UserNotFound, ex.Message);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to verify OTP for user {UserId}", request.UserId);
-            return Result<bool>.Failure(ErrorCodes.InternalError, ex.Message);
+            return Result<VerifyOtpResponse>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
+// ─── Request OTP by Email (Login entry point) ─────────────────────────────────
+
+public record RequestOtpByEmailCommand(string SocietyId, string Email)
+    : IRequest<Result<RequestOtpByEmailResponse>>;
+
+public sealed class RequestOtpByEmailCommandHandler(
+    IUserRepository userRepository,
+    INotificationService notificationService,
+    ILogger<RequestOtpByEmailCommandHandler> logger)
+    : IRequestHandler<RequestOtpByEmailCommand, Result<RequestOtpByEmailResponse>>
+{
+    public async Task<Result<RequestOtpByEmailResponse>> Handle(
+        RequestOtpByEmailCommand request, CancellationToken ct)
+    {
+        try
+        {
+            var user = await userRepository.GetByEmailAsync(request.SocietyId, request.Email, ct);
+            if (user is null)
+                return Result<RequestOtpByEmailResponse>.Failure(
+                    ErrorCodes.UserNotFound, $"No account found for {request.Email} in this society.");
+
+            user.GenerateOtp();
+            await userRepository.UpdateAsync(user, ct);
+
+            await notificationService.SendSmsAsync(user.Phone,
+                $"Your OTP is: {user.OtpCode}. Valid for 10 minutes.", ct);
+
+            return Result<RequestOtpByEmailResponse>.Success(new RequestOtpByEmailResponse(user.Id));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to send OTP to {Email}", request.Email);
+            return Result<RequestOtpByEmailResponse>.Failure(ErrorCodes.InternalError, ex.Message);
         }
     }
 }

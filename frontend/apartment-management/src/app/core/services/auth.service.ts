@@ -25,14 +25,17 @@ export class AuthService {
   readonly token     = computed(() => this._state().token);
   readonly societyId = computed(() => this._state().societyId);
   readonly isLoggedIn = computed(() => !!this._state().token && !!this._state().user);
-  readonly isAdmin    = computed(() => this._state().user?.role === 'Admin');
+  readonly isAdmin = computed(() => {
+    const role = this._state().user?.role;
+    return role === 'SUAdmin' || role === 'HQAdmin';
+  });
 
   // ── Auth flow ──────────────────────────────────────────────────────────────
-  /** Step 1: register / request OTP – returns userId for step 2 */
-  requestOtp(societyId: string, name: string, email: string, phone: string) {
+  /** Step 1: look up user by email → generate & send OTP → returns userId */
+  requestOtp(societyId: string, email: string) {
     return this.http.post<{ userId: string }>(
-      `${environment.apiBaseUrl}/societies/${societyId}/users`,
-      { name, email, phone, role: 'Resident' }
+      `${environment.apiBaseUrl}/societies/${societyId}/auth/request-otp`,
+      { email }
     );
   }
 
@@ -40,7 +43,7 @@ export class AuthService {
   verifyOtp(societyId: string, userId: string, otp: string) {
     return this.http.post<{ accessToken: string; user: User }>(
       `${environment.apiBaseUrl}/societies/${societyId}/users/${userId}/verify-otp`,
-      { otp }
+      { otpCode: otp }
     ).pipe(
       tap(res => {
         this.persistSession(res.accessToken, res.user, societyId);

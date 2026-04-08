@@ -1,35 +1,32 @@
-export type ApartmentStatus = 'Available' | 'Occupied' | 'Maintenance';
+export type ApartmentStatus = 'Available' | 'Occupied' | 'UnderMaintenance';
 
+// Matches backend ApartmentResponse DTO
 export interface Apartment {
   id: string;
   societyId: string;
-  unitNumber: string;
-  floor: number;
-  block?: string;
-  type: string;
-  area?: number;
+  apartmentNumber: string;
+  blockName: string;
+  floorNumber: number;
+  numberOfRooms: number;
+  parkingSlots: number;
   status: ApartmentStatus;
-  residents?: ApartmentResident[];
-  monthlyFee?: number;
+  ownerId?: string;
+  tenantId?: string;
   createdAt: string;
 }
 
-export interface ApartmentResident {
-  userId: string;
-  name: string;
-  email: string;
-  phone?: string;
-  isOwner: boolean;
-}
-
 export interface CreateApartmentDto {
-  unitNumber: string;
-  floor: number;
-  block?: string;
-  type: string;
-  area?: number;
-  status?: ApartmentStatus;
-  monthlyFee?: number;
+  apartmentNumber: string;
+  blockName: string;
+  floorNumber: number;
+  numberOfRooms: number;
+  parkingSlots: number;
+  ownerId?: string;
 }
 
-export interface UpdateApartmentDto extends Partial<CreateApartmentDto> {}
+export interface UpdateApartmentDto {
+  blockName: string;
+  floorNumber: number;
+  numberOfRooms: number;
+  parkingSlots: number;
+}

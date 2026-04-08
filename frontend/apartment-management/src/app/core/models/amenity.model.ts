@@ -1,50 +1,59 @@
+// Matches backend AmenityResponse DTO
 export interface Amenity {
   id: string;
   societyId: string;
   name: string;
-  description?: string;
-  type: 'Pool' | 'Gym' | 'Clubhouse' | 'Garden' | 'Court' | 'Other';
+  description: string;
   capacity: number;
-  openTime: string;
-  closeTime: string;
-  slotDurationMinutes: number;
+  rules: string;
   isActive: boolean;
-  imageUrl?: string;
+  bookingSlotMinutes: number;
+  operatingStart: string;
+  operatingEnd: string;
+  advanceBookingDays: number;
 }
 
+// Matches backend BookingResponse DTO
 export interface AmenityBooking {
   id: string;
   societyId: string;
   amenityId: string;
-  amenityName?: string;
-  userId: string;
-  userName?: string;
-  date: string;
+  amenityName: string;
+  bookedByUserId: string;
+  bookedByApartmentId: string;
   startTime: string;
   endTime: string;
-  status: 'Pending' | 'Approved' | 'Rejected' | 'Cancelled';
-  notes?: string;
+  status: string;
+  adminNotes?: string;
+  duration: number;
   createdAt: string;
 }
 
-export interface TimeSlot {
-  startTime: string;
-  endTime: string;
-  isAvailable: boolean;
-  bookedBy?: string;
+export interface AmenityAvailability {
+  slots: AvailabilitySlot[];
 }
 
-export interface AmenityAvailability {
-  amenityId: string;
-  date: string;
-  slots: TimeSlot[];
+export interface AvailabilitySlot {
+  start: string;
+  end: string;
+  isAvailable: boolean;
+}
+
+export interface CreateAmenityDto {
+  name: string;
+  description: string;
+  capacity: number;
+  rules: string;
+  bookingSlotMinutes: number;
+  operatingStart: string;
+  operatingEnd: string;
+  advanceBookingDays: number;
 }
 
 export interface BookAmenityDto {
   amenityId: string;
-  date: string;
+  userId: string;
+  apartmentId: string;
   startTime: string;
   endTime: string;
-  notes?: string;
-  userId: string;
 }

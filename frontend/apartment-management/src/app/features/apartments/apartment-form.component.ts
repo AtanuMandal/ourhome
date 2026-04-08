@@ -3,18 +3,16 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { FormBuilder, Validators, ReactiveFormsModule } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 import { ApartmentService } from '../../core/services/apartment.service';
 import { AuthService } from '../../core/services/auth.service';
-import { ApartmentStatus } from '../../core/models/apartment.model';
 
 @Component({
   selector: 'app-apartment-form',
   standalone: true,
-  imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatSelectModule,
+  imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule,
             MatButtonModule, MatProgressBarModule, PageHeaderComponent],
   template: `
     <app-page-header [title]="editId ? 'Edit Apartment' : 'Add Apartment'" [showBack]="true"></app-page-header>
@@ -23,40 +21,31 @@ import { ApartmentStatus } from '../../core/models/apartment.model';
       <div class="card">
         <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
           <mat-form-field appearance="fill" class="full-width">
-            <mat-label>Unit Number</mat-label>
-            <input matInput formControlName="unitNumber" placeholder="e.g. A-101">
-            @if (form.get('unitNumber')?.invalid && form.get('unitNumber')?.touched) {
-              <mat-error>Unit number is required</mat-error>
+            <mat-label>Apartment Number</mat-label>
+            <input matInput formControlName="apartmentNumber" placeholder="e.g. A-101">
+            @if (form.get('apartmentNumber')?.invalid && form.get('apartmentNumber')?.touched) {
+              <mat-error>Apartment number is required</mat-error>
             }
           </mat-form-field>
 
           <mat-form-field appearance="fill" class="full-width">
-            <mat-label>Floor</mat-label>
-            <input matInput type="number" formControlName="floor">
+            <mat-label>Block Name</mat-label>
+            <input matInput formControlName="blockName" placeholder="e.g. Block A">
           </mat-form-field>
 
           <mat-form-field appearance="fill" class="full-width">
-            <mat-label>Block (optional)</mat-label>
-            <input matInput formControlName="block" placeholder="e.g. A">
+            <mat-label>Floor Number</mat-label>
+            <input matInput type="number" formControlName="floorNumber">
           </mat-form-field>
 
           <mat-form-field appearance="fill" class="full-width">
-            <mat-label>Type</mat-label>
-            <input matInput formControlName="type" placeholder="e.g. 2BHK">
+            <mat-label>Number of Rooms</mat-label>
+            <input matInput type="number" formControlName="numberOfRooms">
           </mat-form-field>
 
           <mat-form-field appearance="fill" class="full-width">
-            <mat-label>Area (sq ft)</mat-label>
-            <input matInput type="number" formControlName="area">
-          </mat-form-field>
-
-          <mat-form-field appearance="fill" class="full-width">
-            <mat-label>Status</mat-label>
-            <mat-select formControlName="status">
-              <mat-option value="Available">Available</mat-option>
-              <mat-option value="Occupied">Occupied</mat-option>
-              <mat-option value="Maintenance">Maintenance</mat-option>
-            </mat-select>
+            <mat-label>Parking Slots</mat-label>
+            <input matInput type="number" formControlName="parkingSlots">
           </mat-form-field>
 
           <button mat-raised-button color="primary" type="submit"
@@ -80,12 +69,11 @@ export class ApartmentFormComponent implements OnInit {
   editId = '';
 
   readonly form = this.fb.group({
-    unitNumber: ['', Validators.required],
-    floor:      [0,  Validators.required],
-    block:      [''],
-    type:       ['2BHK', Validators.required],
-    area:       [null as number | null],
-    status:     ['Available' as ApartmentStatus],
+    apartmentNumber: ['', Validators.required],
+    blockName:       [''],
+    floorNumber:     [1, Validators.required],
+    numberOfRooms:   [1, Validators.required],
+    parkingSlots:    [0],
   });
 
   ngOnInit() {

@@ -2,6 +2,7 @@ using ApartmentManagement.Application.DTOs;
 using ApartmentManagement.Application.Interfaces;
 using ApartmentManagement.Application.Mappings;
 using ApartmentManagement.Domain.Entities;
+using ApartmentManagement.Domain.Enums;
 using ApartmentManagement.Domain.Events;
 using ApartmentManagement.Domain.Repositories;
 using ApartmentManagement.Domain.ValueObjects;
@@ -16,18 +17,25 @@ namespace ApartmentManagement.Application.Commands.Society
 
 // ─── Create Society ───────────────────────────────────────────────────────────
 
+/// <summary>
+/// Creates a new society and atomically seeds the first SUAdmin (Housing Officer).
+/// Only HQAdmin users should be permitted to call this endpoint.
+/// </summary>
 public record CreateSocietyCommand(
     string Name, string Street, string City, string State, string PostalCode, string Country,
-    string ContactEmail, string ContactPhone, int TotalBlocks, int TotalApartments)
-    : IRequest<Result<SocietyResponse>>;
+    string ContactEmail, string ContactPhone, int TotalBlocks, int TotalApartments,
+    // First Housing Officer (SUAdmin) account seeded at creation time
+    string AdminFullName, string AdminEmail, string AdminPhone)
+    : IRequest<Result<CreateSocietyResponse>>;
 
 public sealed class CreateSocietyCommandHandler(
     ISocietyRepository societyRepository,
+    IUserRepository userRepository,
     IEventPublisher eventPublisher,
     ILogger<CreateSocietyCommandHandler> logger)
-    : IRequestHandler<CreateSocietyCommand, Result<SocietyResponse>>
+    : IRequestHandler<CreateSocietyCommand, Result<CreateSocietyResponse>>
 {
-    public async Task<Result<SocietyResponse>> Handle(CreateSocietyCommand request, CancellationToken ct)
+    public async Task<Result<CreateSocietyResponse>> Handle(CreateSocietyCommand request, CancellationToken ct)
     {
         try
         {
@@ -36,18 +44,34 @@ public sealed class CreateSocietyCommandHandler(
                 request.Name, address, request.ContactEmail, request.ContactPhone,
                 request.TotalBlocks, request.TotalApartments);
 
-            var created = await societyRepository.CreateAsync(society, ct);
+            var createdSociety = await societyRepository.CreateAsync(society, ct);
 
-            foreach (var evt in created.DomainEvents)
+            // Create the first SUAdmin (Housing Officer) for this society
+            var adminUser = Domain.Entities.User.Create(
+                createdSociety.Id, request.AdminFullName, request.AdminEmail,
+                request.AdminPhone, UserRole.SUAdmin);
+
+            var createdAdmin = await userRepository.CreateAsync(adminUser, ct);
+
+            // Link the admin to the society
+            createdSociety.AssignAdmin(createdAdmin.Id);
+            await societyRepository.UpdateAsync(createdSociety, ct);
+
+            foreach (var evt in createdSociety.DomainEvents)
                 await eventPublisher.PublishAsync(evt, ct);
-            created.ClearDomainEvents();
+            createdSociety.ClearDomainEvents();
 
-            return Result<SocietyResponse>.Success(created.ToResponse());
+            foreach (var evt in createdAdmin.DomainEvents)
+                await eventPublisher.PublishAsync(evt, ct);
+            createdAdmin.ClearDomainEvents();
+
+            return Result<CreateSocietyResponse>.Success(
+                new CreateSocietyResponse(createdSociety.ToResponse(), createdAdmin.ToResponse()));
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to create society {Name}", request.Name);
-            return Result<SocietyResponse>.Failure(ErrorCodes.InternalError, ex.Message);
+            return Result<CreateSocietyResponse>.Failure(ErrorCodes.InternalError, ex.Message);
         }
     }
 }

@@ -22,7 +22,7 @@ public class ApartmentUserIntegrationTests : IntegrationTestBase
 
     private static CreateUserCommand UserCmd(
         string email = "resident@test.com",
-        UserRole role = UserRole.Owner,
+        UserRole role = UserRole.SUUser,
         string? apartmentId = null) =>
         new(SocietyId, "John Resident", email, "+91-9876543210", role, apartmentId);
 
@@ -220,11 +220,11 @@ public class ApartmentUserIntegrationTests : IntegrationTestBase
     {
         var user = (await Mediator.Send(UserCmd("henry@test.com"))).Value!;
 
-        var result = await Mediator.Send(new AssignRoleCommand(SocietyId, user.Id, UserRole.Tenant));
+        var result = await Mediator.Send(new AssignRoleCommand(SocietyId, user.Id, UserRole.SUUser));
         result.IsSuccess.Should().BeTrue();
 
         var stored = UserRepo.Store[user.Id];
-        stored.Role.Should().Be(UserRole.Tenant);
+        stored.Role.Should().Be(UserRole.SUUser);
     }
 
     // ─── Full workflow: create apartment + user → link user to apartment ──────
@@ -236,7 +236,7 @@ public class ApartmentUserIntegrationTests : IntegrationTestBase
         var apt = (await Mediator.Send(AptCmd("601", "F", 6, 3, 1))).Value!;
 
         // Create user with reference to that apartment
-        var user = (await Mediator.Send(UserCmd("iris@test.com", UserRole.Owner, apt.Id))).Value!;
+        var user = (await Mediator.Send(UserCmd("iris@test.com", UserRole.SUUser, apt.Id))).Value!;
 
         // Verify user is linked
         user.ApartmentId.Should().Be(apt.Id);
@@ -252,13 +252,13 @@ public class ApartmentUserIntegrationTests : IntegrationTestBase
     [Fact]
     public async Task GetUsersBySociety_WithRoleFilter_ReturnsOnlyMatchingRoles()
     {
-        await Mediator.Send(UserCmd("tenant1@test.com", UserRole.Tenant));
-        await Mediator.Send(UserCmd("owner1@test.com", UserRole.Owner));
+        await Mediator.Send(UserCmd("tenant1@test.com", UserRole.SUUser));
+        await Mediator.Send(UserCmd("owner1@test.com", UserRole.SUUser));
 
         var tenantsResult = await Mediator.Send(new GetUsersBySocietyQuery(
-            SocietyId, new PaginationParams { Page = 1, PageSize = 50 }, UserRole.Tenant));
+            SocietyId, new PaginationParams { Page = 1, PageSize = 50 }, UserRole.SUUser));
 
         tenantsResult.IsSuccess.Should().BeTrue();
-        tenantsResult.Value!.Items.Should().OnlyContain(u => u.Role == "Tenant");
+        tenantsResult.Value!.Items.Should().OnlyContain(u => u.Role == "SUUser");
     }
 }

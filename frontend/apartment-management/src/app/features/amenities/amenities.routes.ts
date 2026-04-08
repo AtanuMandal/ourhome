@@ -6,6 +6,10 @@ export const AMENITY_ROUTES: Routes = [
     loadComponent: () => import('./amenity-list.component').then(m => m.AmenityListComponent),
   },
   {
+    path: 'new',
+    loadComponent: () => import('./amenity-form.component').then(m => m.AmenityFormComponent),
+  },
+  {
     path: 'book/:id',
     loadComponent: () => import('./booking-form.component').then(m => m.BookingFormComponent),
   },

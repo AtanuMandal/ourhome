@@ -22,14 +22,14 @@ import { Notice } from '../../core/models/notice.model';
         <div class="card">
           <div class="notice-meta">
             <span class="category">{{ item()!.category }}</span>
-            <span class="date">{{ item()!.publishedAt | date:'medium' }}</span>
+            <span class="date">{{ item()!.publishAt | date:'medium' }}</span>
           </div>
           <h2 class="notice-title">{{ item()!.title }}</h2>
-          <div class="notice-body">{{ item()!.body }}</div>
-          @if (item()!.postedByName) {
+          <div class="notice-body">{{ item()!.content }}</div>
+          @if (item()!.postedByUserId) {
             <div class="notice-author">
               <span class="material-icons">person</span>
-              Posted by {{ item()!.postedByName }}
+              Posted by {{ item()!.postedByUserId }}
             </div>
           }
         </div>
@@ -63,3 +63,4 @@ export class NoticeDetailComponent implements OnInit {
     });
   }
 }
+

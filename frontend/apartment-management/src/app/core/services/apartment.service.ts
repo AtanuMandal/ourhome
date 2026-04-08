@@ -32,7 +32,11 @@ export class UserService {
     return this.api.get<User>(`societies/${societyId}/users/${id}`);
   }
 
-  register(societyId: string, dto: { name: string; email: string; phone?: string; role: string; apartmentId?: string }) {
+  register(societyId: string, dto: { fullName: string; email: string; phone?: string; role: string; apartmentId?: string }) {
     return this.api.post<User>(`societies/${societyId}/users`, dto);
+  }
+
+  list(societyId: string, page = 1, pageSize = 20) {
+    return this.api.getPaged<User>(`societies/${societyId}/users`, page, pageSize);
   }
 }
