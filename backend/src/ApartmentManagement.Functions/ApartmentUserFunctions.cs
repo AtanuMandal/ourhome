@@ -70,6 +70,18 @@ public class UserFunctions(ISender mediator)
         return result.ToActionResult(201);
     }
 
+    [Function("ListUsers")]
+    public async Task<IActionResult> ListUsers(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "societies/{societyId}/users")] HttpRequest req,
+        string societyId, CancellationToken ct)
+    {
+        int.TryParse(req.Query["page"], out var page);
+        int.TryParse(req.Query["pageSize"], out var pageSize);
+        var result = await mediator.Send(
+            new GetUsersBySocietyQuery(societyId, new PaginationParams { Page = page < 1 ? 1 : page, PageSize = pageSize < 1 ? 20 : pageSize }, null), ct);
+        return result.ToActionResult();
+    }
+
     [Function("RequestOtpByEmail")]
     public async Task<IActionResult> RequestOtpByEmail(
         [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "societies/{societyId}/auth/request-otp")] HttpRequest req,
