@@ -1,30 +1,44 @@
+export interface Address {
+  street: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+}
+
 export interface Society {
   id: string;
   name: string;
-  address: string;
-  city: string;
-  state: string;
-  pincode: string;
-  totalApartments: number;
-  amenities?: string[];
-  registrationNumber?: string;
+  address: Address;
   contactEmail?: string;
   contactPhone?: string;
-  logoUrl?: string;
+  totalBlocks: number;
+  totalApartments: number;
+  status: string;
+  adminUserIds: string[];
   createdAt: string;
-  updatedAt?: string;
 }
 
 export interface CreateSocietyDto {
   name: string;
-  address: string;
+  street: string;
   city: string;
   state: string;
-  pincode: string;
+  postalCode: string;
+  country: string;
+  totalBlocks: number;
   totalApartments: number;
-  registrationNumber?: string;
   contactEmail?: string;
   contactPhone?: string;
+  adminFullName: string;
+  adminEmail: string;
+  adminPhone: string;
 }
 
-export interface UpdateSocietyDto extends Partial<CreateSocietyDto> {}
+export interface UpdateSocietyDto {
+  name?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  totalBlocks?: number;
+  totalApartments?: number;
+}
