@@ -5,7 +5,6 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 import { NoticeService } from '../../core/services/notice.service';
@@ -16,7 +15,7 @@ import { NoticeCategory } from '../../core/models/notice.model';
   selector: 'app-notice-form',
   standalone: true,
   imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatSelectModule,
-            MatButtonModule, MatSlideToggleModule, MatProgressBarModule, PageHeaderComponent],
+            MatButtonModule, MatProgressBarModule, PageHeaderComponent],
   template: `
     <app-page-header title="Post Notice" [showBack]="true"></app-page-header>
     @if (loading()) { <mat-progress-bar mode="indeterminate"></mat-progress-bar> }
@@ -39,14 +38,22 @@ import { NoticeCategory } from '../../core/models/notice.model';
           </mat-form-field>
 
           <mat-form-field appearance="fill" class="full-width">
-            <mat-label>Body</mat-label>
-            <textarea matInput formControlName="body" rows="6" placeholder="Notice content..."></textarea>
-            @if (form.get('body')?.invalid && form.get('body')?.touched) {
-              <mat-error>Body is required</mat-error>
+            <mat-label>Content</mat-label>
+            <textarea matInput formControlName="content" rows="6" placeholder="Notice content..."></textarea>
+            @if (form.get('content')?.invalid && form.get('content')?.touched) {
+              <mat-error>Content is required</mat-error>
             }
           </mat-form-field>
 
-          <mat-slide-toggle formControlName="isPinned" color="primary">Pin this notice</mat-slide-toggle>
+          <mat-form-field appearance="fill" class="full-width">
+            <mat-label>Publish At</mat-label>
+            <input matInput type="datetime-local" formControlName="publishAt">
+          </mat-form-field>
+
+          <mat-form-field appearance="fill" class="full-width">
+            <mat-label>Expires At (optional)</mat-label>
+            <input matInput type="datetime-local" formControlName="expiresAt">
+          </mat-form-field>
 
           <button mat-raised-button color="primary" type="submit"
                   class="full-width" style="height:48px;margin-top:16px"
@@ -68,18 +75,27 @@ export class NoticeFormComponent {
   readonly categories: NoticeCategory[] = ['General','Maintenance','Event','Emergency','Financial','Bylaw'];
 
   readonly form = this.fb.group({
-    category: ['General' as NoticeCategory, Validators.required],
-    title:    ['', Validators.required],
-    body:     ['', Validators.required],
-    isPinned: [false],
+    category:  ['General' as NoticeCategory, Validators.required],
+    title:     ['', Validators.required],
+    content:   ['', Validators.required],
+    publishAt: [new Date().toISOString().slice(0, 16), Validators.required],
+    expiresAt: [null as string | null],
   });
 
   submit() {
     if (this.form.invalid) return;
     const sid  = this.auth.societyId()!;
     const user = this.auth.user()!;
+    const v    = this.form.value;
     this.loading.set(true);
-    this.svc.post(sid, { ...this.form.value as any, postedBy: user.id }).subscribe({
+    this.svc.post(sid, {
+      userId:    user.id,
+      title:     v.title!,
+      content:   v.content!,
+      category:  v.category!,
+      publishAt: new Date(v.publishAt!).toISOString(),
+      expiresAt: v.expiresAt ? new Date(v.expiresAt).toISOString() : undefined,
+    }).subscribe({
       next: () => { this.loading.set(false); this.router.navigate(['/notices']); },
       error: () => this.loading.set(false),
     });

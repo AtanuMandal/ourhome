@@ -3,94 +3,97 @@ import { FormBuilder, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
-import { VisitorService } from '../../core/services/visitor.service';
+import { UserService } from '../../core/services/apartment.service';
 import { AuthService } from '../../core/services/auth.service';
 
 @Component({
-  selector: 'app-visitor-register',
+  selector: 'app-resident-form',
   standalone: true,
-  imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule,
+  imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatSelectModule,
             MatButtonModule, MatProgressBarModule, PageHeaderComponent],
   template: `
-    <app-page-header title="Register Visitor" [showBack]="true"></app-page-header>
+    <app-page-header title="Add Resident" [showBack]="true"></app-page-header>
     @if (loading()) { <mat-progress-bar mode="indeterminate"></mat-progress-bar> }
     <div class="page-content">
       <div class="card">
         <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
           <mat-form-field appearance="fill" class="full-width">
-            <mat-label>Visitor Name</mat-label>
-            <input matInput formControlName="visitorName">
-            @if (form.get('visitorName')?.invalid && form.get('visitorName')?.touched) {
-              <mat-error>Name is required</mat-error>
+            <mat-label>Full Name</mat-label>
+            <input matInput formControlName="fullName">
+            @if (form.get('fullName')?.invalid && form.get('fullName')?.touched) {
+              <mat-error>Full name is required</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="fill" class="full-width">
+            <mat-label>Email</mat-label>
+            <input matInput type="email" formControlName="email">
+            @if (form.get('email')?.invalid && form.get('email')?.touched) {
+              <mat-error>Valid email is required</mat-error>
             }
           </mat-form-field>
 
           <mat-form-field appearance="fill" class="full-width">
             <mat-label>Phone</mat-label>
-            <input matInput type="tel" formControlName="visitorPhone">
-            @if (form.get('visitorPhone')?.invalid && form.get('visitorPhone')?.touched) {
-              <mat-error>Phone is required</mat-error>
-            }
+            <input matInput type="tel" formControlName="phone">
           </mat-form-field>
 
           <mat-form-field appearance="fill" class="full-width">
-            <mat-label>Email (optional)</mat-label>
-            <input matInput type="email" formControlName="visitorEmail">
+            <mat-label>Role</mat-label>
+            <mat-select formControlName="role">
+              <mat-option value="SUUser">Resident (User)</mat-option>
+              <mat-option value="SUAdmin">Society Admin</mat-option>
+            </mat-select>
           </mat-form-field>
 
           <mat-form-field appearance="fill" class="full-width">
-            <mat-label>Purpose of Visit</mat-label>
-            <input matInput formControlName="purpose">
-            @if (form.get('purpose')?.invalid && form.get('purpose')?.touched) {
-              <mat-error>Purpose is required</mat-error>
-            }
-          </mat-form-field>
-
-          <mat-form-field appearance="fill" class="full-width">
-            <mat-label>Vehicle Number (optional)</mat-label>
-            <input matInput formControlName="vehicleNumber">
+            <mat-label>Apartment ID (optional)</mat-label>
+            <input matInput formControlName="apartmentId" placeholder="Leave blank if not assigned">
           </mat-form-field>
 
           <button mat-raised-button color="primary" type="submit"
                   class="full-width" style="height:48px;margin-top:8px"
                   [disabled]="loading() || form.invalid">
-            Register &amp; Generate Pass
+            Add Resident
           </button>
         </form>
       </div>
     </div>
   `,
 })
-export class VisitorRegisterComponent {
+export class ResidentFormComponent {
   private readonly fb     = inject(FormBuilder);
-  private readonly svc    = inject(VisitorService);
+  private readonly svc    = inject(UserService);
   private readonly auth   = inject(AuthService);
   private readonly router = inject(Router);
 
   readonly loading = signal(false);
 
   readonly form = this.fb.group({
-    visitorName:   ['', Validators.required],
-    visitorPhone:  ['', Validators.required],
-    visitorEmail:  [''],
-    purpose:       ['', Validators.required],
-    vehicleNumber: [''],
+    fullName:    ['', Validators.required],
+    email:       ['', [Validators.required, Validators.email]],
+    phone:       [''],
+    role:        ['SUUser', Validators.required],
+    apartmentId: [''],
   });
 
   submit() {
     if (this.form.invalid) return;
-    const sid  = this.auth.societyId()!;
-    const user = this.auth.user()!;
+    const sid = this.auth.societyId()!;
+    const v   = this.form.value;
     this.loading.set(true);
     this.svc.register(sid, {
-      ...this.form.value as any,
-      hostUserId:      user.id,
-      hostApartmentId: user.apartmentId ?? '',
+      fullName:    v.fullName!,
+      email:       v.email!,
+      phone:       v.phone ?? '',
+      role:        v.role!,
+      apartmentId: v.apartmentId || undefined,
     }).subscribe({
-      next: () => { this.loading.set(false); this.router.navigate(['/visitors']); },
+      next: () => { this.loading.set(false); this.router.navigate(['/residents']); },
       error: () => this.loading.set(false),
     });
   }

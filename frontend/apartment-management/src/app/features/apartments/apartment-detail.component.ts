@@ -16,7 +16,7 @@ import { Apartment } from '../../core/models/apartment.model';
   imports: [RouterLink, MatButtonModule, MatIconModule, MatDividerModule,
             PageHeaderComponent, StatusChipComponent, LoadingSpinnerComponent],
   template: `
-    <app-page-header [title]="item()?.unitNumber ?? 'Apartment'" [showBack]="true">
+    <app-page-header [title]="item()?.apartmentNumber ?? 'Apartment'" [showBack]="true">
       <div actions>
         @if (isAdmin()) {
           <a [routerLink]="[item()?.id, 'edit']" mat-icon-button><mat-icon>edit</mat-icon></a>
@@ -29,20 +29,20 @@ import { Apartment } from '../../core/models/apartment.model';
       } @else if (item()) {
         <div class="card">
           <div class="detail-row">
-            <span class="label">Unit</span><span>{{ item()!.unitNumber }}</span>
+            <span class="label">Unit</span><span>{{ item()!.apartmentNumber }}</span>
           </div>
           <mat-divider></mat-divider>
           <div class="detail-row">
-            <span class="label">Type</span><span>{{ item()!.type }}</span>
+            <span class="label">Rooms</span><span>{{ item()!.numberOfRooms }}</span>
           </div>
           <mat-divider></mat-divider>
           <div class="detail-row">
-            <span class="label">Floor</span><span>{{ item()!.floor }}</span>
+            <span class="label">Floor</span><span>{{ item()!.floorNumber }}</span>
           </div>
-          @if (item()!.block) {
+          @if (item()!.blockName) {
             <mat-divider></mat-divider>
             <div class="detail-row">
-              <span class="label">Block</span><span>{{ item()!.block }}</span>
+              <span class="label">Block</span><span>{{ item()!.blockName }}</span>
             </div>
           }
           <mat-divider></mat-divider>
@@ -50,29 +50,13 @@ import { Apartment } from '../../core/models/apartment.model';
             <span class="label">Status</span>
             <app-status-chip [status]="item()!.status"></app-status-chip>
           </div>
-          @if (item()!.area) {
+          @if (item()!.parkingSlots) {
             <mat-divider></mat-divider>
             <div class="detail-row">
-              <span class="label">Area</span><span>{{ item()!.area }} sq ft</span>
+              <span class="label">Parking Slots</span><span>{{ item()!.parkingSlots }}</span>
             </div>
           }
         </div>
-
-        @if (item()!.residents?.length) {
-          <div class="card" style="margin-top:12px">
-            <h3 style="margin:0 0 12px;font-size:14px;font-weight:600">Residents</h3>
-            @for (r of item()!.residents; track r.userId) {
-              <div class="resident-row">
-                <div class="avatar">{{ r.name[0] }}</div>
-                <div class="res-info">
-                  <span>{{ r.name }}</span>
-                  <span style="font-size:12px;color:var(--text-secondary)">{{ r.email }}</span>
-                </div>
-                @if (r.isOwner) { <span class="owner-tag">Owner</span> }
-              </div>
-            }
-          </div>
-        }
       }
     </div>
   `,
@@ -110,3 +94,4 @@ export class ApartmentDetailComponent implements OnInit {
     });
   }
 }
+

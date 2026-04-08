@@ -25,7 +25,10 @@ export class AuthService {
   readonly token     = computed(() => this._state().token);
   readonly societyId = computed(() => this._state().societyId);
   readonly isLoggedIn = computed(() => !!this._state().token && !!this._state().user);
-  readonly isAdmin    = computed(() => this._state().user?.role === 'Admin');
+  readonly isAdmin = computed(() => {
+    const role = this._state().user?.role;
+    return role === 'SUAdmin' || role === 'HQAdmin';
+  });
 
   // ── Auth flow ──────────────────────────────────────────────────────────────
   /** Step 1: look up user by email → generate & send OTP → returns userId */

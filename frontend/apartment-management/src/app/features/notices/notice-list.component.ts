@@ -27,13 +27,10 @@ import { Notice } from '../../core/models/notice.model';
         <div class="notice-list">
           @for (n of items(); track n.id) {
             <a [routerLink]="[n.id]" class="notice-card">
-              @if (n.isPinned) {
-                <div class="pin-badge"><span class="material-icons">push_pin</span>Pinned</div>
-              }
               <div class="nc-category">{{ n.category }}</div>
               <h3 class="nc-title">{{ n.title }}</h3>
-              <p class="nc-body">{{ n.body }}</p>
-              <span class="nc-date">{{ n.publishedAt | date:'mediumDate' }}</span>
+              <p class="nc-body">{{ n.content }}</p>
+              <span class="nc-date">{{ n.publishAt | date:'mediumDate' }}</span>
             </a>
           }
         </div>

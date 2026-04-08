@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { ApiService } from './api.service';
-import { Amenity, AmenityBooking, AmenityAvailability, BookAmenityDto } from '../models/amenity.model';
+import { Amenity, AmenityBooking, BookAmenityDto, CreateAmenityDto } from '../models/amenity.model';
 
 @Injectable({ providedIn: 'root' })
 export class AmenityService {
@@ -10,12 +10,12 @@ export class AmenityService {
     return this.api.get<Amenity[]>(`societies/${societyId}/amenities`);
   }
 
-  create(societyId: string, dto: Partial<Amenity>) {
+  create(societyId: string, dto: CreateAmenityDto) {
     return this.api.post<Amenity>(`societies/${societyId}/amenities`, dto);
   }
 
   getAvailability(societyId: string, amenityId: string, date: string) {
-    return this.api.get<AmenityAvailability>(
+    return this.api.get<any>(
       `societies/${societyId}/amenities/${amenityId}/availability`,
       { date }
     );

@@ -18,7 +18,7 @@ export interface User {
   name: string;
   email: string;
   phone?: string;
-  role: 'Admin' | 'Resident';
+  role: 'HQAdmin' | 'HQUser' | 'SUAdmin' | 'SUUser';
   apartmentId?: string;
   isVerified: boolean;
   avatarUrl?: string;

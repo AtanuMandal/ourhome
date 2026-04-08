@@ -29,11 +29,11 @@ import { Visitor } from '../../core/models/visitor.model';
         <div class="visitor-list">
           @for (v of items(); track v.id) {
             <div class="visitor-card">
-              <div class="vc-avatar">{{ v.name[0] }}</div>
+              <div class="vc-avatar">{{ v.visitorName[0] }}</div>
               <div class="vc-info">
-                <span class="vc-name">{{ v.name }}</span>
+                <span class="vc-name">{{ v.visitorName }}</span>
                 <span class="vc-purpose">{{ v.purpose }}</span>
-                <span class="vc-time">{{ v.checkInAt | date:'medium' }}</span>
+                <span class="vc-time">{{ v.checkInTime | date:'medium' }}</span>
               </div>
               <div class="vc-right">
                 <app-status-chip [status]="v.status"></app-status-chip>

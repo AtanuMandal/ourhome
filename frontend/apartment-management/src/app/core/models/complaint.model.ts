@@ -1,41 +1,37 @@
 export type ComplaintStatus = 'Open' | 'InProgress' | 'Resolved' | 'Closed';
 export type ComplaintCategory = 'Plumbing' | 'Electrical' | 'Cleaning' | 'Security' | 'Noise' | 'Parking' | 'Other';
+export type ComplaintPriority = 'Low' | 'Medium' | 'High' | 'Critical';
 
+// Matches backend ComplaintResponse DTO
 export interface Complaint {
   id: string;
   societyId: string;
   apartmentId: string;
-  raisedBy: string;
-  raisedByName?: string;
-  category: ComplaintCategory;
+  raisedByUserId: string;
   title: string;
   description: string;
+  category: ComplaintCategory;
   status: ComplaintStatus;
-  assignedTo?: string;
-  assignedToName?: string;
-  photoUrls?: string[];
-  timeline: ComplaintEvent[];
+  priority: ComplaintPriority;
+  assignedToUserId?: string;
+  attachmentUrls: string[];
+  resolvedAt?: string;
+  feedbackRating?: number;
+  feedbackComment?: string;
   createdAt: string;
   updatedAt?: string;
-  resolvedAt?: string;
-}
-
-export interface ComplaintEvent {
-  event: string;
-  note?: string;
-  by: string;
-  at: string;
 }
 
 export interface RaiseComplaintDto {
   apartmentId: string;
-  raisedBy: string;
+  userId: string;
   category: ComplaintCategory;
   title: string;
   description: string;
+  priority: ComplaintPriority;
+  attachmentUrls?: string[];
 }
 
 export interface ResolveComplaintDto {
-  resolution: string;
-  resolvedBy: string;
+  resolutionNotes: string;
 }

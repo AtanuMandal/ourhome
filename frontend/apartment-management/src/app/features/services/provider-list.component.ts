@@ -11,12 +11,6 @@ import { ServiceProviderService } from '../../core/services/service-provider.ser
 import { AuthService } from '../../core/services/auth.service';
 import { ServiceProvider } from '../../core/models/service-provider.model';
 
-const CATEGORY_ICONS: Record<string, string> = {
-  Plumber: 'plumbing', Electrician: 'electrical_services',
-  Carpenter: 'carpenter', Painter: 'format_paint',
-  Cleaner: 'cleaning_services', AC_Repair: 'ac_unit', Other: 'build',
-};
-
 @Component({
   selector: 'app-provider-list',
   standalone: true,
@@ -28,17 +22,20 @@ const CATEGORY_ICONS: Record<string, string> = {
       @if (loading()) {
         <app-loading-spinner></app-loading-spinner>
       } @else if (items().length === 0) {
-        <app-empty-state icon="build" title="No providers" message="No service providers registered."></app-empty-state>
+        <app-empty-state icon="build" title="No providers" message="No service providers registered.">
+          @if (isAdmin()) {
+            <a routerLink="providers/new" mat-stroked-button color="primary" style="margin-top:16px">Add Provider</a>
+          }
+        </app-empty-state>
       } @else {
         <div class="provider-list">
           @for (p of items(); track p.id) {
             <div class="provider-card">
-              <div class="pc-icon">
-                <span class="material-icons">{{ getIcon(p.category) }}</span>
-              </div>
+              <div class="pc-icon"><span class="material-icons">build</span></div>
               <div class="pc-info">
-                <span class="pc-name">{{ p.name }}</span>
-                <span class="pc-cat">{{ p.category }}</span>
+                <span class="pc-name">{{ p.providerName }}</span>
+                <span class="pc-cat">{{ p.serviceTypes?.join(', ') }}</span>
+                <span class="pc-contact">{{ p.contactName }}</span>
                 @if (p.rating) {
                   <span class="pc-rating">
                     <span class="material-icons">star</span> {{ p.rating | number:'1.1-1' }}
@@ -52,7 +49,9 @@ const CATEGORY_ICONS: Record<string, string> = {
         </div>
       }
     </div>
-    <a routerLink="request" mat-fab color="primary" class="fab"><mat-icon>add</mat-icon></a>
+    @if (isAdmin()) {
+      <a routerLink="providers/new" mat-fab color="primary" class="fab"><mat-icon>add</mat-icon></a>
+    }
   `,
   styleUrl: './services.scss',
 })
@@ -62,6 +61,7 @@ export class ProviderListComponent implements OnInit {
 
   readonly loading = signal(true);
   readonly items   = signal<ServiceProvider[]>([]);
+  readonly isAdmin = this.auth.isAdmin;
 
   ngOnInit() {
     const sid = this.auth.societyId();
@@ -71,6 +71,4 @@ export class ProviderListComponent implements OnInit {
       error: () => this.loading.set(false),
     });
   }
-
-  getIcon(cat: string) { return CATEGORY_ICONS[cat] ?? 'build'; }
 }
