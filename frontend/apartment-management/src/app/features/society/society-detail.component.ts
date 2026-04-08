@@ -29,9 +29,10 @@ import { Society } from '../../core/models/society.model';
             <h2>{{ society()?.name }}</h2>
           </div>
           <mat-divider style="margin:16px 0"></mat-divider>
-          <div class="detail-row"><span class="label">Address</span><span>{{ society()?.address }}</span></div>
-          <div class="detail-row"><span class="label">City</span><span>{{ society()?.city }}, {{ society()?.state }}</span></div>
-          <div class="detail-row"><span class="label">PIN</span><span>{{ society()?.pincode }}</span></div>
+          <div class="detail-row"><span class="label">Address</span><span>{{ society()?.address?.street }}</span></div>
+          <div class="detail-row"><span class="label">City</span><span>{{ society()?.address?.city }}, {{ society()?.address?.state }}</span></div>
+          <div class="detail-row"><span class="label">PIN</span><span>{{ society()?.address?.postalCode }}</span></div>
+          <div class="detail-row"><span class="label">Country</span><span>{{ society()?.address?.country }}</span></div>
           <div class="detail-row"><span class="label">Apartments</span><span>{{ society()?.totalApartments }}</span></div>
           @if (society()?.contactEmail) {
             <div class="detail-row"><span class="label">Email</span><span>{{ society()?.contactEmail }}</span></div>
@@ -51,23 +52,23 @@ import { Society } from '../../core/models/society.model';
               <input matInput formControlName="name">
             </mat-form-field>
             <mat-form-field appearance="fill" class="full-width">
-              <mat-label>Address</mat-label>
-              <input matInput formControlName="address">
+              <mat-label>Contact Email</mat-label>
+              <input matInput formControlName="contactEmail">
+            </mat-form-field>
+            <mat-form-field appearance="fill" class="full-width">
+              <mat-label>Contact Phone</mat-label>
+              <input matInput formControlName="contactPhone">
             </mat-form-field>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
               <mat-form-field appearance="fill">
-                <mat-label>City</mat-label>
-                <input matInput formControlName="city">
+                <mat-label>Total Blocks</mat-label>
+                <input matInput type="number" formControlName="totalBlocks" min="1">
               </mat-form-field>
               <mat-form-field appearance="fill">
-                <mat-label>State</mat-label>
-                <input matInput formControlName="state">
+                <mat-label>Total Apartments</mat-label>
+                <input matInput type="number" formControlName="totalApartments" min="1">
               </mat-form-field>
             </div>
-            <mat-form-field appearance="fill" class="full-width">
-              <mat-label>PIN Code</mat-label>
-              <input matInput formControlName="pincode">
-            </mat-form-field>
             <div style="display:flex;gap:8px;margin-top:8px">
               <button mat-stroked-button type="button" style="flex:1;height:48px" (click)="editing.set(false)">Cancel</button>
               <button mat-raised-button color="primary" type="submit" style="flex:1;height:48px" [disabled]="saving()">Save</button>
@@ -102,11 +103,11 @@ export class SocietyDetailComponent implements OnInit {
   readonly society  = signal<Society | null>(null);
 
   readonly form = this.fb.group({
-    name:    ['', Validators.required],
-    address: [''],
-    city:    [''],
-    state:   [''],
-    pincode: [''],
+    name:             ['', Validators.required],
+    contactEmail:     [''],
+    contactPhone:     [''],
+    totalBlocks:      [1, Validators.min(1)],
+    totalApartments:  [1, Validators.min(1)],
   });
 
   ngOnInit() {
