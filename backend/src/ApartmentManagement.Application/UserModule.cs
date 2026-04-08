@@ -197,6 +197,43 @@ public sealed class VerifyOtpCommandHandler(
     }
 }
 
+// ─── Request OTP by Email (Login entry point) ─────────────────────────────────
+
+public record RequestOtpByEmailCommand(string SocietyId, string Email)
+    : IRequest<Result<RequestOtpByEmailResponse>>;
+
+public sealed class RequestOtpByEmailCommandHandler(
+    IUserRepository userRepository,
+    INotificationService notificationService,
+    ILogger<RequestOtpByEmailCommandHandler> logger)
+    : IRequestHandler<RequestOtpByEmailCommand, Result<RequestOtpByEmailResponse>>
+{
+    public async Task<Result<RequestOtpByEmailResponse>> Handle(
+        RequestOtpByEmailCommand request, CancellationToken ct)
+    {
+        try
+        {
+            var user = await userRepository.GetByEmailAsync(request.SocietyId, request.Email, ct);
+            if (user is null)
+                return Result<RequestOtpByEmailResponse>.Failure(
+                    ErrorCodes.UserNotFound, $"No account found for {request.Email} in this society.");
+
+            user.GenerateOtp();
+            await userRepository.UpdateAsync(user, ct);
+
+            await notificationService.SendSmsAsync(user.Phone,
+                $"Your OTP is: {user.OtpCode}. Valid for 10 minutes.", ct);
+
+            return Result<RequestOtpByEmailResponse>.Success(new RequestOtpByEmailResponse(user.Id));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to send OTP to {Email}", request.Email);
+            return Result<RequestOtpByEmailResponse>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
 // ─── Assign Role ──────────────────────────────────────────────────────────────
 
 public record AssignRoleCommand(string SocietyId, string UserId, UserRole Role) : IRequest<Result<bool>>;

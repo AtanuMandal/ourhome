@@ -1,5 +1,6 @@
 using ApartmentManagement.Application.Commands.Apartment;
 using ApartmentManagement.Application.Commands.User;
+using ApartmentManagement.Application.DTOs;
 using ApartmentManagement.Application.Queries.Apartment;
 using ApartmentManagement.Application.Queries.User;
 using ApartmentManagement.Shared.Models;
@@ -69,6 +70,17 @@ public class UserFunctions(ISender mediator)
         return result.ToActionResult(201);
     }
 
+    [Function("RequestOtpByEmail")]
+    public async Task<IActionResult> RequestOtpByEmail(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "societies/{societyId}/auth/request-otp")] HttpRequest req,
+        string societyId, CancellationToken ct)
+    {
+        var body = await req.DeserializeAsync<RequestOtpByEmailRequest>(ct);
+        if (body is null) return new BadRequestObjectResult("Invalid request body");
+        var result = await mediator.Send(new RequestOtpByEmailCommand(societyId, body.Email), ct);
+        return result.ToActionResult();
+    }
+
     [Function("GetUser")]
     public async Task<IActionResult> GetUser(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "societies/{societyId}/users/{id}")] HttpRequest req,
@@ -92,9 +104,10 @@ public class UserFunctions(ISender mediator)
         [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "societies/{societyId}/users/{id}/verify-otp")] HttpRequest req,
         string societyId, string id, CancellationToken ct)
     {
-        var command = await req.DeserializeAsync<VerifyOtpCommand>(ct);
-        if (command is null) return new BadRequestObjectResult("Invalid request body");
-        var result = await mediator.Send(command with { SocietyId = societyId, UserId = id }, ct);
+        var body = await req.DeserializeAsync<OtpCodeBody>(ct);
+        if (body is null || string.IsNullOrWhiteSpace(body.OtpCode))
+            return new BadRequestObjectResult("Request body must contain { \"otpCode\": \"...\" }");
+        var result = await mediator.Send(new VerifyOtpCommand(societyId, id, body.OtpCode), ct);
         return result.ToActionResult();
     }
 }

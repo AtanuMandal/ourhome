@@ -1,6 +1,8 @@
 using ApartmentManagement.Shared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+using System.Text;
 using System.Text.Json;
 
 namespace ApartmentManagement.Functions.Helpers;
@@ -13,14 +15,30 @@ public static class HttpHelpers
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    public static async Task<T?> DeserializeAsync<T>(this HttpRequest req, CancellationToken ct)
+    public static async Task<T?> DeserializeAsync<T>(this HttpRequest req, CancellationToken ct,
+        ILogger? logger = null)
     {
         try
         {
-            return await JsonSerializer.DeserializeAsync<T>(req.Body, _json, ct);
+            req.EnableBuffering();
+            req.Body.Position = 0;
+
+            if (req.ContentLength == 0)
+                return default;
+
+            // Read to string first — avoids all stream-position edge cases and
+            // lets us log the raw payload when deserialization fails.
+            using var reader = new StreamReader(req.Body, Encoding.UTF8, leaveOpen: true);
+            var json = await reader.ReadToEndAsync(ct);
+
+            if (string.IsNullOrWhiteSpace(json))
+                return default;
+
+            return JsonSerializer.Deserialize<T>(json, _json);
         }
-        catch
+        catch (Exception ex)
         {
+            logger?.LogWarning(ex, "Failed to deserialize request body to {Type}", typeof(T).Name);
             return default;
         }
     }

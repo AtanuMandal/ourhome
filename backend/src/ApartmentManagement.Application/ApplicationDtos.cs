@@ -53,9 +53,15 @@ public record UserResponse(
     string Role, string? ApartmentId, bool IsActive, bool IsVerified, DateTime CreatedAt);
 
 public record VerifyOtpRequest(string UserId, string OtpCode);
+public record OtpCodeBody
+{
+    public string OtpCode { get; init; } = string.Empty;
+}
 public record LoginRequest(string Email, string Password, string SocietyId);
 public record LoginResponse(string Token, string RefreshToken, DateTime ExpiresAt, UserResponse User);
 public record SendOtpRequest(string UserId);
+public record RequestOtpByEmailRequest(string Email);
+public record RequestOtpByEmailResponse(string UserId);
 
 // ─── Amenity ─────────────────────────────────────────────────────────────────
 

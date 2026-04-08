@@ -60,9 +60,10 @@ public class HQUserFunctions(ISender mediator)
         [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "hq/users/{id}/verify-otp")] HttpRequest req,
         string id, CancellationToken ct)
     {
-        var command = await req.DeserializeAsync<VerifyOtpCommand>(ct);
-        if (command is null) return new BadRequestObjectResult("Invalid request body.");
-        var result = await mediator.Send(command with { SocietyId = HqConstants.PartitionKey, UserId = id }, ct);
+        var body = await req.DeserializeAsync<OtpCodeBody>(ct);
+        if (body is null || string.IsNullOrWhiteSpace(body.OtpCode))
+            return new BadRequestObjectResult("Request body must contain { \"otpCode\": \"...\" }");
+        var result = await mediator.Send(new VerifyOtpCommand(HqConstants.PartitionKey, id, body.OtpCode), ct);
         return result.ToActionResult();
     }
 }

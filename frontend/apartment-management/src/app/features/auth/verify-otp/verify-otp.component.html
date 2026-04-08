@@ -24,7 +24,7 @@
     <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
       <mat-form-field appearance="fill" class="full-width otp-field">
         <mat-label>OTP Code</mat-label>
-        <input matInput formControlName="otp" type="number" placeholder="123456"
+        <input matInput formControlName="otp" type="text" placeholder="123456"
                inputmode="numeric" autocomplete="one-time-code" maxlength="8">
         @if (form.get('otp')?.invalid && form.get('otp')?.touched) {
           <mat-error>Please enter the OTP</mat-error>
