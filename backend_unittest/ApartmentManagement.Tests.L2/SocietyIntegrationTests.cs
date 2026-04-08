@@ -15,7 +15,8 @@ public class SocietyIntegrationTests : IntegrationTestBase
 
     private static CreateSocietyCommand ValidCreateSocietyCommand(string name = "Green Valley") =>
         new(name, "123 Main St", "Mumbai", "Maharashtra", "400001", "India",
-            "admin@greenvalley.com", "+91-9876543210", 3, 60);
+            "admin@greenvalley.com", "+91-9876543210", 3, 60,
+            "Raj Kumar", "raj@greenvalley.com", "+91-9000000001");
 
     // ─── CreateSociety → GetSociety roundtrip ─────────────────────────────────
 
@@ -27,7 +28,7 @@ public class SocietyIntegrationTests : IntegrationTestBase
 
         // Assert – creation succeeded
         createResult.IsSuccess.Should().BeTrue();
-        var society = createResult.Value!;
+        var society = createResult.Value!.Society;
         society.Id.Should().NotBeNullOrEmpty();
         society.Name.Should().Be("Green Valley");
         society.Status.Should().Be("Draft");
@@ -67,7 +68,7 @@ public class SocietyIntegrationTests : IntegrationTestBase
     public async Task UpdateSociety_ChangesArePersisted()
     {
         // Arrange – create first
-        var created = (await Mediator.Send(ValidCreateSocietyCommand())).Value!;
+        var created = (await Mediator.Send(ValidCreateSocietyCommand())).Value!.Society;
 
         // Act – update
         var updateCmd = new UpdateSocietyCommand(
@@ -99,7 +100,7 @@ public class SocietyIntegrationTests : IntegrationTestBase
     [Fact]
     public async Task PublishSociety_ChangesStatusToActive()
     {
-        var created = (await Mediator.Send(ValidCreateSocietyCommand())).Value!;
+        var created = (await Mediator.Send(ValidCreateSocietyCommand())).Value!.Society;
         created.Status.Should().Be("Draft");
 
         var publishResult = await Mediator.Send(new PublishSocietyCommand(created.Id));
@@ -114,7 +115,7 @@ public class SocietyIntegrationTests : IntegrationTestBase
     [Fact]
     public async Task GetAllSocieties_AfterCreatingAndActivating_ReturnsSociety()
     {
-        var created = (await Mediator.Send(ValidCreateSocietyCommand("Sunrise Heights"))).Value!;
+        var created = (await Mediator.Send(ValidCreateSocietyCommand("Sunrise Heights"))).Value!.Society;
         await Mediator.Send(new PublishSocietyCommand(created.Id)); // make it Active
 
         var result = await Mediator.Send(new GetAllSocietiesQuery(new Shared.Models.PaginationParams { Page = 1, PageSize = 20 }));
@@ -129,7 +130,7 @@ public class SocietyIntegrationTests : IntegrationTestBase
     public async Task FullWorkflow_CreateSocietyThenApartment_ApartmentBelongsToSociety()
     {
         // Step 1 – create society
-        var society = (await Mediator.Send(ValidCreateSocietyCommand("Maple Gardens"))).Value!;
+        var society = (await Mediator.Send(ValidCreateSocietyCommand("Maple Gardens"))).Value!.Society;
 
         // Step 2 – create apartment in that society
         var aptCmd = new CreateApartmentCommand(
@@ -154,7 +155,7 @@ public class SocietyIntegrationTests : IntegrationTestBase
     [Fact]
     public async Task ConfigureFeeStructure_OnExistingSociety_Succeeds()
     {
-        var society = (await Mediator.Send(ValidCreateSocietyCommand())).Value!;
+        var society = (await Mediator.Send(ValidCreateSocietyCommand())).Value!.Society;
 
         var cmd = new ConfigureFeeStructureCommand(society.Id, 1500m, 200m, 300m, "INR");
         var result = await Mediator.Send(cmd);
@@ -169,7 +170,8 @@ public class SocietyIntegrationTests : IntegrationTestBase
     {
         var cmd = new CreateSocietyCommand(
             "", "123 Main St", "Mumbai", "Maharashtra", "400001", "India",
-            "admin@test.com", "+91-9876543210", 1, 1);
+            "admin@test.com", "+91-9876543210", 1, 1,
+            "Raj Kumar", "raj@test.com", "+91-9000000001");
 
         var act = () => Mediator.Send(cmd);
 

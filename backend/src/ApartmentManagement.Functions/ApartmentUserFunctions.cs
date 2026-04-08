@@ -78,6 +78,15 @@ public class UserFunctions(ISender mediator)
         return result.ToActionResult();
     }
 
+    [Function("SendOtp")]
+    public async Task<IActionResult> SendOtp(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "societies/{societyId}/users/{id}/send-otp")] HttpRequest req,
+        string societyId, string id, CancellationToken ct)
+    {
+        var result = await mediator.Send(new SendOtpCommand(societyId, id), ct);
+        return result.ToActionResult();
+    }
+
     [Function("VerifyOtp")]
     public async Task<IActionResult> VerifyOtp(
         [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "societies/{societyId}/users/{id}/verify-otp")] HttpRequest req,

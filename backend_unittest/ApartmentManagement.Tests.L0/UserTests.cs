@@ -13,14 +13,14 @@ public class UserTests
     public void Create_WithValidParameters_ReturnsUnverifiedUser()
     {
         // Arrange & Act
-        var user = User.Create(SocietyId, "Alice Smith", "alice@example.com", "+91-9876543210", UserRole.Owner, "apt-001");
+        var user = User.Create(SocietyId, "Alice Smith", "alice@example.com", "+91-9876543210", UserRole.SUUser, "apt-001");
 
         // Assert
         user.Id.Should().NotBeNullOrEmpty();
         user.SocietyId.Should().Be(SocietyId);
         user.FullName.Should().Be("Alice Smith");
         user.Email.Should().Be("alice@example.com");
-        user.Role.Should().Be(UserRole.Owner);
+        user.Role.Should().Be(UserRole.SUUser);
         user.IsVerified.Should().BeFalse();
         user.IsActive.Should().BeTrue();
         user.ApartmentId.Should().Be("apt-001");
@@ -30,7 +30,7 @@ public class UserTests
     public void Create_RaisesResidentOnboardedEvent()
     {
         // Arrange & Act
-        var user = User.Create(SocietyId, "Alice Smith", "alice@example.com", "+91-9876543210", UserRole.Tenant, "apt-001");
+        var user = User.Create(SocietyId, "Alice Smith", "alice@example.com", "+91-9876543210", UserRole.SUUser, "apt-001");
 
         // Assert
         user.DomainEvents.Should().ContainSingle(e => e is ResidentOnboardedEvent);
@@ -40,7 +40,7 @@ public class UserTests
     public void Create_WithInvalidEmail_ThrowsArgumentException()
     {
         // Arrange & Act
-        var act = () => User.Create(SocietyId, "Alice", "not-an-email", "+91-9876543210", UserRole.Owner);
+        var act = () => User.Create(SocietyId, "Alice", "not-an-email", "+91-9876543210", UserRole.SUUser);
 
         // Assert
         act.Should().Throw<ArgumentException>().WithMessage("*email*");
@@ -50,7 +50,7 @@ public class UserTests
     public void Create_WithEmptyName_ThrowsArgumentException()
     {
         // Arrange & Act
-        var act = () => User.Create(SocietyId, "", "alice@example.com", "+91-9876543210", UserRole.Owner);
+        var act = () => User.Create(SocietyId, "", "alice@example.com", "+91-9876543210", UserRole.SUUser);
 
         // Assert
         act.Should().Throw<ArgumentException>();
@@ -60,7 +60,7 @@ public class UserTests
     public void GenerateOtp_SetsOtpCodeAndExpiry()
     {
         // Arrange
-        var user = User.Create(SocietyId, "Alice", "alice@example.com", "+91-9876543210", UserRole.Owner);
+        var user = User.Create(SocietyId, "Alice", "alice@example.com", "+91-9876543210", UserRole.SUUser);
 
         // Act
         user.GenerateOtp();
@@ -75,7 +75,7 @@ public class UserTests
     public void ValidateOtp_WithCorrectAndValidCode_ReturnsTrue()
     {
         // Arrange
-        var user = User.Create(SocietyId, "Alice", "alice@example.com", "+91-9876543210", UserRole.Owner);
+        var user = User.Create(SocietyId, "Alice", "alice@example.com", "+91-9876543210", UserRole.SUUser);
         user.GenerateOtp();
         var otp = user.OtpCode!;
 
@@ -90,7 +90,7 @@ public class UserTests
     public void ValidateOtp_WithWrongCode_ReturnsFalse()
     {
         // Arrange
-        var user = User.Create(SocietyId, "Alice", "alice@example.com", "+91-9876543210", UserRole.Owner);
+        var user = User.Create(SocietyId, "Alice", "alice@example.com", "+91-9876543210", UserRole.SUUser);
         user.GenerateOtp();
 
         // Act
@@ -104,7 +104,7 @@ public class UserTests
     public void ValidateOtp_WithNoOtpGenerated_ReturnsFalse()
     {
         // Arrange
-        var user = User.Create(SocietyId, "Alice", "alice@example.com", "+91-9876543210", UserRole.Owner);
+        var user = User.Create(SocietyId, "Alice", "alice@example.com", "+91-9876543210", UserRole.SUUser);
 
         // Act
         var result = user.ValidateOtp("123456");
@@ -117,7 +117,7 @@ public class UserTests
     public void Verify_SetsIsVerifiedTrueAndClearsOtp()
     {
         // Arrange
-        var user = User.Create(SocietyId, "Alice", "alice@example.com", "+91-9876543210", UserRole.Owner);
+        var user = User.Create(SocietyId, "Alice", "alice@example.com", "+91-9876543210", UserRole.SUUser);
         user.GenerateOtp();
 
         // Act
@@ -133,7 +133,7 @@ public class UserTests
     public void Deactivate_SetsIsActiveFalse()
     {
         // Arrange
-        var user = User.Create(SocietyId, "Alice", "alice@example.com", "+91-9876543210", UserRole.Owner);
+        var user = User.Create(SocietyId, "Alice", "alice@example.com", "+91-9876543210", UserRole.SUUser);
 
         // Act
         user.Deactivate();
@@ -146,7 +146,7 @@ public class UserTests
     public void Activate_SetsIsActiveTrue()
     {
         // Arrange
-        var user = User.Create(SocietyId, "Alice", "alice@example.com", "+91-9876543210", UserRole.Owner);
+        var user = User.Create(SocietyId, "Alice", "alice@example.com", "+91-9876543210", UserRole.SUUser);
         user.Deactivate();
 
         // Act
@@ -160,7 +160,7 @@ public class UserTests
     public void SetExternalAuthId_SetsExternalId()
     {
         // Arrange
-        var user = User.Create(SocietyId, "Alice", "alice@example.com", "+91-9876543210", UserRole.Owner);
+        var user = User.Create(SocietyId, "Alice", "alice@example.com", "+91-9876543210", UserRole.SUUser);
 
         // Act
         user.SetExternalAuthId("external-auth-id-123");
@@ -173,7 +173,7 @@ public class UserTests
     public void UpdateProfile_UpdatesNameAndPhone()
     {
         // Arrange
-        var user = User.Create(SocietyId, "Alice", "alice@example.com", "+91-9876543210", UserRole.Owner);
+        var user = User.Create(SocietyId, "Alice", "alice@example.com", "+91-9876543210", UserRole.SUUser);
 
         // Act
         user.UpdateProfile("Alice Updated", "+91-1234567890");
@@ -187,7 +187,7 @@ public class UserTests
     public void Email_IsStoredLowercase()
     {
         // Arrange & Act
-        var user = User.Create(SocietyId, "Alice", "ALICE@EXAMPLE.COM", "+91-9876543210", UserRole.Owner);
+        var user = User.Create(SocietyId, "Alice", "ALICE@EXAMPLE.COM", "+91-9876543210", UserRole.SUUser);
 
         // Assert
         user.Email.Should().Be("alice@example.com");
@@ -197,7 +197,7 @@ public class UserTests
     public void ValidateOtp_WhenExpired_ReturnsFalse()
     {
         // Arrange
-        var user = User.Create(SocietyId, "Alice", "alice@example.com", "+91-9876543210", UserRole.Owner);
+        var user = User.Create(SocietyId, "Alice", "alice@example.com", "+91-9876543210", UserRole.SUUser);
         user.GenerateOtp();
         var otp = user.OtpCode!;
 

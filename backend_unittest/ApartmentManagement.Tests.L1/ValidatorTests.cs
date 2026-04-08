@@ -13,7 +13,8 @@ public class CreateSocietyCommandValidatorTests
 
     private static CreateSocietyCommand ValidCommand() => new(
         "Green Valley", "123 Main St", "Mumbai", "Maharashtra", "400001", "India",
-        "admin@gv.com", "+91-9876543210", 3, 60);
+        "admin@gv.com", "+91-9876543210", 3, 60,
+        "Raj Kumar", "raj@gv.com", "+91-9000000001");
 
     [Fact]
     public void Validate_WithValidCommand_PassesValidation()

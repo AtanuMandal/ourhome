@@ -403,7 +403,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Green Valley Residency\",\n  \"street\": \"42 Palm Grove Avenue\",\n  \"city\": \"Bengaluru\",\n  \"state\": \"Karnataka\",\n  \"postalCode\": \"560001\",\n  \"country\": \"India\",\n  \"contactEmail\": \"admin@greenvalley.com\",\n  \"contactPhone\": \"+91-8012345678\",\n  \"totalBlocks\": 4,\n  \"totalApartments\": 120\n}",
+              "raw": "{\n  \"name\": \"Green Valley Residency\",\n  \"street\": \"42 Palm Grove Avenue\",\n  \"city\": \"Bengaluru\",\n  \"state\": \"Karnataka\",\n  \"postalCode\": \"560001\",\n  \"country\": \"India\",\n  \"contactEmail\": \"admin@greenvalley.com\",\n  \"contactPhone\": \"+91-8012345678\",\n  \"totalBlocks\": 4,\n  \"totalApartments\": 120,\n  \"adminFullName\": \"Rajesh Kumar\",\n  \"adminEmail\": \"rajesh.kumar@greenvalley.com\",\n  \"adminPhone\": \"+91-9000000001\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -420,8 +420,10 @@
                   "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
                   "if (pm.response.code === 201) {",
                   "    const json = pm.response.json();",
-                  "    pm.collectionVariables.set(\"societyId\", json.id);",
-                  "    console.log(\"societyId set to:\", json.id);",
+                  "    pm.collectionVariables.set(\"societyId\", json.society.id);",
+                  "    pm.collectionVariables.set(\"adminUserId\", json.admin.id);",
+                  "    console.log(\"societyId set to:\", json.society.id);",
+                  "    console.log(\"HO adminUserId set to:\", json.admin.id);",
                   "}"
                 ]
               }
@@ -440,7 +442,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"name\": \"Green Valley Residency\",\n  \"address\": {\n    \"street\": \"42 Palm Grove Avenue\",\n    \"city\": \"Bengaluru\",\n    \"state\": \"Karnataka\",\n    \"postalCode\": \"560001\",\n    \"country\": \"India\"\n  },\n  \"contactEmail\": \"admin@greenvalley.com\",\n  \"contactPhone\": \"+91-8012345678\",\n  \"totalBlocks\": 4,\n  \"totalApartments\": 120,\n  \"status\": \"Active\",\n  \"adminUserIds\": [\n    \"c3d4e5f6-a7b8-9012-cdef-012345678902\"\n  ],\n  \"createdAt\": \"2024-01-01T00:00:00Z\"\n}"
+              "body": "{\n  \"society\": {\n    \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"name\": \"Green Valley Residency\",\n    \"address\": {\n      \"street\": \"42 Palm Grove Avenue\",\n      \"city\": \"Bengaluru\",\n      \"state\": \"Karnataka\",\n      \"postalCode\": \"560001\",\n      \"country\": \"India\"\n    },\n    \"contactEmail\": \"admin@greenvalley.com\",\n    \"contactPhone\": \"+91-8012345678\",\n    \"totalBlocks\": 4,\n    \"totalApartments\": 120,\n    \"status\": \"Draft\",\n    \"adminUserIds\": [\"c3d4e5f6-a7b8-9012-cdef-012345678902\"],\n    \"createdAt\": \"2024-01-01T00:00:00Z\"\n  },\n  \"admin\": {\n    \"id\": \"c3d4e5f6-a7b8-9012-cdef-012345678902\",\n    \"societyId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"fullName\": \"Rajesh Kumar\",\n    \"email\": \"rajesh.kumar@greenvalley.com\",\n    \"phone\": \"+91-9000000001\",\n    \"role\": \"SUAdmin\",\n    \"apartmentId\": null,\n    \"isActive\": true,\n    \"isVerified\": false,\n    \"createdAt\": \"2024-01-01T00:00:00Z\"\n  }\n}"
             }
           ]
         },

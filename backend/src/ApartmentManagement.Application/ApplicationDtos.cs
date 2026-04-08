@@ -8,7 +8,12 @@ public record AddressDto(string Street, string City, string State, string Postal
 
 public record CreateSocietyRequest(
     string Name, string Street, string City, string State, string PostalCode, string Country,
-    string ContactEmail, string ContactPhone, int TotalBlocks, int TotalApartments);
+    string ContactEmail, string ContactPhone, int TotalBlocks, int TotalApartments,
+    // Initial Housing Officer / Society Admin account
+    string AdminFullName, string AdminEmail, string AdminPhone);
+
+/// <summary>Returned when a society is registered — includes the society and the first HO admin account.</summary>
+public record CreateSocietyResponse(SocietyResponse Society, UserResponse Admin);
 
 public record UpdateSocietyRequest(
     string Name, string ContactEmail, string ContactPhone, int TotalBlocks, int TotalApartments);
@@ -37,6 +42,9 @@ public record BulkImportResult(int TotalRequested, int Succeeded, int Failed, Li
 // ─── User ─────────────────────────────────────────────────────────────────────
 
 public record CreateUserRequest(string FullName, string Email, string Phone, UserRole Role, string? ApartmentId);
+
+/// <summary>Request body for creating a platform-level HQ user (HQAdmin or HQUser only).</summary>
+public record CreateHQUserRequest(string FullName, string Email, string Phone, UserRole Role);
 
 public record UpdateUserRequest(string FullName, string Phone);
 

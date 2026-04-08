@@ -32,7 +32,7 @@ public class CreateUserCommandHandlerTests
             .ReturnsAsync((User u, CancellationToken _) => u);
 
         var handler = CreateHandler();
-        var command = new CreateUserCommand("soc-001", "Alice Smith", "alice@example.com", "+91-9876543210", UserRole.Owner, "apt-001");
+        var command = new CreateUserCommand("soc-001", "Alice Smith", "alice@example.com", "+91-9876543210", UserRole.SUUser, "apt-001");
 
         // Act
         var result = await handler.Handle(command, CancellationToken.None);
@@ -48,13 +48,13 @@ public class CreateUserCommandHandlerTests
     public async Task Handle_WhenEmailAlreadyExists_ReturnsFailure()
     {
         // Arrange
-        var existingUser = User.Create("soc-001", "Bob", "alice@example.com", "+91-1111111111", UserRole.Owner);
+        var existingUser = User.Create("soc-001", "Bob", "alice@example.com", "+91-1111111111", UserRole.SUUser);
         _userRepoMock
             .Setup(r => r.GetByEmailAsync("soc-001", "alice@example.com", It.IsAny<CancellationToken>()))
             .ReturnsAsync(existingUser);
 
         var handler = CreateHandler();
-        var command = new CreateUserCommand("soc-001", "Alice", "alice@example.com", "+91-9876543210", UserRole.Owner, null);
+        var command = new CreateUserCommand("soc-001", "Alice", "alice@example.com", "+91-9876543210", UserRole.SUUser, null);
 
         // Act
         var result = await handler.Handle(command, CancellationToken.None);
@@ -77,7 +77,7 @@ public class VerifyOtpCommandHandlerTests
     public async Task Handle_WithValidOtp_VerifiesUserAndReturnsSuccess()
     {
         // Arrange
-        var user = User.Create("soc-001", "Alice", "alice@example.com", "+91-9876543210", UserRole.Owner);
+        var user = User.Create("soc-001", "Alice", "alice@example.com", "+91-9876543210", UserRole.SUUser);
         user.GenerateOtp();
         var validOtp = user.OtpCode!;
 
@@ -103,7 +103,7 @@ public class VerifyOtpCommandHandlerTests
     public async Task Handle_WithInvalidOtp_ReturnsFailure()
     {
         // Arrange
-        var user = User.Create("soc-001", "Alice", "alice@example.com", "+91-9876543210", UserRole.Owner);
+        var user = User.Create("soc-001", "Alice", "alice@example.com", "+91-9876543210", UserRole.SUUser);
         user.GenerateOtp();
 
         _userRepoMock
@@ -154,7 +154,7 @@ public class SendOtpCommandHandlerTests
     public async Task Handle_WhenUserExists_GeneratesOtpAndSendsSms()
     {
         // Arrange
-        var user = User.Create("soc-001", "Alice", "alice@example.com", "+91-9876543210", UserRole.Owner);
+        var user = User.Create("soc-001", "Alice", "alice@example.com", "+91-9876543210", UserRole.SUUser);
 
         _userRepoMock
             .Setup(r => r.GetByIdAsync(user.Id, "soc-001", It.IsAny<CancellationToken>()))
