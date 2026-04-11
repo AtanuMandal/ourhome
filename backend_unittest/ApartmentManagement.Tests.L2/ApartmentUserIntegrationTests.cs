@@ -17,8 +17,8 @@ public class ApartmentUserIntegrationTests : IntegrationTestBase
 
     private static CreateApartmentCommand AptCmd(
         string number = "101", string block = "A", int floor = 1,
-        int rooms = 2, int parking = 1, string? ownerId = null) =>
-        new(SocietyId, number, block, floor, rooms, parking, ownerId);
+        int rooms = 2, params string[] parkingSlots) =>
+        new(SocietyId, number, block, floor, rooms, parkingSlots, null);
 
     private static CreateUserCommand UserCmd(
         string email = "resident@test.com",
@@ -50,7 +50,8 @@ public class ApartmentUserIntegrationTests : IntegrationTestBase
     [Fact]
     public async Task CreateApartment_WithOwner_OwnerIdIsSet()
     {
-        var result = await Mediator.Send(AptCmd("102", "A", 1, 3, 0, "owner-user-id"));
+        var result = await Mediator.Send(
+            new CreateApartmentCommand(SocietyId, "102", "A", 1, 3, ["P1"], "owner-user-id"));
 
         result.IsSuccess.Should().BeTrue();
         result.Value!.OwnerId.Should().Be("owner-user-id");
@@ -72,9 +73,9 @@ public class ApartmentUserIntegrationTests : IntegrationTestBase
     [Fact]
     public async Task UpdateApartment_ChangesArePersisted()
     {
-        var apt = (await Mediator.Send(AptCmd("301", "C", 2, 2, 0))).Value!;
+        var apt = (await Mediator.Send(AptCmd("301", "C", 2, 2))).Value!;
 
-        var updateResult = await Mediator.Send(new UpdateApartmentCommand(SocietyId, apt.Id, "C", 3, 4, 2));
+        var updateResult = await Mediator.Send(new UpdateApartmentCommand(SocietyId, apt.Id, "C", 3, 4, ["P2", "P3"]));
 
         updateResult.IsSuccess.Should().BeTrue();
         updateResult.Value!.FloorNumber.Should().Be(3);
@@ -86,7 +87,7 @@ public class ApartmentUserIntegrationTests : IntegrationTestBase
     [Fact]
     public async Task ChangeApartmentStatus_ToUnderMaintenance_Succeeds()
     {
-        var apt = (await Mediator.Send(AptCmd("401", "D", 4, 3, 0))).Value!;
+        var apt = (await Mediator.Send(AptCmd("401", "D", 4, 3))).Value!;
 
         var statusResult = await Mediator.Send(new ChangeApartmentStatusCommand(
             SocietyId, apt.Id, ApartmentStatus.UnderMaintenance, "Annual maintenance"));
@@ -102,8 +103,8 @@ public class ApartmentUserIntegrationTests : IntegrationTestBase
     [Fact]
     public async Task GetApartmentsBySociety_ReturnsAllCreatedApartments()
     {
-        await Mediator.Send(AptCmd("501", "E", 1, 2, 0));
-        await Mediator.Send(AptCmd("502", "E", 1, 2, 0));
+        await Mediator.Send(AptCmd("501", "E", 1, 2));
+        await Mediator.Send(AptCmd("502", "E", 1, 2));
 
         var listResult = await Mediator.Send(new GetApartmentsBySocietyQuery(
             SocietyId, new PaginationParams { Page = 1, PageSize = 50 }, null, null));
@@ -233,7 +234,7 @@ public class ApartmentUserIntegrationTests : IntegrationTestBase
     public async Task FullWorkflow_CreateApartmentAndUser_AssignUserAsOwner()
     {
         // Create apartment
-        var apt = (await Mediator.Send(AptCmd("601", "F", 6, 3, 1))).Value!;
+        var apt = (await Mediator.Send(AptCmd("601", "F", 6, 3, "P1"))).Value!;
 
         // Create user with reference to that apartment
         var user = (await Mediator.Send(UserCmd("iris@test.com", UserRole.SUUser, apt.Id))).Value!;

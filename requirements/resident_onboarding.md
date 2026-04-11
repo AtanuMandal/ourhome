@@ -22,3 +22,6 @@
 5. **Notifications**
    - Notify residents when they are added to the system.
    - Send reminders for incomplete onboarding processes.
+
+6. **Apartment change of hannds**
+- 

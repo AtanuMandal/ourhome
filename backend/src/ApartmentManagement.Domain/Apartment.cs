@@ -10,7 +10,7 @@ public sealed class Apartment : BaseEntity
     public string BlockName { get; private set; } = string.Empty;
     public int FloorNumber { get; private set; }
     public int NumberOfRooms { get; private set; }
-    public int ParkingSlots { get; private set; }
+    public IReadOnlyList<string> ParkingSlots { get; private set; } = [];
     public ApartmentStatus Status { get; private set; }
     public string? OwnerId { get; private set; }
     public string? TenantId { get; private set; }
@@ -20,13 +20,14 @@ public sealed class Apartment : BaseEntity
     /// <summary>Creates a new apartment in <see cref="ApartmentStatus.Available"/> status.</summary>
     public static Apartment Create(
         string societyId, string apartmentNumber, string blockName,
-        int floorNumber, int numberOfRooms, int parkingSlots)
+        int floorNumber, int numberOfRooms, IReadOnlyList<string>? parkingSlots)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(societyId, nameof(societyId));
         ArgumentException.ThrowIfNullOrWhiteSpace(apartmentNumber, nameof(apartmentNumber));
         ArgumentException.ThrowIfNullOrWhiteSpace(blockName, nameof(blockName));
         if (numberOfRooms < 1) throw new ArgumentOutOfRangeException(nameof(numberOfRooms), "Must be at least 1.");
-        if (parkingSlots < 0) throw new ArgumentOutOfRangeException(nameof(parkingSlots), "Cannot be negative.");
+
+        var normalizedParkingSlots = NormalizeParkingSlots(parkingSlots);
 
         var apartment = new Apartment
         {
@@ -35,7 +36,7 @@ public sealed class Apartment : BaseEntity
             BlockName = blockName.Trim().ToUpperInvariant(),
             FloorNumber = floorNumber,
             NumberOfRooms = numberOfRooms,
-            ParkingSlots = parkingSlots,
+            ParkingSlots = normalizedParkingSlots,
             Status = ApartmentStatus.Available
         };
         apartment.AddDomainEvent(new ApartmentCreatedEvent(apartment.Id, societyId, apartment.ApartmentNumber));
@@ -82,12 +83,29 @@ public sealed class Apartment : BaseEntity
     public void MarkAvailable() { Status = ApartmentStatus.Available; OwnerId = null; TenantId = null; TouchUpdatedAt(); }
 
     /// <summary>Updates mutable apartment details.</summary>
-    public void Update(string blockName, int floorNumber, int numberOfRooms, int parkingSlots)
+    public void Update(string blockName, int floorNumber, int numberOfRooms, IReadOnlyList<string>? parkingSlots)
     {
         if (!string.IsNullOrWhiteSpace(blockName)) BlockName = blockName.Trim().ToUpperInvariant();
         FloorNumber = floorNumber;
         if (numberOfRooms > 0) NumberOfRooms = numberOfRooms;
-        if (parkingSlots >= 0) ParkingSlots = parkingSlots;
+        ParkingSlots = NormalizeParkingSlots(parkingSlots);
         TouchUpdatedAt();
+    }
+
+    private static IReadOnlyList<string> NormalizeParkingSlots(IReadOnlyList<string>? parkingSlots)
+    {
+        if (parkingSlots is null || parkingSlots.Count == 0)
+            return [];
+
+        var normalized = new List<string>(parkingSlots.Count);
+        foreach (var slot in parkingSlots)
+        {
+            if (string.IsNullOrWhiteSpace(slot))
+                throw new ArgumentException("Parking slot identifiers cannot be empty.", nameof(parkingSlots));
+
+            normalized.Add(slot.Trim().ToUpperInvariant());
+        }
+
+        return normalized;
     }
 }

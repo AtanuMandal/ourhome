@@ -1,5 +1,52 @@
 .search-bar { margin-bottom: 16px; }
 
+.upload-card {
+  margin-bottom: 16px;
+
+  h3 {
+    margin: 0 0 4px;
+  }
+
+  p {
+    margin: 0;
+  }
+}
+
+.upload-header {
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.upload-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.selected-file,
+.upload-help {
+  margin-top: 12px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.import-summary {
+  margin-top: 12px;
+  font-size: 14px;
+}
+
+.import-errors {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #b3261e;
+  font-size: 13px;
+}
+
 .apt-list { display: flex; flex-direction: column; gap: 8px; }
 
 .apt-card {

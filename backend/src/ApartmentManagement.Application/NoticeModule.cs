@@ -196,7 +196,7 @@ public sealed class GetActiveNoticesQueryHandler(INoticeRepository noticeReposit
                 request.SocietyId, request.Pagination.Page, request.Pagination.PageSize, ct);
 
             var filtered = request.Category.HasValue
-                ? active.Where(n => n.Category == request.Category.Value).ToList()
+                ? active.Where(n => n.Category == request.Category.Value).ToList()  
                 : active.ToList();
 
             var items = filtered.Select(n => n.ToResponse()).ToList();

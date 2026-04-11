@@ -44,9 +44,12 @@ public sealed class CreateApartmentCommandValidator : AbstractValidator<CreateAp
     {
         RuleFor(x => x.ApartmentNumber).NotEmpty();
         RuleFor(x => x.SocietyId).NotEmpty();
+        RuleFor(x => x.BlockName).NotEmpty();
         RuleFor(x => x.FloorNumber).GreaterThanOrEqualTo(0);
         RuleFor(x => x.NumberOfRooms).InclusiveBetween(1, 20);
-        RuleFor(x => x.ParkingSlots).InclusiveBetween(0, 10);
+        RuleFor(x => x.ParkingSlots).NotNull().Must(slots => slots.Count <= 10)
+            .WithMessage("No more than 10 parking slots can be assigned.");
+        RuleForEach(x => x.ParkingSlots).NotEmpty().MaximumLength(50);
     }
 }
 

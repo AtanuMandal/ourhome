@@ -17,7 +17,7 @@ namespace ApartmentManagement.Application.Commands.Apartment
 
 public record CreateApartmentCommand(
     string SocietyId, string ApartmentNumber, string BlockName, int FloorNumber,
-    int NumberOfRooms, int ParkingSlots, string? OwnerId)
+    int NumberOfRooms, IReadOnlyList<string> ParkingSlots, string? OwnerId)
     : IRequest<Result<ApartmentResponse>>;
 
 public sealed class CreateApartmentCommandHandler(
@@ -63,7 +63,7 @@ public sealed class CreateApartmentCommandHandler(
 
 public record UpdateApartmentCommand(
     string SocietyId, string ApartmentId, string BlockName, int FloorNumber,
-    int NumberOfRooms, int ParkingSlots)
+    int NumberOfRooms, IReadOnlyList<string> ParkingSlots)
     : IRequest<Result<ApartmentResponse>>;
 
 public sealed class UpdateApartmentCommandHandler(
@@ -180,6 +180,7 @@ public record BulkImportApartmentsCommand(string SocietyId, List<CreateApartment
 
 public sealed class BulkImportApartmentsCommandHandler(
     IApartmentRepository apartmentRepository,
+    IEventPublisher eventPublisher,
     ILogger<BulkImportApartmentsCommandHandler> logger)
     : IRequestHandler<BulkImportApartmentsCommand, Result<BulkImportResult>>
 {
@@ -207,7 +208,10 @@ public sealed class BulkImportApartmentsCommandHandler(
                 if (!string.IsNullOrWhiteSpace(req.OwnerId))
                     apartment.AssignOwner(req.OwnerId);
 
-                await apartmentRepository.CreateAsync(apartment, ct);
+                var created = await apartmentRepository.CreateAsync(apartment, ct);
+                foreach (var evt in created.DomainEvents)
+                    await eventPublisher.PublishAsync(evt, ct);
+                created.ClearDomainEvents();
                 succeeded++;
             }
             catch (Exception ex)

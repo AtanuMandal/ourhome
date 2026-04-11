@@ -8,7 +8,7 @@ export interface Apartment {
   blockName: string;
   floorNumber: number;
   numberOfRooms: number;
-  parkingSlots: number;
+  parkingSlots: string[];
   status: ApartmentStatus;
   ownerId?: string;
   tenantId?: string;
@@ -20,7 +20,7 @@ export interface CreateApartmentDto {
   blockName: string;
   floorNumber: number;
   numberOfRooms: number;
-  parkingSlots: number;
+  parkingSlots: string[];
   ownerId?: string;
 }
 
@@ -28,5 +28,17 @@ export interface UpdateApartmentDto {
   blockName: string;
   floorNumber: number;
   numberOfRooms: number;
-  parkingSlots: number;
+  parkingSlots: string[];
+}
+
+export interface ChangeApartmentStatusDto {
+  status: Extract<ApartmentStatus, 'Available' | 'UnderMaintenance'>;
+  reason: string;
+}
+
+export interface BulkImportResult {
+  totalRequested: number;
+  succeeded: number;
+  failed: number;
+  errors: string[];
 }

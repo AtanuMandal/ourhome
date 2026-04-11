@@ -5,6 +5,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { CreateApartmentDto, UpdateApartmentDto } from '../../core/models/apartment.model';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 import { ApartmentService } from '../../core/services/apartment.service';
 import { AuthService } from '../../core/services/auth.service';
@@ -31,6 +32,9 @@ import { AuthService } from '../../core/services/auth.service';
           <mat-form-field appearance="fill" class="full-width">
             <mat-label>Block Name</mat-label>
             <input matInput formControlName="blockName" placeholder="e.g. Block A">
+            @if (form.get('blockName')?.invalid && form.get('blockName')?.touched) {
+              <mat-error>Block name is required</mat-error>
+            }
           </mat-form-field>
 
           <mat-form-field appearance="fill" class="full-width">
@@ -45,7 +49,8 @@ import { AuthService } from '../../core/services/auth.service';
 
           <mat-form-field appearance="fill" class="full-width">
             <mat-label>Parking Slots</mat-label>
-            <input matInput type="number" formControlName="parkingSlots">
+            <input matInput formControlName="parkingSlots" placeholder="e.g. P1, P2">
+            <mat-hint>Enter parking slot identifiers separated by commas.</mat-hint>
           </mat-form-field>
 
           <button mat-raised-button color="primary" type="submit"
@@ -59,7 +64,7 @@ import { AuthService } from '../../core/services/auth.service';
   `,
 })
 export class ApartmentFormComponent implements OnInit {
-  private readonly fb     = inject(FormBuilder);
+  private readonly fb     = inject(FormBuilder).nonNullable;
   private readonly svc    = inject(ApartmentService);
   private readonly auth   = inject(AuthService);
   private readonly route  = inject(ActivatedRoute);
@@ -70,10 +75,10 @@ export class ApartmentFormComponent implements OnInit {
 
   readonly form = this.fb.group({
     apartmentNumber: ['', Validators.required],
-    blockName:       [''],
-    floorNumber:     [1, Validators.required],
-    numberOfRooms:   [1, Validators.required],
-    parkingSlots:    [0],
+    blockName:       ['', Validators.required],
+    floorNumber:     [1, [Validators.required, Validators.min(0)]],
+    numberOfRooms:   [1, [Validators.required, Validators.min(1)]],
+    parkingSlots:    [''],
   });
 
   ngOnInit() {
@@ -82,7 +87,16 @@ export class ApartmentFormComponent implements OnInit {
       const sid = this.auth.societyId()!;
       this.loading.set(true);
       this.svc.get(sid, this.editId).subscribe({
-        next: a => { this.form.patchValue(a as any); this.loading.set(false); },
+        next: a => {
+          this.form.patchValue({
+            apartmentNumber: a.apartmentNumber,
+            blockName: a.blockName,
+            floorNumber: a.floorNumber,
+            numberOfRooms: a.numberOfRooms,
+            parkingSlots: a.parkingSlots.join(', '),
+          });
+          this.loading.set(false);
+        },
         error: () => this.loading.set(false),
       });
     }
@@ -92,9 +106,25 @@ export class ApartmentFormComponent implements OnInit {
     if (this.form.invalid) return;
     const sid = this.auth.societyId()!;
     this.loading.set(true);
+    const value = this.form.getRawValue();
+    const parkingSlots = value.parkingSlots
+      .split(/[;,|]/)
+      .map(slot => slot.trim())
+      .filter(Boolean);
     const action = this.editId
-      ? this.svc.update(sid, this.editId, this.form.value as any)
-      : this.svc.create(sid, this.form.value as any);
+      ? this.svc.update(sid, this.editId, {
+          blockName: value.blockName.trim(),
+          floorNumber: value.floorNumber,
+          numberOfRooms: value.numberOfRooms,
+          parkingSlots,
+        } satisfies UpdateApartmentDto)
+      : this.svc.create(sid, {
+          apartmentNumber: value.apartmentNumber.trim(),
+          blockName: value.blockName.trim(),
+          floorNumber: value.floorNumber,
+          numberOfRooms: value.numberOfRooms,
+          parkingSlots,
+        } satisfies CreateApartmentDto);
     action.subscribe({
       next: a => { this.loading.set(false); this.router.navigate(['/apartments', a.id]); },
       error: () => this.loading.set(false),

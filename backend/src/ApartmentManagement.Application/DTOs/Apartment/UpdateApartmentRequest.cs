@@ -4,5 +4,5 @@ public record UpdateApartmentRequest(
     string BlockName,
     int FloorNumber,
     int NumberOfRooms,
-    int ParkingSlots
+    IReadOnlyList<string> ParkingSlots
 );

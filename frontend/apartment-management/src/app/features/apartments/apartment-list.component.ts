@@ -4,6 +4,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { FormsModule } from '@angular/forms';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 import { StatusChipComponent } from '../../shared/components/status-chip/status-chip.component';
@@ -11,16 +13,63 @@ import { LoadingSpinnerComponent } from '../../shared/components/loading-spinner
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 import { ApartmentService } from '../../core/services/apartment.service';
 import { AuthService } from '../../core/services/auth.service';
-import { Apartment } from '../../core/models/apartment.model';
+import { Apartment, BulkImportResult } from '../../core/models/apartment.model';
 
 @Component({
   selector: 'app-apartment-list',
   standalone: true,
   imports: [RouterLink, FormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule,
-            PageHeaderComponent, StatusChipComponent, LoadingSpinnerComponent, EmptyStateComponent],
+            MatProgressBarModule, PageHeaderComponent, StatusChipComponent, LoadingSpinnerComponent, EmptyStateComponent],
   template: `
     <app-page-header title="Apartments"></app-page-header>
     <div class="page-content">
+      @if (uploading()) { <mat-progress-bar mode="indeterminate"></mat-progress-bar> }
+      @if (isAdmin()) {
+        <div class="card upload-card">
+          <div class="upload-header">
+            <div>
+              <h3>Bulk apartment onboarding</h3>
+              <p>Upload a CSV to create apartments in one go.</p>
+            </div>
+            <input #csvInput type="file" accept=".csv,text/csv" hidden (change)="onFileSelected($event)">
+            <div class="upload-actions">
+              <button mat-stroked-button type="button" (click)="csvInput.click()" [disabled]="uploading()">
+                Choose CSV
+              </button>
+              <button mat-raised-button color="primary" type="button"
+                      (click)="uploadCsv(csvInput)" [disabled]="uploading() || !selectedFile()">
+                Upload
+              </button>
+            </div>
+          </div>
+
+          @if (selectedFileName()) {
+            <p class="selected-file">Selected file: {{ selectedFileName() }}</p>
+          }
+
+          <p class="upload-help">
+            Required columns: apartmentNumber or apartmentId, blockName, floorNumber, numberOfRooms,
+            parkingSlots. Put multiple slot IDs in one field separated by <code>|</code>, <code>;</code>, or commas. Optional: ownerId.
+          </p>
+
+          @if (importResult()) {
+            <div class="import-summary">
+              <strong>{{ importResult()!.succeeded }}</strong> imported,
+              <strong>{{ importResult()!.failed }}</strong> failed out of
+              <strong>{{ importResult()!.totalRequested }}</strong>.
+            </div>
+
+            @if (importResult()!.errors.length) {
+              <div class="import-errors">
+                @for (error of importResult()!.errors; track error) {
+                  <div>{{ error }}</div>
+                }
+              </div>
+            }
+          }
+        </div>
+      }
+
       <div class="search-bar">
         <mat-form-field appearance="fill" class="full-width" style="margin-bottom:-8px">
           <mat-icon matPrefix>search</mat-icon>
@@ -61,9 +110,14 @@ import { Apartment } from '../../core/models/apartment.model';
 export class ApartmentListComponent implements OnInit {
   private readonly svc  = inject(ApartmentService);
   private readonly auth = inject(AuthService);
+  private readonly snackBar = inject(MatSnackBar);
 
   readonly loading = signal(true);
-  readonly items   = signal<Apartment[]>([]);
+  readonly uploading = signal(false);
+  readonly items = signal<Apartment[]>([]);
+  readonly selectedFile = signal<File | null>(null);
+  readonly selectedFileName = signal('');
+  readonly importResult = signal<BulkImportResult | null>(null);
   readonly isAdmin = this.auth.isAdmin;
   search = '';
 
@@ -77,10 +131,54 @@ export class ApartmentListComponent implements OnInit {
   }
 
   ngOnInit() {
+    this.loadApartments();
+  }
+
+  onFileSelected(event: Event) {
+    const input = event.target as HTMLInputElement | null;
+    const file = input?.files?.item(0) ?? null;
+    this.selectedFile.set(file);
+    this.selectedFileName.set(file?.name ?? '');
+  }
+
+  uploadCsv(input: HTMLInputElement) {
     const sid = this.auth.societyId();
-    if (!sid) { this.loading.set(false); return; }
+    const file = this.selectedFile();
+    if (!sid || !file) return;
+
+    this.uploading.set(true);
+    this.importResult.set(null);
+    this.svc.uploadCsv(sid, file).subscribe({
+      next: result => {
+        this.importResult.set(result);
+        this.uploading.set(false);
+        this.selectedFile.set(null);
+        this.selectedFileName.set('');
+        input.value = '';
+        this.loadApartments();
+        this.snackBar.open(
+          `Imported ${result.succeeded} apartment(s) with ${result.failed} failure(s).`,
+          'Dismiss',
+          { duration: 4000 }
+        );
+      },
+      error: () => this.uploading.set(false),
+    });
+  }
+
+  private loadApartments() {
+    const sid = this.auth.societyId();
+    if (!sid) {
+      this.loading.set(false);
+      return;
+    }
+
+    this.loading.set(true);
     this.svc.list(sid).subscribe({
-      next: r => { this.items.set(r.items ?? []); this.loading.set(false); },
+      next: r => {
+        this.items.set(r.items ?? []);
+        this.loading.set(false);
+      },
       error: () => this.loading.set(false),
     });
   }
