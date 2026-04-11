@@ -63,7 +63,19 @@ public sealed class CreateUserCommandValidator : AbstractValidator<CreateUserCom
         RuleFor(x => x.Email).NotEmpty().EmailAddress();
         RuleFor(x => x.Phone).NotEmpty();
         RuleFor(x => x.Role).IsInEnum();
+        RuleFor(x => x.ResidentType).IsInEnum();
         RuleFor(x => x.SocietyId).NotEmpty();
+        When(x => x.Role == UserRole.SUAdmin, () =>
+        {
+            RuleFor(x => x.ApartmentId).Empty();
+            RuleFor(x => x.ResidentType).Equal(ResidentType.SocietyAdmin);
+        });
+        When(x => x.Role == UserRole.SUUser, () =>
+        {
+            RuleFor(x => x.ApartmentId)
+                .NotEmpty()
+                .When(x => x.ResidentType is ResidentType.Owner or ResidentType.Tenant or ResidentType.FamilyMember or ResidentType.CoOccupant);
+        });
     }
 }
 

@@ -6,8 +6,8 @@
 
     <div class="auth-brand">
       <span class="material-icons otp-icon">lock_open</span>
-      <h1>Verify OTP</h1>
-      <p>Enter the code sent to <strong>{{ email() }}</strong></p>
+      <h1>Reset password</h1>
+      <p>Request an OTP, then set a new password for your account.</p>
     </div>
 
     @if (loading()) {
@@ -21,20 +21,59 @@
       </div>
     }
 
-    <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
-      <mat-form-field appearance="fill" class="full-width otp-field">
-        <mat-label>OTP Code</mat-label>
-        <input matInput formControlName="otp" type="text" placeholder="123456"
-               inputmode="numeric" autocomplete="one-time-code" maxlength="8">
-        @if (form.get('otp')?.invalid && form.get('otp')?.touched) {
-          <mat-error>Please enter the OTP</mat-error>
+    <form [formGroup]="form" novalidate>
+      <mat-form-field appearance="fill" class="full-width">
+        <mat-label>Email Address</mat-label>
+        <mat-icon matPrefix>email</mat-icon>
+        <input matInput type="email" formControlName="email" autocomplete="email">
+        @if (form.get('email')?.invalid && form.get('email')?.touched) {
+          <mat-error>Valid email is required</mat-error>
         }
       </mat-form-field>
 
-      <button mat-raised-button color="primary" type="submit"
-              class="full-width submit-btn" [disabled]="loading() || form.invalid">
-        @if (loading()) { Verifying… } @else { Verify & Sign In }
-      </button>
+      @if (options().length > 0 && !requested()) {
+        <mat-form-field appearance="fill" class="full-width">
+          <mat-label>Select account</mat-label>
+          <mat-icon matPrefix>person</mat-icon>
+          <mat-select formControlName="selectedUserId">
+            @for (option of options(); track option.userId) {
+              <mat-option [value]="option.userId">{{ labelFor(option) }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      }
+
+      @if (!requested()) {
+        <button mat-raised-button color="primary" type="button"
+                class="full-width submit-btn"
+                [disabled]="loading() || form.get('email')?.invalid"
+                (click)="options().length > 0 ? selectAccount() : requestReset()">
+          @if (loading()) { Sending OTP… } @else if (options().length > 0) { Send OTP to selected account } @else { Send reset OTP }
+        </button>
+      } @else {
+        <mat-form-field appearance="fill" class="full-width otp-field">
+          <mat-label>OTP Code</mat-label>
+          <input matInput formControlName="otp" type="text" placeholder="123456"
+                 inputmode="numeric" autocomplete="one-time-code" maxlength="8">
+          @if (form.get('otp')?.invalid && form.get('otp')?.touched) {
+            <mat-error>Please enter the OTP</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="fill" class="full-width">
+          <mat-label>New Password</mat-label>
+          <mat-icon matPrefix>lock</mat-icon>
+          <input matInput type="password" formControlName="newPassword" autocomplete="new-password">
+          @if (form.get('newPassword')?.invalid && form.get('newPassword')?.touched) {
+            <mat-error>Password must be at least 8 characters</mat-error>
+          }
+        </mat-form-field>
+
+        <button mat-raised-button color="primary" type="button"
+                class="full-width submit-btn" [disabled]="loading()" (click)="submit()">
+          @if (loading()) { Resetting… } @else { Reset password }
+        </button>
+      }
     </form>
   </div>
 </div>

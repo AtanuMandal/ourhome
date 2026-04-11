@@ -12,7 +12,7 @@
    - Remove residents when they move out.
 
 3. **Resident Roles and Permissions**
-   - Define roles for residents (e.g., Owner, Tenant, Admin).
+   - Define roles for residents (e.g., Owner, Tenant).
    - Assign permissions based on roles (e.g., Owners can view financials, Tenants cannot).
 
 4. **Verification Process**
@@ -24,4 +24,7 @@
    - Send reminders for incomplete onboarding processes.
 
 6. **Apartment change of hannds**
-- 
+   - Owners can sell apartment to new owners but history of ownership to be maintained
+   - Owners should be able to add famility members
+   - For tenants they can add co-occupant
+   - tenent history to be kept in the system

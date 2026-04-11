@@ -35,6 +35,8 @@ public static class MappingExtensions
             apartment.Status.ToString(),
             apartment.OwnerId,
             apartment.TenantId,
+            apartment.OwnershipHistory.Select(h => new ApartmentResidentHistoryDto(h.UserId, h.FullName, h.FromUtc, h.ToUtc)).ToList(),
+            apartment.TenantHistory.Select(h => new ApartmentResidentHistoryDto(h.UserId, h.FullName, h.FromUtc, h.ToUtc)).ToList(),
             apartment.CreatedAt);
 
     public static UserResponse ToResponse(this User user) =>
@@ -45,10 +47,27 @@ public static class MappingExtensions
             user.Email,
             user.Phone,
             user.Role.ToString(),
+            user.ResidentType.ToString(),
             user.ApartmentId,
+            user.InvitedByUserId,
             user.IsActive,
             user.IsVerified,
+            user.HasPassword,
+            user.GetPermissions(),
             user.CreatedAt);
+
+    public static AuthUserDto ToAuthUser(this User user) =>
+        new(
+            user.Id,
+            user.SocietyId,
+            user.FullName,
+            user.Email,
+            user.Phone,
+            user.Role.ToString(),
+            user.ResidentType.ToString(),
+            user.ApartmentId,
+            user.IsVerified,
+            user.GetPermissions());
 
     public static AmenityResponse ToResponse(this Amenity amenity) =>
         new(
@@ -204,4 +223,34 @@ public static class MappingExtensions
             request.Rating,
             request.ReviewComment,
             request.CreatedAt);
+
+    public static IReadOnlyList<string> GetPermissions(this User user)
+    {
+        var permissions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (user.Role is Domain.Enums.UserRole.HQAdmin or Domain.Enums.UserRole.SUAdmin)
+        {
+            permissions.Add("manage_society");
+            permissions.Add("view_financials");
+            permissions.Add("transfer_ownership");
+            permissions.Add("transfer_tenancy");
+            permissions.Add("add_family_member");
+            permissions.Add("add_cooccupant");
+        }
+
+        switch (user.ResidentType)
+        {
+            case Domain.Enums.ResidentType.Owner:
+                permissions.Add("view_financials");
+                permissions.Add("transfer_ownership");
+                permissions.Add("add_family_member");
+                break;
+            case Domain.Enums.ResidentType.Tenant:
+                permissions.Add("transfer_tenancy");
+                permissions.Add("add_cooccupant");
+                break;
+        }
+
+        return permissions.ToList();
+    }
 }

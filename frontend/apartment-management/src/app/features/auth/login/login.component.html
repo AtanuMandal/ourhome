@@ -19,15 +19,6 @@
 
     <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
       <mat-form-field appearance="fill" class="full-width">
-        <mat-label>Society ID</mat-label>
-        <mat-icon matPrefix>location_city</mat-icon>
-        <input matInput formControlName="societyId" placeholder="Enter your society ID" autocomplete="off">
-        @if (form.get('societyId')?.invalid && form.get('societyId')?.touched) {
-          <mat-error>Society ID is required</mat-error>
-        }
-      </mat-form-field>
-
-      <mat-form-field appearance="fill" class="full-width">
         <mat-label>Email Address</mat-label>
         <mat-icon matPrefix>email</mat-icon>
         <input matInput type="email" formControlName="email" placeholder="you@example.com" autocomplete="email">
@@ -36,10 +27,33 @@
         }
       </mat-form-field>
 
+      <mat-form-field appearance="fill" class="full-width">
+        <mat-label>Password</mat-label>
+        <mat-icon matPrefix>lock</mat-icon>
+        <input matInput type="password" formControlName="password" autocomplete="current-password">
+        @if (form.get('password')?.invalid && form.get('password')?.touched) {
+          <mat-error>Password must be at least 8 characters</mat-error>
+        }
+      </mat-form-field>
+
+      @if (options().length > 0) {
+        <mat-form-field appearance="fill" class="full-width">
+          <mat-label>Select your account</mat-label>
+          <mat-icon matPrefix>person</mat-icon>
+          <mat-select formControlName="selectedUserId">
+            @for (option of options(); track option.userId) {
+              <mat-option [value]="option.userId">{{ labelFor(option) }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      }
+
       <button mat-raised-button color="primary" type="submit"
               class="full-width submit-btn" [disabled]="loading() || form.invalid">
-        @if (loading()) { Sending OTP… } @else { Send OTP }
+        @if (loading()) { Signing in… } @else if (options().length > 0) { Continue } @else { Sign in }
       </button>
     </form>
+
+    <a routerLink="/auth/verify-otp" class="forgot-link">Forgot password?</a>
   </div>
 </div>

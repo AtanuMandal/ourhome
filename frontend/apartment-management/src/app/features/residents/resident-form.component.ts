@@ -51,6 +51,17 @@ import { AuthService } from '../../core/services/auth.service';
           </mat-form-field>
 
           <mat-form-field appearance="fill" class="full-width">
+            <mat-label>Resident Type</mat-label>
+            <mat-select formControlName="residentType">
+              <mat-option value="SocietyAdmin">Society Admin</mat-option>
+              <mat-option value="Owner">Owner</mat-option>
+              <mat-option value="Tenant">Tenant</mat-option>
+              <mat-option value="FamilyMember">Family Member</mat-option>
+              <mat-option value="CoOccupant">Co-Occupant</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="fill" class="full-width">
             <mat-label>Apartment ID (optional)</mat-label>
             <input matInput formControlName="apartmentId" placeholder="Leave blank if not assigned">
           </mat-form-field>
@@ -78,6 +89,7 @@ export class ResidentFormComponent {
     email:       ['', [Validators.required, Validators.email]],
     phone:       [''],
     role:        ['SUUser', Validators.required],
+    residentType:['Owner', Validators.required],
     apartmentId: [''],
   });
 
@@ -88,11 +100,12 @@ export class ResidentFormComponent {
     this.loading.set(true);
     this.svc.register(sid, {
       fullName:    v.fullName!,
-      email:       v.email!,
-      phone:       v.phone ?? '',
-      role:        v.role!,
-      apartmentId: v.apartmentId || undefined,
-    }).subscribe({
+       email:       v.email!,
+       phone:       v.phone ?? '',
+       role:        v.role!,
+       residentType:v.residentType!,
+       apartmentId: v.apartmentId || undefined,
+     }).subscribe({
       next: () => { this.loading.set(false); this.router.navigate(['/residents']); },
       error: () => this.loading.set(false),
     });

@@ -12,7 +12,16 @@ export interface Apartment {
   status: ApartmentStatus;
   ownerId?: string;
   tenantId?: string;
+  ownershipHistory?: ApartmentResidentHistory[];
+  tenantHistory?: ApartmentResidentHistory[];
   createdAt: string;
+}
+
+export interface ApartmentResidentHistory {
+  userId: string;
+  fullName: string;
+  startDate: string;
+  endDate?: string;
 }
 
 export interface CreateApartmentDto {

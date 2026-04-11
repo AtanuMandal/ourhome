@@ -52,11 +52,36 @@ export class UserService {
     return this.api.get<User>(`societies/${societyId}/users/${id}`);
   }
 
-  register(societyId: string, dto: { fullName: string; email: string; phone?: string; role: string; apartmentId?: string }) {
+  register(societyId: string, dto: {
+    fullName: string;
+    email: string;
+    phone?: string;
+    role: string;
+    residentType: string;
+    apartmentId?: string;
+    invitedByUserId?: string;
+  }) {
     return this.api.post<User>(`societies/${societyId}/users`, dto);
   }
 
   list(societyId: string, page = 1, pageSize = 20) {
     return this.api.getPaged<User>(`societies/${societyId}/users`, page, pageSize);
+  }
+
+  transferOwnership(societyId: string, apartmentId: string, dto: { fullName: string; email: string; phone: string }) {
+    return this.api.post<User>(`societies/${societyId}/apartments/${apartmentId}/ownership-transfer`, dto);
+  }
+
+  transferTenancy(societyId: string, apartmentId: string, dto: { fullName: string; email: string; phone: string }) {
+    return this.api.post<User>(`societies/${societyId}/apartments/${apartmentId}/tenancy-transfer`, dto);
+  }
+
+  addHouseholdMember(societyId: string, apartmentId: string, dto: {
+    fullName: string;
+    email: string;
+    phone: string;
+    residentType: 'FamilyMember' | 'CoOccupant';
+  }) {
+    return this.api.post<User>(`societies/${societyId}/apartments/${apartmentId}/household-members`, dto);
   }
 }

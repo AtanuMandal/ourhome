@@ -23,8 +23,9 @@ public class ApartmentUserIntegrationTests : IntegrationTestBase
     private static CreateUserCommand UserCmd(
         string email = "resident@test.com",
         UserRole role = UserRole.SUUser,
+        ResidentType residentType = ResidentType.SocietyAdmin,
         string? apartmentId = null) =>
-        new(SocietyId, "John Resident", email, "+91-9876543210", role, apartmentId);
+        new(SocietyId, "John Resident", email, "+91-9876543210", role, residentType, apartmentId);
 
     // ─── Apartment: create → retrieve ────────────────────────────────────────
 
@@ -123,7 +124,8 @@ public class ApartmentUserIntegrationTests : IntegrationTestBase
         createResult.IsSuccess.Should().BeTrue();
         var user = createResult.Value!;
         user.Email.Should().Be("alice@test.com");
-        user.Role.Should().Be("Owner");
+        user.Role.Should().Be("SUUser");
+        user.ResidentType.Should().Be("SocietyAdmin");
         user.IsActive.Should().BeTrue();
         user.IsVerified.Should().BeFalse();
 
@@ -237,7 +239,7 @@ public class ApartmentUserIntegrationTests : IntegrationTestBase
         var apt = (await Mediator.Send(AptCmd("601", "F", 6, 3, "P1"))).Value!;
 
         // Create user with reference to that apartment
-        var user = (await Mediator.Send(UserCmd("iris@test.com", UserRole.SUUser, apt.Id))).Value!;
+        var user = (await Mediator.Send(UserCmd("iris@test.com", UserRole.SUUser, ResidentType.Owner, apt.Id))).Value!;
 
         // Verify user is linked
         user.ApartmentId.Should().Be(apt.Id);

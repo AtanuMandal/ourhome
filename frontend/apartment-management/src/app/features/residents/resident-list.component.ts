@@ -30,13 +30,14 @@ import { User } from '../../core/models/user.model';
           @for (r of items(); track r.id) {
             <div class="resident-card">
               <div class="avatar">{{ (r.fullName ?? r.name ?? '?')[0] }}</div>
-              <div class="rc-info">
-                <span class="rc-name">{{ r.fullName ?? r.name }}</span>
-                <span class="rc-role">{{ r.role }}</span>
-                <span class="rc-email">{{ r.email }}</span>
-                @if (r.phone) { <span class="rc-phone">{{ r.phone }}</span> }
-              </div>
-            </div>
+               <div class="rc-info">
+                 <span class="rc-name">{{ r.fullName ?? r.name }}</span>
+                 <span class="rc-role">{{ r.role }} - {{ r.residentType }}</span>
+                 <span class="rc-email">{{ r.email }}</span>
+                 @if (r.apartmentId) { <span class="rc-phone">Apartment: {{ r.apartmentId }}</span> }
+                 @if (r.phone) { <span class="rc-phone">{{ r.phone }}</span> }
+               </div>
+             </div>
           }
         </div>
       }

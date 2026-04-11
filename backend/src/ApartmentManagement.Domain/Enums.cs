@@ -2,6 +2,7 @@ namespace ApartmentManagement.Domain.Enums;
 
 public enum SocietyStatus { Draft, Active, Inactive }
 public enum ApartmentStatus { Available, Occupied, UnderMaintenance }
+public enum ResidentType { SocietyAdmin, Owner, Tenant, FamilyMember, CoOccupant }
 /// <summary>
 /// HQ = HeadQuarters (platform-level). SU = Society Users (society-level).
 /// HQAdmin can create/manage societies. HQUser can view them.

@@ -80,6 +80,14 @@ public sealed class FakeUserRepository : FakeRepository<User>, IUserRepository
         return Task.FromResult<User?>(found);
     }
 
+    public Task<IReadOnlyList<User>> GetByEmailAcrossSocietiesAsync(string email, CancellationToken ct = default)
+    {
+        IReadOnlyList<User> result = Store.Values
+            .Where(u => u.Email.Equals(email, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        return Task.FromResult(result);
+    }
+
     public Task<User?> GetByPhoneAsync(string societyId, string phone, CancellationToken ct = default)
     {
         var found = Store.Values.FirstOrDefault(u =>

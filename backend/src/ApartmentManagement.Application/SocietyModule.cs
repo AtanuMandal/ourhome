@@ -49,7 +49,7 @@ public sealed class CreateSocietyCommandHandler(
             // Create the first SUAdmin (Housing Officer) for this society
             var adminUser = Domain.Entities.User.Create(
                 createdSociety.Id, request.AdminFullName, request.AdminEmail,
-                request.AdminPhone, UserRole.SUAdmin);
+                request.AdminPhone, UserRole.SUAdmin, ResidentType.SocietyAdmin);
 
             var createdAdmin = await userRepository.CreateAsync(adminUser, ct);
 
