@@ -1,17 +1,20 @@
 using ApartmentManagement.Application.Commands.Amenity;
-using ApartmentManagement.Application.Queries.Amenity;
 using ApartmentManagement.Application.Commands.Complaint;
-using ApartmentManagement.Application.Queries.Complaint;
 using ApartmentManagement.Application.Commands.Notice;
-using ApartmentManagement.Application.Queries.Notice;
 using ApartmentManagement.Application.Commands.Visitor;
+using ApartmentManagement.Application.Queries.Amenity;
+using ApartmentManagement.Application.Queries.Complaint;
+using ApartmentManagement.Application.Queries.Notice;
 using ApartmentManagement.Application.Queries.Visitor;
 using ApartmentManagement.Functions.Helpers;
+using ApartmentManagement.Shared.Exceptions;
 using ApartmentManagement.Shared.Models;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
+using System.ComponentModel.DataAnnotations;
+using System.Net;
 
 namespace ApartmentManagement.Functions.Http;
 
@@ -114,8 +117,26 @@ public class NoticeFunctions(ISender mediator)
     {
         var command = await req.DeserializeAsync<CreateNoticeCommand>(ct);
         if (command is null) return new BadRequestObjectResult("Invalid request body");
-        var result = await mediator.Send(command with { SocietyId = societyId }, ct);
-        return result.ToActionResult(201);
+        try
+        {
+            var result = await mediator.Send(command with { SocietyId = societyId }, ct);
+            return result.ToActionResult(201);
+        }
+
+        catch (ApartmentManagement.Shared.Exceptions.ValidationException vex)
+        {
+            return await req.ToValidationErrorResponse(vex);
+        }
+        catch (AppException aex)
+        {
+            return await req.ToAppErrorResponse(aex);
+        }
+        catch (Exception)
+        {
+            return new StatusCodeResult((int) HttpStatusCode.InternalServerError);
+           
+        }
+       
     }
 
     [Function("GetNotice")]

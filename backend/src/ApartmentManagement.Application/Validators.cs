@@ -104,6 +104,7 @@ public sealed class CreateNoticeCommandValidator : AbstractValidator<CreateNotic
             .WithMessage("Publish date cannot be in the past.");
         RuleFor(x => x.SocietyId).NotEmpty();
     }
+    //{CreateNoticeCommand { SocietyId = , UserId = 577df16c-19ca-4a30-b3ae-f439c9495bce, Title = ssgsgg, Content = sgsgsg, Category = General, PublishAt = 08-04-2026 11:53:00, ExpiresAt = , TargetApartmentIds =  }}
 }
 
 // ─── Visitor ──────────────────────────────────────────────────────────────────

@@ -9,6 +9,7 @@ using ApartmentManagement.Shared.Exceptions;
 using ApartmentManagement.Shared.Models;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using System.Text.Json.Serialization;
 
 namespace ApartmentManagement.Application.Commands.Notice
 {
@@ -17,7 +18,9 @@ namespace ApartmentManagement.Application.Commands.Notice
 
 public record CreateNoticeCommand(
     string SocietyId, string UserId, string Title, string Content,
-    NoticeCategory Category, DateTime PublishAt, DateTime? ExpiresAt, List<string> TargetApartmentIds)
+    [property: JsonConverter(typeof(JsonStringEnumConverter))]
+    NoticeCategory Category, 
+    DateTime PublishAt, DateTime? ExpiresAt, List<string> TargetApartmentIds)
     : IRequest<Result<NoticeResponse>>;
 
 public sealed class CreateNoticeCommandHandler(

@@ -1,7 +1,10 @@
+using ApartmentManagement.Shared.Exceptions;
 using ApartmentManagement.Shared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
+using System.Net;
 using System.Text;
 using System.Text.Json;
 
@@ -66,5 +69,40 @@ public static class HttpHelpers
             "VALIDATION_ERROR" => new BadRequestObjectResult(new { error = msg }),
             _ => new ObjectResult(new { error = msg }) { StatusCode = 500 }
         };
+    }
+
+
+    public static Task<IActionResult> ToValidationErrorResponse(this HttpRequest req, ValidationException ex)
+    {
+        var payload = new
+        {
+            errorCode = ex.ErrorCode,
+            message = ex.Message,
+            errors = ex.Errors // IDictionary<string,string[]>
+        };
+
+        var result = new ObjectResult(payload)
+        {
+            StatusCode = ex.StatusCode // 422 for ValidationException
+        };
+
+        return Task.FromResult<IActionResult>(result);
+    }
+
+    public static  Task<IActionResult> ToAppErrorResponse(this HttpRequest req, AppException ex)
+    {
+
+        var payload = new
+        {
+            errorCode = ex.ErrorCode,
+            message = ex.Message
+        };
+
+        var result = new ObjectResult(payload)
+        {
+            StatusCode = ex.StatusCode // 422 for ValidationException
+        };
+
+        return Task.FromResult<IActionResult>(result);
     }
 }
