@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { ApiService } from './api.service';
 import {
   Apartment,
+  ApartmentResidentHistoryResponse,
   BulkImportResult,
   ChangeApartmentStatusDto,
   CreateApartmentDto,
@@ -19,6 +20,10 @@ export class ApartmentService {
 
   get(societyId: string, id: string) {
     return this.api.get<Apartment>(`societies/${societyId}/apartments/${id}`);
+  }
+
+  getResidentHistory(societyId: string, id: string) {
+    return this.api.get<ApartmentResidentHistoryResponse>(`societies/${societyId}/apartments/${id}/resident-history`);
   }
 
   create(societyId: string, dto: CreateApartmentDto) {

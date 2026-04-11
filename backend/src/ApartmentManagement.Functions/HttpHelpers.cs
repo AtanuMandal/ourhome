@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace ApartmentManagement.Functions.Helpers;
 
@@ -15,7 +16,8 @@ public static class HttpHelpers
     private static readonly JsonSerializerOptions _json = new()
     {
         PropertyNameCaseInsensitive = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        Converters = { new JsonStringEnumConverter() }
     };
 
     public static async Task<T?> DeserializeAsync<T>(this HttpRequest req, CancellationToken ct,

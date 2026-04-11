@@ -1,4 +1,5 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -9,6 +10,9 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 import { UserService } from '../../core/services/apartment.service';
 import { AuthService } from '../../core/services/auth.service';
+
+type ResidentType = 'SocietyAdmin' | 'Owner' | 'Tenant' | 'FamilyMember' | 'CoOccupant';
+type UserRole = 'SUUser' | 'SUAdmin';
 
 @Component({
   selector: 'app-resident-form',
@@ -24,7 +28,7 @@ import { AuthService } from '../../core/services/auth.service';
           <mat-form-field appearance="fill" class="full-width">
             <mat-label>Full Name</mat-label>
             <input matInput formControlName="fullName">
-            @if (form.get('fullName')?.invalid && form.get('fullName')?.touched) {
+            @if (form.controls.fullName.invalid && form.controls.fullName.touched) {
               <mat-error>Full name is required</mat-error>
             }
           </mat-form-field>
@@ -32,7 +36,7 @@ import { AuthService } from '../../core/services/auth.service';
           <mat-form-field appearance="fill" class="full-width">
             <mat-label>Email</mat-label>
             <input matInput type="email" formControlName="email">
-            @if (form.get('email')?.invalid && form.get('email')?.touched) {
+            @if (form.controls.email.invalid && form.controls.email.touched) {
               <mat-error>Valid email is required</mat-error>
             }
           </mat-form-field>
@@ -40,6 +44,9 @@ import { AuthService } from '../../core/services/auth.service';
           <mat-form-field appearance="fill" class="full-width">
             <mat-label>Phone</mat-label>
             <input matInput type="tel" formControlName="phone">
+            @if (form.controls.phone.invalid && form.controls.phone.touched) {
+              <mat-error>Phone is required</mat-error>
+            }
           </mat-form-field>
 
           <mat-form-field appearance="fill" class="full-width">
@@ -62,8 +69,11 @@ import { AuthService } from '../../core/services/auth.service';
           </mat-form-field>
 
           <mat-form-field appearance="fill" class="full-width">
-            <mat-label>Apartment ID (optional)</mat-label>
-            <input matInput formControlName="apartmentId" placeholder="Leave blank if not assigned">
+            <mat-label>Apartment ID</mat-label>
+            <input matInput formControlName="apartmentId" [placeholder]="apartmentRequired() ? 'Required for resident accounts' : 'Not required for society admins'">
+            @if (form.controls.apartmentId.invalid && form.controls.apartmentId.touched) {
+              <mat-error>Apartment ID is required for non-admin residents</mat-error>
+            }
           </mat-form-field>
 
           <button mat-raised-button color="primary" type="submit"
@@ -77,37 +87,82 @@ import { AuthService } from '../../core/services/auth.service';
   `,
 })
 export class ResidentFormComponent {
-  private readonly fb     = inject(FormBuilder);
-  private readonly svc    = inject(UserService);
-  private readonly auth   = inject(AuthService);
+  private readonly fb = inject(FormBuilder).nonNullable;
+  private readonly svc = inject(UserService);
+  private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly loading = signal(false);
 
   readonly form = this.fb.group({
-    fullName:    ['', Validators.required],
-    email:       ['', [Validators.required, Validators.email]],
-    phone:       [''],
-    role:        ['SUUser', Validators.required],
-    residentType:['Owner', Validators.required],
+    fullName: ['', Validators.required],
+    email: ['', [Validators.required, Validators.email]],
+    phone: ['', Validators.required],
+    role: ['SUUser' as UserRole, Validators.required],
+    residentType: ['Owner' as ResidentType, Validators.required],
     apartmentId: [''],
   });
 
+  constructor() {
+    this.form.controls.role.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(role => {
+        if (role === 'SUAdmin') {
+          this.form.patchValue({ residentType: 'SocietyAdmin', apartmentId: '' }, { emitEvent: false });
+        } else if (this.form.controls.residentType.value === 'SocietyAdmin') {
+          this.form.patchValue({ residentType: 'Owner' }, { emitEvent: false });
+        }
+        this.syncApartmentValidation();
+      });
+
+    this.form.controls.residentType.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(residentType => {
+        if (residentType === 'SocietyAdmin') {
+          this.form.patchValue({ role: 'SUAdmin', apartmentId: '' }, { emitEvent: false });
+        } else if (this.form.controls.role.value === 'SUAdmin') {
+          this.form.patchValue({ role: 'SUUser' }, { emitEvent: false });
+        }
+        this.syncApartmentValidation();
+      });
+
+    this.syncApartmentValidation();
+  }
+
+  apartmentRequired() {
+    return this.form.controls.role.value === 'SUUser';
+  }
+
   submit() {
     if (this.form.invalid) return;
-    const sid = this.auth.societyId()!;
-    const v   = this.form.value;
+    const sid = this.auth.societyId();
+    if (!sid) return;
+
     this.loading.set(true);
+    const value = this.form.getRawValue();
     this.svc.register(sid, {
-      fullName:    v.fullName!,
-       email:       v.email!,
-       phone:       v.phone ?? '',
-       role:        v.role!,
-       residentType:v.residentType!,
-       apartmentId: v.apartmentId || undefined,
-     }).subscribe({
-      next: () => { this.loading.set(false); this.router.navigate(['/residents']); },
+      fullName: value.fullName.trim(),
+      email: value.email.trim(),
+      phone: value.phone.trim(),
+      role: value.role,
+      residentType: value.residentType,
+      apartmentId: value.apartmentId.trim() || undefined,
+    }).subscribe({
+      next: () => {
+        this.loading.set(false);
+        this.router.navigate(['/residents']);
+      },
       error: () => this.loading.set(false),
     });
+  }
+
+  private syncApartmentValidation() {
+    if (this.apartmentRequired()) {
+      this.form.controls.apartmentId.setValidators([Validators.required]);
+    } else {
+      this.form.controls.apartmentId.clearValidators();
+    }
+    this.form.controls.apartmentId.updateValueAndValidity({ emitEvent: false });
   }
 }

@@ -20,8 +20,17 @@ export interface Apartment {
 export interface ApartmentResidentHistory {
   userId: string;
   fullName: string;
-  startDate: string;
-  endDate?: string;
+  fromUtc: string;
+  toUtc?: string;
+}
+
+export interface ApartmentResidentHistoryResponse {
+  apartmentId: string;
+  apartmentNumber: string;
+  currentOwnerId?: string;
+  currentTenantId?: string;
+  ownershipHistory: ApartmentResidentHistory[];
+  tenantHistory: ApartmentResidentHistory[];
 }
 
 export interface CreateApartmentDto {

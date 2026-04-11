@@ -39,16 +39,30 @@ public record ApartmentResponse(
 
 public record ApartmentResidentHistoryDto(string UserId, string? FullName, DateTime FromUtc, DateTime? ToUtc);
 
-public record ChangeApartmentStatusRequest(ApartmentStatus Status, string Reason);
+public record ChangeApartmentStatusRequest(
+    [property: JsonConverter(typeof(JsonStringEnumConverter))] ApartmentStatus Status,
+    string Reason);
 
 public record BulkImportResult(int TotalRequested, int Succeeded, int Failed, List<string> Errors);
 
+public record ApartmentResidentHistoryResponse(
+    string ApartmentId,
+    string ApartmentNumber,
+    string? CurrentOwnerId,
+    string? CurrentTenantId,
+    IReadOnlyList<ApartmentResidentHistoryDto> OwnershipHistory,
+    IReadOnlyList<ApartmentResidentHistoryDto> TenantHistory);
+
 // ─── User ─────────────────────────────────────────────────────────────────────
 
-public record CreateUserRequest(string FullName, string Email, string Phone,
-    [JsonConverter(typeof(StringEnumConverter))] 
-    UserRole Role, 
-    ResidentType ResidentType, string? ApartmentId, string? InvitedByUserId = null);
+public record CreateUserRequest(
+    string FullName,
+    string Email,
+    string Phone,
+    [property: JsonConverter(typeof(JsonStringEnumConverter))] UserRole Role,
+    [property: JsonConverter(typeof(JsonStringEnumConverter))] ResidentType ResidentType,
+    string? ApartmentId,
+    string? InvitedByUserId = null);
 
 /// <summary>Request body for creating a platform-level HQ user (HQAdmin or HQUser only).</summary>
 public record CreateHQUserRequest(string FullName, string Email, string Phone, UserRole Role);
@@ -82,7 +96,12 @@ public record PasswordResetRequestResponse(bool RequiresSelection, string? UserI
 public record ConfirmPasswordResetRequest(string SocietyId, string UserId, string OtpCode, string NewPassword);
 public record TransferApartmentOwnershipRequest(string ApartmentId, string FullName, string Email, string Phone);
 public record TransferApartmentTenancyRequest(string ApartmentId, string FullName, string Email, string Phone);
-public record AddHouseholdMemberRequest(string ApartmentId, string FullName, string Email, string Phone, ResidentType ResidentType);
+public record AddHouseholdMemberRequest(
+    string ApartmentId,
+    string FullName,
+    string Email,
+    string Phone,
+    [property: JsonConverter(typeof(JsonStringEnumConverter))] ResidentType ResidentType);
 
 // ─── Amenity ─────────────────────────────────────────────────────────────────
 

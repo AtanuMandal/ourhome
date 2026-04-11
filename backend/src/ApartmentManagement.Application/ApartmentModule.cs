@@ -258,6 +258,32 @@ public sealed class GetApartmentQueryHandler(IApartmentRepository apartmentRepos
     }
 }
 
+public record GetApartmentResidentHistoryQuery(string SocietyId, string ApartmentId)
+    : IRequest<Result<ApartmentResidentHistoryResponse>>;
+
+public sealed class GetApartmentResidentHistoryQueryHandler(IApartmentRepository apartmentRepository)
+    : IRequestHandler<GetApartmentResidentHistoryQuery, Result<ApartmentResidentHistoryResponse>>
+{
+    public async Task<Result<ApartmentResidentHistoryResponse>> Handle(GetApartmentResidentHistoryQuery request, CancellationToken ct)
+    {
+        try
+        {
+            var apartment = await apartmentRepository.GetByIdAsync(request.ApartmentId, request.SocietyId, ct)
+                ?? throw new NotFoundException("Apartment", request.ApartmentId);
+
+            return Result<ApartmentResidentHistoryResponse>.Success(apartment.ToResidentHistoryResponse());
+        }
+        catch (NotFoundException ex)
+        {
+            return Result<ApartmentResidentHistoryResponse>.Failure(ErrorCodes.ApartmentNotFound, ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return Result<ApartmentResidentHistoryResponse>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
 public record GetApartmentsBySocietyQuery(
     string SocietyId, PaginationParams Pagination,
     ApartmentStatus? StatusFilter, string? BlockFilter)

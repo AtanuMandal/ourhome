@@ -35,6 +35,15 @@ public class ApartmentFunctions(ISender mediator)
         return result.ToActionResult();
     }
 
+    [Function("GetApartmentResidentHistory")]
+    public async Task<IActionResult> GetApartmentResidentHistory(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "societies/{societyId}/apartments/{id}/resident-history")] HttpRequest req,
+        string societyId, string id, CancellationToken ct)
+    {
+        var result = await mediator.Send(new GetApartmentResidentHistoryQuery(societyId, id), ct);
+        return result.ToActionResult();
+    }
+
     [Function("ListApartments")]
     public async Task<IActionResult> ListApartments(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "societies/{societyId}/apartments")] HttpRequest req,

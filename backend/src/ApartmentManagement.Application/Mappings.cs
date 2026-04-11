@@ -39,6 +39,15 @@ public static class MappingExtensions
             apartment.TenantHistory.Select(h => new ApartmentResidentHistoryDto(h.UserId, h.FullName, h.FromUtc, h.ToUtc)).ToList(),
             apartment.CreatedAt);
 
+    public static ApartmentResidentHistoryResponse ToResidentHistoryResponse(this Apartment apartment) =>
+        new(
+            apartment.Id,
+            apartment.ApartmentNumber,
+            apartment.OwnerId,
+            apartment.TenantId,
+            apartment.OwnershipHistory.Select(h => new ApartmentResidentHistoryDto(h.UserId, h.FullName, h.FromUtc, h.ToUtc)).ToList(),
+            apartment.TenantHistory.Select(h => new ApartmentResidentHistoryDto(h.UserId, h.FullName, h.FromUtc, h.ToUtc)).ToList());
+
     public static UserResponse ToResponse(this User user) =>
         new(
             user.Id,
