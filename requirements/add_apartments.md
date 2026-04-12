@@ -20,6 +20,9 @@ This document outlines the steps to add new apartments to an existing society in
      - Floor Number
      - Block/Building Name
      - Number of Rooms
+     - Carpet Area(SQRTFT)
+     - BuildUp Area(SQRTFT)
+     - SuperBuild Area(SQRTFT)
      - Owner/Resident Details (if available)
 
 5. **Save the Details**

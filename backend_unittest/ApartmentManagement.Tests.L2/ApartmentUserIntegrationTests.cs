@@ -18,7 +18,7 @@ public class ApartmentUserIntegrationTests : IntegrationTestBase
     private static CreateApartmentCommand AptCmd(
         string number = "101", string block = "A", int floor = 1,
         int rooms = 2, params string[] parkingSlots) =>
-        new(SocietyId, number, block, floor, rooms, parkingSlots, null);
+        new(SocietyId, number, block, floor, rooms, parkingSlots, null, 500, 600, 700);
 
     private static CreateUserCommand UserCmd(
         string email = "resident@test.com",
@@ -52,7 +52,7 @@ public class ApartmentUserIntegrationTests : IntegrationTestBase
     public async Task CreateApartment_WithOwner_OwnerIdIsSet()
     {
         var result = await Mediator.Send(
-            new CreateApartmentCommand(SocietyId, "102", "A", 1, 3, ["P1"], "owner-user-id"));
+            new CreateApartmentCommand(SocietyId, "102", "A", 1, 3, ["P1"], "owner-user-id", 500, 600, 700));
 
         result.IsSuccess.Should().BeTrue();
         result.Value!.OwnerId.Should().Be("owner-user-id");
@@ -76,7 +76,7 @@ public class ApartmentUserIntegrationTests : IntegrationTestBase
     {
         var apt = (await Mediator.Send(AptCmd("301", "C", 2, 2))).Value!;
 
-        var updateResult = await Mediator.Send(new UpdateApartmentCommand(SocietyId, apt.Id, "C", 3, 4, ["P2", "P3"]));
+        var updateResult = await Mediator.Send(new UpdateApartmentCommand(SocietyId, apt.Id, "C", 3, 4, ["P2", "P3"], 500, 600, 700));
 
         updateResult.IsSuccess.Should().BeTrue();
         updateResult.Value!.FloorNumber.Should().Be(3);

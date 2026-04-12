@@ -11,6 +11,9 @@ internal static class ApartmentCsvParser
     private static readonly string[] RoomAliases = ["numberofrooms", "rooms", "roomcount"];
     private static readonly string[] ParkingAliases = ["parkingslots", "parking", "parkingslotids"];
     private static readonly string[] OwnerIdAliases = ["ownerid", "owner"];
+    private static readonly string[] CarpetAreaAliases = ["carpetarea", "carpet"];
+    private static readonly string[] BuildUpAreaAliases = ["builduparea", "buildup"];
+    private static readonly string[] SuperBuildAreaAliases = ["superbuildarea", "superbuild"];
 
     public static async Task<List<CreateApartmentRequest>> ParseAsync(IFormFile file, CancellationToken ct)
     {
@@ -59,6 +62,9 @@ internal static class ApartmentCsvParser
             var numberOfRooms = GetRequiredInt(values, headerMap, RoomAliases, row.RowNumber, "Number of Rooms");
             var parkingSlots = GetParkingSlots(values, headerMap);
             var ownerId = GetOptionalValue(values, headerMap, OwnerIdAliases);
+            var carpetArea = GetOptionalDouble(values, headerMap, CarpetAreaAliases, row.RowNumber, "Carpet Area", 0);
+            var buildUpArea = GetOptionalDouble(values, headerMap, BuildUpAreaAliases, row.RowNumber, "Build Up Area", 0);
+            var superBuildArea = GetOptionalDouble(values, headerMap, SuperBuildAreaAliases, row.RowNumber, "Super Build Area", 0);
 
             apartments.Add(new CreateApartmentRequest(
                 apartmentNumber,
@@ -66,7 +72,10 @@ internal static class ApartmentCsvParser
                 floorNumber,
                 numberOfRooms,
                 parkingSlots,
-                string.IsNullOrWhiteSpace(ownerId) ? null : ownerId));
+                string.IsNullOrWhiteSpace(ownerId) ? null : ownerId,
+                carpetArea,
+                buildUpArea,
+                superBuildArea));
         }
 
         return apartments;
@@ -124,6 +133,24 @@ internal static class ApartmentCsvParser
         var raw = GetRequiredValue(values, headerMap, aliases, rowNumber, displayName);
         if (!int.TryParse(raw, out var parsed))
             throw new InvalidDataException($"Row {rowNumber} has an invalid integer value for '{displayName}': '{raw}'.");
+
+        return parsed;
+    }
+
+    private static double GetOptionalDouble(
+        IReadOnlyList<string> values,
+        IReadOnlyDictionary<string, int> headerMap,
+        IEnumerable<string> aliases,
+        int rowNumber,
+        string displayName,
+        double defaultValue)
+    {
+        var raw = GetOptionalValue(values, headerMap, aliases);
+        if (string.IsNullOrWhiteSpace(raw))
+            return defaultValue;
+
+        if (!double.TryParse(raw, out var parsed))
+            throw new InvalidDataException($"Row {rowNumber} has an invalid decimal value for '{displayName}': '{raw}'.");
 
         return parsed;
     }

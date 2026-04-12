@@ -50,6 +50,9 @@ public sealed class CreateApartmentCommandValidator : AbstractValidator<CreateAp
         RuleFor(x => x.ParkingSlots).NotNull().Must(slots => slots.Count <= 10)
             .WithMessage("No more than 10 parking slots can be assigned.");
         RuleForEach(x => x.ParkingSlots).NotEmpty().MaximumLength(50);
+        RuleFor(x => x.CarpetArea).GreaterThan(0).WithMessage("Carpet area must be greater than 0.");
+        RuleFor(x => x.BuildUpArea).GreaterThan(0).WithMessage("BuildUp area must be greater than 0.");
+        RuleFor(x => x.SuperBuildArea).GreaterThan(0).WithMessage("SuperBuild area must be greater than 0.");
     }
 }
 

@@ -13,7 +13,7 @@ public class ApartmentTests
     public void Create_WithValidParameters_ReturnsApartmentInAvailableStatus()
     {
         // Arrange & Act
-        var apartment = Apartment.Create(SocietyId, "A101", "A", 1, 3, ["P1"]);
+        var apartment = Apartment.Create(SocietyId, "A101", "A", 1, 3, ["P1"], 500, 600, 700);
 
         // Assert
         apartment.Id.Should().NotBeNullOrEmpty();
@@ -28,7 +28,7 @@ public class ApartmentTests
     public void Create_RaisesApartmentCreatedEvent()
     {
         // Arrange & Act
-        var apartment = Apartment.Create(SocietyId, "A101", "A", 1, 3, ["P1"]);
+        var apartment = Apartment.Create(SocietyId, "A101", "A", 1, 3, ["P1"], 500, 600, 700);
 
         // Assert
         apartment.DomainEvents.Should().ContainSingle(e => e is ApartmentCreatedEvent);
@@ -38,7 +38,7 @@ public class ApartmentTests
     public void Create_WithEmptyApartmentNumber_ThrowsArgumentException()
     {
         // Arrange & Act
-        var act = () => Apartment.Create(SocietyId, "", "A", 1, 3, ["P1"]);
+        var act = () => Apartment.Create(SocietyId, "", "A", 1, 3, ["P1"], 500, 600, 700);
 
         // Assert
         act.Should().Throw<ArgumentException>();
@@ -50,7 +50,7 @@ public class ApartmentTests
     public void Create_WithInvalidRooms_ThrowsArgumentOutOfRangeException(int rooms)
     {
         // Arrange & Act
-        var act = () => Apartment.Create(SocietyId, "A101", "A", 1, rooms, []);
+        var act = () => Apartment.Create(SocietyId, "A101", "A", 1, rooms, [], 500, 600, 700);
 
         // Assert
         act.Should().Throw<ArgumentOutOfRangeException>();
@@ -60,7 +60,7 @@ public class ApartmentTests
     public void Create_WithBlankParkingSlot_ThrowsArgumentException()
     {
         // Arrange & Act
-        var act = () => Apartment.Create(SocietyId, "A101", "A", 1, 3, [" "]);
+        var act = () => Apartment.Create(SocietyId, "A101", "A", 1, 3, [" "], 500, 600, 700);
 
         // Assert
         act.Should().Throw<ArgumentException>();
@@ -70,7 +70,7 @@ public class ApartmentTests
     public void AssignOwner_SetsOwnerAndStatusOccupied()
     {
         // Arrange
-        var apartment = Apartment.Create(SocietyId, "A101", "A", 1, 3, ["P1"]);
+        var apartment = Apartment.Create(SocietyId, "A101", "A", 1, 3, ["P1"], 500, 600, 700);
         var ownerId = "user-001";
 
         // Act
@@ -85,7 +85,7 @@ public class ApartmentTests
     public void AssignTenant_SetsTenantAndStatusOccupied()
     {
         // Arrange
-        var apartment = Apartment.Create(SocietyId, "A101", "A", 1, 3, ["P1"]);
+        var apartment = Apartment.Create(SocietyId, "A101", "A", 1, 3, ["P1"], 500, 600, 700);
         var tenantId = "user-002";
 
         // Act
@@ -100,7 +100,7 @@ public class ApartmentTests
     public void RemoveTenant_WhenOwnerPresent_KeepsStatusOccupied()
     {
         // Arrange
-        var apartment = Apartment.Create(SocietyId, "A101", "A", 1, 3, ["P1"]);
+        var apartment = Apartment.Create(SocietyId, "A101", "A", 1, 3, ["P1"], 500, 600, 700);
         apartment.AssignOwner("owner-001");
         apartment.AssignTenant("tenant-001");
 
@@ -116,7 +116,7 @@ public class ApartmentTests
     public void RemoveTenant_WithoutOwner_SetsStatusAvailable()
     {
         // Arrange
-        var apartment = Apartment.Create(SocietyId, "A101", "A", 1, 3, ["P1"]);
+        var apartment = Apartment.Create(SocietyId, "A101", "A", 1, 3, ["P1"], 500, 600, 700);
         apartment.AssignTenant("tenant-001");
 
         // Act
@@ -131,7 +131,7 @@ public class ApartmentTests
     public void MarkUnderMaintenance_SetsCorrectStatus()
     {
         // Arrange
-        var apartment = Apartment.Create(SocietyId, "A101", "A", 1, 3, ["P1"]);
+        var apartment = Apartment.Create(SocietyId, "A101", "A", 1, 3, ["P1"], 500, 600, 700);
 
         // Act
         apartment.MarkUnderMaintenance();
@@ -144,7 +144,7 @@ public class ApartmentTests
     public void MarkAvailable_ClearsOwnerAndTenantAndSetsAvailable()
     {
         // Arrange
-        var apartment = Apartment.Create(SocietyId, "A101", "A", 1, 3, ["P1"]);
+        var apartment = Apartment.Create(SocietyId, "A101", "A", 1, 3, ["P1"], 500, 600, 700);
         apartment.AssignOwner("owner-001");
         apartment.AssignTenant("tenant-001");
 
@@ -161,7 +161,7 @@ public class ApartmentTests
     public void ApartmentNumber_IsStoredUppercase()
     {
         // Arrange & Act
-        var apartment = Apartment.Create(SocietyId, "a101", "a", 1, 3, []);
+        var apartment = Apartment.Create(SocietyId, "a101", "a", 1, 3, [], 500, 600, 700);
 
         // Assert
         apartment.ApartmentNumber.Should().Be("A101");

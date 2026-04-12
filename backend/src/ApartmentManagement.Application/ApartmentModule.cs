@@ -17,7 +17,8 @@ namespace ApartmentManagement.Application.Commands.Apartment
 
 public record CreateApartmentCommand(
     string SocietyId, string ApartmentNumber, string BlockName, int FloorNumber,
-    int NumberOfRooms, IReadOnlyList<string> ParkingSlots, string? OwnerId)
+    int NumberOfRooms, IReadOnlyList<string> ParkingSlots, string? OwnerId,
+    double CarpetArea, double BuildUpArea, double SuperBuildArea)
     : IRequest<Result<ApartmentResponse>>;
 
 public sealed class CreateApartmentCommandHandler(
@@ -38,7 +39,8 @@ public sealed class CreateApartmentCommandHandler(
 
             var apartment = Domain.Entities.Apartment.Create(
                 request.SocietyId, request.ApartmentNumber, request.BlockName,
-                request.FloorNumber, request.NumberOfRooms, request.ParkingSlots);
+                request.FloorNumber, request.NumberOfRooms, request.ParkingSlots,
+                request.CarpetArea, request.BuildUpArea, request.SuperBuildArea);
 
             if (!string.IsNullOrWhiteSpace(request.OwnerId))
                 apartment.AssignOwner(request.OwnerId);
@@ -63,7 +65,8 @@ public sealed class CreateApartmentCommandHandler(
 
 public record UpdateApartmentCommand(
     string SocietyId, string ApartmentId, string BlockName, int FloorNumber,
-    int NumberOfRooms, IReadOnlyList<string> ParkingSlots)
+    int NumberOfRooms, IReadOnlyList<string> ParkingSlots,
+    double CarpetArea, double BuildUpArea, double SuperBuildArea)
     : IRequest<Result<ApartmentResponse>>;
 
 public sealed class UpdateApartmentCommandHandler(
@@ -78,7 +81,8 @@ public sealed class UpdateApartmentCommandHandler(
             var apartment = await apartmentRepository.GetByIdAsync(request.ApartmentId, request.SocietyId, ct)
                 ?? throw new NotFoundException("Apartment", request.ApartmentId);
 
-            apartment.Update(request.BlockName, request.FloorNumber, request.NumberOfRooms, request.ParkingSlots);
+            apartment.Update(request.BlockName, request.FloorNumber, request.NumberOfRooms, request.ParkingSlots,
+                request.CarpetArea, request.BuildUpArea, request.SuperBuildArea);
             var updated = await apartmentRepository.UpdateAsync(apartment, ct);
             return Result<ApartmentResponse>.Success(updated.ToResponse());
         }
@@ -203,7 +207,8 @@ public sealed class BulkImportApartmentsCommandHandler(
 
                 var apartment = Domain.Entities.Apartment.Create(
                     request.SocietyId, req.ApartmentNumber, req.BlockName,
-                    req.FloorNumber, req.NumberOfRooms, req.ParkingSlots);
+                    req.FloorNumber, req.NumberOfRooms, req.ParkingSlots,
+                    req.CarpetArea,req.BuildUpArea,req.SuperBuildArea);
 
                 if (!string.IsNullOrWhiteSpace(req.OwnerId))
                     apartment.AssignOwner(req.OwnerId);

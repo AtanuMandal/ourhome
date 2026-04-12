@@ -33,7 +33,7 @@ public class CreateUserCommandHandlerTests
             .ReturnsAsync((User u, CancellationToken _) => u);
         _apartmentRepoMock
             .Setup(r => r.GetByIdAsync("apt-001", "soc-001", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Apartment.Create("soc-001", "101", "A", 1, 2, ["P1"]));
+            .ReturnsAsync(Apartment.Create("soc-001", "101", "A", 1, 2, ["P1"], 500, 600, 700));
         _apartmentRepoMock
             .Setup(r => r.UpdateAsync(It.IsAny<Apartment>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Apartment a, CancellationToken _) => a);

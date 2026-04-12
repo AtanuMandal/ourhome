@@ -28,13 +28,16 @@ public record SocietyResponse(
 // ─── Apartment ────────────────────────────────────────────────────────────────
 
 public record CreateApartmentRequest(
-    string ApartmentNumber, string BlockName, int FloorNumber, int NumberOfRooms, IReadOnlyList<string> ParkingSlots, string? OwnerId);
+    string ApartmentNumber, string BlockName, int FloorNumber, int NumberOfRooms, IReadOnlyList<string> ParkingSlots, string? OwnerId,
+    double CarpetArea, double BuildUpArea, double SuperBuildArea);
 
-public record UpdateApartmentRequest(string BlockName, int FloorNumber, int NumberOfRooms, IReadOnlyList<string> ParkingSlots);
+public record UpdateApartmentRequest(string BlockName, int FloorNumber, int NumberOfRooms, IReadOnlyList<string> ParkingSlots,
+    double CarpetArea, double BuildUpArea, double SuperBuildArea);
 
 public record ApartmentResponse(
     string Id, string SocietyId, string ApartmentNumber, string BlockName, int FloorNumber,
-    int NumberOfRooms, IReadOnlyList<string> ParkingSlots, string Status, string? OwnerId, string? TenantId,
+    int NumberOfRooms, IReadOnlyList<string> ParkingSlots, double CarpetArea, double BuildUpArea, double SuperBuildArea,
+    string Status, string? OwnerId, string? TenantId,
     IReadOnlyList<ApartmentResidentHistoryDto> OwnershipHistory, IReadOnlyList<ApartmentResidentHistoryDto> TenantHistory, DateTime CreatedAt);
 
 public record ApartmentResidentHistoryDto(string UserId, string? FullName, DateTime FromUtc, DateTime? ToUtc);

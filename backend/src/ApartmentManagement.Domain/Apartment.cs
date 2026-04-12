@@ -13,6 +13,9 @@ public sealed class Apartment : BaseEntity
     public int FloorNumber { get; private set; }
     public int NumberOfRooms { get; private set; }
     public IReadOnlyList<string> ParkingSlots { get; private set; } = [];
+    public double CarpetArea { get; private set; }
+    public double BuildUpArea { get; private set; }
+    public double SuperBuildArea { get; private set; }
     public ApartmentStatus Status { get; private set; }
     public string? OwnerId { get; private set; }
     public string? TenantId { get; private set; }
@@ -24,12 +27,16 @@ public sealed class Apartment : BaseEntity
     /// <summary>Creates a new apartment in <see cref="ApartmentStatus.Available"/> status.</summary>
     public static Apartment Create(
         string societyId, string apartmentNumber, string blockName,
-        int floorNumber, int numberOfRooms, IReadOnlyList<string>? parkingSlots)
+        int floorNumber, int numberOfRooms, IReadOnlyList<string>? parkingSlots,
+        double carpetArea, double buildUpArea, double superBuildArea)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(societyId, nameof(societyId));
         ArgumentException.ThrowIfNullOrWhiteSpace(apartmentNumber, nameof(apartmentNumber));
         ArgumentException.ThrowIfNullOrWhiteSpace(blockName, nameof(blockName));
         if (numberOfRooms < 1) throw new ArgumentOutOfRangeException(nameof(numberOfRooms), "Must be at least 1.");
+        if (carpetArea <= 0) throw new ArgumentOutOfRangeException(nameof(carpetArea), "Must be greater than 0.");
+        if (buildUpArea <= 0) throw new ArgumentOutOfRangeException(nameof(buildUpArea), "Must be greater than 0.");
+        if (superBuildArea <= 0) throw new ArgumentOutOfRangeException(nameof(superBuildArea), "Must be greater than 0.");
 
         var normalizedParkingSlots = NormalizeParkingSlots(parkingSlots);
 
@@ -41,6 +48,9 @@ public sealed class Apartment : BaseEntity
             FloorNumber = floorNumber,
             NumberOfRooms = numberOfRooms,
             ParkingSlots = normalizedParkingSlots,
+            CarpetArea = carpetArea,
+            BuildUpArea = buildUpArea,
+            SuperBuildArea = superBuildArea,
             Status = ApartmentStatus.Available
         };
         apartment.AddDomainEvent(new ApartmentCreatedEvent(apartment.Id, societyId, apartment.ApartmentNumber));
@@ -99,18 +109,20 @@ public sealed class Apartment : BaseEntity
         CloseOpenHistory(isOwnerHistory: true);
         CloseOpenHistory(isOwnerHistory: false);
         Status = ApartmentStatus.Available;
-        OwnerId = null;
-        TenantId = null;
-        TouchUpdatedAt();
+       
     }
-
+        
     /// <summary>Updates mutable apartment details.</summary>
-    public void Update(string blockName, int floorNumber, int numberOfRooms, IReadOnlyList<string>? parkingSlots)
+    public void Update(string blockName, int floorNumber, int numberOfRooms, IReadOnlyList<string>? parkingSlots,
+         double carpetArea, double buildUpArea, double superBuildArea)
     {
         if (!string.IsNullOrWhiteSpace(blockName)) BlockName = blockName.Trim().ToUpperInvariant();
         FloorNumber = floorNumber;
         if (numberOfRooms > 0) NumberOfRooms = numberOfRooms;
         ParkingSlots = NormalizeParkingSlots(parkingSlots);
+        if (carpetArea > 0) CarpetArea = carpetArea;
+        if (buildUpArea > 0) BuildUpArea = buildUpArea;
+        if (superBuildArea > 0) SuperBuildArea = superBuildArea;
         TouchUpdatedAt();
     }
 

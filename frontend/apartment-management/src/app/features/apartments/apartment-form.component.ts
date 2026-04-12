@@ -53,6 +53,30 @@ import { AuthService } from '../../core/services/auth.service';
             <mat-hint>Enter parking slot identifiers separated by commas.</mat-hint>
           </mat-form-field>
 
+          <mat-form-field appearance="fill" class="full-width">
+            <mat-label>Carpet Area (SQFT)</mat-label>
+            <input matInput type="number" step="0.01" formControlName="carpetArea" placeholder="e.g. 500">
+            @if (form.get('carpetArea')?.invalid && form.get('carpetArea')?.touched) {
+              <mat-error>Carpet area must be greater than 0</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="fill" class="full-width">
+            <mat-label>BuildUp Area (SQFT)</mat-label>
+            <input matInput type="number" step="0.01" formControlName="buildUpArea" placeholder="e.g. 700">
+            @if (form.get('buildUpArea')?.invalid && form.get('buildUpArea')?.touched) {
+              <mat-error>BuildUp area must be greater than 0</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="fill" class="full-width">
+            <mat-label>SuperBuild Area (SQFT)</mat-label>
+            <input matInput type="number" step="0.01" formControlName="superBuildArea" placeholder="e.g. 800">
+            @if (form.get('superBuildArea')?.invalid && form.get('superBuildArea')?.touched) {
+              <mat-error>SuperBuild area must be greater than 0</mat-error>
+            }
+          </mat-form-field>
+
           <button mat-raised-button color="primary" type="submit"
                   class="full-width" style="height:48px;margin-top:8px"
                   [disabled]="loading() || form.invalid">
@@ -79,6 +103,9 @@ export class ApartmentFormComponent implements OnInit {
     floorNumber:     [1, [Validators.required, Validators.min(0)]],
     numberOfRooms:   [1, [Validators.required, Validators.min(1)]],
     parkingSlots:    [''],
+    carpetArea:      [0, [Validators.required, Validators.min(0.01)]],
+    buildUpArea:     [0, [Validators.required, Validators.min(0.01)]],
+    superBuildArea:  [0, [Validators.required, Validators.min(0.01)]],
   });
 
   ngOnInit() {
@@ -94,6 +121,9 @@ export class ApartmentFormComponent implements OnInit {
             floorNumber: a.floorNumber,
             numberOfRooms: a.numberOfRooms,
             parkingSlots: a.parkingSlots.join(', '),
+            carpetArea: a.carpetArea,
+            buildUpArea: a.buildUpArea,
+            superBuildArea: a.superBuildArea,
           });
           this.loading.set(false);
         },
@@ -117,6 +147,9 @@ export class ApartmentFormComponent implements OnInit {
           floorNumber: value.floorNumber,
           numberOfRooms: value.numberOfRooms,
           parkingSlots,
+          carpetArea: value.carpetArea,
+          buildUpArea: value.buildUpArea,
+          superBuildArea: value.superBuildArea,
         } satisfies UpdateApartmentDto)
       : this.svc.create(sid, {
           apartmentNumber: value.apartmentNumber.trim(),
@@ -124,6 +157,9 @@ export class ApartmentFormComponent implements OnInit {
           floorNumber: value.floorNumber,
           numberOfRooms: value.numberOfRooms,
           parkingSlots,
+          carpetArea: value.carpetArea,
+          buildUpArea: value.buildUpArea,
+          superBuildArea: value.superBuildArea,
         } satisfies CreateApartmentDto);
     action.subscribe({
       next: a => { this.loading.set(false); this.router.navigate(['/apartments', a.id]); },

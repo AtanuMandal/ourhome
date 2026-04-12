@@ -9,6 +9,9 @@ export interface Apartment {
   floorNumber: number;
   numberOfRooms: number;
   parkingSlots: string[];
+  carpetArea: number;
+  buildUpArea: number;
+  superBuildArea: number;
   status: ApartmentStatus;
   ownerId?: string;
   tenantId?: string;
@@ -39,6 +42,9 @@ export interface CreateApartmentDto {
   floorNumber: number;
   numberOfRooms: number;
   parkingSlots: string[];
+  carpetArea: number;
+  buildUpArea: number;
+  superBuildArea: number;
   ownerId?: string;
 }
 
@@ -47,6 +53,9 @@ export interface UpdateApartmentDto {
   floorNumber: number;
   numberOfRooms: number;
   parkingSlots: string[];
+  carpetArea: number;
+  buildUpArea: number;
+  superBuildArea: number;
 }
 
 export interface ChangeApartmentStatusDto {

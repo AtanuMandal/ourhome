@@ -134,7 +134,7 @@ public class SocietyIntegrationTests : IntegrationTestBase
 
         // Step 2 – create apartment in that society
         var aptCmd = new CreateApartmentCommand(
-            society.Id, "101", "A", 1, 3, ["P1"], null);
+            society.Id, "101", "A", 1, 3, ["P1"], null, 500, 600, 700);
         var aptResult = await Mediator.Send(aptCmd);
 
         // Assert
