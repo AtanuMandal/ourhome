@@ -82,6 +82,19 @@ public sealed class CreateUserCommandValidator : AbstractValidator<CreateUserCom
     }
 }
 
+public sealed class AssignUserApartmentCommandValidator : AbstractValidator<AssignUserApartmentCommand>
+{
+    public AssignUserApartmentCommandValidator()
+    {
+        RuleFor(x => x.SocietyId).NotEmpty();
+        RuleFor(x => x.UserId).NotEmpty();
+        RuleFor(x => x.ApartmentId).NotEmpty();
+        RuleFor(x => x.ResidentType)
+            .Must(type => type is ResidentType.Owner or ResidentType.Tenant)
+            .WithMessage("Only owner or tenant apartment assignments are supported.");
+    }
+}
+
 // ─── Amenity ──────────────────────────────────────────────────────────────────
 
 public sealed class BookAmenityCommandValidator : AbstractValidator<BookAmenityCommand>

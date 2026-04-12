@@ -36,8 +36,8 @@ public static class MappingExtensions
             apartment.BuildUpArea,
             apartment.SuperBuildArea,
             apartment.Status.ToString(),
-            apartment.OwnerId,
-            apartment.TenantId,
+            apartment.GetPrimaryResidentName(),
+            apartment.GetResidentsForRead().Select(r => new ApartmentResidentDto(r.UserId, r.UserName, r.ResidentType.ToString())).ToList(),
             apartment.OwnershipHistory.Select(h => new ApartmentResidentHistoryDto(h.UserId, h.FullName, h.FromUtc, h.ToUtc)).ToList(),
             apartment.TenantHistory.Select(h => new ApartmentResidentHistoryDto(h.UserId, h.FullName, h.FromUtc, h.ToUtc)).ToList(),
             apartment.CreatedAt);
@@ -46,12 +46,24 @@ public static class MappingExtensions
         new(
             apartment.Id,
             apartment.ApartmentNumber,
-            apartment.OwnerId,
-            apartment.TenantId,
+            apartment.GetResidentsForRead().Select(r => new ApartmentResidentDto(r.UserId, r.UserName, r.ResidentType.ToString())).ToList(),
             apartment.OwnershipHistory.Select(h => new ApartmentResidentHistoryDto(h.UserId, h.FullName, h.FromUtc, h.ToUtc)).ToList(),
             apartment.TenantHistory.Select(h => new ApartmentResidentHistoryDto(h.UserId, h.FullName, h.FromUtc, h.ToUtc)).ToList());
 
-    public static UserResponse ToResponse(this User user) =>
+    private static string? GetPrimaryResidentName(this Apartment apartment)
+    {
+        var tenant = apartment.GetResident(Domain.Enums.ResidentType.Tenant);
+        if (tenant is not null)
+            return tenant.UserName;
+
+        var owner = apartment.GetResident(Domain.Enums.ResidentType.Owner);
+        if (owner is not null)
+            return owner.UserName;
+
+        return null;
+    }
+
+    public static UserResponse ToResponse(this User user, IReadOnlyList<ResidentApartmentDto>? apartments = null) =>
         new(
             user.Id,
             user.SocietyId,
@@ -66,7 +78,14 @@ public static class MappingExtensions
             user.IsVerified,
             user.HasPassword,
             user.GetPermissions(),
+            apartments ?? [],
             user.CreatedAt);
+
+    public static ResidentApartmentDto ToResidentApartmentResponse(this Apartment apartment, Domain.Enums.ResidentType residentType) =>
+        new(
+            apartment.Id,
+            apartment.ApartmentNumber,
+            residentType.ToString());
 
     public static AuthUserDto ToAuthUser(this User user) =>
         new(

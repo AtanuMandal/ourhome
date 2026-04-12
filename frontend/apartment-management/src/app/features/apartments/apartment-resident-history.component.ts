@@ -20,9 +20,9 @@ import { AuthService } from '../../core/services/auth.service';
         <app-loading-spinner></app-loading-spinner>
       } @else if (history()) {
         <div class="card">
-          <div class="detail-row"><span class="label">Current owner</span><span>{{ history()!.currentOwnerId ?? 'Unassigned' }}</span></div>
+          <div class="detail-row"><span class="label">Current owner</span><span>{{ currentResidentName('Owner') ?? 'Unassigned' }}</span></div>
           <mat-divider></mat-divider>
-          <div class="detail-row"><span class="label">Current tenant</span><span>{{ history()!.currentTenantId ?? 'Unassigned' }}</span></div>
+          <div class="detail-row"><span class="label">Current tenant</span><span>{{ currentResidentName('Tenant') ?? 'Unassigned' }}</span></div>
         </div>
 
         <div class="card">
@@ -75,6 +75,10 @@ export class ApartmentResidentHistoryComponent implements OnInit {
 
   readonly loading = signal(true);
   readonly history = signal<ApartmentResidentHistoryResponse | null>(null);
+
+  currentResidentName(residentType: 'Owner' | 'Tenant') {
+    return this.history()?.residents.find(resident => resident.residentType === residentType)?.userName;
+  }
 
   ngOnInit() {
     if (!this.auth.isAdmin()) {

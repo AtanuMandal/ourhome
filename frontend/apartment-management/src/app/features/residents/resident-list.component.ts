@@ -15,35 +15,35 @@ import { User } from '../../core/models/user.model';
   imports: [RouterLink, MatButtonModule, MatIconModule,
             PageHeaderComponent, LoadingSpinnerComponent, EmptyStateComponent],
   template: `
-    <app-page-header title="Residents">
-      <div actions>
-        @if (isAdmin()) {
-          <a routerLink="/residents/new" mat-flat-button color="primary">Add Resident</a>
-        }
-      </div>
-    </app-page-header>
+    <app-page-header title="Residents"></app-page-header>
     <div class="page-content">
       @if (loading()) {
         <app-loading-spinner></app-loading-spinner>
       } @else if (items().length === 0) {
-        <app-empty-state icon="people" title="No residents" message="No residents found."></app-empty-state>
+        <app-empty-state icon="people" title="No residents" message="No residents found.">
+          @if (isAdmin()) {
+            <a routerLink="new" mat-stroked-button color="primary" style="margin-top:16px">Add Resident</a>
+          }
+        </app-empty-state>
       } @else {
         <div class="resident-list">
           @for (r of items(); track r.id) {
-            <div class="resident-card">
+            <a [routerLink]="[r.id]" class="resident-card">
               <div class="avatar">{{ (r.fullName ?? r.name ?? '?')[0] }}</div>
-               <div class="rc-info">
-                 <span class="rc-name">{{ r.fullName ?? r.name }}</span>
-                 <span class="rc-role">{{ r.role }} - {{ r.residentType }}</span>
-                 <span class="rc-email">{{ r.email }}</span>
-                 @if (r.apartmentId) { <span class="rc-phone">Apartment: {{ r.apartmentId }}</span> }
-                 @if (r.phone) { <span class="rc-phone">{{ r.phone }}</span> }
-               </div>
-             </div>
+                <div class="rc-info">
+                  <span class="rc-name">{{ r.fullName ?? r.name }}</span>
+                  <span class="rc-email">Apartments: {{ apartmentNamesFor(r) }}</span>
+                  @if (isAdmin() && r.email) { <span class="rc-email">{{ r.email }}</span> }
+                  @if (isAdmin() && r.phone) { <span class="rc-phone">{{ r.phone }}</span> }
+                </div>
+              </a>
           }
         </div>
       }
     </div>
+    @if (isAdmin()) {
+      <a routerLink="new" mat-fab color="primary" class="fab"><mat-icon>add</mat-icon></a>
+    }
   `,
   styleUrl: './residents.scss',
 })
@@ -52,15 +52,23 @@ export class ResidentListComponent implements OnInit {
   private readonly auth    = inject(AuthService);
 
   readonly loading = signal(true);
-  readonly items   = signal<any[]>([]);
+  readonly items   = signal<User[]>([]);
   readonly isAdmin = this.auth.isAdmin;
 
   ngOnInit() {
     const sid = this.auth.societyId();
     if (!sid) { this.loading.set(false); return; }
     this.userSvc.list(sid).subscribe({
-      next: r => { this.items.set(r.items ?? []); this.loading.set(false); },
+      next: residents => {
+        this.items.set(residents.items ?? []);
+        this.loading.set(false);
+      },
       error: () => this.loading.set(false),
     });
+  }
+
+  apartmentNamesFor(resident: User) {
+    if (!resident.apartments?.length) return 'Not assigned';
+    return resident.apartments.map(apartment => `${apartment.name} (${apartment.residentType})`).join(', ');
   }
 }

@@ -192,6 +192,10 @@ export class ApartmentDetailComponent implements OnInit {
     });
   }
 
+  currentResidentName(residentType: 'Owner' | 'Tenant') {
+    return this.item()?.residents?.find(resident => resident.residentType === residentType)?.userName;
+  }
+
   private loadApartment() {
     const sid = this.auth.societyId();
     const id = this.route.snapshot.paramMap.get('id');

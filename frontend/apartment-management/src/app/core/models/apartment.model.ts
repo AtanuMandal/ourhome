@@ -13,11 +13,17 @@ export interface Apartment {
   buildUpArea: number;
   superBuildArea: number;
   status: ApartmentStatus;
-  ownerId?: string;
-  tenantId?: string;
+  primaryResidentName?: string;
+  residents?: ApartmentResident[];
   ownershipHistory?: ApartmentResidentHistory[];
   tenantHistory?: ApartmentResidentHistory[];
   createdAt: string;
+}
+
+export interface ApartmentResident {
+  userId: string;
+  userName: string;
+  residentType: 'Owner' | 'Tenant' | 'FamilyMember' | 'CoOccupant' | 'SocietyAdmin';
 }
 
 export interface ApartmentResidentHistory {
@@ -30,8 +36,7 @@ export interface ApartmentResidentHistory {
 export interface ApartmentResidentHistoryResponse {
   apartmentId: string;
   apartmentNumber: string;
-  currentOwnerId?: string;
-  currentTenantId?: string;
+  residents: ApartmentResident[];
   ownershipHistory: ApartmentResidentHistory[];
   tenantHistory: ApartmentResidentHistory[];
 }

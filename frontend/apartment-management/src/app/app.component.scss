@@ -32,11 +32,16 @@
 .side-nav__brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: center;
   padding: 20px 16px 16px;
 
-  .brand-icon { font-size: 28px; color: var(--primary-light); }
-  .brand-name { font-size: 18px; font-weight: 700; color: var(--on-surface); }
+  .brand-logo {
+    display: block;
+    width: 160px;
+    max-width: 100%;
+    height: auto;
+    border-radius: 12px;
+  }
 }
 
 .side-nav__user {

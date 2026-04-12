@@ -41,7 +41,7 @@ public class ApartmentUserIntegrationTests : IntegrationTestBase
         apt.FloorNumber.Should().Be(1);
         apt.NumberOfRooms.Should().Be(2);
         apt.Status.Should().Be("Available");
-        apt.OwnerId.Should().BeNull();
+        apt.Residents.Should().BeEmpty();
 
         var getResult = await Mediator.Send(new GetApartmentQuery(SocietyId, apt.Id));
         getResult.IsSuccess.Should().BeTrue();
@@ -49,13 +49,14 @@ public class ApartmentUserIntegrationTests : IntegrationTestBase
     }
 
     [Fact]
-    public async Task CreateApartment_WithOwner_OwnerIdIsSet()
+    public async Task CreateApartment_WithOwner_AddsOwnerToResidents()
     {
         var result = await Mediator.Send(
             new CreateApartmentCommand(SocietyId, "102", "A", 1, 3, ["P1"], "owner-user-id", 500, 600, 700));
 
         result.IsSuccess.Should().BeTrue();
-        result.Value!.OwnerId.Should().Be("owner-user-id");
+        result.Value!.Residents.Should().ContainSingle(r =>
+            r.UserId == "owner-user-id" && r.ResidentType == "Owner");
     }
 
     [Fact]
@@ -128,6 +129,7 @@ public class ApartmentUserIntegrationTests : IntegrationTestBase
         user.ResidentType.Should().Be("SocietyAdmin");
         user.IsActive.Should().BeTrue();
         user.IsVerified.Should().BeFalse();
+        user.Apartments.Should().BeEmpty();
 
         var getResult = await Mediator.Send(new GetUserQuery(SocietyId, user.Id));
         getResult.IsSuccess.Should().BeTrue();
@@ -243,11 +245,80 @@ public class ApartmentUserIntegrationTests : IntegrationTestBase
 
         // Verify user is linked
         user.ApartmentId.Should().Be(apt.Id);
+        user.Apartments.Should().ContainSingle(a => a.ApartmentId == apt.Id && a.Name == apt.ApartmentNumber);
 
         // Retrieve users by apartment
         var usersResult = await Mediator.Send(new GetUsersByApartmentQuery(SocietyId, apt.Id));
         usersResult.IsSuccess.Should().BeTrue();
         usersResult.Value!.Should().ContainSingle(u => u.Id == user.Id);
+    }
+
+    [Fact]
+    public async Task AssignUserApartment_LinksExistingResidentToAnotherApartment()
+    {
+        var primaryApartment = (await Mediator.Send(AptCmd("611", "F", 6, 3, "P1"))).Value!;
+        var secondaryApartment = (await Mediator.Send(AptCmd("612", "F", 6, 3, "P2"))).Value!;
+        var user = (await Mediator.Send(UserCmd("multiapt@test.com", UserRole.SUUser, ResidentType.Owner, primaryApartment.Id))).Value!;
+
+        var attachResult = await Mediator.Send(new AssignUserApartmentCommand(SocietyId, user.Id, secondaryApartment.Id, ResidentType.Owner));
+
+        attachResult.IsSuccess.Should().BeTrue();
+        attachResult.Value!.Apartments.Should().Contain(a => a.ApartmentId == primaryApartment.Id);
+        attachResult.Value.Apartments.Should().Contain(a => a.ApartmentId == secondaryApartment.Id);
+
+        var updatedApartment = await Mediator.Send(new GetApartmentQuery(SocietyId, secondaryApartment.Id));
+        updatedApartment.Value!.Residents.Should().ContainSingle(r =>
+            r.UserId == user.Id && r.ResidentType == "Owner");
+    }
+
+    [Fact]
+    public async Task RemoveUserApartment_WhenActorIsSuAdmin_UnlinksResidentAndApartment()
+    {
+        var admin = await UserRepo.CreateAsync(
+            ApartmentManagement.Domain.Entities.User.Create(
+                SocietyId,
+                "Society Admin",
+                "admin@test.com",
+                "+91-9999999999",
+                UserRole.SUAdmin,
+                ResidentType.SocietyAdmin),
+            CancellationToken.None);
+        CurrentUserService.UserId = admin.Id;
+
+        var apartment = (await Mediator.Send(AptCmd("613", "F", 6, 3, "P3"))).Value!;
+        var resident = (await Mediator.Send(UserCmd("remove-link@test.com", UserRole.SUUser, ResidentType.Owner, apartment.Id))).Value!;
+
+        var removeResult = await Mediator.Send(new RemoveUserApartmentCommand(SocietyId, resident.Id, apartment.Id));
+
+        removeResult.IsSuccess.Should().BeTrue();
+        removeResult.Value!.Apartments.Should().NotContain(a => a.ApartmentId == apartment.Id);
+
+        var updatedApartment = await Mediator.Send(new GetApartmentQuery(SocietyId, apartment.Id));
+        updatedApartment.Value!.Residents.Should().NotContain(r => r.UserId == resident.Id);
+        updatedApartment.Value.Status.Should().Be("Available");
+    }
+
+    [Fact]
+    public async Task RemoveUserApartment_WhenActorIsNotSuAdmin_ReturnsForbidden()
+    {
+        var nonAdmin = await UserRepo.CreateAsync(
+            ApartmentManagement.Domain.Entities.User.Create(
+                SocietyId,
+                "Resident User",
+                "resident-admin@test.com",
+                "+91-9888888888",
+                UserRole.SUUser,
+                ResidentType.Owner),
+            CancellationToken.None);
+        CurrentUserService.UserId = nonAdmin.Id;
+
+        var apartment = (await Mediator.Send(AptCmd("614", "F", 6, 3, "P4"))).Value!;
+        var resident = (await Mediator.Send(UserCmd("remove-forbidden@test.com", UserRole.SUUser, ResidentType.Owner, apartment.Id))).Value!;
+
+        var removeResult = await Mediator.Send(new RemoveUserApartmentCommand(SocietyId, resident.Id, apartment.Id));
+
+        removeResult.IsFailure.Should().BeTrue();
+        removeResult.ErrorCode.Should().Be(ApartmentManagement.Shared.Constants.ErrorCodes.Forbidden);
     }
 
     // ─── GetUsersBySociety ────────────────────────────────────────────────────

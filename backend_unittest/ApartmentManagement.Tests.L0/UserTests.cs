@@ -194,6 +194,17 @@ public class UserTests
     }
 
     [Fact]
+    public void LinkApartment_AddsApartmentMembership()
+    {
+        var user = User.Create(SocietyId, "Alice", "alice@example.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
+
+        user.LinkApartment("apt-001", "A-101", ResidentType.Owner, makePrimary: true);
+
+        user.ApartmentId.Should().Be("apt-001");
+        user.Apartments.Should().ContainSingle(a => a.ApartmentId == "apt-001" && a.Name == "A-101" && a.ResidentType == ResidentType.Owner);
+    }
+
+    [Fact]
     public void ValidateOtp_WhenExpired_ReturnsFalse()
     {
         // Arrange

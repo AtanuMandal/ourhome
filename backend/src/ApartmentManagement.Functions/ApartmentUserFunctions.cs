@@ -138,6 +138,19 @@ public class UserFunctions(ISender mediator)
         return result.ToActionResult();
     }
 
+    [Function("FindUserByEmail")]
+    public async Task<IActionResult> FindUserByEmail(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "societies/{societyId}/users/by-email")] HttpRequest req,
+        string societyId, CancellationToken ct)
+    {
+        var email = req.Query["email"].ToString();
+        if (string.IsNullOrWhiteSpace(email))
+            return new BadRequestObjectResult(new { error = "Query string must contain an email value." });
+
+        var result = await mediator.Send(new FindUserByEmailQuery(societyId, email), ct);
+        return result.ToActionResult();
+    }
+
     [Function("RequestOtpByEmail")]
     public async Task<IActionResult> RequestOtpByEmail(
         [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "societies/{societyId}/auth/request-otp")] HttpRequest req,
@@ -195,6 +208,28 @@ public class UserFunctions(ISender mediator)
         string societyId, string id, CancellationToken ct)
     {
         var result = await mediator.Send(new GetUserQuery(societyId, id), ct);
+        return result.ToActionResult();
+    }
+
+    [Function("AttachResidentApartment")]
+    public async Task<IActionResult> AttachResidentApartment(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "societies/{societyId}/users/{id}/apartments")] HttpRequest req,
+        string societyId, string id, CancellationToken ct)
+    {
+        var body = await req.DeserializeAsync<AttachResidentApartmentRequest>(ct);
+        if (body is null) return new BadRequestObjectResult("Invalid request body");
+
+        var result = await mediator.Send(
+            new AssignUserApartmentCommand(societyId, id, body.ApartmentId, body.ResidentType), ct);
+        return result.ToActionResult();
+    }
+
+    [Function("RemoveResidentApartment")]
+    public async Task<IActionResult> RemoveResidentApartment(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "delete", Route = "societies/{societyId}/users/{id}/apartments/{apartmentId}")] HttpRequest req,
+        string societyId, string id, string apartmentId, CancellationToken ct)
+    {
+        var result = await mediator.Send(new RemoveUserApartmentCommand(societyId, id, apartmentId), ct);
         return result.ToActionResult();
     }
 

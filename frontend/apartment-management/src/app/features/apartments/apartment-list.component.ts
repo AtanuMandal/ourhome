@@ -49,7 +49,7 @@ import { Apartment, BulkImportResult } from '../../core/models/apartment.model';
 
           <p class="upload-help">
             Required columns: apartmentNumber or apartmentId, blockName, floorNumber, numberOfRooms,
-            parkingSlots. Put multiple slot IDs in one field separated by <code>|</code>, <code>;</code>, or commas. Optional: ownerId.
+            parkingSlots. Put multiple slot IDs in one field separated by <code>|</code>, <code>;</code>, or commas. Optional: ownerId for immediate owner assignment.
           </p>
 
           @if (importResult()) {
@@ -94,6 +94,7 @@ import { Apartment, BulkImportResult } from '../../core/models/apartment.model';
               <div class="apt-info">
                 <span class="apt-type">{{ a.numberOfRooms }} Rooms &middot; Floor {{ a.floorNumber }}</span>
                 @if (a.blockName) { <span class="apt-block">{{ a.blockName }}</span> }
+                @if (a.primaryResidentName) { <span class="apt-block">Primary Resident: {{ a.primaryResidentName }}</span> }
               </div>
               <app-status-chip [status]="a.status"></app-status-chip>
             </a>

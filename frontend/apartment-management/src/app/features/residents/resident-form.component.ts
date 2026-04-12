@@ -1,23 +1,23 @@
-import { Component, DestroyRef, inject, signal } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormBuilder, Validators, ReactiveFormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
-import { UserService } from '../../core/services/apartment.service';
+import { ApartmentService, UserService } from '../../core/services/apartment.service';
 import { AuthService } from '../../core/services/auth.service';
+import { Apartment } from '../../core/models/apartment.model';
+import { User } from '../../core/models/user.model';
 
-type ResidentType = 'SocietyAdmin' | 'Owner' | 'Tenant' | 'FamilyMember' | 'CoOccupant';
-type UserRole = 'SUUser' | 'SUAdmin';
+type ResidentType = 'Owner' | 'Tenant' | 'FamilyMember' | 'CoOccupant';
 
 @Component({
   selector: 'app-resident-form',
   standalone: true,
-  imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatSelectModule,
+  imports: [ReactiveFormsModule, RouterLink, MatFormFieldModule, MatInputModule,
             MatButtonModule, MatProgressBarModule, PageHeaderComponent],
   template: `
     <app-page-header title="Add Resident" [showBack]="true"></app-page-header>
@@ -37,7 +37,13 @@ type UserRole = 'SUUser' | 'SUAdmin';
             <mat-label>Email</mat-label>
             <input matInput type="email" formControlName="email">
             @if (form.controls.email.invalid && form.controls.email.touched) {
-              <mat-error>Valid email is required</mat-error>
+              <mat-error>
+                @if (form.controls.email.hasError('duplicate')) {
+                  This email already exists in this society.
+                } @else {
+                  Valid email is required
+                }
+              </mat-error>
             }
           </mat-form-field>
 
@@ -50,35 +56,49 @@ type UserRole = 'SUUser' | 'SUAdmin';
           </mat-form-field>
 
           <mat-form-field appearance="fill" class="full-width">
-            <mat-label>Role</mat-label>
-            <mat-select formControlName="role">
-              <mat-option value="SUUser">Resident (User)</mat-option>
-              <mat-option value="SUAdmin">Society Admin</mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <mat-form-field appearance="fill" class="full-width">
             <mat-label>Resident Type</mat-label>
-            <mat-select formControlName="residentType">
-              <mat-option value="SocietyAdmin">Society Admin</mat-option>
-              <mat-option value="Owner">Owner</mat-option>
-              <mat-option value="Tenant">Tenant</mat-option>
-              <mat-option value="FamilyMember">Family Member</mat-option>
-              <mat-option value="CoOccupant">Co-Occupant</mat-option>
-            </mat-select>
+            <select matNativeControl formControlName="residentType">
+              @for (residentType of residentTypes; track residentType.value) {
+                <option [value]="residentType.value">{{ residentType.label }}</option>
+              }
+            </select>
           </mat-form-field>
 
           <mat-form-field appearance="fill" class="full-width">
-            <mat-label>Apartment ID</mat-label>
-            <input matInput formControlName="apartmentId" [placeholder]="apartmentRequired() ? 'Required for resident accounts' : 'Not required for society admins'">
+            <mat-label>Apartment</mat-label>
+            <select matNativeControl formControlName="apartmentId">
+              <option value="" disabled>Select an apartment</option>
+              @for (apartment of apartments(); track apartment.id) {
+                <option [value]="apartment.id">{{ apartmentLabel(apartment) }}</option>
+              }
+            </select>
             @if (form.controls.apartmentId.invalid && form.controls.apartmentId.touched) {
-              <mat-error>Apartment ID is required for non-admin residents</mat-error>
+              <mat-error>Apartment is required</mat-error>
             }
           </mat-form-field>
 
+          @if (!loading() && apartments().length === 0) {
+            <p class="mt-8" style="color: var(--warn);">No apartments are available for this society yet.</p>
+          }
+
+          @if (duplicateResident()) {
+            <div class="card mt-16" style="background:#fff8e1;border:1px solid #ffe082;">
+              <div style="font-weight:600;margin-bottom:8px;">Resident already exists</div>
+              <div style="margin-bottom:12px;">
+                {{ duplicateResident()!.fullName ?? duplicateResident()!.name }} already uses this email.
+                Open the resident details page and add another apartment there.
+              </div>
+              <a mat-stroked-button color="primary"
+                 [routerLink]="['/residents', duplicateResident()!.id]"
+                 [queryParams]="{ addApartment: 1 }">
+                Open Resident Details
+              </a>
+            </div>
+          }
+
           <button mat-raised-button color="primary" type="submit"
                   class="full-width" style="height:48px;margin-top:8px"
-                  [disabled]="loading() || form.invalid">
+                  [disabled]="loading() || form.invalid || apartments().length === 0">
             Add Resident
           </button>
         </form>
@@ -86,52 +106,60 @@ type UserRole = 'SUUser' | 'SUAdmin';
     </div>
   `,
 })
-export class ResidentFormComponent {
+export class ResidentFormComponent implements OnInit {
   private readonly fb = inject(FormBuilder).nonNullable;
   private readonly svc = inject(UserService);
+  private readonly apartmentSvc = inject(ApartmentService);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
-  private readonly destroyRef = inject(DestroyRef);
+  private readonly snackBar = inject(MatSnackBar);
 
-  readonly loading = signal(false);
+  readonly loading = signal(true);
+  readonly apartments = signal<Apartment[]>([]);
+  readonly duplicateResident = signal<User | null>(null);
+  readonly residentTypes = [
+    { value: 'Owner' as ResidentType, label: 'Owner' },
+    { value: 'Tenant' as ResidentType, label: 'Tenant' },
+    { value: 'FamilyMember' as ResidentType, label: 'Family Member' },
+    { value: 'CoOccupant' as ResidentType, label: 'Co-Occupant' },
+  ];
 
   readonly form = this.fb.group({
     fullName: ['', Validators.required],
     email: ['', [Validators.required, Validators.email]],
     phone: ['', Validators.required],
-    role: ['SUUser' as UserRole, Validators.required],
     residentType: ['Owner' as ResidentType, Validators.required],
-    apartmentId: [''],
+    apartmentId: ['', Validators.required],
   });
 
-  constructor() {
-    this.form.controls.role.valueChanges
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(role => {
-        if (role === 'SUAdmin') {
-          this.form.patchValue({ residentType: 'SocietyAdmin', apartmentId: '' }, { emitEvent: false });
-        } else if (this.form.controls.residentType.value === 'SocietyAdmin') {
-          this.form.patchValue({ residentType: 'Owner' }, { emitEvent: false });
-        }
-        this.syncApartmentValidation();
-      });
+  ngOnInit() {
+    const sid = this.auth.societyId();
+    if (!sid) {
+      this.loading.set(false);
+      return;
+    }
 
-    this.form.controls.residentType.valueChanges
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(residentType => {
-        if (residentType === 'SocietyAdmin') {
-          this.form.patchValue({ role: 'SUAdmin', apartmentId: '' }, { emitEvent: false });
-        } else if (this.form.controls.role.value === 'SUAdmin') {
-          this.form.patchValue({ role: 'SUUser' }, { emitEvent: false });
-        }
-        this.syncApartmentValidation();
-      });
+    this.apartmentSvc.list(sid, 1, 500).subscribe({
+      next: response => {
+        const apartments = [...(response.items ?? [])].sort((left, right) =>
+          left.apartmentNumber.localeCompare(right.apartmentNumber, undefined, { numeric: true, sensitivity: 'base' }));
+        this.apartments.set(apartments);
+        this.loading.set(false);
+      },
+      error: () => {
+        this.apartments.set([]);
+        this.loading.set(false);
+      },
+    });
 
-    this.syncApartmentValidation();
-  }
-
-  apartmentRequired() {
-    return this.form.controls.role.value === 'SUUser';
+    this.form.controls.email.valueChanges.subscribe(() => {
+      this.duplicateResident.set(null);
+      if (this.form.controls.email.hasError('duplicate')) {
+        const errors = { ...(this.form.controls.email.errors ?? {}) };
+        delete errors['duplicate'];
+        this.form.controls.email.setErrors(Object.keys(errors).length ? errors : null);
+      }
+    });
   }
 
   submit() {
@@ -141,28 +169,38 @@ export class ResidentFormComponent {
 
     this.loading.set(true);
     const value = this.form.getRawValue();
-    this.svc.register(sid, {
-      fullName: value.fullName.trim(),
-      email: value.email.trim(),
-      phone: value.phone.trim(),
-      role: value.role,
-      residentType: value.residentType,
-      apartmentId: value.apartmentId.trim() || undefined,
-    }).subscribe({
-      next: () => {
-        this.loading.set(false);
-        this.router.navigate(['/residents']);
+
+    this.svc.findByEmail(sid, value.email.trim()).subscribe({
+      next: existingResident => {
+        if (existingResident) {
+          this.loading.set(false);
+          this.duplicateResident.set(existingResident);
+          this.form.controls.email.setErrors({ ...(this.form.controls.email.errors ?? {}), duplicate: true });
+          this.form.controls.email.markAsTouched();
+          this.snackBar.open('Resident already exists. Open resident details to add another apartment.', 'Dismiss', { duration: 5000 });
+          return;
+        }
+
+        this.svc.register(sid, {
+          fullName: value.fullName.trim(),
+          email: value.email.trim(),
+          phone: value.phone.trim(),
+          role: 'SUUser',
+          residentType: value.residentType,
+          apartmentId: value.apartmentId || undefined,
+        }).subscribe({
+          next: () => {
+            this.loading.set(false);
+            this.router.navigate(['/residents']);
+          },
+          error: () => this.loading.set(false),
+        });
       },
       error: () => this.loading.set(false),
     });
   }
 
-  private syncApartmentValidation() {
-    if (this.apartmentRequired()) {
-      this.form.controls.apartmentId.setValidators([Validators.required]);
-    } else {
-      this.form.controls.apartmentId.clearValidators();
-    }
-    this.form.controls.apartmentId.updateValueAndValidity({ emitEvent: false });
+  apartmentLabel(apartment: Apartment) {
+    return apartment.blockName ? `${apartment.apartmentNumber} - ${apartment.blockName}` : apartment.apartmentNumber;
   }
 }

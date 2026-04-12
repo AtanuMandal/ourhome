@@ -26,10 +26,13 @@ public class CreateUserCommandHandlerTests
     {
         // Arrange
         _userRepoMock
-            .Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()))
-            .ReturnsAsync([]);
+            .Setup(r => r.GetByEmailAsync("soc-001", "alice@example.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
         _userRepoMock
             .Setup(r => r.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User u, CancellationToken _) => u);
+        _userRepoMock
+            .Setup(r => r.UpdateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((User u, CancellationToken _) => u);
         _apartmentRepoMock
             .Setup(r => r.GetByIdAsync("apt-001", "soc-001", It.IsAny<CancellationToken>()))
@@ -57,8 +60,8 @@ public class CreateUserCommandHandlerTests
         // Arrange
         var existingUser = User.Create("soc-001", "Bob", "alice@example.com", "+91-1111111111", UserRole.SUUser, ResidentType.Owner);
         _userRepoMock
-            .Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()))
-            .ReturnsAsync([existingUser]);
+            .Setup(r => r.GetByEmailAsync("soc-001", "alice@example.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingUser);
 
         var handler = CreateHandler();
         var command = new CreateUserCommand("soc-001", "Alice", "alice@example.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner, null);
