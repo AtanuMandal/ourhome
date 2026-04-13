@@ -31,7 +31,7 @@ public class HQUserFunctions(ISender mediator)
             return new BadRequestObjectResult("Role must be HQAdmin or HQUser for HQ users.");
 
         var command = new CreateUserCommand(
-            HqConstants.PartitionKey, body.FullName, body.Email, body.Phone, body.Role, null);
+            HqConstants.PartitionKey, body.FullName, body.Email, body.Phone, body.Role, ResidentType.SocietyAdmin, null);
 
         var result = await mediator.Send(command, ct);
         return result.ToActionResult(201);

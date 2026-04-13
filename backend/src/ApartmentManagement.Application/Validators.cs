@@ -44,9 +44,15 @@ public sealed class CreateApartmentCommandValidator : AbstractValidator<CreateAp
     {
         RuleFor(x => x.ApartmentNumber).NotEmpty();
         RuleFor(x => x.SocietyId).NotEmpty();
+        RuleFor(x => x.BlockName).NotEmpty();
         RuleFor(x => x.FloorNumber).GreaterThanOrEqualTo(0);
         RuleFor(x => x.NumberOfRooms).InclusiveBetween(1, 20);
-        RuleFor(x => x.ParkingSlots).InclusiveBetween(0, 10);
+        RuleFor(x => x.ParkingSlots).NotNull().Must(slots => slots.Count <= 10)
+            .WithMessage("No more than 10 parking slots can be assigned.");
+        RuleForEach(x => x.ParkingSlots).NotEmpty().MaximumLength(50);
+        RuleFor(x => x.CarpetArea).GreaterThan(0).WithMessage("Carpet area must be greater than 0.");
+        RuleFor(x => x.BuildUpArea).GreaterThan(0).WithMessage("BuildUp area must be greater than 0.");
+        RuleFor(x => x.SuperBuildArea).GreaterThan(0).WithMessage("SuperBuild area must be greater than 0.");
     }
 }
 
@@ -60,7 +66,19 @@ public sealed class CreateUserCommandValidator : AbstractValidator<CreateUserCom
         RuleFor(x => x.Email).NotEmpty().EmailAddress();
         RuleFor(x => x.Phone).NotEmpty();
         RuleFor(x => x.Role).IsInEnum();
+        RuleFor(x => x.ResidentType).IsInEnum();
         RuleFor(x => x.SocietyId).NotEmpty();
+        When(x => x.Role == UserRole.SUAdmin, () =>
+        {
+            RuleFor(x => x.ApartmentId).Empty();
+            RuleFor(x => x.ResidentType).Equal(ResidentType.SocietyAdmin);
+        });
+        When(x => x.Role == UserRole.SUUser, () =>
+        {
+            RuleFor(x => x.ApartmentId)
+                .NotEmpty()
+                .When(x => x.ResidentType is ResidentType.Owner or ResidentType.Tenant or ResidentType.FamilyMember or ResidentType.CoOccupant);
+        });
     }
 }
 
@@ -104,6 +122,7 @@ public sealed class CreateNoticeCommandValidator : AbstractValidator<CreateNotic
             .WithMessage("Publish date cannot be in the past.");
         RuleFor(x => x.SocietyId).NotEmpty();
     }
+    //{CreateNoticeCommand { SocietyId = , UserId = 577df16c-19ca-4a30-b3ae-f439c9495bce, Title = ssgsgg, Content = sgsgsg, Category = General, PublishAt = 08-04-2026 11:53:00, ExpiresAt = , TargetApartmentIds =  }}
 }
 
 // ─── Visitor ──────────────────────────────────────────────────────────────────
@@ -115,7 +134,7 @@ public sealed class RegisterVisitorCommandValidator : AbstractValidator<Register
         RuleFor(x => x.VisitorName).NotEmpty();
         RuleFor(x => x.Phone).NotEmpty();
         RuleFor(x => x.Purpose).NotEmpty();
-        RuleFor(x => x.HostApartmentId).NotEmpty();
+        //RuleFor(x => x.HostApartmentId).NotEmpty(); -> TBD
         RuleFor(x => x.SocietyId).NotEmpty();
     }
 }

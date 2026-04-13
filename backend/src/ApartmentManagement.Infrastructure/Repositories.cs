@@ -94,6 +94,13 @@ public class UserRepository(CosmosClient client, string dbName, ILogger<UserRepo
         return (await ExecuteQueryAsync(q, societyId, ct)).FirstOrDefault();
     }
 
+    public async Task<IReadOnlyList<DomainUser>> GetByEmailAcrossSocietiesAsync(string email, CancellationToken ct = default)
+    {
+        var q = new QueryDefinition("SELECT * FROM c WHERE c.email = @email")
+            .WithParameter("@email", email);
+        return await ExecuteCrossPartitionQueryAsync(q, ct);
+    }
+
     public async Task<DomainUser?> GetByPhoneAsync(string societyId, string phone, CancellationToken ct = default)
     {
         var q = new QueryDefinition("SELECT * FROM c WHERE c.societyId = @sid AND c.phone = @phone")

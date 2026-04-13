@@ -5,6 +5,6 @@ public record CreateApartmentRequest(
     string BlockName,
     int FloorNumber,
     int NumberOfRooms,
-    int ParkingSlots,
+    IReadOnlyList<string> ParkingSlots,
     string? OwnerId
 );

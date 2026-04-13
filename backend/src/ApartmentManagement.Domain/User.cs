@@ -10,12 +10,16 @@ public sealed class User : BaseEntity
     public string Email { get; private set; } = string.Empty;
     public string Phone { get; private set; } = string.Empty;
     public UserRole Role { get; private set; }
+    public ResidentType ResidentType { get; private set; }
     public string? ApartmentId { get; private set; }
+    public string? InvitedByUserId { get; private set; }
     public bool IsActive { get; private set; }
     public bool IsVerified { get; private set; }
     public string? OtpCode { get; private set; }
     public DateTime? OtpExpiry { get; private set; }
     public string? ExternalAuthId { get; private set; }
+    public string? PasswordHash { get; private set; }
+    public bool HasPassword => !string.IsNullOrWhiteSpace(PasswordHash);
 
     private static readonly TimeSpan OtpLifetime = TimeSpan.FromMinutes(10);
     private static readonly Random _rng = new();
@@ -24,7 +28,7 @@ public sealed class User : BaseEntity
 
     /// <summary>Creates a new unverified user.</summary>
     public static User Create(string societyId, string fullName, string email, string phone,
-        UserRole role, string? apartmentId = null)
+        UserRole role, ResidentType residentType, string? apartmentId = null, string? invitedByUserId = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(societyId, nameof(societyId));
         ArgumentException.ThrowIfNullOrWhiteSpace(fullName, nameof(fullName));
@@ -41,7 +45,9 @@ public sealed class User : BaseEntity
             Email = email.Trim().ToLowerInvariant(),
             Phone = phone.Trim(),
             Role = role,
+            ResidentType = residentType,
             ApartmentId = apartmentId,
+            InvitedByUserId = invitedByUserId,
             IsActive = true,
             IsVerified = false
         };
@@ -94,11 +100,25 @@ public sealed class User : BaseEntity
     }
 
     public void AssignRole(UserRole role) { Role = role; TouchUpdatedAt(); }
+    public void AssignResidentType(ResidentType residentType) { ResidentType = residentType; TouchUpdatedAt(); }
+    public void SetPasswordHash(string passwordHash)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(passwordHash, nameof(passwordHash));
+        PasswordHash = passwordHash;
+        TouchUpdatedAt();
+    }
 
     public void AssignApartment(string apartmentId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(apartmentId, nameof(apartmentId));
         ApartmentId = apartmentId;
+        TouchUpdatedAt();
+    }
+
+    public void AssignInvitedBy(string invitedByUserId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(invitedByUserId, nameof(invitedByUserId));
+        InvitedByUserId = invitedByUserId;
         TouchUpdatedAt();
     }
 }

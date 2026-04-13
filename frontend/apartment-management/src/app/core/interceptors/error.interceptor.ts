@@ -25,6 +25,8 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
         message = 'Server error. Please try again later.';
       } else if (err.error?.message) {
         message = err.error.message;
+      } else if (err.error?.error) {
+        message = err.error.error;
       }
 
       snackBar.open(message, 'Dismiss', {

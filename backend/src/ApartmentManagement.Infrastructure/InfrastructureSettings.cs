@@ -15,7 +15,7 @@ public sealed class InfrastructureSettings
     public string AzureAdB2CUserFlow { get; set; } = string.Empty;
 
     // JWT
-    public string JwtSecret { get; set; } = string.Empty;
+    public string JwtSecret { get; set; } = "uastfdays35667a0s8p9da8sdioasodipo9";
     public string JwtIssuer { get; set; } = "apartment-management";
     public string JwtAudience { get; set; } = "apartment-management-app";
     public int JwtExpiryHours { get; set; } = 24;

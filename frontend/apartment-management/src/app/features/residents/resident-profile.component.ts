@@ -12,14 +12,14 @@ import { User } from '../../core/models/user.model';
   standalone: true,
   imports: [MatButtonModule, PageHeaderComponent, LoadingSpinnerComponent],
   template: `
-    <app-page-header [title]="user()?.name ?? 'Profile'" [showBack]="true"></app-page-header>
+    <app-page-header [title]="user()?.fullName ?? user()?.name ?? 'Profile'" [showBack]="true"></app-page-header>
     <div class="page-content">
       @if (loading()) {
         <app-loading-spinner></app-loading-spinner>
       } @else if (user()) {
         <div class="profile-header">
           <div class="avatar avatar-xl">{{ initials() }}</div>
-          <h2>{{ user()!.name }}</h2>
+          <h2>{{ user()!.fullName ?? user()!.name }}</h2>
           <span class="role-chip">{{ user()!.role }}</span>
         </div>
         <div class="card" style="margin-top:16px">
@@ -27,6 +27,7 @@ import { User } from '../../core/models/user.model';
           @if (user()!.phone) {
             <div class="row"><span class="label">Phone</span><span>{{ user()!.phone }}</span></div>
           }
+          <div class="row"><span class="label">Resident Type</span><span>{{ user()!.residentType }}</span></div>
           <div class="row"><span class="label">Apartment</span><span>{{ user()!.apartmentId ?? '–' }}</span></div>
         </div>
       }
@@ -54,7 +55,7 @@ export class ResidentProfileComponent implements OnInit {
 
   readonly loading = signal(true);
   readonly user    = signal<User | null>(null);
-  initials = () => this.user()?.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2) ?? '';
+  initials = () => (this.user()?.fullName ?? this.user()?.name ?? '').split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2) ?? '';
 
   ngOnInit() {
     const sid = this.auth.societyId()!;

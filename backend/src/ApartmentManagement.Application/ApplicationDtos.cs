@@ -1,4 +1,5 @@
 using ApartmentManagement.Domain.Enums;
+using System.Text.Json.Serialization;
 
 namespace ApartmentManagement.Application.DTOs;
 
@@ -27,21 +28,44 @@ public record SocietyResponse(
 // ─── Apartment ────────────────────────────────────────────────────────────────
 
 public record CreateApartmentRequest(
-    string ApartmentNumber, string BlockName, int FloorNumber, int NumberOfRooms, int ParkingSlots, string? OwnerId);
+    string ApartmentNumber, string BlockName, int FloorNumber, int NumberOfRooms, IReadOnlyList<string> ParkingSlots, string? OwnerId,
+    double CarpetArea, double BuildUpArea, double SuperBuildArea);
 
-public record UpdateApartmentRequest(string BlockName, int FloorNumber, int NumberOfRooms, int ParkingSlots);
+public record UpdateApartmentRequest(string BlockName, int FloorNumber, int NumberOfRooms, IReadOnlyList<string> ParkingSlots,
+    double CarpetArea, double BuildUpArea, double SuperBuildArea);
 
 public record ApartmentResponse(
     string Id, string SocietyId, string ApartmentNumber, string BlockName, int FloorNumber,
-    int NumberOfRooms, int ParkingSlots, string Status, string? OwnerId, string? TenantId, DateTime CreatedAt);
+    int NumberOfRooms, IReadOnlyList<string> ParkingSlots, double CarpetArea, double BuildUpArea, double SuperBuildArea,
+    string Status, string? OwnerId, string? TenantId,
+    IReadOnlyList<ApartmentResidentHistoryDto> OwnershipHistory, IReadOnlyList<ApartmentResidentHistoryDto> TenantHistory, DateTime CreatedAt);
 
-public record ChangeApartmentStatusRequest(ApartmentStatus Status, string Reason);
+public record ApartmentResidentHistoryDto(string UserId, string? FullName, DateTime FromUtc, DateTime? ToUtc);
+
+public record ChangeApartmentStatusRequest(
+    [property: JsonConverter(typeof(JsonStringEnumConverter))] ApartmentStatus Status,
+    string Reason);
 
 public record BulkImportResult(int TotalRequested, int Succeeded, int Failed, List<string> Errors);
 
+public record ApartmentResidentHistoryResponse(
+    string ApartmentId,
+    string ApartmentNumber,
+    string? CurrentOwnerId,
+    string? CurrentTenantId,
+    IReadOnlyList<ApartmentResidentHistoryDto> OwnershipHistory,
+    IReadOnlyList<ApartmentResidentHistoryDto> TenantHistory);
+
 // ─── User ─────────────────────────────────────────────────────────────────────
 
-public record CreateUserRequest(string FullName, string Email, string Phone, UserRole Role, string? ApartmentId);
+public record CreateUserRequest(
+    string FullName,
+    string Email,
+    string Phone,
+    [property: JsonConverter(typeof(JsonStringEnumConverter))] UserRole Role,
+    [property: JsonConverter(typeof(JsonStringEnumConverter))] ResidentType ResidentType,
+    string? ApartmentId,
+    string? InvitedByUserId = null);
 
 /// <summary>Request body for creating a platform-level HQ user (HQAdmin or HQUser only).</summary>
 public record CreateHQUserRequest(string FullName, string Email, string Phone, UserRole Role);
@@ -50,12 +74,12 @@ public record UpdateUserRequest(string FullName, string Phone);
 
 public record UserResponse(
     string Id, string SocietyId, string FullName, string Email, string Phone,
-    string Role, string? ApartmentId, bool IsActive, bool IsVerified, DateTime CreatedAt);
+    string Role, string ResidentType, string? ApartmentId, string? InvitedByUserId, bool IsActive, bool IsVerified, bool HasPassword, IReadOnlyList<string> Permissions, DateTime CreatedAt);
 
 // Auth response user — field names intentionally match the Angular User model
 public record AuthUserDto(
     string Id, string SocietyId, string Name, string Email, string? Phone,
-    string Role, string? ApartmentId, bool IsVerified);
+    string Role, string ResidentType, string? ApartmentId, bool IsVerified, IReadOnlyList<string> Permissions);
 
 public record VerifyOtpResponse(string AccessToken, AuthUserDto User);
 
@@ -64,11 +88,23 @@ public record OtpCodeBody
 {
     public string OtpCode { get; init; } = string.Empty;
 }
-public record LoginRequest(string Email, string Password, string SocietyId);
-public record LoginResponse(string Token, string RefreshToken, DateTime ExpiresAt, UserResponse User);
+public record LoginRequest(string Email, string Password, string? SelectedUserId = null);
+public record LoginOptionDto(string UserId, string SocietyId, string SocietyName, string? ApartmentId, string? ApartmentLabel, string Role, string ResidentType);
+public record LoginResponse(bool RequiresSelection, string? Token, AuthUserDto? User, IReadOnlyList<LoginOptionDto> Options);
 public record SendOtpRequest(string UserId);
 public record RequestOtpByEmailRequest(string Email);
 public record RequestOtpByEmailResponse(string UserId);
+public record PasswordResetRequest(string Email, string? SelectedUserId = null);
+public record PasswordResetRequestResponse(bool RequiresSelection, string? UserId, IReadOnlyList<LoginOptionDto> Options);
+public record ConfirmPasswordResetRequest(string SocietyId, string UserId, string OtpCode, string NewPassword);
+public record TransferApartmentOwnershipRequest(string ApartmentId, string FullName, string Email, string Phone);
+public record TransferApartmentTenancyRequest(string ApartmentId, string FullName, string Email, string Phone);
+public record AddHouseholdMemberRequest(
+    string ApartmentId,
+    string FullName,
+    string Email,
+    string Phone,
+    [property: JsonConverter(typeof(JsonStringEnumConverter))] ResidentType ResidentType);
 
 // ─── Amenity ─────────────────────────────────────────────────────────────────
 

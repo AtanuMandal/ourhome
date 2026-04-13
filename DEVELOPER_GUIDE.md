@@ -84,7 +84,7 @@ Open the Emulator Explorer at `https://localhost:8081/_explorer/index.html` and 
 | `amenity-bookings` | `/societyId` |
 | `complaints` | `/societyId` |
 | `notices` | `/societyId` |
-| `visitor-logs` | `/societyId` |
+| `visitor_logs` | `/societyId` |
 | `fee-schedules` | `/societyId` |
 | `fee-payments` | `/societyId` |
 | `competitions` | `/societyId` |

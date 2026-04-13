@@ -34,7 +34,7 @@ public class CreateApartmentCommandHandlerTests
             .ReturnsAsync((Apartment a, CancellationToken _) => a);
 
         var handler = CreateHandler();
-        var command = new CreateApartmentCommand(societyId, "A101", "A", 1, 3, 1, null);
+        var command = new CreateApartmentCommand(societyId, "A101", "A", 1, 3, ["P1"], null,500,600,700);
 
         // Act
         var result = await handler.Handle(command, CancellationToken.None);
@@ -50,14 +50,14 @@ public class CreateApartmentCommandHandlerTests
     {
         // Arrange
         var societyId = "society-001";
-        var existingApt = Apartment.Create(societyId, "A101", "A", 1, 3, 0);
+        var existingApt = Apartment.Create(societyId, "A101", "A", 1, 3, [], 500, 600, 700);
 
         _apartmentRepoMock
             .Setup(r => r.GetByUnitNumberAsync(societyId, "A", "A101", It.IsAny<CancellationToken>()))
             .ReturnsAsync(existingApt);
 
         var handler = CreateHandler();
-        var command = new CreateApartmentCommand(societyId, "A101", "A", 1, 3, 1, null);
+        var command = new CreateApartmentCommand(societyId, "A101", "A", 1, 3, ["P1"], null, 500, 600, 700);
 
         // Act
         var result = await handler.Handle(command, CancellationToken.None);
@@ -77,7 +77,7 @@ public class CreateApartmentCommandHandlerTests
             .ThrowsAsync(new Exception("DB error"));
 
         var handler = CreateHandler();
-        var command = new CreateApartmentCommand("soc-001", "A101", "A", 1, 3, 1, null);
+        var command = new CreateApartmentCommand("soc-001", "A101", "A", 1, 3, ["P1"], null, 500, 600, 700);
 
         // Act
         var result = await handler.Handle(command, CancellationToken.None);
@@ -100,7 +100,7 @@ public class DeleteApartmentCommandHandlerTests
     public async Task Handle_WhenApartmentExistsAndVacant_DeletesAndReturnsSuccess()
     {
         // Arrange
-        var apartment = Apartment.Create("society-001", "A101", "A", 1, 3, 0);
+        var apartment = Apartment.Create("society-001", "A101", "A", 1, 3, [], 500, 600, 700);
         var aptId = apartment.Id;
 
         _apartmentRepoMock
@@ -121,7 +121,7 @@ public class DeleteApartmentCommandHandlerTests
     public async Task Handle_WhenApartmentOccupied_ReturnsFailure()
     {
         // Arrange
-        var apartment = Apartment.Create("society-001", "A101", "A", 1, 3, 0);
+        var apartment = Apartment.Create("society-001", "A101", "A", 1, 3, [], 500, 600, 700);
         apartment.AssignOwner("user-001");
         var aptId = apartment.Id;
 
@@ -161,10 +161,11 @@ public class DeleteApartmentCommandHandlerTests
 public class BulkImportApartmentsCommandHandlerTests
 {
     private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
+    private readonly Mock<IEventPublisher> _eventPublisherMock = new();
     private readonly Mock<ILogger<BulkImportApartmentsCommandHandler>> _loggerMock = new();
 
     private BulkImportApartmentsCommandHandler CreateHandler() =>
-        new(_apartmentRepoMock.Object, _loggerMock.Object);
+        new(_apartmentRepoMock.Object, _eventPublisherMock.Object, _loggerMock.Object);
 
     [Fact]
     public async Task Handle_WithAllNewApartments_SucceedsForAll()
@@ -182,8 +183,8 @@ public class BulkImportApartmentsCommandHandlerTests
         var handler = CreateHandler();
         var apartments = new List<CreateApartmentRequest>
         {
-            new("A101", "A", 1, 3, 0, null),
-            new("A102", "A", 1, 3, 0, null)
+            new("A101", "A", 1, 3,["P1"], null, 500, 600, 700),
+            new("A102", "A", 1, 3,["P2"], null, 500, 600, 700)
         };
         var command = new BulkImportApartmentsCommand(societyId, apartments);
 
@@ -194,6 +195,9 @@ public class BulkImportApartmentsCommandHandlerTests
         result.IsSuccess.Should().BeTrue();
         result.Value!.Succeeded.Should().Be(2);
         result.Value!.Failed.Should().Be(0);
+        _eventPublisherMock.Verify(
+            p => p.PublishAsync(It.IsAny<ApartmentManagement.Domain.Events.ApartmentCreatedEvent>(), It.IsAny<CancellationToken>()),
+            Times.Exactly(2));
     }
 
     [Fact]
@@ -201,7 +205,7 @@ public class BulkImportApartmentsCommandHandlerTests
     {
         // Arrange
         var societyId = "soc-001";
-        var existing = Apartment.Create(societyId, "A101", "A", 1, 3, 0);
+        var existing = Apartment.Create(societyId, "A101", "A", 1, 3, [], 500, 600, 700);
 
         _apartmentRepoMock
             .Setup(r => r.GetByUnitNumberAsync(societyId, "A", "A101", It.IsAny<CancellationToken>()))
@@ -216,8 +220,8 @@ public class BulkImportApartmentsCommandHandlerTests
         var handler = CreateHandler();
         var apartments = new List<CreateApartmentRequest>
         {
-            new("A101", "A", 1, 3, 0, null), // duplicate
-            new("A102", "A", 1, 3, 0, null)  // new
+            new("A101", "A", 1, 3,["P1"], null, 500, 600, 700), // duplicate
+            new("A102", "A", 1, 3,["P2"], null, 500, 600, 700)  // new
         };
         var command = new BulkImportApartmentsCommand(societyId, apartments);
 
@@ -236,7 +240,7 @@ public class BulkImportApartmentsCommandHandlerTests
     {
         // Arrange
         var societyId = "soc-001";
-        var existing = Apartment.Create(societyId, "A101", "A", 1, 3, 0);
+        var existing = Apartment.Create(societyId, "A101", "A", 1, 3, [], 500, 600, 700);
 
         _apartmentRepoMock
             .Setup(r => r.GetByUnitNumberAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -245,8 +249,8 @@ public class BulkImportApartmentsCommandHandlerTests
         var handler = CreateHandler();
         var apartments = new List<CreateApartmentRequest>
         {
-            new("A101", "A", 1, 3, 0, null),
-            new("A102", "A", 1, 3, 0, null)
+            new("A101", "A", 1, 3,["P1"], null, 500, 600, 700),
+            new("A102", "A", 1, 3,["P2"], null, 500, 600, 700)
         };
         var command = new BulkImportApartmentsCommand(societyId, apartments);
 

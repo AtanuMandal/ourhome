@@ -15,14 +15,17 @@ export interface ApiResult<T> {
 export interface User {
   id: string;
   societyId: string;
-  name: string;
+  name?: string;
   email: string;
   phone?: string;
   role: 'HQAdmin' | 'HQUser' | 'SUAdmin' | 'SUUser';
+  residentType: 'SocietyAdmin' | 'Owner' | 'Tenant' | 'FamilyMember' | 'CoOccupant';
   apartmentId?: string;
   isVerified: boolean;
+  permissions: string[];
+  fullName?: string;
   avatarUrl?: string;
-  createdAt: string;
+  createdAt?: string;
 }
 
 export interface AuthState {
@@ -46,4 +49,27 @@ export interface AuthToken {
   accessToken: string;
   expiresIn: number;
   user: User;
+}
+
+export interface LoginOption {
+  userId: string;
+  societyId: string;
+  societyName: string;
+  apartmentId?: string;
+  apartmentLabel?: string;
+  role: string;
+  residentType: string;
+}
+
+export interface LoginResponse {
+  requiresSelection: boolean;
+  token?: string;
+  user?: User;
+  options: LoginOption[];
+}
+
+export interface PasswordResetRequestResponse {
+  requiresSelection: boolean;
+  userId?: string;
+  options: LoginOption[];
 }

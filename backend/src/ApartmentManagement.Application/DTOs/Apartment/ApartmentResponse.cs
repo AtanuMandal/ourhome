@@ -9,7 +9,7 @@ public record ApartmentResponse(
     string BlockName,
     int FloorNumber,
     int NumberOfRooms,
-    int ParkingSlots,
+    IReadOnlyList<string> ParkingSlots,
     string Status,
     string? OwnerId,
     string? TenantId,

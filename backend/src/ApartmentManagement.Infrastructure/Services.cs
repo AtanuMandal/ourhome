@@ -73,11 +73,48 @@ public class JwtAuthService(IOptions<InfrastructureSettings> options) : IAuthSer
         catch { return Task.FromResult(false); }
     }
 
-    public string HashPassword(string password) =>
-        throw new NotSupportedException("Password-based login is not used; login is OTP-only.");
+    public string HashPassword(string password)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(password);
 
-    public bool VerifyPassword(string password, string hash) =>
-        throw new NotSupportedException("Password-based login is not used; login is OTP-only.");
+        var salt = RandomNumberGenerator.GetBytes(16);
+        var derived = Rfc2898DeriveBytes.Pbkdf2(
+            Encoding.UTF8.GetBytes(password),
+            salt,
+            100_000,
+            HashAlgorithmName.SHA256,
+            32);
+
+        return $"{Convert.ToBase64String(salt)}:{Convert.ToBase64String(derived)}";
+    }
+
+    public bool VerifyPassword(string password, string hash)
+    {
+        if (string.IsNullOrWhiteSpace(password) || string.IsNullOrWhiteSpace(hash))
+            return false;
+
+        var parts = hash.Split(':', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length != 2)
+            return false;
+
+        try
+        {
+            var salt = Convert.FromBase64String(parts[0]);
+            var expected = Convert.FromBase64String(parts[1]);
+            var actual = Rfc2898DeriveBytes.Pbkdf2(
+                Encoding.UTF8.GetBytes(password),
+                salt,
+                100_000,
+                HashAlgorithmName.SHA256,
+                expected.Length);
+
+            return CryptographicOperations.FixedTimeEquals(actual, expected);
+        }
+        catch
+        {
+            return false;
+        }
+    }
 }
 
 public class OutboxEventPublisher(

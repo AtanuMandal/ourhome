@@ -1,9 +1,9 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { tap, catchError, of } from 'rxjs';
+import { tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { User, AuthState } from '../models/user.model';
+import { User, AuthState, LoginResponse, PasswordResetRequestResponse } from '../models/user.model';
 
 const TOKEN_KEY    = 'am_token';
 const USER_KEY     = 'am_user';
@@ -31,15 +31,33 @@ export class AuthService {
   });
 
   // ── Auth flow ──────────────────────────────────────────────────────────────
-  /** Step 1: look up user by email → generate & send OTP → returns userId */
-  requestOtp(societyId: string, email: string) {
-    return this.http.post<{ userId: string }>(
-      `${environment.apiBaseUrl}/societies/${societyId}/auth/request-otp`,
-      { email }
+  login(email: string, password: string, selectedUserId?: string) {
+    return this.http.post<LoginResponse>(
+      `${environment.apiBaseUrl}/auth/login`,
+      { email, password, selectedUserId }
+    ).pipe(
+      tap(res => {
+        if (!res.requiresSelection && res.token && res.user) {
+          this.persistSession(res.token, res.user, res.user.societyId);
+        }
+      })
     );
   }
 
-  /** Step 2: verify OTP → get JWT */
+  requestPasswordReset(email: string, selectedUserId?: string) {
+    return this.http.post<PasswordResetRequestResponse>(
+      `${environment.apiBaseUrl}/auth/password-reset/request`,
+      { email, selectedUserId }
+    );
+  }
+
+  confirmPasswordReset(societyId: string, userId: string, otpCode: string, newPassword: string) {
+    return this.http.post<boolean>(
+      `${environment.apiBaseUrl}/auth/password-reset/confirm`,
+      { societyId, userId, otpCode, newPassword }
+    );
+  }
+
   verifyOtp(societyId: string, userId: string, otp: string) {
     return this.http.post<{ accessToken: string; user: User }>(
       `${environment.apiBaseUrl}/societies/${societyId}/users/${userId}/verify-otp`,
