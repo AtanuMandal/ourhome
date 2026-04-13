@@ -51,7 +51,7 @@ public record UpdateApartmentRequest(string BlockName, int FloorNumber, int Numb
 public record ApartmentResponse(
     string Id, string SocietyId, string ApartmentNumber, string BlockName, int FloorNumber,
     int NumberOfRooms, IReadOnlyList<string> ParkingSlots, double CarpetArea, double BuildUpArea, double SuperBuildArea,
-    string Status, string? OwnerId, string? TenantId,
+    string Status, IReadOnlyList<ApartmentResidentDto> Residents, string? TenantId,
     IReadOnlyList<ApartmentResidentHistoryDto> OwnershipHistory, IReadOnlyList<ApartmentResidentHistoryDto> TenantHistory, DateTime CreatedAt);
 
 public record ApartmentResidentHistoryDto(string UserId, string? FullName, DateTime FromUtc, DateTime? ToUtc);

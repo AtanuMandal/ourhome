@@ -45,8 +45,8 @@ public static class MappingExtensions
             apartment.BuildUpArea,
             apartment.SuperBuildArea,
             apartment.Status.ToString(),
-            apartment.GetPrimaryResidentName(),
             apartment.GetResidentsForRead().Select(r => new ApartmentResidentDto(r.UserId, r.UserName, r.ResidentType.ToString())).ToList(),
+            apartment.GetPrimaryResidentName(),
             apartment.OwnershipHistory.Select(h => new ApartmentResidentHistoryDto(h.UserId, h.FullName, h.FromUtc, h.ToUtc)).ToList(),
             apartment.TenantHistory.Select(h => new ApartmentResidentHistoryDto(h.UserId, h.FullName, h.FromUtc, h.ToUtc)).ToList(),
             apartment.CreatedAt);

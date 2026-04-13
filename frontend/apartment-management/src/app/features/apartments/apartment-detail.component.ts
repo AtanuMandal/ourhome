@@ -58,14 +58,18 @@ import { Apartment, ApartmentStatus } from '../../core/models/apartment.model';
             <mat-divider></mat-divider>
             <div class="detail-row"><span class="label">Parking Slots</span><span>{{ item()!.parkingSlots.join(', ') }}</span></div>
           }
-          <mat-divider></mat-divider>          <div class="detail-row"><span class="label">Carpet Area (SQFT)</span><span>{{ item()!.carpetArea }}</span></div>
+          <mat-divider></mat-divider>
+          <div class="detail-row"><span class="label">Carpet Area (SQFT)</span><span>{{ item()!.carpetArea }}</span></div>
           <mat-divider></mat-divider>
           <div class="detail-row"><span class="label">BuildUp Area (SQFT)</span><span>{{ item()!.buildUpArea }}</span></div>
           <mat-divider></mat-divider>
           <div class="detail-row"><span class="label">SuperBuild Area (SQFT)</span><span>{{ item()!.superBuildArea }}</span></div>
-          <mat-divider></mat-divider>          <div class="detail-row"><span class="label">Current owner</span><span>{{ item()!.ownerId ?? 'Unassigned' }}</span></div>
           <mat-divider></mat-divider>
-          <div class="detail-row"><span class="label">Current tenant</span><span>{{ item()!.tenantId ?? 'Unassigned' }}</span></div>
+          <div class="detail-row"><span class="label">Current owner</span><span>{{ currentResidentName('Owner') ?? 'Unassigned' }}</span></div>
+          @if (currentResidentName('Tenant')) {
+            <mat-divider></mat-divider>
+            <div class="detail-row"><span class="label">Current tenant</span><span>{{ currentResidentName('Tenant') }}</span></div>
+          }
         </div>
 
         @if (isAdmin()) {
