@@ -60,15 +60,31 @@ public class ApartmentRepository(CosmosClient client, string dbName, ILogger<Apa
 
     public async Task<IReadOnlyList<Apartment>> GetByOwnerAsync(string societyId, string ownerUserId, CancellationToken ct = default)
     {
-        var q = new QueryDefinition("SELECT * FROM c WHERE c.societyId = @sid AND c.ownerId = @owner")
-            .WithParameter("@sid", societyId).WithParameter("@owner", ownerUserId);
+        var q = new QueryDefinition(@"
+SELECT * FROM c
+WHERE c.societyId = @sid
+  AND (
+    (IS_DEFINED(c.residents) AND ARRAY_CONTAINS(c.residents, { ""userId"": @userId, ""residentType"": @residentType }, true))
+    OR c.ownerId = @userId
+  )")
+            .WithParameter("@sid", societyId)
+            .WithParameter("@userId", ownerUserId)
+            .WithParameter("@residentType", ResidentType.Owner.ToString());
         return await ExecuteQueryAsync(q, societyId, ct);
     }
 
     public async Task<IReadOnlyList<Apartment>> GetByTenantAsync(string societyId, string tenantUserId, CancellationToken ct = default)
     {
-        var q = new QueryDefinition("SELECT * FROM c WHERE c.societyId = @sid AND c.tenantId = @tenant")
-            .WithParameter("@sid", societyId).WithParameter("@tenant", tenantUserId);
+        var q = new QueryDefinition(@"
+SELECT * FROM c
+WHERE c.societyId = @sid
+  AND (
+    (IS_DEFINED(c.residents) AND ARRAY_CONTAINS(c.residents, { ""userId"": @userId, ""residentType"": @residentType }, true))
+    OR c.tenantId = @userId
+  )")
+            .WithParameter("@sid", societyId)
+            .WithParameter("@userId", tenantUserId)
+            .WithParameter("@residentType", ResidentType.Tenant.ToString());
         return await ExecuteQueryAsync(q, societyId, ct);
     }
 

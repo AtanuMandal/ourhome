@@ -31,14 +31,10 @@ public sealed class CreateUserCommandHandler(
     {
         try
         {
-            var existing = (await userRepository.GetAllAsync(request.SocietyId, ct)).FirstOrDefault(u =>
-                u.Email.Equals(request.Email, StringComparison.OrdinalIgnoreCase) &&
-                u.Role == request.Role &&
-                u.ResidentType == request.ResidentType &&
-                string.Equals(u.ApartmentId, request.ApartmentId, StringComparison.OrdinalIgnoreCase));
+            var existing = await userRepository.GetByEmailAsync(request.SocietyId, request.Email.Trim().ToLowerInvariant(), ct);
             if (existing is not null)
                 return Result<UserResponse>.Failure(ErrorCodes.UserAlreadyExists,
-                    $"A user with email {request.Email} already exists for the same apartment and resident type.");
+                    $"A resident with email {request.Email} already exists in this society. Open that resident and add another apartment there.");
 
             var user = Domain.Entities.User.Create(
                 request.SocietyId, request.FullName, request.Email, request.Phone,
@@ -46,6 +42,7 @@ public sealed class CreateUserCommandHandler(
 
             user.GenerateOtp();
             var created = await userRepository.CreateAsync(user, ct);
+            var userNeedsUpdate = false;
 
             if (!string.IsNullOrWhiteSpace(created.ApartmentId))
             {
@@ -58,7 +55,6 @@ public sealed class CreateUserCommandHandler(
                         return Result<UserResponse>.Failure(ErrorCodes.Conflict, "This apartment already has an owner. Use ownership transfer instead.");
 
                     apartment.AssignOwner(created.Id, created.FullName);
-                    await apartmentRepository.UpdateAsync(apartment, ct);
                 }
                 else if (created.ResidentType == ResidentType.Tenant)
                 {
@@ -66,19 +62,31 @@ public sealed class CreateUserCommandHandler(
                         return Result<UserResponse>.Failure(ErrorCodes.Conflict, "This apartment already has a tenant. Use tenancy transfer instead.");
 
                     apartment.AssignTenant(created.Id, created.FullName);
-                    await apartmentRepository.UpdateAsync(apartment, ct);
                 }
+                else
+                {
+                    apartment.AddResident(created.Id, created.FullName, created.ResidentType);
+                }
+
+                await apartmentRepository.UpdateAsync(apartment, ct);
+                created.LinkApartment(apartment.Id, apartment.ApartmentNumber, created.ResidentType, makePrimary: true);
+                userNeedsUpdate = true;
             }
 
             if (!string.IsNullOrWhiteSpace(created.Phone))
                 await notificationService.SendSmsAsync(created.Phone,
                     $"Your OTP for apartment management system is: {created.OtpCode}", ct);
 
-            foreach (var evt in created.DomainEvents)
-                await eventPublisher.PublishAsync(evt, ct);
-            created.ClearDomainEvents();
+            var persistedUser = userNeedsUpdate
+                ? await userRepository.UpdateAsync(created, ct)
+                : created;
 
-            return Result<UserResponse>.Success(created.ToResponse());
+            foreach (var evt in persistedUser.DomainEvents)
+                await eventPublisher.PublishAsync(evt, ct);
+            persistedUser.ClearDomainEvents();
+
+            var apartments = await ApartmentManagement.Application.Queries.User.UserQueryMapping.GetResidentApartmentsAsync(persistedUser, apartmentRepository, ct);
+            return Result<UserResponse>.Success(persistedUser.ToResponse(apartments));
         }
         catch (Exception ex)
         {
@@ -95,6 +103,7 @@ public record UpdateUserCommand(string SocietyId, string UserId, string FullName
 
 public sealed class UpdateUserCommandHandler(
     IUserRepository userRepository,
+    IApartmentRepository apartmentRepository,
     ILogger<UpdateUserCommandHandler> logger)
     : IRequestHandler<UpdateUserCommand, Result<UserResponse>>
 {
@@ -107,7 +116,8 @@ public sealed class UpdateUserCommandHandler(
 
             user.UpdateProfile(request.FullName, request.Phone);
             var updated = await userRepository.UpdateAsync(user, ct);
-            return Result<UserResponse>.Success(updated.ToResponse());
+            var apartments = await ApartmentManagement.Application.Queries.User.UserQueryMapping.GetResidentApartmentsAsync(updated, apartmentRepository, ct);
+            return Result<UserResponse>.Success(updated.ToResponse(apartments));
         }
         catch (NotFoundException ex)
         {
@@ -118,6 +128,155 @@ public sealed class UpdateUserCommandHandler(
             logger.LogError(ex, "Failed to update user {UserId}", request.UserId);
             return Result<UserResponse>.Failure(ErrorCodes.InternalError, ex.Message);
         }
+    }
+}
+
+// ─── Attach Existing Resident To Another Apartment ────────────────────────────
+
+public record AssignUserApartmentCommand(string SocietyId, string UserId, string ApartmentId, ResidentType ResidentType)
+    : IRequest<Result<UserResponse>>;
+
+public sealed class AssignUserApartmentCommandHandler(
+    IUserRepository userRepository,
+    IApartmentRepository apartmentRepository,
+    ILogger<AssignUserApartmentCommandHandler> logger)
+    : IRequestHandler<AssignUserApartmentCommand, Result<UserResponse>>
+{
+    public async Task<Result<UserResponse>> Handle(AssignUserApartmentCommand request, CancellationToken ct)
+    {
+        try
+        {
+            if (request.ResidentType is not (ResidentType.Owner or ResidentType.Tenant))
+                return Result<UserResponse>.Failure(ErrorCodes.ValidationFailed, "Additional apartments can only be linked for owner or tenant residents.");
+
+            var user = await userRepository.GetByIdAsync(request.UserId, request.SocietyId, ct);
+            if (user is null)
+                return Result<UserResponse>.Failure(ErrorCodes.UserNotFound, $"User with id '{request.UserId}' was not found.");
+
+            var apartment = await apartmentRepository.GetByIdAsync(request.ApartmentId, request.SocietyId, ct);
+            if (apartment is null)
+                return Result<UserResponse>.Failure(ErrorCodes.ApartmentNotFound, $"Apartment with id '{request.ApartmentId}' was not found.");
+
+            if (user.Role != UserRole.SUUser)
+                return Result<UserResponse>.Failure(ErrorCodes.Conflict, "Only resident users can be linked to apartments.");
+
+            if (request.ResidentType == ResidentType.Owner)
+            {
+                if (!string.IsNullOrWhiteSpace(apartment.OwnerId) && apartment.OwnerId != user.Id)
+                    return Result<UserResponse>.Failure(ErrorCodes.Conflict, "This apartment already has an owner. Use ownership transfer instead.");
+
+                if (apartment.OwnerId != user.Id)
+                {
+                    apartment.AssignOwner(user.Id, user.FullName);
+                    await apartmentRepository.UpdateAsync(apartment, ct);
+                }
+            }
+            else
+            {
+                if (!string.IsNullOrWhiteSpace(apartment.TenantId) && apartment.TenantId != user.Id)
+                    return Result<UserResponse>.Failure(ErrorCodes.Conflict, "This apartment already has a tenant. Use tenancy transfer instead.");
+
+                if (apartment.TenantId != user.Id)
+                {
+                    apartment.AssignTenant(user.Id, user.FullName);
+                    await apartmentRepository.UpdateAsync(apartment, ct);
+                }
+            }
+
+            user.LinkApartment(apartment.Id, apartment.ApartmentNumber, request.ResidentType);
+            var persistedUser = await userRepository.UpdateAsync(user, ct);
+
+            var apartments = await ApartmentManagement.Application.Queries.User.UserQueryMapping.GetResidentApartmentsAsync(persistedUser, apartmentRepository, ct);
+            return Result<UserResponse>.Success(persistedUser.ToResponse(apartments));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to attach apartment {ApartmentId} to user {UserId}", request.ApartmentId, request.UserId);
+            return Result<UserResponse>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
+public record RemoveUserApartmentCommand(string SocietyId, string UserId, string ApartmentId)
+    : IRequest<Result<UserResponse>>;
+
+public sealed class RemoveUserApartmentCommandHandler(
+    IUserRepository userRepository,
+    IApartmentRepository apartmentRepository,
+    ICurrentUserService currentUserService,
+    ILogger<RemoveUserApartmentCommandHandler> logger)
+    : IRequestHandler<RemoveUserApartmentCommand, Result<UserResponse>>
+{
+    public async Task<Result<UserResponse>> Handle(RemoveUserApartmentCommand request, CancellationToken ct)
+    {
+        try
+        {
+            var actor = await userRepository.GetByIdAsync(currentUserService.UserId, request.SocietyId, ct);
+            if (actor is null || actor.Role != UserRole.SUAdmin)
+                return Result<UserResponse>.Failure(ErrorCodes.Forbidden, "Only society admins can remove linked apartments from a resident.");
+
+            var user = await userRepository.GetByIdAsync(request.UserId, request.SocietyId, ct);
+            if (user is null)
+                return Result<UserResponse>.Failure(ErrorCodes.UserNotFound, $"User with id '{request.UserId}' was not found.");
+
+            var apartment = await apartmentRepository.GetByIdAsync(request.ApartmentId, request.SocietyId, ct);
+            if (apartment is null)
+                return Result<UserResponse>.Failure(ErrorCodes.ApartmentNotFound, $"Apartment with id '{request.ApartmentId}' was not found.");
+
+            var membership = ResolveMembership(user, apartment);
+            if (membership is null)
+                return Result<UserResponse>.Failure(ErrorCodes.NotFound, "This resident is not linked to the selected apartment.");
+
+            switch (membership.ResidentType)
+            {
+                case ResidentType.Owner:
+                    if (string.Equals(apartment.OwnerId, user.Id, StringComparison.OrdinalIgnoreCase))
+                        apartment.RemoveOwner();
+                    else
+                        apartment.RemoveResident(user.Id, ResidentType.Owner);
+                    break;
+                case ResidentType.Tenant:
+                    if (string.Equals(apartment.TenantId, user.Id, StringComparison.OrdinalIgnoreCase))
+                        apartment.RemoveTenant();
+                    else
+                        apartment.RemoveResident(user.Id, ResidentType.Tenant);
+                    break;
+                default:
+                    apartment.RemoveResident(user.Id, membership.ResidentType);
+                    break;
+            }
+
+            await apartmentRepository.UpdateAsync(apartment, ct);
+            user.UnlinkApartment(apartment.Id);
+            var updatedUser = await userRepository.UpdateAsync(user, ct);
+            var apartments = await ApartmentManagement.Application.Queries.User.UserQueryMapping.GetResidentApartmentsAsync(updatedUser, apartmentRepository, ct);
+            return Result<UserResponse>.Success(updatedUser.ToResponse(apartments));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to remove apartment {ApartmentId} from user {UserId}", request.ApartmentId, request.UserId);
+            return Result<UserResponse>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+
+    private static Domain.Entities.User.ApartmentMembership? ResolveMembership(Domain.Entities.User user, Domain.Entities.Apartment apartment)
+    {
+        var membership = user.Apartments.FirstOrDefault(link =>
+            string.Equals(link.ApartmentId, apartment.Id, StringComparison.OrdinalIgnoreCase));
+
+        if (membership is not null)
+            return membership;
+
+        var resident = apartment.GetResidentsForRead().FirstOrDefault(existing =>
+            string.Equals(existing.UserId, user.Id, StringComparison.OrdinalIgnoreCase));
+
+        if (resident is not null)
+            return new Domain.Entities.User.ApartmentMembership(apartment.Id, apartment.ApartmentNumber, resident.ResidentType);
+
+        if (string.Equals(user.ApartmentId, apartment.Id, StringComparison.OrdinalIgnoreCase))
+            return new Domain.Entities.User.ApartmentMembership(apartment.Id, apartment.ApartmentNumber, user.ResidentType);
+
+        return null;
     }
 }
 
@@ -439,6 +598,16 @@ public sealed class TransferApartmentOwnershipCommandHandler(
                 return Result<UserResponse>.Failure(ErrorCodes.Forbidden, "Only the current owner or society admin can transfer ownership.");
             }
 
+            if (!string.IsNullOrWhiteSpace(apartment.OwnerId))
+            {
+                var previousOwner = await userRepository.GetByIdAsync(apartment.OwnerId, request.SocietyId, ct);
+                if (previousOwner is not null)
+                {
+                    previousOwner.UnlinkApartment(apartment.Id);
+                    await userRepository.UpdateAsync(previousOwner, ct);
+                }
+            }
+
             var created = await userRepository.CreateAsync(
                 Domain.Entities.User.Create(
                     request.SocietyId, request.FullName, request.Email, request.Phone,
@@ -446,7 +615,9 @@ public sealed class TransferApartmentOwnershipCommandHandler(
 
             apartment.AssignOwner(created.Id, created.FullName);
             await apartmentRepository.UpdateAsync(apartment, ct);
-            return Result<UserResponse>.Success(created.ToResponse());
+            created.LinkApartment(apartment.Id, apartment.ApartmentNumber, ResidentType.Owner, makePrimary: true);
+            var updatedUser = await userRepository.UpdateAsync(created, ct);
+            return Result<UserResponse>.Success(updatedUser.ToResponse(await ApartmentManagement.Application.Queries.User.UserQueryMapping.GetResidentApartmentsAsync(updatedUser, apartmentRepository, ct)));
         }
         catch (NotFoundException ex)
         {
@@ -485,6 +656,16 @@ public sealed class TransferApartmentTenancyCommandHandler(
                 return Result<UserResponse>.Failure(ErrorCodes.Forbidden, "Only the current tenant or society admin can transfer tenancy.");
             }
 
+            if (!string.IsNullOrWhiteSpace(apartment.TenantId))
+            {
+                var previousTenant = await userRepository.GetByIdAsync(apartment.TenantId, request.SocietyId, ct);
+                if (previousTenant is not null)
+                {
+                    previousTenant.UnlinkApartment(apartment.Id);
+                    await userRepository.UpdateAsync(previousTenant, ct);
+                }
+            }
+
             var created = await userRepository.CreateAsync(
                 Domain.Entities.User.Create(
                     request.SocietyId, request.FullName, request.Email, request.Phone,
@@ -492,7 +673,9 @@ public sealed class TransferApartmentTenancyCommandHandler(
 
             apartment.AssignTenant(created.Id, created.FullName);
             await apartmentRepository.UpdateAsync(apartment, ct);
-            return Result<UserResponse>.Success(created.ToResponse());
+            created.LinkApartment(apartment.Id, apartment.ApartmentNumber, ResidentType.Tenant, makePrimary: true);
+            var updatedUser = await userRepository.UpdateAsync(created, ct);
+            return Result<UserResponse>.Success(updatedUser.ToResponse(await ApartmentManagement.Application.Queries.User.UserQueryMapping.GetResidentApartmentsAsync(updatedUser, apartmentRepository, ct)));
         }
         catch (NotFoundException ex)
         {
@@ -512,6 +695,7 @@ public record AddHouseholdMemberCommand(
 
 public sealed class AddHouseholdMemberCommandHandler(
     IUserRepository userRepository,
+    IApartmentRepository apartmentRepository,
     ICurrentUserService currentUserService,
     ILogger<AddHouseholdMemberCommandHandler> logger)
     : IRequestHandler<AddHouseholdMemberCommand, Result<UserResponse>>
@@ -525,6 +709,8 @@ public sealed class AddHouseholdMemberCommandHandler(
 
             var actor = await userRepository.GetByIdAsync(currentUserService.UserId, request.SocietyId, ct)
                 ?? throw new NotFoundException("User", currentUserService.UserId);
+            var apartment = await apartmentRepository.GetByIdAsync(request.ApartmentId, request.SocietyId, ct)
+                ?? throw new NotFoundException("Apartment", request.ApartmentId);
             var canAddFamily = request.ResidentType == ResidentType.FamilyMember &&
                 (actor.Role == UserRole.SUAdmin || actor.ResidentType == ResidentType.Owner);
             var canAddCoOccupant = request.ResidentType == ResidentType.CoOccupant &&
@@ -538,7 +724,11 @@ public sealed class AddHouseholdMemberCommandHandler(
                     request.SocietyId, request.FullName, request.Email, request.Phone,
                     UserRole.SUUser, request.ResidentType, request.ApartmentId, actor.Id), ct);
 
-            return Result<UserResponse>.Success(created.ToResponse());
+            apartment.AddResident(created.Id, created.FullName, request.ResidentType);
+            await apartmentRepository.UpdateAsync(apartment, ct);
+            created.LinkApartment(apartment.Id, apartment.ApartmentNumber, request.ResidentType, makePrimary: true);
+            var updatedUser = await userRepository.UpdateAsync(created, ct);
+            return Result<UserResponse>.Success(updatedUser.ToResponse(await ApartmentManagement.Application.Queries.User.UserQueryMapping.GetResidentApartmentsAsync(updatedUser, apartmentRepository, ct)));
         }
         catch (NotFoundException ex)
         {
@@ -621,9 +811,54 @@ public sealed class AssignRoleCommandHandler(
 namespace ApartmentManagement.Application.Queries.User
 {
 
+internal static class UserQueryMapping
+{
+    internal static async Task<IReadOnlyList<ResidentApartmentDto>> GetResidentApartmentsAsync(
+        Domain.Entities.User user,
+        IApartmentRepository apartmentRepository,
+        CancellationToken ct)
+    {
+        if (user.Apartments.Count > 0)
+        {
+            return user.Apartments
+                .OrderBy(link => link.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(link => new ResidentApartmentDto(link.ApartmentId, link.Name, link.ResidentType.ToString()))
+                .ToList();
+        }
+
+        var residentApartments = new List<ResidentApartmentDto>();
+        var seenApartmentIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        var ownedApartments = await apartmentRepository.GetByOwnerAsync(user.SocietyId, user.Id, ct) ?? [];
+        foreach (var apartment in ownedApartments.OrderBy(a => a.ApartmentNumber, StringComparer.OrdinalIgnoreCase))
+        {
+            if (seenApartmentIds.Add(apartment.Id))
+                residentApartments.Add(apartment.ToResidentApartmentResponse(ResidentType.Owner));
+        }
+
+        var tenantApartments = await apartmentRepository.GetByTenantAsync(user.SocietyId, user.Id, ct) ?? [];
+        foreach (var apartment in tenantApartments.OrderBy(a => a.ApartmentNumber, StringComparer.OrdinalIgnoreCase))
+        {
+            if (seenApartmentIds.Add(apartment.Id))
+                residentApartments.Add(apartment.ToResidentApartmentResponse(ResidentType.Tenant));
+        }
+
+        if (!string.IsNullOrWhiteSpace(user.ApartmentId) && seenApartmentIds.Add(user.ApartmentId))
+        {
+            var primaryApartment = await apartmentRepository.GetByIdAsync(user.ApartmentId, user.SocietyId, ct);
+            if (primaryApartment is not null)
+                residentApartments.Add(primaryApartment.ToResidentApartmentResponse(user.ResidentType));
+        }
+
+        return residentApartments
+            .OrderBy(apartment => apartment.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+}
+
 public record GetUserQuery(string SocietyId, string UserId) : IRequest<Result<UserResponse>>;
 
-public sealed class GetUserQueryHandler(IUserRepository userRepository)
+public sealed class GetUserQueryHandler(IUserRepository userRepository, IApartmentRepository apartmentRepository)
     : IRequestHandler<GetUserQuery, Result<UserResponse>>
 {
     public async Task<Result<UserResponse>> Handle(GetUserQuery request, CancellationToken ct)
@@ -632,7 +867,33 @@ public sealed class GetUserQueryHandler(IUserRepository userRepository)
         {
             var user = await userRepository.GetByIdAsync(request.UserId, request.SocietyId, ct)
                 ?? throw new NotFoundException("User", request.UserId);
-            return Result<UserResponse>.Success(user.ToResponse());
+            var apartments = await UserQueryMapping.GetResidentApartmentsAsync(user, apartmentRepository, ct);
+            return Result<UserResponse>.Success(user.ToResponse(apartments));
+        }
+        catch (NotFoundException ex)
+        {
+            return Result<UserResponse>.Failure(ErrorCodes.UserNotFound, ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return Result<UserResponse>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
+public record FindUserByEmailQuery(string SocietyId, string Email) : IRequest<Result<UserResponse>>;
+
+public sealed class FindUserByEmailQueryHandler(IUserRepository userRepository, IApartmentRepository apartmentRepository)
+    : IRequestHandler<FindUserByEmailQuery, Result<UserResponse>>
+{
+    public async Task<Result<UserResponse>> Handle(FindUserByEmailQuery request, CancellationToken ct)
+    {
+        try
+        {
+            var user = await userRepository.GetByEmailAsync(request.SocietyId, request.Email.Trim().ToLowerInvariant(), ct)
+                ?? throw new NotFoundException("User", request.Email);
+            var apartments = await UserQueryMapping.GetResidentApartmentsAsync(user, apartmentRepository, ct);
+            return Result<UserResponse>.Success(user.ToResponse(apartments));
         }
         catch (NotFoundException ex)
         {
@@ -648,7 +909,7 @@ public sealed class GetUserQueryHandler(IUserRepository userRepository)
 public record GetUsersBySocietyQuery(string SocietyId, PaginationParams Pagination, UserRole? RoleFilter)
     : IRequest<Result<PagedResult<UserResponse>>>;
 
-public sealed class GetUsersBySocietyQueryHandler(IUserRepository userRepository)
+public sealed class GetUsersBySocietyQueryHandler(IUserRepository userRepository, IApartmentRepository apartmentRepository)
     : IRequestHandler<GetUsersBySocietyQuery, Result<PagedResult<UserResponse>>>
 {
     public async Task<Result<PagedResult<UserResponse>>> Handle(GetUsersBySocietyQuery request, CancellationToken ct)
@@ -667,7 +928,12 @@ public sealed class GetUsersBySocietyQueryHandler(IUserRepository userRepository
                 users = await userRepository.GetAllAsync(request.SocietyId, ct);
             }
 
-            var items = users.Select(u => u.ToResponse()).ToList();
+            var items = new List<UserResponse>(users.Count);
+            foreach (var user in users)
+            {
+                var apartments = await UserQueryMapping.GetResidentApartmentsAsync(user, apartmentRepository, ct);
+                items.Add(user.ToResponse(apartments));
+            }
             return Result<PagedResult<UserResponse>>.Success(
                 new PagedResult<UserResponse>(items, items.Count, request.Pagination.Page, request.Pagination.PageSize));
         }
@@ -681,7 +947,7 @@ public sealed class GetUsersBySocietyQueryHandler(IUserRepository userRepository
 public record GetUsersByApartmentQuery(string SocietyId, string ApartmentId)
     : IRequest<Result<IReadOnlyList<UserResponse>>>;
 
-public sealed class GetUsersByApartmentQueryHandler(IUserRepository userRepository)
+public sealed class GetUsersByApartmentQueryHandler(IUserRepository userRepository, IApartmentRepository apartmentRepository)
     : IRequestHandler<GetUsersByApartmentQuery, Result<IReadOnlyList<UserResponse>>>
 {
     public async Task<Result<IReadOnlyList<UserResponse>>> Handle(GetUsersByApartmentQuery request, CancellationToken ct)
@@ -689,10 +955,16 @@ public sealed class GetUsersByApartmentQueryHandler(IUserRepository userReposito
         try
         {
             var all = await userRepository.GetAllAsync(request.SocietyId, ct);
-            var items = all
-                .Where(u => u.ApartmentId == request.ApartmentId)
-                .Select(u => u.ToResponse())
+            var filteredUsers = all
+                .Where(u => u.Apartments.Any(a => a.ApartmentId == request.ApartmentId) || u.ApartmentId == request.ApartmentId)
                 .ToList();
+
+            var items = new List<UserResponse>(filteredUsers.Count);
+            foreach (var user in filteredUsers)
+            {
+                var apartments = await UserQueryMapping.GetResidentApartmentsAsync(user, apartmentRepository, ct);
+                items.Add(user.ToResponse(apartments));
+            }
             return Result<IReadOnlyList<UserResponse>>.Success(items);
         }
         catch (Exception ex)

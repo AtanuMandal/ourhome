@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { ApiService } from './api.service';
+import { catchError, of, throwError } from 'rxjs';
 import {
   Apartment,
   ApartmentResidentHistoryResponse,
@@ -57,6 +58,12 @@ export class UserService {
     return this.api.get<User>(`societies/${societyId}/users/${id}`);
   }
 
+  findByEmail(societyId: string, email: string) {
+    return this.api.get<User>(`societies/${societyId}/users/by-email`, { email }).pipe(
+      catchError(error => error.status === 404 ? of(null) : throwError(() => error))
+    );
+  }
+
   register(societyId: string, dto: {
     fullName: string;
     email: string;
@@ -71,6 +78,14 @@ export class UserService {
 
   list(societyId: string, page = 1, pageSize = 20) {
     return this.api.getPaged<User>(`societies/${societyId}/users`, page, pageSize);
+  }
+
+  addApartment(societyId: string, userId: string, dto: { apartmentId: string; residentType: 'Owner' | 'Tenant' }) {
+    return this.api.post<User>(`societies/${societyId}/users/${userId}/apartments`, dto);
+  }
+
+  removeApartment(societyId: string, userId: string, apartmentId: string) {
+    return this.api.delete<User>(`societies/${societyId}/users/${userId}/apartments/${apartmentId}`);
   }
 
   transferOwnership(societyId: string, apartmentId: string, dto: { fullName: string; email: string; phone: string }) {

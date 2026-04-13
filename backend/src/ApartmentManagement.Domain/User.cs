@@ -6,12 +6,15 @@ namespace ApartmentManagement.Domain.Entities;
 /// <summary>Represents a user/resident within a society.</summary>
 public sealed class User : BaseEntity
 {
+    public sealed record ApartmentMembership(string ApartmentId, string Name, ResidentType ResidentType);
+
     public string FullName { get; private set; } = string.Empty;
     public string Email { get; private set; } = string.Empty;
     public string Phone { get; private set; } = string.Empty;
     public UserRole Role { get; private set; }
     public ResidentType ResidentType { get; private set; }
     public string? ApartmentId { get; private set; }
+    public IReadOnlyList<ApartmentMembership> Apartments { get; private set; } = [];
     public string? InvitedByUserId { get; private set; }
     public bool IsActive { get; private set; }
     public bool IsVerified { get; private set; }
@@ -47,6 +50,7 @@ public sealed class User : BaseEntity
             Role = role,
             ResidentType = residentType,
             ApartmentId = apartmentId,
+            Apartments = [],
             InvitedByUserId = invitedByUserId,
             IsActive = true,
             IsVerified = false
@@ -112,6 +116,54 @@ public sealed class User : BaseEntity
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(apartmentId, nameof(apartmentId));
         ApartmentId = apartmentId;
+        TouchUpdatedAt();
+    }
+
+    public void LinkApartment(string apartmentId, string apartmentName, ResidentType residentType, bool makePrimary = false)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(apartmentId, nameof(apartmentId));
+        ArgumentException.ThrowIfNullOrWhiteSpace(apartmentName, nameof(apartmentName));
+
+        var updated = Apartments.ToList();
+        var existingIndex = updated.FindIndex(link => string.Equals(link.ApartmentId, apartmentId, StringComparison.OrdinalIgnoreCase));
+        var membership = new ApartmentMembership(apartmentId, apartmentName.Trim(), residentType);
+
+        if (existingIndex >= 0)
+            updated[existingIndex] = membership;
+        else
+            updated.Add(membership);
+
+        Apartments = updated;
+
+        if (makePrimary || string.IsNullOrWhiteSpace(ApartmentId))
+            ApartmentId = apartmentId;
+
+        if ((makePrimary || Apartments.Count == 1) &&
+            residentType is ResidentType.Owner or ResidentType.Tenant or ResidentType.FamilyMember or ResidentType.CoOccupant)
+            ResidentType = residentType;
+
+        TouchUpdatedAt();
+    }
+
+    public void UnlinkApartment(string apartmentId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(apartmentId, nameof(apartmentId));
+
+        var updated = Apartments
+            .Where(link => !string.Equals(link.ApartmentId, apartmentId, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        Apartments = updated;
+        if (string.Equals(ApartmentId, apartmentId, StringComparison.OrdinalIgnoreCase))
+            ApartmentId = updated.FirstOrDefault()?.ApartmentId;
+
+        if (updated.Count > 0)
+        {
+            var primary = updated.First();
+            if (primary.ResidentType is ResidentType.Owner or ResidentType.Tenant or ResidentType.FamilyMember or ResidentType.CoOccupant)
+                ResidentType = primary.ResidentType;
+        }
+
         TouchUpdatedAt();
     }
 

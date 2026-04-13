@@ -17,13 +17,27 @@ public record CreateSocietyRequest(
 public record CreateSocietyResponse(SocietyResponse Society, UserResponse Admin);
 
 public record UpdateSocietyRequest(
-    string Name, string ContactEmail, string ContactPhone, int TotalBlocks, int TotalApartments);
+    string Name,
+    string ContactEmail,
+    string ContactPhone,
+    int TotalBlocks,
+    int TotalApartments,
+    IReadOnlyList<SocietyUserAssignmentRequest>? SocietyUsers,
+    IReadOnlyList<SocietyCommitteeRequest>? Committees);
 
 public record ConfigureFeeRequest(decimal BaseAmount, decimal PerRoomCharge, decimal ParkingCharge, string Currency);
 
 public record SocietyResponse(
     string Id, string Name, AddressDto Address, string ContactEmail, string ContactPhone,
-    int TotalBlocks, int TotalApartments, string Status, IReadOnlyList<string> AdminUserIds, DateTime CreatedAt);
+    int TotalBlocks, int TotalApartments, string Status, IReadOnlyList<string> AdminUserIds,
+    IReadOnlyList<SocietyUserAssignmentDto> SocietyUsers,
+    IReadOnlyList<SocietyCommitteeDto> Committees,
+    DateTime CreatedAt);
+
+public record SocietyUserAssignmentRequest(string Email, string RoleTitle);
+public record SocietyCommitteeRequest(string Name, IReadOnlyList<SocietyUserAssignmentRequest> Members);
+public record SocietyUserAssignmentDto(string UserId, string FullName, string Email, string RoleTitle);
+public record SocietyCommitteeDto(string Name, IReadOnlyList<SocietyUserAssignmentDto> Members);
 
 // ─── Apartment ────────────────────────────────────────────────────────────────
 
@@ -37,10 +51,11 @@ public record UpdateApartmentRequest(string BlockName, int FloorNumber, int Numb
 public record ApartmentResponse(
     string Id, string SocietyId, string ApartmentNumber, string BlockName, int FloorNumber,
     int NumberOfRooms, IReadOnlyList<string> ParkingSlots, double CarpetArea, double BuildUpArea, double SuperBuildArea,
-    string Status, string? OwnerId, string? TenantId,
+    string Status, IReadOnlyList<ApartmentResidentDto> Residents, string? TenantId,
     IReadOnlyList<ApartmentResidentHistoryDto> OwnershipHistory, IReadOnlyList<ApartmentResidentHistoryDto> TenantHistory, DateTime CreatedAt);
 
 public record ApartmentResidentHistoryDto(string UserId, string? FullName, DateTime FromUtc, DateTime? ToUtc);
+public record ApartmentResidentDto(string UserId, string UserName, string ResidentType);
 
 public record ChangeApartmentStatusRequest(
     [property: JsonConverter(typeof(JsonStringEnumConverter))] ApartmentStatus Status,
@@ -51,10 +66,11 @@ public record BulkImportResult(int TotalRequested, int Succeeded, int Failed, Li
 public record ApartmentResidentHistoryResponse(
     string ApartmentId,
     string ApartmentNumber,
-    string? CurrentOwnerId,
-    string? CurrentTenantId,
+    IReadOnlyList<ApartmentResidentDto> Residents,
     IReadOnlyList<ApartmentResidentHistoryDto> OwnershipHistory,
     IReadOnlyList<ApartmentResidentHistoryDto> TenantHistory);
+
+public record RemoveResidentApartmentResponse(string UserId, string ApartmentId);
 
 // ─── User ─────────────────────────────────────────────────────────────────────
 
@@ -67,6 +83,10 @@ public record CreateUserRequest(
     string? ApartmentId,
     string? InvitedByUserId = null);
 
+public record AttachResidentApartmentRequest(
+    string ApartmentId,
+    [property: JsonConverter(typeof(JsonStringEnumConverter))] ResidentType ResidentType);
+
 /// <summary>Request body for creating a platform-level HQ user (HQAdmin or HQUser only).</summary>
 public record CreateHQUserRequest(string FullName, string Email, string Phone, UserRole Role);
 
@@ -74,7 +94,13 @@ public record UpdateUserRequest(string FullName, string Phone);
 
 public record UserResponse(
     string Id, string SocietyId, string FullName, string Email, string Phone,
-    string Role, string ResidentType, string? ApartmentId, string? InvitedByUserId, bool IsActive, bool IsVerified, bool HasPassword, IReadOnlyList<string> Permissions, DateTime CreatedAt);
+    string Role, string ResidentType, string? ApartmentId, string? InvitedByUserId, bool IsActive, bool IsVerified, bool HasPassword,
+    IReadOnlyList<string> Permissions, IReadOnlyList<ResidentApartmentDto> Apartments, DateTime CreatedAt);
+
+public record ResidentApartmentDto(
+    string ApartmentId,
+    string Name,
+    string ResidentType);
 
 // Auth response user — field names intentionally match the Angular User model
 public record AuthUserDto(

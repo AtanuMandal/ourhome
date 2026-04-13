@@ -12,6 +12,12 @@ export interface ApiResult<T> {
   statusCode?: number;
 }
 
+export interface ResidentApartment {
+  apartmentId: string;
+  name: string;
+  residentType: 'Owner' | 'Tenant' | 'FamilyMember' | 'CoOccupant' | 'SocietyAdmin';
+}
+
 export interface User {
   id: string;
   societyId: string;
@@ -25,6 +31,7 @@ export interface User {
   permissions: string[];
   fullName?: string;
   avatarUrl?: string;
+  apartments?: ResidentApartment[];
   createdAt?: string;
 }
 

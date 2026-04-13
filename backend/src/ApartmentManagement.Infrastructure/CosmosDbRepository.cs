@@ -21,7 +21,7 @@ public class CosmosDbRepository<T>(
         try
         {
             var response = await _container.ReadItemAsync<T>(id, new PartitionKey(societyId), cancellationToken: ct);
-            return response.Resource;
+            return ApplyResponseMetadata(response.Resource, response.ETag);
         }
         catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
         {
@@ -58,27 +58,7 @@ public class CosmosDbRepository<T>(
         try
         {
             var response = await _container.CreateItemAsync(entity, new PartitionKey(entity.SocietyId), cancellationToken: ct);
-
-            // The SDK exposes the resource instance and the ETag separately on the ItemResponse.
-            // Some SDK/serializer combinations don't populate all server-side metadata into response.Resource.
-            // Ensure the returned instance has the server ETag so callers can use it (e.g. for optimistic concurrency).
-            var created = response.Resource ?? entity;
-
-            // response.ETag holds the server ETag; assign it to the returned entity if the property exists.
-            if (!string.IsNullOrEmpty(response.ETag))
-            {
-                try
-                {
-                    created.ETag = response.ETag;
-                }
-                catch
-                {
-                    // If the returned type does not expose a settable ETag, ignore silently.
-                    // We still return 'created' so caller receives whatever fields are available.
-                }
-            }
-
-            return created;
+            return ApplyResponseMetadata(response.Resource ?? entity, response.ETag);
         }
         catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.Conflict)
         {
@@ -90,10 +70,13 @@ public class CosmosDbRepository<T>(
     public async Task<T> UpdateAsync(T entity, CancellationToken ct = default)
     {
         entity.TouchUpdatedAt();
-        var options = new ItemRequestOptions { IfMatchEtag = entity.ETag };
+        ItemRequestOptions? options = null;
+        if (!string.IsNullOrWhiteSpace(entity.ETag))
+            options = new ItemRequestOptions { IfMatchEtag = entity.ETag };
+
         var response = await _container.ReplaceItemAsync(entity, entity.Id,
             new PartitionKey(entity.SocietyId), options, ct);
-        return response.Resource;
+        return ApplyResponseMetadata(response.Resource ?? entity, response.ETag);
     }
 
     public async Task DeleteAsync(string id, string societyId, CancellationToken ct = default)
@@ -119,7 +102,7 @@ public class CosmosDbRepository<T>(
         while (feed.HasMoreResults)
         {
             var page = await feed.ReadNextAsync(ct);
-            results.AddRange(page);
+            results.AddRange(page.Select(item => ApplyResponseMetadata(item, null)));
         }
         return results;
     }
@@ -131,8 +114,16 @@ public class CosmosDbRepository<T>(
         while (feed.HasMoreResults)
         {
             var page = await feed.ReadNextAsync(ct);
-            results.AddRange(page);
+            results.AddRange(page.Select(item => ApplyResponseMetadata(item, null)));
         }
         return results;
+    }
+
+    private static T ApplyResponseMetadata(T entity, string? etag)
+    {
+        if (!string.IsNullOrWhiteSpace(etag))
+            entity.ETag = etag;
+
+        return entity;
     }
 }

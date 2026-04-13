@@ -16,7 +16,31 @@ export interface Society {
   totalApartments: number;
   status: string;
   adminUserIds: string[];
+  societyUsers: SocietyUserAssignment[];
+  committees: SocietyCommittee[];
   createdAt: string;
+}
+
+export interface SocietyUserAssignment {
+  userId: string;
+  fullName: string;
+  email: string;
+  roleTitle: string;
+}
+
+export interface SocietyCommittee {
+  name: string;
+  members: SocietyUserAssignment[];
+}
+
+export interface SocietyUserAssignmentInput {
+  email: string;
+  roleTitle: string;
+}
+
+export interface SocietyCommitteeInput {
+  name: string;
+  members: SocietyUserAssignmentInput[];
 }
 
 export interface CreateSocietyDto {
@@ -41,4 +65,6 @@ export interface UpdateSocietyDto {
   contactPhone?: string;
   totalBlocks?: number;
   totalApartments?: number;
+  societyUsers?: SocietyUserAssignmentInput[];
+  committees?: SocietyCommitteeInput[];
 }

@@ -63,12 +63,14 @@ public static class HttpHelpers
         var msg = result.ErrorMessage.Length > 0 ? result.ErrorMessage : "An error occurred";
         if (result.ErrorCode.Contains("NotFound") || result.ErrorCode == "NOT_FOUND")
             return new NotFoundObjectResult(new { error = msg });
+        if (result.ErrorCode is "CONFLICT" or "USER_ALREADY_EXISTS" or "SOCIETY_ALREADY_EXISTS" or "APARTMENT_NUMBER_DUPLICATE")
+            return new ConflictObjectResult(new { error = msg });
         return result.ErrorCode switch
         {
             "FORBIDDEN" => new ObjectResult(new { error = msg }) { StatusCode = 403 },
             "UNAUTHORIZED" => new UnauthorizedObjectResult(new { error = msg }),
-            "CONFLICT" => new ConflictObjectResult(new { error = msg }),
             "VALIDATION_ERROR" => new BadRequestObjectResult(new { error = msg }),
+            "VALIDATION_FAILED" => new BadRequestObjectResult(new { error = msg }),
             _ => new ObjectResult(new { error = msg }) { StatusCode = 500 }
         };
     }

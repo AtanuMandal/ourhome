@@ -23,6 +23,7 @@ public record CreateApartmentCommand(
 
 public sealed class CreateApartmentCommandHandler(
     IApartmentRepository apartmentRepository,
+    IUserRepository userRepository,
     IEventPublisher eventPublisher,
     ILogger<CreateApartmentCommandHandler> logger)
     : IRequestHandler<CreateApartmentCommand, Result<ApartmentResponse>>
@@ -43,9 +44,22 @@ public sealed class CreateApartmentCommandHandler(
                 request.CarpetArea, request.BuildUpArea, request.SuperBuildArea);
 
             if (!string.IsNullOrWhiteSpace(request.OwnerId))
-                apartment.AssignOwner(request.OwnerId);
+            {
+                var owner = await userRepository.GetByIdAsync(request.OwnerId, request.SocietyId, ct);
+                apartment.AssignOwner(request.OwnerId, owner?.FullName ?? request.OwnerId);
+            }
 
             var created = await apartmentRepository.CreateAsync(apartment, ct);
+
+            if (!string.IsNullOrWhiteSpace(request.OwnerId))
+            {
+                var owner = await userRepository.GetByIdAsync(request.OwnerId, request.SocietyId, ct);
+                if (owner is not null)
+                {
+                    owner.LinkApartment(created.Id, created.ApartmentNumber, ResidentType.Owner, makePrimary: string.IsNullOrWhiteSpace(owner.ApartmentId));
+                    await userRepository.UpdateAsync(owner, ct);
+                }
+            }
 
             foreach (var evt in created.DomainEvents)
                 await eventPublisher.PublishAsync(evt, ct);
@@ -184,6 +198,7 @@ public record BulkImportApartmentsCommand(string SocietyId, List<CreateApartment
 
 public sealed class BulkImportApartmentsCommandHandler(
     IApartmentRepository apartmentRepository,
+    IUserRepository userRepository,
     IEventPublisher eventPublisher,
     ILogger<BulkImportApartmentsCommandHandler> logger)
     : IRequestHandler<BulkImportApartmentsCommand, Result<BulkImportResult>>
@@ -211,9 +226,21 @@ public sealed class BulkImportApartmentsCommandHandler(
                     req.CarpetArea,req.BuildUpArea,req.SuperBuildArea);
 
                 if (!string.IsNullOrWhiteSpace(req.OwnerId))
-                    apartment.AssignOwner(req.OwnerId);
+                {
+                    var owner = await userRepository.GetByIdAsync(req.OwnerId, request.SocietyId, ct);
+                    apartment.AssignOwner(req.OwnerId, owner?.FullName ?? req.OwnerId);
+                }
 
                 var created = await apartmentRepository.CreateAsync(apartment, ct);
+                if (!string.IsNullOrWhiteSpace(req.OwnerId))
+                {
+                    var owner = await userRepository.GetByIdAsync(req.OwnerId, request.SocietyId, ct);
+                    if (owner is not null)
+                    {
+                        owner.LinkApartment(created.Id, created.ApartmentNumber, ResidentType.Owner, makePrimary: string.IsNullOrWhiteSpace(owner.ApartmentId));
+                        await userRepository.UpdateAsync(owner, ct);
+                    }
+                }
                 foreach (var evt in created.DomainEvents)
                     await eventPublisher.PublishAsync(evt, ct);
                 created.ClearDomainEvents();
