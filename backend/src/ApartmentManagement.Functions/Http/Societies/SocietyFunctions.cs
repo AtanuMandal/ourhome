@@ -1,4 +1,5 @@
 using ApartmentManagement.Application.Commands.Society;
+using ApartmentManagement.Application.DTOs;
 using ApartmentManagement.Application.Queries.Society;
 using ApartmentManagement.Functions.Helpers;
 using ApartmentManagement.Shared.Models;
@@ -48,9 +49,19 @@ public class SocietyFunctions(ISender mediator)
         [HttpTrigger(AuthorizationLevel.Anonymous, "put", Route = "societies/{id}")] HttpRequest req,
         string id, CancellationToken ct)
     {
-        var command = await req.DeserializeAsync<UpdateSocietyCommand>(ct);
-        if (command is null) return new BadRequestObjectResult("Invalid request body");
-        var result = await mediator.Send(command with { SocietyId = id }, ct);
+        var body = await req.DeserializeAsync<UpdateSocietyRequest>(ct);
+        if (body is null) return new BadRequestObjectResult("Invalid request body");
+        var result = await mediator.Send(
+            new UpdateSocietyCommand(
+                id,
+                body.Name,
+                body.ContactEmail,
+                body.ContactPhone,
+                body.TotalBlocks,
+                body.TotalApartments,
+                body.SocietyUsers,
+                body.Committees),
+            ct);
         return result.ToActionResult();
     }
 }

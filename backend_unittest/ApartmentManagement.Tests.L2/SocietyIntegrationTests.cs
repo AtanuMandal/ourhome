@@ -1,5 +1,7 @@
 using ApartmentManagement.Application.Commands.Society;
 using ApartmentManagement.Application.Commands.Apartment;
+using ApartmentManagement.Application.Commands.User;
+using ApartmentManagement.Application.DTOs;
 using ApartmentManagement.Application.Queries.Society;
 using ApartmentManagement.Application.Queries.Apartment;
 using ApartmentManagement.Domain.Enums;
@@ -69,10 +71,12 @@ public class SocietyIntegrationTests : IntegrationTestBase
     {
         // Arrange – create first
         var created = (await Mediator.Send(ValidCreateSocietyCommand())).Value!.Society;
+        var createdAdmin = UserRepo.Store.Values.Single(u => u.SocietyId == created.Id && u.Role == UserRole.SUAdmin);
+        CurrentUserService.UserId = createdAdmin.Id;
 
         // Act – update
         var updateCmd = new UpdateSocietyCommand(
-            created.Id, "Updated Valley", "updated@valley.com", "+91-1234567890", 5, 100);
+            created.Id, "Updated Valley", "updated@valley.com", "+91-1234567890", 5, 100, [], []);
         var updateResult = await Mediator.Send(updateCmd);
 
         // Assert
@@ -89,10 +93,46 @@ public class SocietyIntegrationTests : IntegrationTestBase
     [Fact]
     public async Task UpdateSociety_WhenNotFound_ReturnsFailure()
     {
-        var cmd = new UpdateSocietyCommand("bad-id", "X", "x@x.com", "+1", 1, 1);
+        var cmd = new UpdateSocietyCommand("bad-id", "X", "x@x.com", "+1", 1, 1, [], []);
         var result = await Mediator.Send(cmd);
 
         result.IsFailure.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task UpdateSociety_PersistsSocietyUsersAndCommittees()
+    {
+        var created = (await Mediator.Send(ValidCreateSocietyCommand("Community Plaza"))).Value!;
+        CurrentUserService.UserId = created.Admin.Id;
+
+        var resident = (await Mediator.Send(new CreateUserCommand(
+            created.Society.Id,
+            "Priya Resident",
+            "priya@community.com",
+            "+91-9988776655",
+            UserRole.SUUser,
+            ResidentType.SocietyAdmin,
+            null))).Value!;
+
+        var updateResult = await Mediator.Send(new UpdateSocietyCommand(
+            created.Society.Id,
+            created.Society.Name,
+            created.Society.ContactEmail,
+            created.Society.ContactPhone,
+            created.Society.TotalBlocks,
+            created.Society.TotalApartments,
+            [new SocietyUserAssignmentRequest(created.Admin.Email, "President")],
+            [new SocietyCommitteeRequest("Finance Committee", [
+                new SocietyUserAssignmentRequest(created.Admin.Email, "Chairman"),
+                new SocietyUserAssignmentRequest(resident.Email, "Member")
+            ])]));
+
+        updateResult.IsSuccess.Should().BeTrue();
+        updateResult.Value!.SocietyUsers.Should().ContainSingle(user =>
+            user.Email == created.Admin.Email && user.RoleTitle == "President");
+        updateResult.Value.Committees.Should().ContainSingle(committee =>
+            committee.Name == "Finance Committee" &&
+            committee.Members.Any(member => member.Email == resident.Email && member.RoleTitle == "Member"));
     }
 
     // ─── Publish (Activate) Society ───────────────────────────────────────────

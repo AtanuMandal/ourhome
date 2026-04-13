@@ -21,6 +21,15 @@ public static class MappingExtensions
             society.TotalApartments,
             society.Status.ToString(),
             society.AdminUserIds,
+            society.SocietyUsers
+                .Select(user => new SocietyUserAssignmentDto(user.UserId, user.FullName, user.Email, user.RoleTitle))
+                .ToList(),
+            society.Committees
+                .Select(committee => new SocietyCommitteeDto(
+                    committee.Name,
+                    committee.Members.Select(member =>
+                        new SocietyUserAssignmentDto(member.UserId, member.FullName, member.Email, member.RoleTitle)).ToList()))
+                .ToList(),
             society.CreatedAt);
 
     public static ApartmentResponse ToResponse(this Apartment apartment) =>

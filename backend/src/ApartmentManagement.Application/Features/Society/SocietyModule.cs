@@ -79,12 +79,20 @@ public sealed class CreateSocietyCommandHandler(
 // ─── Update Society ───────────────────────────────────────────────────────────
 
 public record UpdateSocietyCommand(
-    string SocietyId, string Name, string ContactEmail, string ContactPhone,
-    int TotalBlocks, int TotalApartments)
+    string SocietyId,
+    string Name,
+    string ContactEmail,
+    string ContactPhone,
+    int TotalBlocks,
+    int TotalApartments,
+    IReadOnlyList<SocietyUserAssignmentRequest>? SocietyUsers,
+    IReadOnlyList<SocietyCommitteeRequest>? Committees)
     : IRequest<Result<SocietyResponse>>;
 
 public sealed class UpdateSocietyCommandHandler(
     ISocietyRepository societyRepository,
+    IUserRepository userRepository,
+    ICurrentUserService currentUserService,
     ILogger<UpdateSocietyCommandHandler> logger)
     : IRequestHandler<UpdateSocietyCommand, Result<SocietyResponse>>
 {
@@ -92,14 +100,34 @@ public sealed class UpdateSocietyCommandHandler(
     {
         try
         {
+            var actor = await userRepository.GetByIdAsync(currentUserService.UserId, request.SocietyId, ct);
+            if (actor is null || actor.Role != UserRole.SUAdmin)
+                return Result<SocietyResponse>.Failure(ErrorCodes.Forbidden, "Only society admins can update society details.");
+
             var society = await societyRepository.GetByIdAsync(request.SocietyId, request.SocietyId, ct)
                 ?? throw new NotFoundException("Society", request.SocietyId);
 
             society.Update(request.Name, request.ContactEmail, request.ContactPhone,
                 request.TotalBlocks, request.TotalApartments);
+            var societyUsers = await ResolveSocietyUsersAsync(request.SocietyId, request.SocietyUsers ?? [], userRepository, ct);
+            var committees = new List<Domain.Entities.Society.SocietyCommittee>((request.Committees ?? []).Count);
+            foreach (var committee in request.Committees ?? [])
+            {
+                if (string.IsNullOrWhiteSpace(committee.Name))
+                    return Result<SocietyResponse>.Failure(ErrorCodes.ValidationFailed, "Committee name is required.");
+
+                var members = await ResolveSocietyUsersAsync(request.SocietyId, committee.Members ?? [], userRepository, ct);
+                committees.Add(new Domain.Entities.Society.SocietyCommittee(committee.Name.Trim(), members));
+            }
+
+            society.UpdateLeadership(societyUsers, committees);
 
             var updated = await societyRepository.UpdateAsync(society, ct);
             return Result<SocietyResponse>.Success(updated.ToResponse());
+        }
+        catch (ValidationException ex)
+        {
+            return Result<SocietyResponse>.Failure(ErrorCodes.ValidationFailed, ex.Message);
         }
         catch (NotFoundException ex)
         {
@@ -110,6 +138,39 @@ public sealed class UpdateSocietyCommandHandler(
             logger.LogError(ex, "Failed to update society {SocietyId}", request.SocietyId);
             return Result<SocietyResponse>.Failure(ErrorCodes.InternalError, ex.Message);
         }
+    }
+
+    private static async Task<IReadOnlyList<Domain.Entities.Society.SocietyUserReference>> ResolveSocietyUsersAsync(
+        string societyId,
+        IReadOnlyList<SocietyUserAssignmentRequest> requests,
+        IUserRepository userRepository,
+        CancellationToken ct)
+    {
+        var users = new List<Domain.Entities.Society.SocietyUserReference>(requests.Count);
+        var seenEmails = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var request in requests)
+        {
+            var email = request.Email?.Trim().ToLowerInvariant();
+            if (string.IsNullOrWhiteSpace(email))
+                throw new ValidationException("societyUsers", "Society user email is required.");
+            if (string.IsNullOrWhiteSpace(request.RoleTitle))
+                throw new ValidationException("societyUsers", "Society user role title is required.");
+            if (!seenEmails.Add(email))
+                throw new ValidationException("societyUsers", $"Duplicate society user email '{email}' is not allowed.");
+
+            var user = await userRepository.GetByEmailAsync(societyId, email, ct);
+            if (user is null)
+                throw new ValidationException("societyUsers", $"Resident with email '{email}' was not found in this society.");
+
+            users.Add(new Domain.Entities.Society.SocietyUserReference(
+                user.Id,
+                user.FullName,
+                user.Email,
+                request.RoleTitle.Trim()));
+        }
+
+        return users;
     }
 }
 

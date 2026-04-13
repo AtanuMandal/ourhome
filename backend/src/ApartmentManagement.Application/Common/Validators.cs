@@ -36,6 +36,42 @@ public sealed class CreateSocietyCommandValidator : AbstractValidator<CreateSoci
     }
 }
 
+public sealed class UpdateSocietyCommandValidator : AbstractValidator<UpdateSocietyCommand>
+{
+    public UpdateSocietyCommandValidator()
+    {
+        RuleFor(x => x.SocietyId).NotEmpty();
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.ContactEmail).NotEmpty().EmailAddress();
+        RuleFor(x => x.ContactPhone).NotEmpty();
+        RuleFor(x => x.TotalBlocks).GreaterThan(0);
+        RuleFor(x => x.TotalApartments).GreaterThan(0);
+        When(x => x.SocietyUsers is not null, () =>
+        {
+            RuleForEach(x => x.SocietyUsers!)
+                .ChildRules(user =>
+                {
+                    user.RuleFor(x => x.Email).NotEmpty().EmailAddress();
+                    user.RuleFor(x => x.RoleTitle).NotEmpty().MaximumLength(100);
+                });
+        });
+        When(x => x.Committees is not null, () =>
+        {
+            RuleForEach(x => x.Committees!)
+                .ChildRules(committee =>
+                {
+                    committee.RuleFor(x => x.Name).NotEmpty().MaximumLength(100);
+                    committee.RuleForEach(x => x.Members)
+                        .ChildRules(member =>
+                        {
+                            member.RuleFor(x => x.Email).NotEmpty().EmailAddress();
+                            member.RuleFor(x => x.RoleTitle).NotEmpty().MaximumLength(100);
+                        });
+                });
+        });
+    }
+}
+
 // ─── Apartment ────────────────────────────────────────────────────────────────
 
 public sealed class CreateApartmentCommandValidator : AbstractValidator<CreateApartmentCommand>

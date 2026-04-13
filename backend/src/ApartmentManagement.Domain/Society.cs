@@ -7,6 +7,9 @@ namespace ApartmentManagement.Domain.Entities;
 /// <summary>Aggregate root representing a housing society (tenant root in the multi-tenant model).</summary>
 public sealed class Society : BaseEntity
 {
+    public sealed record SocietyUserReference(string UserId, string FullName, string Email, string RoleTitle);
+    public sealed record SocietyCommittee(string Name, IReadOnlyList<SocietyUserReference> Members);
+
     public string Name { get; private set; } = string.Empty;
     public Address Address { get; private set; } = null!;
     public string ContactEmail { get; private set; } = string.Empty;
@@ -17,6 +20,8 @@ public sealed class Society : BaseEntity
     public SocietyStatus Status { get; private set; }
     public List<string> AdminUserIds { get; private set; } = [];
     public List<string> AmenityIds { get; private set; } = [];
+    public IReadOnlyList<SocietyUserReference> SocietyUsers { get; private set; } = [];
+    public IReadOnlyList<SocietyCommittee> Committees { get; private set; } = [];
 
     private Society() { }
 
@@ -115,5 +120,64 @@ public sealed class Society : BaseEntity
         if (totalBlocks > 0) TotalBlocks = totalBlocks;
         if (totalApartments > 0) TotalApartments = totalApartments;
         TouchUpdatedAt();
+    }
+
+    public void UpdateLeadership(
+        IReadOnlyList<SocietyUserReference> societyUsers,
+        IReadOnlyList<SocietyCommittee> committees)
+    {
+        SocietyUsers = NormalizeSocietyUsers(societyUsers);
+        Committees = NormalizeCommittees(committees);
+        TouchUpdatedAt();
+    }
+
+    private static IReadOnlyList<SocietyUserReference> NormalizeSocietyUsers(IReadOnlyList<SocietyUserReference> societyUsers)
+    {
+        if (societyUsers.Count == 0)
+            return [];
+
+        var normalized = new List<SocietyUserReference>(societyUsers.Count);
+        var seenUserIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var user in societyUsers)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(user.UserId, nameof(societyUsers));
+            ArgumentException.ThrowIfNullOrWhiteSpace(user.FullName, nameof(societyUsers));
+            ArgumentException.ThrowIfNullOrWhiteSpace(user.Email, nameof(societyUsers));
+            ArgumentException.ThrowIfNullOrWhiteSpace(user.RoleTitle, nameof(societyUsers));
+
+            if (!seenUserIds.Add(user.UserId))
+                throw new ArgumentException("Duplicate society users are not allowed.", nameof(societyUsers));
+
+            normalized.Add(new SocietyUserReference(
+                user.UserId.Trim(),
+                user.FullName.Trim(),
+                user.Email.Trim().ToLowerInvariant(),
+                user.RoleTitle.Trim()));
+        }
+
+        return normalized;
+    }
+
+    private static IReadOnlyList<SocietyCommittee> NormalizeCommittees(IReadOnlyList<SocietyCommittee> committees)
+    {
+        if (committees.Count == 0)
+            return [];
+
+        var normalized = new List<SocietyCommittee>(committees.Count);
+        var seenNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var committee in committees)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(committee.Name, nameof(committees));
+            if (!seenNames.Add(committee.Name))
+                throw new ArgumentException("Duplicate committees are not allowed.", nameof(committees));
+
+            normalized.Add(new SocietyCommittee(
+                committee.Name.Trim(),
+                NormalizeSocietyUsers(committee.Members)));
+        }
+
+        return normalized;
     }
 }

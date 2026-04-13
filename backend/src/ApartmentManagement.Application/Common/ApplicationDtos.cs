@@ -17,13 +17,27 @@ public record CreateSocietyRequest(
 public record CreateSocietyResponse(SocietyResponse Society, UserResponse Admin);
 
 public record UpdateSocietyRequest(
-    string Name, string ContactEmail, string ContactPhone, int TotalBlocks, int TotalApartments);
+    string Name,
+    string ContactEmail,
+    string ContactPhone,
+    int TotalBlocks,
+    int TotalApartments,
+    IReadOnlyList<SocietyUserAssignmentRequest>? SocietyUsers,
+    IReadOnlyList<SocietyCommitteeRequest>? Committees);
 
 public record ConfigureFeeRequest(decimal BaseAmount, decimal PerRoomCharge, decimal ParkingCharge, string Currency);
 
 public record SocietyResponse(
     string Id, string Name, AddressDto Address, string ContactEmail, string ContactPhone,
-    int TotalBlocks, int TotalApartments, string Status, IReadOnlyList<string> AdminUserIds, DateTime CreatedAt);
+    int TotalBlocks, int TotalApartments, string Status, IReadOnlyList<string> AdminUserIds,
+    IReadOnlyList<SocietyUserAssignmentDto> SocietyUsers,
+    IReadOnlyList<SocietyCommitteeDto> Committees,
+    DateTime CreatedAt);
+
+public record SocietyUserAssignmentRequest(string Email, string RoleTitle);
+public record SocietyCommitteeRequest(string Name, IReadOnlyList<SocietyUserAssignmentRequest> Members);
+public record SocietyUserAssignmentDto(string UserId, string FullName, string Email, string RoleTitle);
+public record SocietyCommitteeDto(string Name, IReadOnlyList<SocietyUserAssignmentDto> Members);
 
 // ─── Apartment ────────────────────────────────────────────────────────────────
 
