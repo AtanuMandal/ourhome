@@ -161,8 +161,6 @@ public abstract class IntegrationTestBase : IDisposable
     protected FakeComplaintRepository ComplaintRepo { get; }
     protected FakeNoticeRepository NoticeRepo { get; }
     protected FakeVisitorLogRepository VisitorRepo { get; }
-    protected FakeFeeScheduleRepository FeeScheduleRepo { get; }
-    protected FakeFeePaymentRepository FeePaymentRepo { get; }
     protected FakeCompetitionRepository CompetitionRepo { get; }
     protected FakeCompetitionEntryRepository CompetitionEntryRepo { get; }
     protected FakeRewardPointsRepository RewardPointsRepo { get; }
@@ -183,8 +181,6 @@ public abstract class IntegrationTestBase : IDisposable
         ComplaintRepo = new FakeComplaintRepository();
         NoticeRepo = new FakeNoticeRepository();
         VisitorRepo = new FakeVisitorLogRepository();
-        FeeScheduleRepo = new FakeFeeScheduleRepository();
-        FeePaymentRepo = new FakeFeePaymentRepository();
         CompetitionRepo = new FakeCompetitionRepository();
         CompetitionEntryRepo = new FakeCompetitionEntryRepository();
         RewardPointsRepo = new FakeRewardPointsRepository();
@@ -221,8 +217,6 @@ public abstract class IntegrationTestBase : IDisposable
         services.AddSingleton<IComplaintRepository>(ComplaintRepo);
         services.AddSingleton<INoticeRepository>(NoticeRepo);
         services.AddSingleton<IVisitorLogRepository>(VisitorRepo);
-        services.AddSingleton<IFeeScheduleRepository>(FeeScheduleRepo);
-        services.AddSingleton<IFeePaymentRepository>(FeePaymentRepo);
         services.AddSingleton<ICompetitionRepository>(CompetitionRepo);
         services.AddSingleton<ICompetitionEntryRepository>(CompetitionEntryRepo);
         services.AddSingleton<IRewardPointsRepository>(RewardPointsRepo);

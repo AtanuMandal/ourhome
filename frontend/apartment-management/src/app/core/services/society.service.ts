@@ -24,4 +24,5 @@ export class SocietyService {
   update(id: string, dto: UpdateSocietyDto) {
     return this.api.put<Society>(`societies/${id}`, dto);
   }
+
 }

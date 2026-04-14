@@ -240,61 +240,7 @@ public class VisitorLogRepository(CosmosClient client, string dbName, ILogger<Vi
     }
 }
 
-public class FeeScheduleRepository(CosmosClient client, string dbName, ILogger<FeeScheduleRepository> logger)
-    : CosmosDbRepository<FeeSchedule>(client, dbName, "fee_schedules", logger), IFeeScheduleRepository
-{
-    public async Task<IReadOnlyList<FeeSchedule>> GetActiveAsync(string societyId, CancellationToken ct = default)
-    {
-        var q = new QueryDefinition("SELECT * FROM c WHERE c.societyId = @sid AND c.isActive = true")
-            .WithParameter("@sid", societyId);
-        return await ExecuteQueryAsync(q, societyId, ct);
-    }
 
-    public async Task<IReadOnlyList<FeeSchedule>> GetByApartmentAsync(string societyId, string apartmentId, CancellationToken ct = default)
-    {
-        var q = new QueryDefinition("SELECT * FROM c WHERE c.societyId = @sid AND c.apartmentId = @aid")
-            .WithParameter("@sid", societyId).WithParameter("@aid", apartmentId);
-        return await ExecuteQueryAsync(q, societyId, ct);
-    }
-}
-
-public class FeePaymentRepository(CosmosClient client, string dbName, ILogger<FeePaymentRepository> logger)
-    : CosmosDbRepository<FeePayment>(client, dbName, "fee_payments", logger), IFeePaymentRepository
-{
-    public async Task<IReadOnlyList<FeePayment>> GetByApartmentAsync(string societyId, string apartmentId, int page, int pageSize, CancellationToken ct = default)
-    {
-        var q = new QueryDefinition("SELECT * FROM c WHERE c.societyId = @sid AND c.apartmentId = @aid OFFSET @offset LIMIT @limit")
-            .WithParameter("@sid", societyId).WithParameter("@aid", apartmentId)
-            .WithParameter("@offset", (page - 1) * pageSize).WithParameter("@limit", pageSize);
-        return await ExecuteQueryAsync(q, societyId, ct);
-    }
-
-    public async Task<IReadOnlyList<FeePayment>> GetOverdueAsync(string societyId, CancellationToken ct = default)
-    {
-        var now = DateTime.UtcNow.ToString("o");
-        var q = new QueryDefinition("SELECT * FROM c WHERE c.societyId = @sid AND c.status = @status AND c.dueDate < @now")
-            .WithParameter("@sid", societyId).WithParameter("@status", PaymentStatus.Pending.ToString()).WithParameter("@now", now);
-        return await ExecuteQueryAsync(q, societyId, ct);
-    }
-
-    public async Task<IReadOnlyList<FeePayment>> GetByStatusAsync(string societyId, PaymentStatus status, int page, int pageSize, CancellationToken ct = default)
-    {
-        var q = new QueryDefinition("SELECT * FROM c WHERE c.societyId = @sid AND c.status = @status OFFSET @offset LIMIT @limit")
-            .WithParameter("@sid", societyId).WithParameter("@status", status.ToString())
-            .WithParameter("@offset", (page - 1) * pageSize).WithParameter("@limit", pageSize);
-        return await ExecuteQueryAsync(q, societyId, ct);
-    }
-
-    public async Task<IReadOnlyList<FeePayment>> GetDueSoonAsync(string societyId, int withinDays, CancellationToken ct = default)
-    {
-        var start = DateTime.UtcNow.ToString("o");
-        var end = DateTime.UtcNow.AddDays(withinDays).ToString("o");
-        var q = new QueryDefinition("SELECT * FROM c WHERE c.societyId = @sid AND c.status = @status AND c.dueDate >= @start AND c.dueDate <= @end")
-            .WithParameter("@sid", societyId).WithParameter("@status", PaymentStatus.Pending.ToString())
-            .WithParameter("@start", start).WithParameter("@end", end);
-        return await ExecuteQueryAsync(q, societyId, ct);
-    }
-}
 
 public class CompetitionRepository(CosmosClient client, string dbName, ILogger<CompetitionRepository> logger)
     : CosmosDbRepository<Competition>(client, dbName, "competitions", logger), ICompetitionRepository

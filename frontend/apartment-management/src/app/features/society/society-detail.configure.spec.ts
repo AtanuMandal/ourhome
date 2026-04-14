@@ -1,0 +1,1 @@
+// society-detail.configure.spec.ts removed — Configure Fee Structure tests removed after MaintenanceFeeStructure was deleted.

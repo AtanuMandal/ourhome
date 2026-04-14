@@ -6,6 +6,8 @@ public record CreateFeeScheduleRequest(
     string ApartmentId,
     string Description,
     decimal Amount,
+    FeeAmountType AmountType,
+    AreaBasis? AreaBasis,
     FeeFrequency Frequency,
     int DueDay
 );

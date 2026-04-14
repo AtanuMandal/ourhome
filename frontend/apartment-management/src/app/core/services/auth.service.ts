@@ -8,6 +8,7 @@ import { User, AuthState, LoginResponse, PasswordResetRequestResponse } from '..
 const TOKEN_KEY    = 'am_token';
 const USER_KEY     = 'am_user';
 const SOCIETY_KEY  = 'am_society';
+const APARTMENT_KEY = 'am_apartment';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -19,11 +20,13 @@ export class AuthService {
     user:      this.loadUser(),
     token:     localStorage.getItem(TOKEN_KEY),
     societyId: localStorage.getItem(SOCIETY_KEY),
+    apartmentId: localStorage.getItem(APARTMENT_KEY),
   });
 
   readonly user      = computed(() => this._state().user);
   readonly token     = computed(() => this._state().token);
   readonly societyId = computed(() => this._state().societyId);
+  readonly apartmentId = computed(() => this._state().apartmentId);
   readonly isLoggedIn = computed(() => !!this._state().token && !!this._state().user);
   readonly isAdmin = computed(() => {
     const role = this._state().user?.role;
@@ -38,7 +41,7 @@ export class AuthService {
     ).pipe(
       tap(res => {
         if (!res.requiresSelection && res.token && res.user) {
-          this.persistSession(res.token, res.user, res.user.societyId);
+          this.persistSession(res.token, res.user, res.user.societyId,res.user.apartmentId);
         }
       })
     );
@@ -73,7 +76,8 @@ export class AuthService {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     localStorage.removeItem(SOCIETY_KEY);
-    this._state.set({ user: null, token: null, societyId: null });
+    localStorage.removeItem(APARTMENT_KEY);
+    this._state.set({ user: null, token: null, societyId: null, apartmentId: null });
     this.router.navigate(['/auth/login']);
   }
 
@@ -83,11 +87,12 @@ export class AuthService {
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────
-  private persistSession(token: string, user: User, societyId: string) {
+  private persistSession(token: string, user: User, societyId: string,apartmentId?: string) {
     localStorage.setItem(TOKEN_KEY,   token);
     localStorage.setItem(USER_KEY,    JSON.stringify(user));
     localStorage.setItem(SOCIETY_KEY, societyId);
-    this._state.set({ user, token, societyId });
+    localStorage.setItem('am_apartment', apartmentId ?? '');
+    this._state.set({ user, token, societyId, apartmentId: apartmentId ?? null });
   }
 
   private loadUser(): User | null {

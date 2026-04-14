@@ -41,7 +41,7 @@ public sealed class RegisterVisitorCommandHandler(
             var created = await visitorRepository.CreateAsync(log, ct);
 
             foreach (var evt in created.DomainEvents)
-                await eventPublisher.PublishAsync(evt, ct);
+                await eventPublisher.PublishAsync((dynamic)evt, ct);
             created.ClearDomainEvents();
 
             await notificationService.SendPushNotificationAsync(request.HostUserId,

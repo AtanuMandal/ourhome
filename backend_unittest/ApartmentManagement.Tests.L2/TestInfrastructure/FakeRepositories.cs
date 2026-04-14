@@ -249,66 +249,7 @@ public sealed class FakeVisitorLogRepository : FakeRepository<VisitorLog>, IVisi
 
 // ─── Fee Schedule ─────────────────────────────────────────────────────────────
 
-public sealed class FakeFeeScheduleRepository : FakeRepository<FeeSchedule>, IFeeScheduleRepository
-{
-    public Task<IReadOnlyList<FeeSchedule>> GetActiveAsync(string societyId, CancellationToken ct = default)
-    {
-        IReadOnlyList<FeeSchedule> result = Store.Values
-            .Where(s => s.SocietyId == societyId && s.IsActive)
-            .ToList();
-        return Task.FromResult(result);
-    }
 
-    public Task<IReadOnlyList<FeeSchedule>> GetByApartmentAsync(string societyId, string apartmentId, CancellationToken ct = default)
-    {
-        IReadOnlyList<FeeSchedule> result = Store.Values
-            .Where(s => s.SocietyId == societyId && s.ApartmentId == apartmentId)
-            .ToList();
-        return Task.FromResult(result);
-    }
-}
-
-// ─── Fee Payment ──────────────────────────────────────────────────────────────
-
-public sealed class FakeFeePaymentRepository : FakeRepository<FeePayment>, IFeePaymentRepository
-{
-    public Task<IReadOnlyList<FeePayment>> GetByApartmentAsync(string societyId, string apartmentId, int page, int pageSize, CancellationToken ct = default)
-    {
-        IReadOnlyList<FeePayment> result = Store.Values
-            .Where(p => p.SocietyId == societyId && p.ApartmentId == apartmentId)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToList();
-        return Task.FromResult(result);
-    }
-
-    public Task<IReadOnlyList<FeePayment>> GetOverdueAsync(string societyId, CancellationToken ct = default)
-    {
-        IReadOnlyList<FeePayment> result = Store.Values
-            .Where(p => p.SocietyId == societyId && p.Status == PaymentStatus.Overdue)
-            .ToList();
-        return Task.FromResult(result);
-    }
-
-    public Task<IReadOnlyList<FeePayment>> GetByStatusAsync(string societyId, PaymentStatus status, int page, int pageSize, CancellationToken ct = default)
-    {
-        IReadOnlyList<FeePayment> result = Store.Values
-            .Where(p => p.SocietyId == societyId && p.Status == status)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToList();
-        return Task.FromResult(result);
-    }
-
-    public Task<IReadOnlyList<FeePayment>> GetDueSoonAsync(string societyId, int withinDays, CancellationToken ct = default)
-    {
-        var cutoff = DateTime.UtcNow.AddDays(withinDays);
-        IReadOnlyList<FeePayment> result = Store.Values
-            .Where(p => p.SocietyId == societyId && p.Status == PaymentStatus.Pending && p.DueDate <= cutoff)
-            .ToList();
-        return Task.FromResult(result);
-    }
-}
 
 // ─── Competition ──────────────────────────────────────────────────────────────
 

@@ -83,10 +83,12 @@ public class FeeScheduleTests
         var schedule = FeeSchedule.Create(SocietyId, ApartmentId, "Maintenance", 1000m, FeeFrequency.Monthly, 5);
 
         // Act
-        schedule.UpdateAmount(1500m);
+        schedule.UpdateAmount(1500m, "test-user", "updated in unit test");
 
         // Assert
         schedule.Amount.Should().Be(1500m);
+        schedule.ChangeHistory.Should().ContainSingle();
+        schedule.ChangeHistory.First().ChangedBy.Should().Be("test-user");
     }
 }
 

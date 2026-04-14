@@ -1,48 +1,28 @@
-export type FeeType = 'Maintenance' | 'Parking' | 'Utility' | 'Special' | 'Other';
-export type PaymentStatus = 'Pending' | 'Paid' | 'Overdue' | 'Waived';
-
 export interface FeeSchedule {
   id: string;
   societyId: string;
-  name: string;
-  type: FeeType;
+  apartmentId?: string;
+  description: string;
   amount: number;
+  amountType: 'Fixed' | 'PerSquareFoot';
+  areaBasis?: 'CarpetArea' | 'BuildUpArea' | 'SuperBuildUpArea';
+  frequency: 'Monthly' | 'Quarterly' | 'Annual';
   dueDay: number;
-  frequency: 'Monthly' | 'Quarterly' | 'Annually' | 'OneTime';
+  nextDueDate: string;
   isActive: boolean;
-  description?: string;
-  createdAt: string;
 }
 
-export interface Payment {
+export interface FeePayment {
   id: string;
   societyId: string;
   apartmentId: string;
-  apartmentUnit?: string;
   feeScheduleId: string;
-  feeScheduleName?: string;
+  description: string;
   amount: number;
+  status: 'Pending' | 'Paid' | 'Failed' | 'Overdue' | 'Cancelled';
   dueDate: string;
-  paidDate?: string;
-  status: PaymentStatus;
-  paidBy?: string;
-  receiptNumber?: string;
-  notes?: string;
-  createdAt: string;
-}
-
-export interface CreateFeeScheduleDto {
-  name: string;
-  type: FeeType;
-  amount: number;
-  dueDay: number;
-  frequency: 'Monthly' | 'Quarterly' | 'Annually' | 'OneTime';
-  description?: string;
-}
-
-export interface MarkPaymentPaidDto {
-  paidBy: string;
-  paidDate: string;
-  receiptNumber?: string;
-  notes?: string;
+  paidAt?: string;
+  paymentMethod?: string;
+  transactionId?: string;
+  receiptUrl?: string;
 }

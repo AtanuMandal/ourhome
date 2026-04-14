@@ -15,17 +15,6 @@ public sealed record Address(string Street, string City, string State, string Po
     public override string ToString() => $"{Street}, {City}, {State} {PostalCode}, {Country}";
 }
 
-/// <summary>Maintenance fee structure value object.</summary>
-public sealed record MaintenanceFeeStructure(
-    decimal BaseAmount,
-    decimal PerRoomCharge,
-    decimal ParkingCharge,
-    string Currency = "INR")
-{
-    /// <summary>Calculates the total monthly fee for an apartment.</summary>
-    public decimal CalculateTotal(int numberOfRooms, int parkingSlots) =>
-        BaseAmount + (PerRoomCharge * numberOfRooms) + (ParkingCharge * parkingSlots);
-}
 
 /// <summary>Contact information value object.</summary>
 public sealed record ContactInfo(string Name, string Email, string Phone)

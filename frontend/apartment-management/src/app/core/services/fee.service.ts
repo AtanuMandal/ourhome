@@ -1,28 +1,35 @@
-import { Injectable, inject } from '@angular/core';
-import { ApiService } from './api.service';
-import { FeeSchedule, Payment, CreateFeeScheduleDto, MarkPaymentPaidDto } from '../models/fee.model';
+import { inject, Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { FeeSchedule, FeePayment } from '../models/fee.model';
 
 @Injectable({ providedIn: 'root' })
 export class FeeService {
-  private readonly api = inject(ApiService);
+  private readonly http = inject(HttpClient);
 
-  listSchedules(societyId: string) {
-    return this.api.get<FeeSchedule[]>(`societies/${societyId}/fee-schedules`);
+  listSchedules(societyId: string): Observable<FeeSchedule[]> {
+    return this.http.get<FeeSchedule[]>(`/api/${societyId}/fees/schedules`);
   }
 
-  createSchedule(societyId: string, dto: CreateFeeScheduleDto) {
-    return this.api.post<FeeSchedule>(`societies/${societyId}/fee-schedules`, dto);
+  createSchedule(societyId: string, body: Partial<FeeSchedule>) {
+    return this.http.post<FeeSchedule>(`/api/${societyId}/fees/schedules`, body);
   }
 
-  getPaymentHistory(societyId: string, apartmentId: string, page = 1, pageSize = 20) {
-    return this.api.getPaged<Payment>(
-      `societies/${societyId}/apartments/${apartmentId}/payments`,
-      page,
-      pageSize
-    );
+  updateSchedule(societyId: string, scheduleId: string, body: Partial<FeeSchedule>) {
+    return this.http.put<FeeSchedule>(`/api/${societyId}/fees/schedules/${scheduleId}`, body);
   }
 
-  markPaid(societyId: string, paymentId: string, dto: MarkPaymentPaidDto) {
-    return this.api.post<Payment>(`societies/${societyId}/payments/${paymentId}/mark-paid`, dto);
+  listPayments(societyId: string, apartmentId: string, page = 1, pageSize = 20) {
+    return this.http.get<{ items: FeePayment[] }>(`/api/${societyId}/fees/history?apartmentId=${apartmentId}&page=${page}&pageSize=${pageSize}`);
+  }
+
+  recordPayment(societyId: string, paymentId: string, body: { paymentMethod: string; transactionId: string; receiptUrl?: string; }) {
+    return this.http.post<FeePayment>(`/api/${societyId}/fees/payments/${paymentId}/record`, body);
+  }
+
+  uploadPaymentProof(societyId: string, paymentId: string, file: File) {
+    const fd = new FormData();
+    fd.append('file', file);
+    return this.http.post(`/api/${societyId}/fees/payments/${paymentId}/upload`, fd);
   }
 }

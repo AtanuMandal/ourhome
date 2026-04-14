@@ -53,17 +53,18 @@ export const routes: Routes = [
   },
 
   {
+    path: 'fees',
+    canActivate: [authGuard],
+    loadChildren: () => import('./features/fees.routes').then(m => m.FEES_ROUTES),
+  },
+
+  {
     path: 'visitors',
     canActivate: [authGuard],
     loadChildren: () => import('./features/visitors/visitors.routes').then(m => m.VISITOR_ROUTES),
   },
 
-  {
-    path: 'fees',
-    canActivate: [authGuard],
-    loadChildren: () => import('./features/fees/fees.routes').then(m => m.FEE_ROUTES),
-  },
-
+ 
   {
     path: 'rewards',
     canActivate: [authGuard],

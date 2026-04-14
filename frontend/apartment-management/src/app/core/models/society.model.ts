@@ -15,9 +15,20 @@ export interface Society {
   totalBlocks: number;
   totalApartments: number;
   status: string;
+  overdueThresholdDays?: number;
   adminUserIds: string[];
   createdAt: string;
 }
+
+export interface UpdateSocietyDto {
+  name?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  totalBlocks?: number;
+  totalApartments?: number;
+  overdueThresholdDays?: number | null;
+}
+
 
 export interface CreateSocietyDto {
   name: string;

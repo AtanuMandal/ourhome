@@ -8,6 +8,8 @@ public record FeeScheduleResponse(
     string ApartmentId,
     string Description,
     decimal Amount,
+    string AmountType,
+    string? AreaBasis,
     string Frequency,
     int DueDay,
     DateTime NextDueDate,

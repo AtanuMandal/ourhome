@@ -108,8 +108,10 @@ public sealed class Apartment : BaseEntity
     {
         CloseOpenHistory(isOwnerHistory: true);
         CloseOpenHistory(isOwnerHistory: false);
+        OwnerId = null;
+        TenantId = null;
         Status = ApartmentStatus.Available;
-       
+        TouchUpdatedAt();
     }
         
     /// <summary>Updates mutable apartment details.</summary>

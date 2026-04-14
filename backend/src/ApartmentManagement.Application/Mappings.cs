@@ -20,6 +20,7 @@ public static class MappingExtensions
             society.TotalBlocks,
             society.TotalApartments,
             society.Status.ToString(),
+            society.OverdueThresholdDays,
             society.AdminUserIds,
             society.CreatedAt);
 
@@ -160,33 +161,7 @@ public static class MappingExtensions
             log.Duration?.TotalMinutes,
             log.CreatedAt);
 
-    public static FeeScheduleResponse ToResponse(this FeeSchedule schedule) =>
-        new(
-            schedule.Id,
-            schedule.SocietyId,
-            schedule.ApartmentId,
-            schedule.Description,
-            schedule.Amount,
-            schedule.Frequency.ToString(),
-            schedule.DueDay,
-            schedule.NextDueDate,
-            schedule.IsActive);
-
-    public static FeePaymentResponse ToResponse(this FeePayment payment) =>
-        new(
-            payment.Id,
-            payment.SocietyId,
-            payment.ApartmentId,
-            payment.FeeScheduleId,
-            payment.Description,
-            payment.Amount,
-            payment.Status.ToString(),
-            payment.DueDate,
-            payment.PaidAt,
-            payment.PaymentMethod,
-            payment.TransactionId,
-            payment.ReceiptUrl);
-
+    
     public static CompetitionResponse ToResponse(this Competition competition) =>
         new(
             competition.Id,
@@ -264,5 +239,40 @@ public static class MappingExtensions
         }
 
         return permissions.ToList();
+    }
+
+    // ─── Fee mappings ─────────────────────────────────────────────────────────────
+
+    public static ApartmentManagement.Application.DTOs.Fee.FeeScheduleResponse ToResponse(this ApartmentManagement.Domain.Entities.FeeSchedule schedule)
+    {
+        return new ApartmentManagement.Application.DTOs.Fee.FeeScheduleResponse(
+            schedule.Id,
+            schedule.SocietyId,
+            schedule.ApartmentId ?? string.Empty,
+            schedule.Description,
+            schedule.Amount,
+            schedule.AmountType.ToString(),
+            schedule.AreaBasis?.ToString(),
+            schedule.Frequency.ToString(),
+            schedule.DueDay,
+            schedule.NextDueDate,
+            schedule.IsActive);
+    }
+
+    public static ApartmentManagement.Application.DTOs.Fee.FeePaymentResponse ToResponse(this ApartmentManagement.Domain.Entities.FeePayment payment)
+    {
+        return new ApartmentManagement.Application.DTOs.Fee.FeePaymentResponse(
+            payment.Id,
+            payment.SocietyId,
+            payment.ApartmentId,
+            payment.FeeScheduleId,
+            payment.Description,
+            payment.Amount,
+            payment.Status.ToString(),
+            payment.DueDate,
+            payment.PaidAt,
+            payment.PaymentMethod,
+            payment.TransactionId,
+            payment.ReceiptUrl);
     }
 }

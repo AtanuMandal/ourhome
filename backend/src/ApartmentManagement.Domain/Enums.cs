@@ -20,3 +20,7 @@ public enum PaymentStatus { Pending, Paid, Failed, Overdue, Cancelled }
 public enum CompetitionStatus { Upcoming, Active, Completed, Cancelled }
 public enum ServiceProviderStatus { Pending, Approved, Rejected, Suspended }
 public enum ServiceRequestStatus { Open, Accepted, InProgress, Completed, Cancelled }
+
+// Fee-related enums
+public enum FeeAmountType { Fixed, PerSquareFoot }
+public enum AreaBasis { CarpetArea, BuildUpArea, SuperBuildUpArea }

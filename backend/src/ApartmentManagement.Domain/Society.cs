@@ -13,7 +13,7 @@ public sealed class Society : BaseEntity
     public string ContactPhone { get; private set; } = string.Empty;
     public int TotalBlocks { get; private set; }
     public int TotalApartments { get; private set; }
-    public MaintenanceFeeStructure? FeeStructure { get; private set; }
+    public int OverdueThresholdDays { get; private set; } = 30;
     public SocietyStatus Status { get; private set; }
     public List<string> AdminUserIds { get; private set; } = [];
     public List<string> AmenityIds { get; private set; } = [];
@@ -45,7 +45,8 @@ public sealed class Society : BaseEntity
             ContactPhone = contactPhone.Trim(),
             TotalBlocks = totalBlocks,
             TotalApartments = totalApartments,
-            Status = SocietyStatus.Draft
+            Status = SocietyStatus.Draft,
+            OverdueThresholdDays = 30
         };
         society.SocietyId = society.Id; // Society is its own partition root
         society.AddDomainEvent(new SocietyCreatedEvent(society.Id, society.Name));
@@ -78,10 +79,11 @@ public sealed class Society : BaseEntity
     /// <summary>Removes a user from the admin list.</summary>
     public void RemoveAdmin(string userId) { AdminUserIds.Remove(userId); TouchUpdatedAt(); }
 
-    /// <summary>Sets or replaces the maintenance fee structure.</summary>
-    public void ConfigureFeeStructure(MaintenanceFeeStructure feeStructure)
+
+    public void SetOverdueThreshold(int days)
     {
-        FeeStructure = feeStructure ?? throw new ArgumentNullException(nameof(feeStructure));
+        if (days < 0) throw new ArgumentOutOfRangeException(nameof(days));
+        OverdueThresholdDays = days;
         TouchUpdatedAt();
     }
 

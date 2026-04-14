@@ -1,0 +1,29 @@
+  ApartmentManagement.Shared -> E:\projects\DeftIdea\Codes\ourhome\backend\src\ApartmentManagement.Shared\bin\Debug\net8.0\ApartmentManagement.Shared.dll
+  ApartmentManagement.Domain -> E:\projects\DeftIdea\Codes\ourhome\backend\src\ApartmentManagement.Domain\bin\Debug\net8.0\ApartmentManagement.Domain.dll
+E:\projects\DeftIdea\Codes\ourhome\backend\src\ApartmentManagement.Application\NoticeModule.cs(28,26): warning CS9113: Parameter 'notificationService' is unread. [E:\projects\DeftIdea\Codes\ourhome\backend\src\ApartmentManagement.Application\ApartmentManagement.Application.csproj]
+  ApartmentManagement.Application -> E:\projects\DeftIdea\Codes\ourhome\backend\src\ApartmentManagement.Application\bin\Debug\net8.0\ApartmentManagement.Application.dll
+  ApartmentManagement.Infrastructure -> E:\projects\DeftIdea\Codes\ourhome\backend\src\ApartmentManagement.Infrastructure\bin\Debug\net8.0\ApartmentManagement.Infrastructure.dll
+  ApartmentManagement.Tests.L0 -> E:\projects\DeftIdea\Codes\ourhome\backend_unittest\ApartmentManagement.Tests.L0\bin\Debug\net8.0\ApartmentManagement.Tests.L0.dll
+  ApartmentManagement.Tests.L1 -> E:\projects\DeftIdea\Codes\ourhome\backend_unittest\ApartmentManagement.Tests.L1\bin\Debug\net8.0\ApartmentManagement.Tests.L1.dll
+Test run for E:\projects\DeftIdea\Codes\ourhome\backend_unittest\ApartmentManagement.Tests.L0\bin\Debug\net8.0\ApartmentManagement.Tests.L0.dll (.NETCoreApp,Version=v8.0)
+Test run for E:\projects\DeftIdea\Codes\ourhome\backend_unittest\ApartmentManagement.Tests.L1\bin\Debug\net8.0\ApartmentManagement.Tests.L1.dll (.NETCoreApp,Version=v8.0)
+VSTest version 18.0.1 (x64)
+
+VSTest version 18.0.1 (x64)
+
+Starting test execution, please wait...
+Starting test execution, please wait...
+A total of 1 test files matched the specified pattern.
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:   157, Skipped:     0, Total:   157, Duration: 148 ms - ApartmentManagement.Tests.L0.dll (net8.0)
+  ApartmentManagement.Tests.L2 -> E:\projects\DeftIdea\Codes\ourhome\backend_unittest\ApartmentManagement.Tests.L2\bin\Debug\net8.0\ApartmentManagement.Tests.L2.dll
+Test run for E:\projects\DeftIdea\Codes\ourhome\backend_unittest\ApartmentManagement.Tests.L2\bin\Debug\net8.0\ApartmentManagement.Tests.L2.dll (.NETCoreApp,Version=v8.0)
+VSTest version 18.0.1 (x64)
+
+Starting test execution, please wait...
+
+Passed!  - Failed:     0, Passed:    62, Skipped:     0, Total:    62, Duration: 341 ms - ApartmentManagement.Tests.L1.dll (net8.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    42, Skipped:     0, Total:    42, Duration: 552 ms - ApartmentManagement.Tests.L2.dll (net8.0)

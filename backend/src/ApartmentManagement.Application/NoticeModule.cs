@@ -41,7 +41,7 @@ public sealed class CreateNoticeCommandHandler(
             var created = await noticeRepository.CreateAsync(notice, ct);
 
             foreach (var evt in created.DomainEvents)
-                await eventPublisher.PublishAsync(evt, ct);
+                await eventPublisher.PublishAsync((dynamic)evt, ct);
             created.ClearDomainEvents();
 
             return Result<NoticeResponse>.Success(created.ToResponse());

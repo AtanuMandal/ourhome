@@ -75,7 +75,7 @@ public sealed class CreateUserCommandHandler(
                     $"Your OTP for apartment management system is: {created.OtpCode}", ct);
 
             foreach (var evt in created.DomainEvents)
-                await eventPublisher.PublishAsync(evt, ct);
+                await eventPublisher.PublishAsync((dynamic)evt, ct);
             created.ClearDomainEvents();
 
             return Result<UserResponse>.Success(created.ToResponse());

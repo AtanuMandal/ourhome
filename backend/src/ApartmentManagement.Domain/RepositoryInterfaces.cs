@@ -88,23 +88,7 @@ public interface IVisitorLogRepository : IRepository<VisitorLog>
     Task<VisitorLog?> GetByPassCodeAsync(string passCode, CancellationToken ct = default);
 }
 
-// ─── Fee Schedule ─────────────────────────────────────────────────────────────
 
-public interface IFeeScheduleRepository : IRepository<FeeSchedule>
-{
-    Task<IReadOnlyList<FeeSchedule>> GetActiveAsync(string societyId, CancellationToken ct = default);
-    Task<IReadOnlyList<FeeSchedule>> GetByApartmentAsync(string societyId, string apartmentId, CancellationToken ct = default);
-}
-
-// ─── Fee Payment ──────────────────────────────────────────────────────────────
-
-public interface IFeePaymentRepository : IRepository<FeePayment>
-{
-    Task<IReadOnlyList<FeePayment>> GetByApartmentAsync(string societyId, string apartmentId, int page, int pageSize, CancellationToken ct = default);
-    Task<IReadOnlyList<FeePayment>> GetOverdueAsync(string societyId, CancellationToken ct = default);
-    Task<IReadOnlyList<FeePayment>> GetByStatusAsync(string societyId, PaymentStatus status, int page, int pageSize, CancellationToken ct = default);
-    Task<IReadOnlyList<FeePayment>> GetDueSoonAsync(string societyId, int withinDays, CancellationToken ct = default);
-}
 
 // ─── Competition ──────────────────────────────────────────────────────────────
 

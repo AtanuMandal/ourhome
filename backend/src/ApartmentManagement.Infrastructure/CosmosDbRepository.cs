@@ -21,6 +21,7 @@ public class CosmosDbRepository<T>(
         try
         {
             var response = await _container.ReadItemAsync<T>(id, new PartitionKey(societyId), cancellationToken: ct);
+            response.Resource.ETag = response.ETag; // Ensure ETag from server is available on the returned resource.
             return response.Resource;
         }
         catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
@@ -65,18 +66,18 @@ public class CosmosDbRepository<T>(
             var created = response.Resource ?? entity;
 
             // response.ETag holds the server ETag; assign it to the returned entity if the property exists.
-            if (!string.IsNullOrEmpty(response.ETag))
-            {
-                try
-                {
-                    created.ETag = response.ETag;
-                }
-                catch
-                {
-                    // If the returned type does not expose a settable ETag, ignore silently.
-                    // We still return 'created' so caller receives whatever fields are available.
-                }
-            }
+            //if (!string.IsNullOrEmpty(response.ETag))
+            //{
+            //    try
+            //    {
+            //        created.ETag = response.ETag;
+            //    }
+            //    catch
+            //    {
+            //        // If the returned type does not expose a settable ETag, ignore silently.
+            //        // We still return 'created' so caller receives whatever fields are available.
+            //    }
+            //}
 
             return created;
         }

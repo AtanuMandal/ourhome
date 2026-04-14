@@ -39,7 +39,7 @@ public sealed class CreateComplaintCommandHandler(
             var created = await complaintRepository.CreateAsync(complaint, ct);
 
             foreach (var evt in created.DomainEvents)
-                await eventPublisher.PublishAsync(evt, ct);
+                await eventPublisher.PublishAsync((dynamic)evt, ct);
             created.ClearDomainEvents();
 
             return Result<ComplaintResponse>.Success(created.ToResponse());
@@ -95,7 +95,7 @@ public sealed class UpdateComplaintStatusCommandHandler(
             var updated = await complaintRepository.UpdateAsync(complaint, ct);
 
             foreach (var evt in updated.DomainEvents)
-                await eventPublisher.PublishAsync(evt, ct);
+                await eventPublisher.PublishAsync((dynamic)evt, ct);
             updated.ClearDomainEvents();
 
             return Result<ComplaintResponse>.Success(updated.ToResponse());

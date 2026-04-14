@@ -3,37 +3,46 @@ using ApartmentManagement.Domain.Events;
 
 namespace ApartmentManagement.Domain.Entities;
 
+
 /// <summary>Defines a recurring fee obligation for an apartment (e.g. monthly maintenance).</summary>
 public sealed class FeeSchedule : BaseEntity
 {
-    public string ApartmentId { get; private set; } = string.Empty;
+    // null apartmentId => society-level schedule applied to all apartments
+    public string? ApartmentId { get; private set; }
     public string Description { get; private set; } = string.Empty;
     public decimal Amount { get; private set; }
+    public FeeAmountType AmountType { get; private set; } = FeeAmountType.Fixed;
+    public AreaBasis? AreaBasis { get; private set; }
     public FeeFrequency Frequency { get; private set; }
     /// <summary>Day of the month (1–28) on which the fee falls due.</summary>
     public int DueDay { get; private set; }
     public DateTime NextDueDate { get; private set; }
     public bool IsActive { get; private set; }
 
+    // history of changes to amount/area basis
+    public IReadOnlyList<FeeScheduleChange> ChangeHistory { get; private set; } = new List<FeeScheduleChange>();
+
     private FeeSchedule() { }
 
-    public static FeeSchedule Create(string societyId, string apartmentId, string description,
-        decimal amount, FeeFrequency frequency, int dueDay)
+    public static FeeSchedule Create(string societyId, string? apartmentId, string description,
+        decimal amount, FeeFrequency frequency, int dueDay, FeeAmountType amountType = FeeAmountType.Fixed, AreaBasis? areaBasis = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(societyId, nameof(societyId));
-        ArgumentException.ThrowIfNullOrWhiteSpace(apartmentId, nameof(apartmentId));
         if (amount <= 0) throw new ArgumentOutOfRangeException(nameof(amount), "Amount must be greater than zero.");
         if (dueDay < 1 || dueDay > 28) throw new ArgumentOutOfRangeException(nameof(dueDay), "Due day must be between 1 and 28.");
 
         var schedule = new FeeSchedule
         {
             SocietyId = societyId,
-            ApartmentId = apartmentId,
+            ApartmentId = string.IsNullOrWhiteSpace(apartmentId) ? null : apartmentId,
             Description = description,
             Amount = amount,
+            AmountType = amountType,
+            AreaBasis = areaBasis,
             Frequency = frequency,
             DueDay = dueDay,
-            IsActive = true
+            IsActive = true,
+            ChangeHistory = new List<FeeScheduleChange>()
         };
         schedule.NextDueDate = schedule.CalculateNextDueDate(DateTime.UtcNow);
         return schedule;
@@ -42,10 +51,18 @@ public sealed class FeeSchedule : BaseEntity
     public void Deactivate() { IsActive = false; TouchUpdatedAt(); }
     public void Activate() { IsActive = true; TouchUpdatedAt(); }
 
-    public void UpdateAmount(decimal amount)
+    public void UpdateAmount(decimal newAmount, string changedBy, string changeReason, FeeAmountType? amountType = null, AreaBasis? areaBasis = null)
     {
-        if (amount <= 0) throw new ArgumentOutOfRangeException(nameof(amount));
-        Amount = amount;
+        if (newAmount <= 0) throw new ArgumentOutOfRangeException(nameof(newAmount));
+        var previous = Amount;
+        Amount = newAmount;
+        if (amountType != null) AmountType = amountType.Value;
+        if (areaBasis != null) AreaBasis = areaBasis;
+
+        var change = new FeeScheduleChange(previous, newAmount, AreaBasis, changedBy, DateTime.UtcNow, changeReason);
+        var list = ChangeHistory.ToList();
+        list.Add(change);
+        ChangeHistory = list;
         TouchUpdatedAt();
     }
 
@@ -72,6 +89,9 @@ public sealed class FeeSchedule : BaseEntity
         TouchUpdatedAt();
     }
 }
+
+/// <summary>Represents a single change entry when a fee schedule is updated.</summary>
+public sealed record FeeScheduleChange(decimal PreviousAmount, decimal NewAmount, AreaBasis? AreaBasis, string ChangedBy, DateTime Timestamp, string ChangeReason);
 
 /// <summary>A single fee payment record for an apartment.</summary>
 public sealed class FeePayment : BaseEntity

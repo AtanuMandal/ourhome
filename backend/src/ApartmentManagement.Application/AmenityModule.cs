@@ -141,7 +141,7 @@ public sealed class BookAmenityCommandHandler(
             var created = await bookingRepository.CreateAsync(booking, ct);
 
             foreach (var evt in created.DomainEvents)
-                await eventPublisher.PublishAsync(evt, ct);
+                await eventPublisher.PublishAsync((dynamic)evt, ct);
             created.ClearDomainEvents();
 
             await notificationService.SendPushNotificationAsync(request.UserId,

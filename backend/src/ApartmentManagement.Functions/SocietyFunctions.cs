@@ -53,4 +53,5 @@ public class SocietyFunctions(ISender mediator)
         var result = await mediator.Send(command with { SocietyId = id }, ct);
         return result.ToActionResult();
     }
+
 }

@@ -87,6 +87,21 @@ public class SocietyIntegrationTests : IntegrationTestBase
     }
 
     [Fact]
+    public async Task UpdateSociety_CanUpdateOverdueThreshold()
+    {
+        var created = (await Mediator.Send(ValidCreateSocietyCommand())).Value!.Society;
+
+        var updateCmd = new UpdateSocietyCommand(created.Id, created.Name, created.ContactEmail, created.ContactPhone, created.TotalBlocks, created.TotalApartments, 14);
+        var res = await Mediator.Send(updateCmd);
+        res.IsSuccess.Should().BeTrue();
+        res.Value!.OverdueThresholdDays.Should().Be(14);
+
+        var getResult = await Mediator.Send(new GetSocietyQuery(created.Id));
+        getResult.IsSuccess.Should().BeTrue();
+        getResult.Value!.OverdueThresholdDays.Should().Be(14);
+    }
+
+    [Fact]
     public async Task UpdateSociety_WhenNotFound_ReturnsFailure()
     {
         var cmd = new UpdateSocietyCommand("bad-id", "X", "x@x.com", "+1", 1, 1);
@@ -150,18 +165,6 @@ public class SocietyIntegrationTests : IntegrationTestBase
         getAptResult.Value!.SocietyId.Should().Be(society.Id);
     }
 
-    // ─── ConfigureFeeStructure ────────────────────────────────────────────────
-
-    [Fact]
-    public async Task ConfigureFeeStructure_OnExistingSociety_Succeeds()
-    {
-        var society = (await Mediator.Send(ValidCreateSocietyCommand())).Value!.Society;
-
-        var cmd = new ConfigureFeeStructureCommand(society.Id, 1500m, 200m, 300m, "INR");
-        var result = await Mediator.Send(cmd);
-
-        result.IsSuccess.Should().BeTrue();
-    }
 
     // ─── Validation: missing required fields ──────────────────────────────────
 

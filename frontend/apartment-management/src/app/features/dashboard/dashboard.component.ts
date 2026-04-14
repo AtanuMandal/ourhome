@@ -11,10 +11,8 @@ import { LoadingSpinnerComponent } from '../../shared/components/loading-spinner
 import { AuthService } from '../../core/services/auth.service';
 import { ComplaintService } from '../../core/services/complaint.service';
 import { NoticeService } from '../../core/services/notice.service';
-import { FeeService } from '../../core/services/fee.service';
 import { Complaint } from '../../core/models/complaint.model';
 import { Notice } from '../../core/models/notice.model';
-import { FeeSchedule } from '../../core/models/fee.model';
 
 interface QuickAction { icon: string; label: string; route: string; color: string; }
 

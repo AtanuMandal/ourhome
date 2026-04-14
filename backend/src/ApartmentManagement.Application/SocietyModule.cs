@@ -53,20 +53,20 @@ public sealed class CreateSocietyCommandHandler(
 
             var createdAdmin = await userRepository.CreateAsync(adminUser, ct);
 
-            // Link the admin to the society
+            // Link the admin to the society — refresh the ETag from the repository
             createdSociety.AssignAdmin(createdAdmin.Id);
-            await societyRepository.UpdateAsync(createdSociety, ct);
+            var updatedSociety = await societyRepository.UpdateAsync(createdSociety, ct);
 
-            foreach (var evt in createdSociety.DomainEvents)
-                await eventPublisher.PublishAsync(evt, ct);
-            createdSociety.ClearDomainEvents();
+            foreach (var evt in updatedSociety.DomainEvents)
+                await eventPublisher.PublishAsync((dynamic)evt, ct);
+            updatedSociety.ClearDomainEvents();
 
             foreach (var evt in createdAdmin.DomainEvents)
-                await eventPublisher.PublishAsync(evt, ct);
+                await eventPublisher.PublishAsync((dynamic)evt, ct);
             createdAdmin.ClearDomainEvents();
 
             return Result<CreateSocietyResponse>.Success(
-                new CreateSocietyResponse(createdSociety.ToResponse(), createdAdmin.ToResponse()));
+                new CreateSocietyResponse(updatedSociety.ToResponse(), createdAdmin.ToResponse()));
         }
         catch (Exception ex)
         {
@@ -80,7 +80,7 @@ public sealed class CreateSocietyCommandHandler(
 
 public record UpdateSocietyCommand(
     string SocietyId, string Name, string ContactEmail, string ContactPhone,
-    int TotalBlocks, int TotalApartments)
+    int TotalBlocks, int TotalApartments, int? OverdueThresholdDays = null)
     : IRequest<Result<SocietyResponse>>;
 
 public sealed class UpdateSocietyCommandHandler(
@@ -92,13 +92,17 @@ public sealed class UpdateSocietyCommandHandler(
     {
         try
         {
+            // Always fetch fresh from repository to get the latest ETag
             var society = await societyRepository.GetByIdAsync(request.SocietyId, request.SocietyId, ct)
                 ?? throw new NotFoundException("Society", request.SocietyId);
 
             society.Update(request.Name, request.ContactEmail, request.ContactPhone,
                 request.TotalBlocks, request.TotalApartments);
 
-            var updated = await societyRepository.UpdateAsync(society, ct);
+                if (request.OverdueThresholdDays.HasValue)
+                society.SetOverdueThreshold(request.OverdueThresholdDays.Value);
+
+                var updated = await societyRepository.UpdateAsync(society, ct);
             return Result<SocietyResponse>.Success(updated.ToResponse());
         }
         catch (NotFoundException ex)
@@ -181,41 +185,6 @@ public sealed class AssignAdminCommandHandler(
     }
 }
 
-// ─── Configure Fee Structure ──────────────────────────────────────────────────
-
-public record ConfigureFeeStructureCommand(
-    string SocietyId, decimal BaseAmount, decimal PerRoomCharge, decimal ParkingCharge, string Currency)
-    : IRequest<Result<bool>>;
-
-public sealed class ConfigureFeeStructureCommandHandler(
-    ISocietyRepository societyRepository,
-    ILogger<ConfigureFeeStructureCommandHandler> logger)
-    : IRequestHandler<ConfigureFeeStructureCommand, Result<bool>>
-{
-    public async Task<Result<bool>> Handle(ConfigureFeeStructureCommand request, CancellationToken ct)
-    {
-        try
-        {
-            var society = await societyRepository.GetByIdAsync(request.SocietyId, request.SocietyId, ct)
-                ?? throw new NotFoundException("Society", request.SocietyId);
-
-            var feeStructure = new MaintenanceFeeStructure(
-                request.BaseAmount, request.PerRoomCharge, request.ParkingCharge, request.Currency);
-            society.ConfigureFeeStructure(feeStructure);
-            await societyRepository.UpdateAsync(society, ct);
-            return Result<bool>.Success(true);
-        }
-        catch (NotFoundException ex)
-        {
-            return Result<bool>.Failure(ErrorCodes.SocietyNotFound, ex.Message);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to configure fee structure for society {SocietyId}", request.SocietyId);
-            return Result<bool>.Failure(ErrorCodes.InternalError, ex.Message);
-        }
-    }
-}
 
 // ─── Queries ──────────────────────────────────────────────────────────────────
 

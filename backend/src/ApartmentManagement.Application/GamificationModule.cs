@@ -62,7 +62,7 @@ public sealed class RegisterForCompetitionCommandHandler(
             var competition = await competitionRepository.GetByIdAsync(request.CompetitionId, request.SocietyId, ct)
                 ?? throw new NotFoundException("Competition", request.CompetitionId);
 
-            if (competition.Status != CompetitionStatus.Active && competition.Status != CompetitionStatus.Upcoming)
+            if (competition.Status != CompetitionStatus.Active)
                 return Result<CompetitionEntryResponse>.Failure(ErrorCodes.CompetitionNotActive,
                     "Competition is not open for registration.");
 
@@ -148,7 +148,7 @@ public sealed class AwardPointsCommandHandler(
             var created = await rewardPointsRepository.CreateAsync(rewardPoints, ct);
 
             foreach (var evt in created.DomainEvents)
-                await eventPublisher.PublishAsync(evt, ct);
+                await eventPublisher.PublishAsync((dynamic)evt, ct);
             created.ClearDomainEvents();
 
             await notificationService.SendPushNotificationAsync(request.UserId,

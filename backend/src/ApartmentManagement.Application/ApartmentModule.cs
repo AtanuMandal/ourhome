@@ -48,7 +48,7 @@ public sealed class CreateApartmentCommandHandler(
             var created = await apartmentRepository.CreateAsync(apartment, ct);
 
             foreach (var evt in created.DomainEvents)
-                await eventPublisher.PublishAsync(evt, ct);
+                await eventPublisher.PublishAsync((dynamic)evt, ct);
             created.ClearDomainEvents();
 
             return Result<ApartmentResponse>.Success(created.ToResponse());
@@ -215,7 +215,7 @@ public sealed class BulkImportApartmentsCommandHandler(
 
                 var created = await apartmentRepository.CreateAsync(apartment, ct);
                 foreach (var evt in created.DomainEvents)
-                    await eventPublisher.PublishAsync(evt, ct);
+                    await eventPublisher.PublishAsync((dynamic)evt, ct);
                 created.ClearDomainEvents();
                 succeeded++;
             }

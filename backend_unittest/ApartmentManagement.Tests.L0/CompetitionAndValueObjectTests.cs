@@ -413,27 +413,4 @@ public class AddressTests
         a1.Should().Be(a2);
     }
 
-    [Fact]
-    public void MaintenanceFeeStructure_CalculateTotal_ReturnsCorrectAmount()
-    {
-        // Arrange
-        var fee = new MaintenanceFeeStructure(1000m, 200m, 500m);
-
-        // Act
-        var total = fee.CalculateTotal(3, 1);
-
-        // Assert
-        total.Should().Be(2100m); // 1000 + (200*3) + (500*1)
-    }
-
-    [Fact]
-    public void MaintenanceFeeStructure_Equality_TwoSameStructuresAreEqual()
-    {
-        // Arrange
-        var f1 = new MaintenanceFeeStructure(1000m, 200m, 500m);
-        var f2 = new MaintenanceFeeStructure(1000m, 200m, 500m);
-
-        // Assert
-        f1.Should().Be(f2);
-    }
 }

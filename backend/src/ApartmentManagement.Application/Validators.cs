@@ -5,7 +5,6 @@ using ApartmentManagement.Application.Commands.Amenity;
 using ApartmentManagement.Application.Commands.Complaint;
 using ApartmentManagement.Application.Commands.Notice;
 using ApartmentManagement.Application.Commands.Visitor;
-using ApartmentManagement.Application.Commands.Fee;
 using ApartmentManagement.Application.Commands.Gamification;
 using ApartmentManagement.Application.Commands.ServiceProvider;
 using ApartmentManagement.Domain.Enums;
@@ -141,17 +140,7 @@ public sealed class RegisterVisitorCommandValidator : AbstractValidator<Register
 
 // ─── Fee ─────────────────────────────────────────────────────────────────────
 
-public sealed class CreateFeeScheduleCommandValidator : AbstractValidator<CreateFeeScheduleCommand>
-{
-    public CreateFeeScheduleCommandValidator()
-    {
-        RuleFor(x => x.Amount).GreaterThan(0);
-        RuleFor(x => x.DueDay).InclusiveBetween(1, 28);
-        RuleFor(x => x.Frequency).IsInEnum();
-        RuleFor(x => x.ApartmentId).NotEmpty();
-        RuleFor(x => x.SocietyId).NotEmpty();
-    }
-}
+
 
 // ─── Gamification ─────────────────────────────────────────────────────────────
 

@@ -144,20 +144,6 @@ public class SocietyTests
         society.AdminUserIds.Should().NotContain(userId);
     }
 
-    [Fact]
-    public void ConfigureFeeStructure_SetsFeeStructure()
-    {
-        // Arrange
-        var society = Society.Create("GV", ValidAddress(), "admin@gv.com", "+91-9876543210", 2, 40);
-        var feeStructure = new MaintenanceFeeStructure(1000m, 200m, 500m);
-
-        // Act
-        society.ConfigureFeeStructure(feeStructure);
-
-        // Assert
-        society.FeeStructure.Should().NotBeNull();
-        society.FeeStructure!.BaseAmount.Should().Be(1000m);
-    }
 
     [Fact]
     public void SocietyId_EqualsId_ForSocietyAsPartitionRoot()

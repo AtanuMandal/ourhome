@@ -17,13 +17,13 @@ public record CreateSocietyRequest(
 public record CreateSocietyResponse(SocietyResponse Society, UserResponse Admin);
 
 public record UpdateSocietyRequest(
-    string Name, string ContactEmail, string ContactPhone, int TotalBlocks, int TotalApartments);
+    string Name, string ContactEmail, string ContactPhone, int TotalBlocks, int TotalApartments, int? OverdueThresholdDays = null);
 
 public record ConfigureFeeRequest(decimal BaseAmount, decimal PerRoomCharge, decimal ParkingCharge, string Currency);
 
 public record SocietyResponse(
     string Id, string Name, AddressDto Address, string ContactEmail, string ContactPhone,
-    int TotalBlocks, int TotalApartments, string Status, IReadOnlyList<string> AdminUserIds, DateTime CreatedAt);
+    int TotalBlocks, int TotalApartments, string Status, int OverdueThresholdDays, IReadOnlyList<string> AdminUserIds, DateTime CreatedAt);
 
 // ─── Apartment ────────────────────────────────────────────────────────────────
 
@@ -177,8 +177,8 @@ public sealed record RegisterVisitorRequest(
 // ─── Fee ─────────────────────────────────────────────────────────────────────
 
 public sealed record FeeScheduleDto(
-    string Id, string SocietyId, string ApartmentId, string Description,
-    decimal Amount, FeeFrequency Frequency, int DueDay,
+    string Id, string SocietyId, string? ApartmentId, string Description,
+    decimal Amount, string AmountType, string? AreaBasis, FeeFrequency Frequency, int DueDay,
     DateTime NextDueDate, bool IsActive, DateTime CreatedAt, DateTime UpdatedAt);
 
 public sealed record FeePaymentDto(
@@ -188,7 +188,7 @@ public sealed record FeePaymentDto(
     string? TransactionId, string? ReceiptUrl, DateTime CreatedAt, DateTime UpdatedAt);
 
 public sealed record CreateFeeScheduleRequest(
-    string ApartmentId, string Description, decimal Amount, FeeFrequency Frequency, int DueDay);
+    string? ApartmentId, string Description, decimal Amount, FeeFrequency Frequency, int DueDay, FeeAmountType AmountType = FeeAmountType.Fixed, AreaBasis? AreaBasis = null);
 
 public sealed record RecordPaymentRequest(
     string PaymentMethod, string TransactionId, string? ReceiptUrl = null);
@@ -269,8 +269,8 @@ public record VisitorResponse(
     DateTime? CheckInTime, DateTime? CheckOutTime, double? Duration, DateTime CreatedAt);
 
 public record FeeScheduleResponse(
-    string Id, string SocietyId, string ApartmentId, string Description,
-    decimal Amount, string Frequency, int DueDay, DateTime NextDueDate, bool IsActive);
+    string Id, string SocietyId, string? ApartmentId, string Description,
+    decimal Amount, string AmountType, string? AreaBasis, string Frequency, int DueDay, DateTime NextDueDate, bool IsActive);
 
 public record FeePaymentResponse(
     string Id, string SocietyId, string ApartmentId, string FeeScheduleId,

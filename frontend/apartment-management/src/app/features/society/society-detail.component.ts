@@ -69,14 +69,22 @@ import { Society } from '../../core/models/society.model';
                 <input matInput type="number" formControlName="totalApartments" min="1">
               </mat-form-field>
             </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              
+              <mat-form-field appearance="fill">
+                <mat-label>Overdue Threshold (Days)</mat-label>
+                <input matInput type="number" formControlName="overdueThresholdDays" min="30">
+              </mat-form-field>
+            </div>
             <div style="display:flex;gap:8px;margin-top:8px">
               <button mat-stroked-button type="button" style="flex:1;height:48px" (click)="editing.set(false)">Cancel</button>
               <button mat-raised-button color="primary" type="submit" style="flex:1;height:48px" [disabled]="saving()">Save</button>
             </div>
           </form>
+
         </div>
       }
-    </div>
+         
   `,
   styles: [`
     .society-brand { text-align:center; padding-bottom:8px;
@@ -101,20 +109,22 @@ export class SocietyDetailComponent implements OnInit {
   readonly saving   = signal(false);
   readonly editing  = signal(false);
   readonly society  = signal<Society | null>(null);
-
+  readonly isAdmin = this.auth.isAdmin;
   readonly form = this.fb.group({
     name:             ['', Validators.required],
     contactEmail:     [''],
     contactPhone:     [''],
     totalBlocks:      [1, Validators.min(1)],
     totalApartments:  [1, Validators.min(1)],
+    overdueThresholdDays: [30, Validators.min(0)],
   });
 
   ngOnInit() {
     const sid = this.auth.societyId();
     if (!sid) { this.loading.set(false); return; }
     this.svc.get(sid).subscribe({
-      next: s => { this.society.set(s); this.form.patchValue(s as any); this.loading.set(false); },
+      next: s => { this.society.set(s); this.form.patchValue(s as any); this.form.patchValue({ overdueThresholdDays: (s as any).overdueThresholdDays ?? 30 });
+        this.loading.set(false); },
       error: () => this.loading.set(false),
     });
   }
@@ -127,4 +137,6 @@ export class SocietyDetailComponent implements OnInit {
       error: () => this.saving.set(false),
     });
   }
+
+
 }

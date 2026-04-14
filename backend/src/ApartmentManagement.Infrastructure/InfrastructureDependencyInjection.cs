@@ -77,6 +77,7 @@ public static class InfrastructureDependencyInjection
             sp.GetRequiredService<IOptions<InfrastructureSettings>>().Value.CosmosDbDatabaseName,
             sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<FeePaymentRepository>>()));
 
+
         services.AddScoped<ICompetitionRepository>(sp => new CompetitionRepository(
             sp.GetRequiredService<CosmosClient>(),
             sp.GetRequiredService<IOptions<InfrastructureSettings>>().Value.CosmosDbDatabaseName,
