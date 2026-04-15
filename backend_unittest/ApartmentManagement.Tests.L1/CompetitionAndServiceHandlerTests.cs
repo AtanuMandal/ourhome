@@ -83,6 +83,7 @@ public class RegisterForCompetitionCommandHandlerTests
         var societyId = "soc-001";
         var competition = Competition.Create(societyId, "admin-001", "Art", "desc",
             DateTime.UtcNow.AddDays(1), DateTime.UtcNow.AddDays(7), "Prize");
+        // Cancelled competitions are not open for registration.
         competition.Cancel();
 
         _competitionRepoMock
