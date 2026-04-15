@@ -43,7 +43,13 @@ public record SocietyCommitteeDto(string Name, IReadOnlyList<SocietyUserAssignme
 
 public record CreateApartmentRequest(
     string ApartmentNumber, string BlockName, int FloorNumber, int NumberOfRooms, IReadOnlyList<string> ParkingSlots, string? OwnerId,
-    double CarpetArea, double BuildUpArea, double SuperBuildArea);
+    double CarpetArea, double BuildUpArea, double SuperBuildArea, CreateApartmentResidentRequest? InitialResident = null);
+
+public record CreateApartmentResidentRequest(
+    string FullName,
+    string Email,
+    string Phone,
+    [property: JsonConverter(typeof(JsonStringEnumConverter))] ResidentType ResidentType);
 
 public record UpdateApartmentRequest(string BlockName, int FloorNumber, int NumberOfRooms, IReadOnlyList<string> ParkingSlots,
     double CarpetArea, double BuildUpArea, double SuperBuildArea);
@@ -51,7 +57,7 @@ public record UpdateApartmentRequest(string BlockName, int FloorNumber, int Numb
 public record ApartmentResponse(
     string Id, string SocietyId, string ApartmentNumber, string BlockName, int FloorNumber,
     int NumberOfRooms, IReadOnlyList<string> ParkingSlots, double CarpetArea, double BuildUpArea, double SuperBuildArea,
-    string Status, IReadOnlyList<ApartmentResidentDto> Residents, string? TenantId,
+    string Status, IReadOnlyList<ApartmentResidentDto> Residents, string? PrimaryResidentName,
     IReadOnlyList<ApartmentResidentHistoryDto> OwnershipHistory, IReadOnlyList<ApartmentResidentHistoryDto> TenantHistory, DateTime CreatedAt);
 
 public record ApartmentResidentHistoryDto(string UserId, string? FullName, DateTime FromUtc, DateTime? ToUtc);
