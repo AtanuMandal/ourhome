@@ -13,6 +13,11 @@ using FluentValidation;
 
 namespace ApartmentManagement.Application.Validators;
 
+internal static class ValidationPatterns
+{
+    internal const string TenDigitPhone = @"^\d{10}$";
+}
+
 // ─── Society ──────────────────────────────────────────────────────────────────
 
 public sealed class CreateSocietyCommandValidator : AbstractValidator<CreateSocietyCommand>
@@ -113,7 +118,10 @@ public sealed class CreateUserCommandValidator : AbstractValidator<CreateUserCom
     {
         RuleFor(x => x.FullName).NotEmpty();
         RuleFor(x => x.Email).NotEmpty().EmailAddress();
-        RuleFor(x => x.Phone).NotEmpty();
+        RuleFor(x => x.Phone)
+            .NotEmpty()
+            .Matches(ValidationPatterns.TenDigitPhone)
+            .WithMessage("Phone must be exactly 10 digits.");
         RuleFor(x => x.Role).IsInEnum();
         RuleFor(x => x.ResidentType).IsInEnum();
         RuleFor(x => x.SocietyId).NotEmpty();
@@ -128,6 +136,54 @@ public sealed class CreateUserCommandValidator : AbstractValidator<CreateUserCom
                 .NotEmpty()
                 .When(x => x.ResidentType is ResidentType.Owner or ResidentType.Tenant or ResidentType.FamilyMember or ResidentType.CoOccupant);
         });
+    }
+}
+
+public sealed class TransferApartmentOwnershipCommandValidator : AbstractValidator<TransferApartmentOwnershipCommand>
+{
+    public TransferApartmentOwnershipCommandValidator()
+    {
+        RuleFor(x => x.SocietyId).NotEmpty();
+        RuleFor(x => x.ApartmentId).NotEmpty();
+        RuleFor(x => x.FullName).NotEmpty();
+        RuleFor(x => x.Email).NotEmpty().EmailAddress();
+        RuleFor(x => x.Phone)
+            .NotEmpty()
+            .Matches(ValidationPatterns.TenDigitPhone)
+            .WithMessage("Phone must be exactly 10 digits.");
+    }
+}
+
+public sealed class TransferApartmentTenancyCommandValidator : AbstractValidator<TransferApartmentTenancyCommand>
+{
+    public TransferApartmentTenancyCommandValidator()
+    {
+        RuleFor(x => x.SocietyId).NotEmpty();
+        RuleFor(x => x.ApartmentId).NotEmpty();
+        RuleFor(x => x.FullName).NotEmpty();
+        RuleFor(x => x.Email).NotEmpty().EmailAddress();
+        RuleFor(x => x.Phone)
+            .NotEmpty()
+            .Matches(ValidationPatterns.TenDigitPhone)
+            .WithMessage("Phone must be exactly 10 digits.");
+    }
+}
+
+public sealed class AddHouseholdMemberCommandValidator : AbstractValidator<AddHouseholdMemberCommand>
+{
+    public AddHouseholdMemberCommandValidator()
+    {
+        RuleFor(x => x.SocietyId).NotEmpty();
+        RuleFor(x => x.ApartmentId).NotEmpty();
+        RuleFor(x => x.FullName).NotEmpty();
+        RuleFor(x => x.Email).NotEmpty().EmailAddress();
+        RuleFor(x => x.Phone)
+            .NotEmpty()
+            .Matches(ValidationPatterns.TenDigitPhone)
+            .WithMessage("Phone must be exactly 10 digits.");
+        RuleFor(x => x.ResidentType)
+            .Must(type => type is ResidentType.FamilyMember or ResidentType.CoOccupant)
+            .WithMessage("Only family members or co-occupants can be added with this action.");
     }
 }
 

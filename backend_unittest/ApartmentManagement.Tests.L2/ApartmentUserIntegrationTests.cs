@@ -4,6 +4,7 @@ using ApartmentManagement.Application.Commands.User;
 using ApartmentManagement.Application.Queries.Apartment;
 using ApartmentManagement.Application.Queries.User;
 using ApartmentManagement.Domain.Enums;
+using ApartmentManagement.Shared.Constants;
 using ApartmentManagement.Shared.Models;
 using ApartmentManagement.Tests.L2.TestInfrastructure;
 using FluentAssertions;
@@ -26,7 +27,7 @@ public class ApartmentUserIntegrationTests : IntegrationTestBase
         UserRole role = UserRole.SUUser,
         ResidentType residentType = ResidentType.SocietyAdmin,
         string? apartmentId = null) =>
-        new(SocietyId, "John Resident", email, "+91-9876543210", role, residentType, apartmentId);
+        new(SocietyId, "John Resident", email, "9876543210", role, residentType, apartmentId);
 
     // ─── Apartment: create → retrieve ────────────────────────────────────────
 
@@ -337,7 +338,7 @@ public class ApartmentUserIntegrationTests : IntegrationTestBase
         CurrentUserService.UserId = nonAdmin.Id;
 
         var apartment = (await Mediator.Send(AptCmd("614", "F", 6, 3, "P4"))).Value!;
-        var resident = (await Mediator.Send(UserCmd("remove-forbidden@test.com", UserRole.SUUser, ResidentType.Owner, apartment.Id))).Value!;
+        var resident = (await Mediator.Send(UserCmd("remove-forbidden@test.com", UserRole.SUUser, ResidentType.Tenant, apartment.Id))).Value!;
 
         var removeResult = await Mediator.Send(new RemoveUserApartmentCommand(SocietyId, resident.Id, apartment.Id));
 
@@ -358,5 +359,150 @@ public class ApartmentUserIntegrationTests : IntegrationTestBase
 
         tenantsResult.IsSuccess.Should().BeTrue();
         tenantsResult.Value!.Items.Should().OnlyContain(u => u.Role == "SUUser");
+    }
+
+    [Fact]
+    public async Task CreateUser_WithInvalidEmail_ReturnsValidationFailure()
+    {
+        var action = () => Mediator.Send(new CreateUserCommand(
+            SocietyId, "Invalid Email", "invalid-email", "9876543210", UserRole.SUUser, ResidentType.Owner, "apt-1"));
+
+        await action.Should().ThrowAsync<ApartmentManagement.Shared.Exceptions.ValidationException>();
+    }
+
+    [Fact]
+    public async Task CreateUser_WithMissingNameOrPhone_ReturnsValidationFailure()
+    {
+        var missingName = () => Mediator.Send(new CreateUserCommand(
+            SocietyId, string.Empty, "missingname@test.com", "9876543210", UserRole.SUUser, ResidentType.Owner, "apt-1"));
+        var missingPhone = () => Mediator.Send(new CreateUserCommand(
+            SocietyId, "Missing Phone", "missingphone@test.com", string.Empty, UserRole.SUUser, ResidentType.Owner, "apt-1"));
+
+        await missingName.Should().ThrowAsync<ApartmentManagement.Shared.Exceptions.ValidationException>();
+        await missingPhone.Should().ThrowAsync<ApartmentManagement.Shared.Exceptions.ValidationException>();
+    }
+
+    [Fact]
+    public async Task CreateUser_WithNonTenDigitPhone_ReturnsValidationFailure()
+    {
+        var shortPhone = () => Mediator.Send(new CreateUserCommand(
+            SocietyId, "Short Phone", "short-phone@test.com", "12345", UserRole.SUUser, ResidentType.Owner, "apt-1"));
+        var alphaPhone = () => Mediator.Send(new CreateUserCommand(
+            SocietyId, "Alpha Phone", "alpha-phone@test.com", "12345AB890", UserRole.SUUser, ResidentType.Owner, "apt-1"));
+
+        await shortPhone.Should().ThrowAsync<ApartmentManagement.Shared.Exceptions.ValidationException>();
+        await alphaPhone.Should().ThrowAsync<ApartmentManagement.Shared.Exceptions.ValidationException>();
+    }
+
+    [Fact]
+    public async Task CreateUser_CannotAddSecondOwnerForApartment()
+    {
+        var apartment = (await Mediator.Send(AptCmd("701", "G"))).Value!;
+        var first = await Mediator.Send(new CreateUserCommand(SocietyId, "First Owner", "first-owner@test.com", "9876543210", UserRole.SUUser, ResidentType.Owner, apartment.Id));
+        var second = await Mediator.Send(new CreateUserCommand(SocietyId, "Second Owner", "second-owner@test.com", "9876543211", UserRole.SUUser, ResidentType.Owner, apartment.Id));
+
+        first.IsSuccess.Should().BeTrue();
+        second.IsFailure.Should().BeTrue();
+        second.ErrorCode.Should().Be(ErrorCodes.Conflict);
+    }
+
+    [Fact]
+    public async Task CreateUser_CannotAddSecondTenantForApartment()
+    {
+        var apartment = (await Mediator.Send(AptCmd("702", "G"))).Value!;
+        var first = await Mediator.Send(new CreateUserCommand(SocietyId, "First Tenant", "first-tenant@test.com", "9876543210", UserRole.SUUser, ResidentType.Tenant, apartment.Id));
+        var second = await Mediator.Send(new CreateUserCommand(SocietyId, "Second Tenant", "second-tenant@test.com", "9876543211", UserRole.SUUser, ResidentType.Tenant, apartment.Id));
+
+        first.IsSuccess.Should().BeTrue();
+        second.IsFailure.Should().BeTrue();
+        second.ErrorCode.Should().Be(ErrorCodes.Conflict);
+    }
+
+    [Fact]
+    public async Task AddHouseholdMember_AllowsMultipleFamilyMembersForApartment()
+    {
+        var apartment = (await Mediator.Send(AptCmd("703", "G"))).Value!;
+        var owner = await Mediator.Send(new CreateUserCommand(SocietyId, "Owner", "owner-multi-family@test.com", "9876543200", UserRole.SUUser, ResidentType.Owner, apartment.Id));
+        CurrentUserService.UserId = owner.Value!.Id;
+
+        var firstFamily = await Mediator.Send(new AddHouseholdMemberCommand(SocietyId, apartment.Id, "Family One", "family-one@test.com", "9876543201", ResidentType.FamilyMember));
+        var secondFamily = await Mediator.Send(new AddHouseholdMemberCommand(SocietyId, apartment.Id, "Family Two", "family-two@test.com", "9876543202", ResidentType.FamilyMember));
+
+        firstFamily.IsSuccess.Should().BeTrue();
+        secondFamily.IsSuccess.Should().BeTrue();
+
+        var updatedApartment = await Mediator.Send(new GetApartmentQuery(SocietyId, apartment.Id));
+        updatedApartment.Value!.Residents.Count(r => r.ResidentType == "FamilyMember").Should().Be(2);
+    }
+
+    [Fact]
+    public async Task AssignUserApartment_CannotMakeSameResidentBothOwnerAndTenant()
+    {
+        var apartment = (await Mediator.Send(AptCmd("704", "G"))).Value!;
+        var owner = (await Mediator.Send(new CreateUserCommand(SocietyId, "Owner Resident", "owner-tenant-conflict@test.com", "9876543210", UserRole.SUUser, ResidentType.Owner, apartment.Id))).Value!;
+
+        var conflict = await Mediator.Send(new AssignUserApartmentCommand(SocietyId, owner.Id, apartment.Id, ResidentType.Tenant));
+
+        conflict.IsFailure.Should().BeTrue();
+        conflict.ErrorCode.Should().Be(ErrorCodes.Conflict);
+    }
+
+    [Fact]
+    public async Task TransferApartmentOwnership_RemovesPreviousOwnerAndFamilyButKeepsTenant()
+    {
+        var apartment = (await Mediator.Send(AptCmd("705", "G"))).Value!;
+        var owner = (await Mediator.Send(new CreateUserCommand(SocietyId, "Old Owner", "old-owner@test.com", "9876543200", UserRole.SUUser, ResidentType.Owner, apartment.Id))).Value!;
+        var tenant = (await Mediator.Send(new CreateUserCommand(SocietyId, "Tenant", "tenant-stays@test.com", "9876543201", UserRole.SUUser, ResidentType.Tenant, apartment.Id))).Value!;
+        CurrentUserService.UserId = owner.Id;
+        var family = await Mediator.Send(new AddHouseholdMemberCommand(SocietyId, apartment.Id, "Owner Family", "owner-family@test.com", "9876543202", ResidentType.FamilyMember));
+        family.IsSuccess.Should().BeTrue();
+
+        var transfer = await Mediator.Send(new TransferApartmentOwnershipCommand(SocietyId, apartment.Id, "New Owner", "new-owner@test.com", "9876543203"));
+
+        transfer.IsSuccess.Should().BeTrue();
+        var apartmentAfter = await Mediator.Send(new GetApartmentQuery(SocietyId, apartment.Id));
+        apartmentAfter.Value!.Residents.Should().Contain(r => r.ResidentType == "Tenant" && r.UserId == tenant.Id);
+        apartmentAfter.Value.Residents.Should().NotContain(r => r.ResidentType == "FamilyMember");
+
+        var previousOwner = await Mediator.Send(new GetUserQuery(SocietyId, owner.Id));
+        previousOwner.Value!.Apartments.Should().NotContain(a => a.ApartmentId == apartment.Id);
+    }
+
+    [Fact]
+    public async Task HouseholdMemberCommands_EnforceOwnerAndTenantOnlyRules()
+    {
+        var apartment = (await Mediator.Send(AptCmd("706", "G"))).Value!;
+        var suAdminApartment = (await Mediator.Send(AptCmd("707", "G"))).Value!;
+        var ownerApartment = (await Mediator.Send(AptCmd("708", "G"))).Value!;
+        var owner = (await Mediator.Send(new CreateUserCommand(SocietyId, "Owner", "rule-owner@test.com", "9876543200", UserRole.SUUser, ResidentType.Owner, ownerApartment.Id))).Value!;
+        var tenant = (await Mediator.Send(new CreateUserCommand(SocietyId, "Tenant", "rule-tenant@test.com", "9876543201", UserRole.SUUser, ResidentType.Tenant, apartment.Id))).Value!;
+        var suAdmin = await UserRepo.CreateAsync(
+            ApartmentManagement.Domain.Entities.User.Create(SocietyId, "SU Admin", "rule-admin@test.com", "9876543202", UserRole.SUAdmin, ResidentType.SocietyAdmin),
+            CancellationToken.None);
+
+        CurrentUserService.UserId = suAdmin.Id;
+        var suAdminOwner = await Mediator.Send(new CreateUserCommand(SocietyId, "Admin Owner", "admin-owner@test.com", "9876543203", UserRole.SUUser, ResidentType.Owner, suAdminApartment.Id));
+        var suAdminTenant = await Mediator.Send(new CreateUserCommand(SocietyId, "Admin Tenant", "admin-tenant@test.com", "9876543204", UserRole.SUUser, ResidentType.Tenant, apartment.Id));
+        var suAdminFamily = await Mediator.Send(new AddHouseholdMemberCommand(SocietyId, apartment.Id, "Admin Family", "admin-family@test.com", "9876543205", ResidentType.FamilyMember));
+
+        suAdminOwner.IsSuccess.Should().BeTrue();
+        suAdminTenant.IsFailure.Should().BeTrue();
+        suAdminFamily.IsFailure.Should().BeTrue();
+
+        CurrentUserService.UserId = owner.Id;
+        var ownerAddsTenant = await Mediator.Send(new CreateUserCommand(SocietyId, "Owner Added Tenant", "owner-adds-tenant@test.com", "9876543206", UserRole.SUUser, ResidentType.Tenant, ownerApartment.Id));
+        var ownerAddsFamily = await Mediator.Send(new AddHouseholdMemberCommand(SocietyId, ownerApartment.Id, "Owner Family", "owner-family-2@test.com", "9876543207", ResidentType.FamilyMember));
+        var ownerAddsCoOccupant = await Mediator.Send(new AddHouseholdMemberCommand(SocietyId, ownerApartment.Id, "Owner Co", "owner-co@test.com", "9876543208", ResidentType.CoOccupant));
+
+        ownerAddsTenant.IsSuccess.Should().BeTrue();
+        ownerAddsFamily.IsSuccess.Should().BeTrue();
+        ownerAddsCoOccupant.IsFailure.Should().BeTrue();
+
+        CurrentUserService.UserId = tenant.Id;
+        var tenantAddsCoOccupant = await Mediator.Send(new AddHouseholdMemberCommand(SocietyId, apartment.Id, "Tenant Co", "tenant-co@test.com", "9876543209", ResidentType.CoOccupant));
+        var tenantAddsFamily = await Mediator.Send(new AddHouseholdMemberCommand(SocietyId, apartment.Id, "Tenant Family", "tenant-family@test.com", "9876543212", ResidentType.FamilyMember));
+
+        tenantAddsCoOccupant.IsSuccess.Should().BeTrue();
+        tenantAddsFamily.IsFailure.Should().BeTrue();
     }
 }

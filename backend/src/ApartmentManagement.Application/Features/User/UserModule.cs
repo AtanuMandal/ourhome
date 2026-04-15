@@ -24,6 +24,7 @@ public sealed class CreateUserCommandHandler(
     IApartmentRepository apartmentRepository,
     INotificationService notificationService,
     IEventPublisher eventPublisher,
+    ICurrentUserService currentUserService,
     ILogger<CreateUserCommandHandler> logger)
     : IRequestHandler<CreateUserCommand, Result<UserResponse>>
 {
@@ -31,6 +32,22 @@ public sealed class CreateUserCommandHandler(
     {
         try
         {
+            var actor = await userRepository.GetByIdAsync(currentUserService.UserId, request.SocietyId, ct);
+            if (actor is not null)
+            {
+                var canCreate = actor.Role == UserRole.SUAdmin
+                    ? request.ResidentType == ResidentType.Owner
+                    : actor.ResidentType switch
+                    {
+                        ResidentType.Owner => request.ResidentType is ResidentType.Tenant or ResidentType.FamilyMember,
+                        ResidentType.Tenant => request.ResidentType == ResidentType.CoOccupant,
+                        _ => false
+                    };
+
+                if (!canCreate)
+                    return Result<UserResponse>.Failure(ErrorCodes.Forbidden, "You are not allowed to add this resident type.");
+            }
+
             var existing = await userRepository.GetByEmailAsync(request.SocietyId, request.Email.Trim().ToLowerInvariant(), ct);
             if (existing is not null)
                 return Result<UserResponse>.Failure(ErrorCodes.UserAlreadyExists,
@@ -162,6 +179,9 @@ public sealed class AssignUserApartmentCommandHandler(
 
             if (request.ResidentType == ResidentType.Owner)
             {
+                if (string.Equals(apartment.TenantId, user.Id, StringComparison.OrdinalIgnoreCase))
+                    return Result<UserResponse>.Failure(ErrorCodes.Conflict, "A resident cannot be both owner and tenant for the same apartment.");
+
                 if (!string.IsNullOrWhiteSpace(apartment.OwnerId) && apartment.OwnerId != user.Id)
                     return Result<UserResponse>.Failure(ErrorCodes.Conflict, "This apartment already has an owner. Use ownership transfer instead.");
 
@@ -173,6 +193,9 @@ public sealed class AssignUserApartmentCommandHandler(
             }
             else
             {
+                if (string.Equals(apartment.OwnerId, user.Id, StringComparison.OrdinalIgnoreCase))
+                    return Result<UserResponse>.Failure(ErrorCodes.Conflict, "A resident cannot be both owner and tenant for the same apartment.");
+
                 if (!string.IsNullOrWhiteSpace(apartment.TenantId) && apartment.TenantId != user.Id)
                     return Result<UserResponse>.Failure(ErrorCodes.Conflict, "This apartment already has a tenant. Use tenancy transfer instead.");
 
@@ -608,6 +631,28 @@ public sealed class TransferApartmentOwnershipCommandHandler(
                 }
             }
 
+            var existing = await userRepository.GetByEmailAsync(request.SocietyId, request.Email.Trim().ToLowerInvariant(), ct);
+            if (existing is not null)
+                return Result<UserResponse>.Failure(ErrorCodes.UserAlreadyExists,
+                    $"A resident with email {request.Email} already exists in this society.");
+
+            var existingFamilyMembers = apartment.Residents
+                .Where(r => r.ResidentType == ResidentType.FamilyMember)
+                .Select(r => r.UserId)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            foreach (var familyMemberId in existingFamilyMembers)
+            {
+                apartment.RemoveResident(familyMemberId, ResidentType.FamilyMember);
+                var familyMember = await userRepository.GetByIdAsync(familyMemberId, request.SocietyId, ct);
+                if (familyMember is not null)
+                {
+                    familyMember.UnlinkApartment(apartment.Id);
+                    await userRepository.UpdateAsync(familyMember, ct);
+                }
+            }
+
             var created = await userRepository.CreateAsync(
                 Domain.Entities.User.Create(
                     request.SocietyId, request.FullName, request.Email, request.Phone,
@@ -666,6 +711,11 @@ public sealed class TransferApartmentTenancyCommandHandler(
                 }
             }
 
+            var existing = await userRepository.GetByEmailAsync(request.SocietyId, request.Email.Trim().ToLowerInvariant(), ct);
+            if (existing is not null)
+                return Result<UserResponse>.Failure(ErrorCodes.UserAlreadyExists,
+                    $"A resident with email {request.Email} already exists in this society.");
+
             var created = await userRepository.CreateAsync(
                 Domain.Entities.User.Create(
                     request.SocietyId, request.FullName, request.Email, request.Phone,
@@ -712,12 +762,19 @@ public sealed class AddHouseholdMemberCommandHandler(
             var apartment = await apartmentRepository.GetByIdAsync(request.ApartmentId, request.SocietyId, ct)
                 ?? throw new NotFoundException("Apartment", request.ApartmentId);
             var canAddFamily = request.ResidentType == ResidentType.FamilyMember &&
-                (actor.Role == UserRole.SUAdmin || actor.ResidentType == ResidentType.Owner);
+                actor.ResidentType == ResidentType.Owner &&
+                string.Equals(apartment.OwnerId, actor.Id, StringComparison.OrdinalIgnoreCase);
             var canAddCoOccupant = request.ResidentType == ResidentType.CoOccupant &&
-                (actor.Role == UserRole.SUAdmin || actor.ResidentType == ResidentType.Tenant);
+                actor.ResidentType == ResidentType.Tenant &&
+                string.Equals(apartment.TenantId, actor.Id, StringComparison.OrdinalIgnoreCase);
 
             if (!canAddFamily && !canAddCoOccupant)
                 return Result<UserResponse>.Failure(ErrorCodes.Forbidden, "You are not allowed to add this household member type.");
+
+            var existing = await userRepository.GetByEmailAsync(request.SocietyId, request.Email.Trim().ToLowerInvariant(), ct);
+            if (existing is not null)
+                return Result<UserResponse>.Failure(ErrorCodes.UserAlreadyExists,
+                    $"A resident with email {request.Email} already exists in this society.");
 
             var created = await userRepository.CreateAsync(
                 Domain.Entities.User.Create(
