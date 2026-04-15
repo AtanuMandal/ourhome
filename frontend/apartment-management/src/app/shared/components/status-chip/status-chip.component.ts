@@ -8,12 +8,12 @@ const STATUS_MAP: Record<string, ChipVariant> = {
   Open: 'error', InProgress: 'warn', Resolved: 'success', Closed: 'default',
   // Apartment
   Available: 'success', Occupied: 'info', Maintenance: 'warn',
-  // Booking
-  Pending: 'warn', Approved: 'success', Rejected: 'error', Cancelled: 'default',
+  // Booking / Visitor shared statuses
+  Pending: 'warn', Approved: 'success', Rejected: 'error', Cancelled: 'default', Denied: 'error',
   // Payment
   Paid: 'success', Overdue: 'error', Waived: 'info',
   // Visitor
-  Expected: 'info', CheckedIn: 'success', CheckedOut: 'default',
+  CheckedIn: 'success', CheckedOut: 'default',
   // Service Request
   Accepted: 'info', Completed: 'success',
 };

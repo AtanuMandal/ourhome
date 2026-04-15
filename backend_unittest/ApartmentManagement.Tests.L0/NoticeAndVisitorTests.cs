@@ -142,10 +142,11 @@ public class VisitorLogTests
     private const string SocietyId = "society-001";
     private const string HostApartmentId = "apt-001";
     private const string HostUserId = "user-001";
+    private const string RegisteredByUserId = "security-001";
 
     private static VisitorLog CreateVisitorLog() =>
         VisitorLog.Create(SocietyId, "John Visitor", "+91-9876543210",
-            "john@example.com", "Personal visit", HostApartmentId, HostUserId);
+            "john@example.com", "Personal visit", HostApartmentId, HostUserId, RegisteredByUserId, true);
 
     [Fact]
     public void Create_WithValidParameters_ReturnsPendingVisitorLog()

@@ -14,22 +14,42 @@ namespace ApartmentManagement.Tests.L1.Handlers;
 public class RegisterVisitorCommandHandlerTests
 {
     private readonly Mock<IVisitorLogRepository> _visitorRepoMock = new();
+    private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
+    private readonly Mock<IUserRepository> _userRepoMock = new();
     private readonly Mock<IEventPublisher> _eventPublisherMock = new();
     private readonly Mock<INotificationService> _notificationMock = new();
     private readonly Mock<IQrCodeService> _qrCodeMock = new();
+    private readonly Mock<ICurrentUserService> _currentUserMock = new();
     private readonly Mock<ILogger<RegisterVisitorCommandHandler>> _loggerMock = new();
 
     private RegisterVisitorCommandHandler CreateHandler() =>
-        new(_visitorRepoMock.Object, _notificationMock.Object, _qrCodeMock.Object,
-            _eventPublisherMock.Object, _loggerMock.Object);
+        new(
+            _visitorRepoMock.Object,
+            _apartmentRepoMock.Object,
+            _userRepoMock.Object,
+            _notificationMock.Object,
+            _qrCodeMock.Object,
+            _eventPublisherMock.Object,
+            _currentUserMock.Object,
+            _loggerMock.Object);
 
     [Fact]
     public async Task Handle_WithValidCommand_CreatesVisitorLogAndReturnsSuccess()
     {
         // Arrange
+        var apartment = Apartment.Create("soc-001", "A-101", "A", 1, 2, [], 900, 1000, 1100);
+        var hostUser = User.Create("soc-001", "Host Resident", "host@example.com", "+91-9999999999", UserRole.SUUser, ResidentType.Owner, apartment.Id);
+
+        _currentUserMock.SetupGet(c => c.UserId).Returns("security-001");
         _qrCodeMock
             .Setup(q => q.GenerateQrCodeBase64Async(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync("base64qrdata");
+        _apartmentRepoMock
+            .Setup(r => r.GetByIdAsync(apartment.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(apartment);
+        _userRepoMock
+            .Setup(r => r.GetByIdAsync(hostUser.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(hostUser);
         _visitorRepoMock
             .Setup(r => r.CreateAsync(It.IsAny<VisitorLog>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((VisitorLog l, CancellationToken _) => l);
@@ -37,7 +57,7 @@ public class RegisterVisitorCommandHandlerTests
         var handler = CreateHandler();
         var command = new RegisterVisitorCommand(
             "soc-001", "John Visitor", "+91-9876543210", null,
-            "Personal visit", "apt-001", "user-001", null);
+            "Personal visit", apartment.Id, hostUser.Id, null);
 
         // Act
         var result = await handler.Handle(command, CancellationToken.None);
@@ -46,24 +66,31 @@ public class RegisterVisitorCommandHandlerTests
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().NotBeNull();
         result.Value!.PassCode.Should().NotBeNullOrEmpty();
+        result.Value.RequiresApproval.Should().BeTrue();
         _visitorRepoMock.Verify(r => r.CreateAsync(It.IsAny<VisitorLog>(), It.IsAny<CancellationToken>()), Times.Once);
-        _notificationMock.Verify(n => n.SendPushNotificationAsync("user-001", It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+        _notificationMock.Verify(n => n.SendPushNotificationAsync(hostUser.Id, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 }
 
 public class CheckInVisitorCommandHandlerTests
 {
     private readonly Mock<IVisitorLogRepository> _visitorRepoMock = new();
+    private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
+    private readonly Mock<IUserRepository> _userRepoMock = new();
+    private readonly Mock<ICurrentUserService> _currentUserMock = new();
     private readonly Mock<ILogger<CheckInVisitorCommandHandler>> _loggerMock = new();
 
     private CheckInVisitorCommandHandler CreateHandler() =>
-        new(_visitorRepoMock.Object, _loggerMock.Object);
+        new(_visitorRepoMock.Object, _apartmentRepoMock.Object, _userRepoMock.Object, _currentUserMock.Object, _loggerMock.Object);
 
     [Fact]
     public async Task Handle_WithApprovedVisitorPassCode_ChecksInAndReturnsSuccess()
     {
         // Arrange
-        var log = VisitorLog.Create("soc-001", "John", "+91-9876543210", null, "Visit", "apt-001", "host-001", null);
+        _currentUserMock.SetupGet(c => c.UserId).Returns("outsider-001");
+        _currentUserMock.Setup(c => c.IsInRoles(It.IsAny<string[]>())).Returns(false);
+
+        var log = VisitorLog.Create("soc-001", "John", "+91-9876543210", null, "Visit", "apt-001", "host-001", "security-001", true, null);
         log.Approve();
         var passCode = log.PassCode;
 
@@ -89,7 +116,10 @@ public class CheckInVisitorCommandHandlerTests
     public async Task Handle_WithInvalidPassCode_ReturnsFailure()
     {
         // Arrange: log exists but command uses a wrong passCode
-        var log = VisitorLog.Create("soc-001", "John", "+91-9876543210", null, "Visit", "apt-001", "host-001", null);
+        _currentUserMock.SetupGet(c => c.UserId).Returns("outsider-001");
+        _currentUserMock.Setup(c => c.IsInRoles(It.IsAny<string[]>())).Returns(false);
+
+        var log = VisitorLog.Create("soc-001", "John", "+91-9876543210", null, "Visit", "apt-001", "host-001", "security-001", true, null);
         log.Approve();
 
         _visitorRepoMock
@@ -111,7 +141,10 @@ public class CheckInVisitorCommandHandlerTests
     public async Task Handle_WithPendingVisitor_ReturnsFailure()
     {
         // Arrange: log exists with correct passCode but is NOT approved
-        var log = VisitorLog.Create("soc-001", "John", "+91-9876543210", null, "Visit", "apt-001", "host-001", null);
+        _currentUserMock.SetupGet(c => c.UserId).Returns("outsider-001");
+        _currentUserMock.Setup(c => c.IsInRoles(It.IsAny<string[]>())).Returns(false);
+
+        var log = VisitorLog.Create("soc-001", "John", "+91-9876543210", null, "Visit", "apt-001", "host-001", "security-001", true, null);
         var passCode = log.PassCode;
 
         _visitorRepoMock

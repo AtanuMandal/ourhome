@@ -172,17 +172,27 @@ public static class MappingExtensions
             notice.CreatedAt,
             notice.TargetApartmentIds);
 
-    public static VisitorResponse ToResponse(this VisitorLog log) =>
+    public static ApartmentManagement.Application.DTOs.Visitor.VisitorResponse ToResponse(this VisitorLog log) =>
         new(
             log.Id,
             log.SocietyId,
             log.VisitorName,
             log.VisitorPhone,
+            log.VisitorEmail,
             log.Purpose,
             log.HostApartmentId,
+            null,
+            log.HostUserId,
+            null,
             log.Status.ToString(),
             log.QrCode,
             log.PassCode,
+            log.VehicleNumber,
+            log.RegisteredByUserId,
+            log.RequiresApproval,
+            false,
+            false,
+            false,
             log.CheckInTime,
             log.CheckOutTime,
             log.Duration?.TotalMinutes,

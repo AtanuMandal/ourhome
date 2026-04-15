@@ -5,6 +5,7 @@ public record RegisterVisitorRequest(
     string VisitorPhone,
     string? VisitorEmail,
     string Purpose,
-    string HostApartmentId,
+    string? HostApartmentId,
+    string? HostUserId,
     string? VehicleNumber
 );

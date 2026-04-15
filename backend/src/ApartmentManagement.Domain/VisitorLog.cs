@@ -10,8 +10,10 @@ public sealed class VisitorLog : BaseEntity
     public string VisitorPhone { get; private set; } = string.Empty;
     public string? VisitorEmail { get; private set; }
     public string Purpose { get; private set; } = string.Empty;
-    public string HostApartmentId { get; private set; } = string.Empty;
-    public string HostUserId { get; private set; } = string.Empty;
+    public string? HostApartmentId { get; private set; }
+    public string? HostUserId { get; private set; }
+    public string RegisteredByUserId { get; private set; } = string.Empty;
+    public bool RequiresApproval { get; private set; }
     public DateTime? CheckInTime { get; private set; }
     public DateTime? CheckOutTime { get; private set; }
     public VisitorStatus Status { get; private set; }
@@ -29,15 +31,23 @@ public sealed class VisitorLog : BaseEntity
     private VisitorLog() { }
 
     /// <summary>Registers a new visitor with a generated pass code.</summary>
-    public static VisitorLog Create(string societyId, string visitorName, string visitorPhone,
-        string? visitorEmail, string purpose, string hostApartmentId, string hostUserId,
+    public static VisitorLog Create(
+        string societyId,
+        string visitorName,
+        string visitorPhone,
+        string? visitorEmail,
+        string purpose,
+        string? hostApartmentId,
+        string? hostUserId,
+        string registeredByUserId,
+        bool requiresApproval,
         string? vehicleNumber = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(societyId, nameof(societyId));
         ArgumentException.ThrowIfNullOrWhiteSpace(visitorName, nameof(visitorName));
         ArgumentException.ThrowIfNullOrWhiteSpace(visitorPhone, nameof(visitorPhone));
         ArgumentException.ThrowIfNullOrWhiteSpace(purpose, nameof(purpose));
-        ArgumentException.ThrowIfNullOrWhiteSpace(hostApartmentId, nameof(hostApartmentId));
+        ArgumentException.ThrowIfNullOrWhiteSpace(registeredByUserId, nameof(registeredByUserId));
 
         var log = new VisitorLog
         {
@@ -46,22 +56,41 @@ public sealed class VisitorLog : BaseEntity
             VisitorPhone = visitorPhone.Trim(),
             VisitorEmail = visitorEmail?.Trim(),
             Purpose = purpose.Trim(),
-            HostApartmentId = hostApartmentId,
-            HostUserId = hostUserId,
+            HostApartmentId = string.IsNullOrWhiteSpace(hostApartmentId) ? null : hostApartmentId.Trim(),
+            HostUserId = string.IsNullOrWhiteSpace(hostUserId) ? null : hostUserId.Trim(),
+            RegisteredByUserId = registeredByUserId.Trim(),
+            RequiresApproval = requiresApproval,
             VehicleNumber = vehicleNumber?.Trim().ToUpperInvariant(),
-            Status = VisitorStatus.Pending,
+            Status = requiresApproval ? VisitorStatus.Pending : VisitorStatus.Approved,
             PassCode = GeneratePassCode(),
             QrCode = $"VIS-{Guid.NewGuid():N}" // Will be replaced by QR code service
         };
-        log.AddDomainEvent(new VisitorArrivedEvent(log.Id, societyId, hostApartmentId, visitorName));
+        if (!string.IsNullOrWhiteSpace(log.HostApartmentId))
+            log.AddDomainEvent(new VisitorArrivedEvent(log.Id, societyId, log.HostApartmentId, visitorName));
         return log;
     }
 
     private static string GeneratePassCode() =>
         _rng.Next(100_000, 999_999).ToString();
 
-    public void Approve() { Status = VisitorStatus.Approved; TouchUpdatedAt(); }
-    public void Deny() { Status = VisitorStatus.Denied; TouchUpdatedAt(); }
+    public void Approve()
+    {
+        if (Status != VisitorStatus.Pending)
+            throw new InvalidOperationException("Only pending visitors can be approved.");
+
+        Status = VisitorStatus.Approved;
+        RequiresApproval = false;
+        TouchUpdatedAt();
+    }
+
+    public void Deny()
+    {
+        if (Status != VisitorStatus.Pending)
+            throw new InvalidOperationException("Only pending visitors can be denied.");
+
+        Status = VisitorStatus.Denied;
+        TouchUpdatedAt();
+    }
 
     public void CheckIn()
     {
