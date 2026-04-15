@@ -15,11 +15,12 @@ namespace ApartmentManagement.Tests.L1.Handlers;
 public class CreateApartmentCommandHandlerTests
 {
     private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
+    private readonly Mock<IUserRepository> _userRepoMock = new();
     private readonly Mock<IEventPublisher> _eventPublisherMock = new();
     private readonly Mock<ILogger<CreateApartmentCommandHandler>> _loggerMock = new();
 
     private CreateApartmentCommandHandler CreateHandler() =>
-        new(_apartmentRepoMock.Object, _eventPublisherMock.Object, _loggerMock.Object);
+        new(_apartmentRepoMock.Object, _userRepoMock.Object, _eventPublisherMock.Object, _loggerMock.Object);
 
     [Fact]
     public async Task Handle_WithValidCommand_CreatesApartmentAndReturnsSuccess()
@@ -161,11 +162,12 @@ public class DeleteApartmentCommandHandlerTests
 public class BulkImportApartmentsCommandHandlerTests
 {
     private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
+    private readonly Mock<IUserRepository> _userRepoMock = new();
     private readonly Mock<IEventPublisher> _eventPublisherMock = new();
     private readonly Mock<ILogger<BulkImportApartmentsCommandHandler>> _loggerMock = new();
 
     private BulkImportApartmentsCommandHandler CreateHandler() =>
-        new(_apartmentRepoMock.Object, _eventPublisherMock.Object, _loggerMock.Object);
+        new(_apartmentRepoMock.Object, _userRepoMock.Object, _eventPublisherMock.Object, _loggerMock.Object);
 
     [Fact]
     public async Task Handle_WithAllNewApartments_SucceedsForAll()
