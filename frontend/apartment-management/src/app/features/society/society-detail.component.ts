@@ -1,4 +1,5 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDividerModule } from '@angular/material/divider';
@@ -17,6 +18,7 @@ import { Society, SocietyCommittee, SocietyUserAssignment } from '../../core/mod
   standalone: true,
   imports: [
     ReactiveFormsModule,
+    RouterLink,
     MatFormFieldModule,
     MatInputModule,
     MatButtonModule,
@@ -75,9 +77,13 @@ import { Society, SocietyCommittee, SocietyUserAssignment } from '../../core/mod
             }
           }
           @if (isAdmin()) {
-            <button mat-raised-button color="primary" class="primary-action" (click)="startEditing()">
-              Edit Society
-            </button>
+            <div class="primary-actions">
+              <a mat-stroked-button routerLink="/apartments">Manage Apartments</a>
+              <a mat-stroked-button color="primary" routerLink="/apartments/new">Add Apartment</a>
+              <button mat-raised-button color="primary" class="primary-action" (click)="startEditing()">
+                Edit Society
+              </button>
+            </div>
           }
         </div>
       } @else {
@@ -197,8 +203,9 @@ import { Society, SocietyCommittee, SocietyUserAssignment } from '../../core/mod
     .label { color:var(--text-secondary);font-size:13px; }
     .section-title { font-size:15px; font-weight:600; margin-bottom:4px; }
     .section-copy { color:var(--text-secondary); font-size:13px; }
-    .primary-action { margin-top:16px; width:100%; height:48px; }
-    .detail-card, .committee-card, .sub-card, .nested-card {
+     .primary-action { margin-top:16px; width:100%; height:48px; }
+     .primary-actions { display:flex; flex-direction:column; gap:12px; margin-top:16px; }
+     .detail-card, .committee-card, .sub-card, .nested-card {
       border:1px solid var(--border); border-radius:12px; padding:12px; background:#fafafa;
     }
     .detail-card, .committee-card { margin-top:12px; }

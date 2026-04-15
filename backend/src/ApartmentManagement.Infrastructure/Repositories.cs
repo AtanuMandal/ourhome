@@ -44,8 +44,8 @@ public class ApartmentRepository(CosmosClient client, string dbName, ILogger<Apa
 {
     public async Task<Apartment?> GetByUnitNumberAsync(string societyId, string block, string unitNumber, CancellationToken ct = default)
     {
-        var q = new QueryDefinition("SELECT * FROM c WHERE c.societyId = @sid AND c.blockName = @block AND c.apartmentNumber = @unit")
-            .WithParameter("@sid", societyId).WithParameter("@block", block).WithParameter("@unit", unitNumber);
+        var q = new QueryDefinition("SELECT * FROM c WHERE c.societyId = @sid AND c.apartmentNumber = @unit")
+            .WithParameter("@sid", societyId).WithParameter("@unit", unitNumber);
         var results = await ExecuteQueryAsync(q, societyId, ct);
         return results.FirstOrDefault();
     }

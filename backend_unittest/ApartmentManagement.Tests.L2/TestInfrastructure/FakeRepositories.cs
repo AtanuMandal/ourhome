@@ -33,7 +33,6 @@ public sealed class FakeApartmentRepository : FakeRepository<Apartment>, IApartm
     {
         var found = Store.Values.FirstOrDefault(a =>
             a.SocietyId == societyId &&
-            a.BlockName.Equals(block, StringComparison.OrdinalIgnoreCase) &&
             a.ApartmentNumber.Equals(unitNumber, StringComparison.OrdinalIgnoreCase));
         return Task.FromResult<Apartment?>(found);
     }

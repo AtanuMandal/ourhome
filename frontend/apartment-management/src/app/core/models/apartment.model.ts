@@ -51,6 +51,14 @@ export interface CreateApartmentDto {
   buildUpArea: number;
   superBuildArea: number;
   ownerId?: string;
+  initialResident?: CreateApartmentResidentDto;
+}
+
+export interface CreateApartmentResidentDto {
+  fullName: string;
+  email: string;
+  phone: string;
+  residentType: Extract<ApartmentResident['residentType'], 'Owner' | 'Tenant'>;
 }
 
 export interface UpdateApartmentDto {
