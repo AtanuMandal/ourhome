@@ -89,6 +89,19 @@ public sealed class CreateApartmentCommandValidator : AbstractValidator<CreateAp
         RuleFor(x => x.CarpetArea).GreaterThan(0).WithMessage("Carpet area must be greater than 0.");
         RuleFor(x => x.BuildUpArea).GreaterThan(0).WithMessage("BuildUp area must be greater than 0.");
         RuleFor(x => x.SuperBuildArea).GreaterThan(0).WithMessage("SuperBuild area must be greater than 0.");
+        RuleFor(x => x)
+            .Must(x => string.IsNullOrWhiteSpace(x.OwnerId) || x.InitialResident is null)
+            .WithMessage("Provide either ownerId or initialResident when onboarding an occupied apartment.");
+
+        When(x => x.InitialResident is not null, () =>
+        {
+            RuleFor(x => x.InitialResident!.FullName).NotEmpty();
+            RuleFor(x => x.InitialResident!.Email).NotEmpty().EmailAddress();
+            RuleFor(x => x.InitialResident!.Phone).NotEmpty();
+            RuleFor(x => x.InitialResident!.ResidentType)
+                .Must(type => type is ResidentType.Owner or ResidentType.Tenant)
+                .WithMessage("Initial resident must be an owner or tenant.");
+        });
     }
 }
 

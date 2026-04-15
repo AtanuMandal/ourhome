@@ -1,4 +1,5 @@
 using ApartmentManagement.Application.Commands.Apartment;
+using ApartmentManagement.Application.DTOs;
 using ApartmentManagement.Application.Commands.User;
 using ApartmentManagement.Application.Queries.Apartment;
 using ApartmentManagement.Application.Queries.User;
@@ -49,14 +50,26 @@ public class ApartmentUserIntegrationTests : IntegrationTestBase
     }
 
     [Fact]
-    public async Task CreateApartment_WithOwner_AddsOwnerToResidents()
+    public async Task CreateApartment_WithInitialTenantDetails_AddsResidentAndMarksApartmentOccupied()
     {
         var result = await Mediator.Send(
-            new CreateApartmentCommand(SocietyId, "102", "A", 1, 3, ["P1"], "owner-user-id", 500, 600, 700));
+            new CreateApartmentCommand(
+                SocietyId,
+                "102",
+                "A",
+                1,
+                3,
+                ["P1"],
+                null,
+                500,
+                600,
+                700,
+                new CreateApartmentResidentRequest("Taylor Tenant", "taylor@test.com", "+91-9988776655", ResidentType.Tenant)));
 
         result.IsSuccess.Should().BeTrue();
         result.Value!.Residents.Should().ContainSingle(r =>
-            r.UserId == "owner-user-id" && r.ResidentType == "Owner");
+            r.ResidentType == "Tenant" && r.UserName == "Taylor Tenant");
+        result.Value.Status.Should().Be("Occupied");
     }
 
     [Fact]
@@ -65,6 +78,17 @@ public class ApartmentUserIntegrationTests : IntegrationTestBase
         await Mediator.Send(AptCmd("201", "B"));
 
         var duplicate = await Mediator.Send(AptCmd("201", "B"));
+
+        duplicate.IsFailure.Should().BeTrue();
+        duplicate.ErrorCode.Should().Be(ApartmentManagement.Shared.Constants.ErrorCodes.ApartmentNumberDuplicate);
+    }
+
+    [Fact]
+    public async Task CreateApartment_DuplicateUnitNumberAcrossBlocks_ReturnsFailure()
+    {
+        await Mediator.Send(AptCmd("202", "A"));
+
+        var duplicate = await Mediator.Send(AptCmd("202", "B"));
 
         duplicate.IsFailure.Should().BeTrue();
         duplicate.ErrorCode.Should().Be(ApartmentManagement.Shared.Constants.ErrorCodes.ApartmentNumberDuplicate);

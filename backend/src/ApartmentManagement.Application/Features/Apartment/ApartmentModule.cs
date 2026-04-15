@@ -18,12 +18,14 @@ namespace ApartmentManagement.Application.Commands.Apartment
 public record CreateApartmentCommand(
     string SocietyId, string ApartmentNumber, string BlockName, int FloorNumber,
     int NumberOfRooms, IReadOnlyList<string> ParkingSlots, string? OwnerId,
-    double CarpetArea, double BuildUpArea, double SuperBuildArea)
+    double CarpetArea, double BuildUpArea, double SuperBuildArea, CreateApartmentResidentRequest? InitialResident = null)
     : IRequest<Result<ApartmentResponse>>;
 
 public sealed class CreateApartmentCommandHandler(
     IApartmentRepository apartmentRepository,
     IUserRepository userRepository,
+    ISocietyRepository societyRepository,
+    ICurrentUserService currentUserService,
     IEventPublisher eventPublisher,
     ILogger<CreateApartmentCommandHandler> logger)
     : IRequestHandler<CreateApartmentCommand, Result<ApartmentResponse>>
@@ -32,33 +34,78 @@ public sealed class CreateApartmentCommandHandler(
     {
         try
         {
+            if (!string.IsNullOrWhiteSpace(request.OwnerId) && request.InitialResident is not null)
+                return Result<ApartmentResponse>.Failure(
+                    ErrorCodes.ValidationFailed,
+                    "Provide either ownerId or initialResident when onboarding an occupied apartment.");
+
             var existing = await apartmentRepository.GetByUnitNumberAsync(
                 request.SocietyId, request.BlockName, request.ApartmentNumber, ct);
             if (existing is not null)
                 return Result<ApartmentResponse>.Failure(ErrorCodes.ApartmentNumberDuplicate,
-                    $"Apartment {request.ApartmentNumber} in block {request.BlockName} already exists.");
+                    $"Apartment {request.ApartmentNumber} already exists in this society.");
+
+            Domain.Entities.User? resident = null;
+            ResidentType? residentType = null;
+
+            if (!string.IsNullOrWhiteSpace(request.OwnerId))
+            {
+                resident = await userRepository.GetByIdAsync(request.OwnerId, request.SocietyId, ct);
+                if (resident is null)
+                    return Result<ApartmentResponse>.Failure(ErrorCodes.UserNotFound, $"Resident with id '{request.OwnerId}' was not found.");
+                if (resident.Role != UserRole.SUUser)
+                    return Result<ApartmentResponse>.Failure(ErrorCodes.Conflict, "Only resident users can be linked as apartment occupants.");
+                residentType = ResidentType.Owner;
+            }
+            else if (request.InitialResident is not null)
+            {
+                residentType = request.InitialResident.ResidentType;
+                resident = await userRepository.GetByEmailAsync(request.SocietyId, request.InitialResident.Email.Trim().ToLowerInvariant(), ct);
+
+                if (resident is not null && resident.Role != UserRole.SUUser)
+                    return Result<ApartmentResponse>.Failure(ErrorCodes.Conflict, "Only resident users can be linked as apartment occupants.");
+            }
 
             var apartment = Domain.Entities.Apartment.Create(
                 request.SocietyId, request.ApartmentNumber, request.BlockName,
                 request.FloorNumber, request.NumberOfRooms, request.ParkingSlots,
                 request.CarpetArea, request.BuildUpArea, request.SuperBuildArea);
 
-            if (!string.IsNullOrWhiteSpace(request.OwnerId))
-            {
-                var owner = await userRepository.GetByIdAsync(request.OwnerId, request.SocietyId, ct);
-                apartment.AssignOwner(request.OwnerId, owner?.FullName ?? request.OwnerId);
-            }
-
             var created = await apartmentRepository.CreateAsync(apartment, ct);
 
-            if (!string.IsNullOrWhiteSpace(request.OwnerId))
+            if (residentType.HasValue)
             {
-                var owner = await userRepository.GetByIdAsync(request.OwnerId, request.SocietyId, ct);
-                if (owner is not null)
+                if (resident is null && request.InitialResident is not null)
                 {
-                    owner.LinkApartment(created.Id, created.ApartmentNumber, ResidentType.Owner, makePrimary: string.IsNullOrWhiteSpace(owner.ApartmentId));
-                    await userRepository.UpdateAsync(owner, ct);
+                    resident = await userRepository.CreateAsync(
+                        Domain.Entities.User.Create(
+                            request.SocietyId,
+                            request.InitialResident.FullName,
+                            request.InitialResident.Email,
+                            request.InitialResident.Phone,
+                            UserRole.SUUser,
+                            residentType.Value,
+                            created.Id,
+                            currentUserService.UserId),
+                        ct);
                 }
+
+                if (residentType.Value == ResidentType.Owner)
+                    created.AssignOwner(resident!.Id, resident.FullName);
+                else
+                    created.AssignTenant(resident!.Id, resident.FullName);
+
+                created = await apartmentRepository.UpdateAsync(created, ct);
+                resident.LinkApartment(created.Id, created.ApartmentNumber, residentType.Value, makePrimary: string.IsNullOrWhiteSpace(resident.ApartmentId));
+                await userRepository.UpdateAsync(resident, ct);
+            }
+
+            var society = await societyRepository.GetByIdAsync(request.SocietyId, request.SocietyId, ct);
+            var apartmentCount = await apartmentRepository.CountBySocietyAsync(request.SocietyId, ct);
+            if (society is not null && apartmentCount > society.TotalApartments)
+            {
+                society.Update(society.Name, society.ContactEmail, society.ContactPhone, society.TotalBlocks, apartmentCount);
+                await societyRepository.UpdateAsync(society, ct);
             }
 
             foreach (var evt in created.DomainEvents)
@@ -199,6 +246,7 @@ public record BulkImportApartmentsCommand(string SocietyId, List<CreateApartment
 public sealed class BulkImportApartmentsCommandHandler(
     IApartmentRepository apartmentRepository,
     IUserRepository userRepository,
+    ISocietyRepository societyRepository,
     IEventPublisher eventPublisher,
     ILogger<BulkImportApartmentsCommandHandler> logger)
     : IRequestHandler<BulkImportApartmentsCommand, Result<BulkImportResult>>
@@ -207,6 +255,7 @@ public sealed class BulkImportApartmentsCommandHandler(
     {
         int succeeded = 0;
         var errors = new List<string>();
+        var society = await societyRepository.GetByIdAsync(request.SocietyId, request.SocietyId, ct);
 
         foreach (var req in request.Apartments)
         {
@@ -216,7 +265,7 @@ public sealed class BulkImportApartmentsCommandHandler(
                     request.SocietyId, req.BlockName, req.ApartmentNumber, ct);
                 if (existing is not null)
                 {
-                    errors.Add($"Apartment {req.ApartmentNumber} in block {req.BlockName} already exists.");
+                    errors.Add($"Apartment {req.ApartmentNumber} already exists in this society.");
                     continue;
                 }
 
@@ -228,7 +277,17 @@ public sealed class BulkImportApartmentsCommandHandler(
                 if (!string.IsNullOrWhiteSpace(req.OwnerId))
                 {
                     var owner = await userRepository.GetByIdAsync(req.OwnerId, request.SocietyId, ct);
-                    apartment.AssignOwner(req.OwnerId, owner?.FullName ?? req.OwnerId);
+                    if (owner is null)
+                    {
+                        errors.Add($"Apartment {req.ApartmentNumber}: resident with id '{req.OwnerId}' was not found.");
+                        continue;
+                    }
+
+                    if (owner.Role != UserRole.SUUser)
+                    {
+                        errors.Add($"Apartment {req.ApartmentNumber}: only resident users can be linked as apartment occupants.");
+                        continue;
+                    }
                 }
 
                 var created = await apartmentRepository.CreateAsync(apartment, ct);
@@ -237,6 +296,8 @@ public sealed class BulkImportApartmentsCommandHandler(
                     var owner = await userRepository.GetByIdAsync(req.OwnerId, request.SocietyId, ct);
                     if (owner is not null)
                     {
+                        created.AssignOwner(owner.Id, owner.FullName);
+                        created = await apartmentRepository.UpdateAsync(created, ct);
                         owner.LinkApartment(created.Id, created.ApartmentNumber, ResidentType.Owner, makePrimary: string.IsNullOrWhiteSpace(owner.ApartmentId));
                         await userRepository.UpdateAsync(owner, ct);
                     }
@@ -250,6 +311,16 @@ public sealed class BulkImportApartmentsCommandHandler(
             {
                 logger.LogWarning(ex, "Failed to import apartment {Number}", req.ApartmentNumber);
                 errors.Add($"Apartment {req.ApartmentNumber}: {ex.Message}");
+            }
+        }
+
+        if (succeeded > 0 && society is not null)
+        {
+            var apartmentCount = await apartmentRepository.CountBySocietyAsync(request.SocietyId, ct);
+            if (apartmentCount > society.TotalApartments)
+            {
+                society.Update(society.Name, society.ContactEmail, society.ContactPhone, society.TotalBlocks, apartmentCount);
+                await societyRepository.UpdateAsync(society, ct);
             }
         }
 

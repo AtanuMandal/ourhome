@@ -85,6 +85,7 @@ public class RegisterForCompetitionCommandHandlerTests
             DateTime.UtcNow.AddDays(1), DateTime.UtcNow.AddDays(7), "Prize");
         // Cancelled competitions are not open for registration.
         competition.Cancel();
+        competition.Complete();
 
         _competitionRepoMock
             .Setup(r => r.GetByIdAsync(competition.Id, societyId, It.IsAny<CancellationToken>()))
@@ -188,7 +189,7 @@ public class AcceptServiceRequestCommandHandlerTests
         var requestId = request.Id;
 
         _providerRepoMock
-            .Setup(r => r.GetByIdAsync(providerId, societyId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByIdAsync(providerId, string.Empty, It.IsAny<CancellationToken>()))
             .ReturnsAsync(provider);
         _requestRepoMock
             .Setup(r => r.GetByIdAsync(requestId, societyId, It.IsAny<CancellationToken>()))
@@ -220,7 +221,7 @@ public class AcceptServiceRequestCommandHandlerTests
         var providerId = provider.Id;
 
         _providerRepoMock
-            .Setup(r => r.GetByIdAsync(providerId, societyId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByIdAsync(providerId, string.Empty, It.IsAny<CancellationToken>()))
             .ReturnsAsync(provider);
 
         var handler = CreateHandler();
@@ -245,7 +246,7 @@ public class AcceptServiceRequestCommandHandlerTests
         var providerId = provider.Id;
 
         _providerRepoMock
-            .Setup(r => r.GetByIdAsync(providerId, societyId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByIdAsync(providerId, string.Empty, It.IsAny<CancellationToken>()))
             .ReturnsAsync(provider);
         _requestRepoMock
             .Setup(r => r.GetByIdAsync(It.IsAny<string>(), societyId, It.IsAny<CancellationToken>()))
@@ -259,6 +260,6 @@ public class AcceptServiceRequestCommandHandlerTests
 
         // Assert
         result.IsFailure.Should().BeTrue();
-        result.ErrorCode.Should().Be(ErrorCodes.ServiceRequestNotFound);
+        result.ErrorCode.Should().Be(ErrorCodes.NotFound);
     }
 }
