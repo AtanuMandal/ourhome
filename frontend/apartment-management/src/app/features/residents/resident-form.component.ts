@@ -13,6 +13,7 @@ import { Apartment } from '../../core/models/apartment.model';
 import { User } from '../../core/models/user.model';
 
 type ResidentType = 'Owner' | 'Tenant' | 'FamilyMember' | 'CoOccupant';
+const PHONE_PATTERN = /^\d{10}$/;
 
 @Component({
   selector: 'app-resident-form',
@@ -51,14 +52,20 @@ type ResidentType = 'Owner' | 'Tenant' | 'FamilyMember' | 'CoOccupant';
             <mat-label>Phone</mat-label>
             <input matInput type="tel" formControlName="phone">
             @if (form.controls.phone.invalid && form.controls.phone.touched) {
-              <mat-error>Phone is required</mat-error>
+              <mat-error>
+                @if (form.controls.phone.hasError('required')) {
+                  Phone is required
+                } @else {
+                  Phone must be exactly 10 digits
+                }
+              </mat-error>
             }
           </mat-form-field>
 
           <mat-form-field appearance="fill" class="full-width">
             <mat-label>Resident Type</mat-label>
             <select matNativeControl formControlName="residentType">
-              @for (residentType of residentTypes; track residentType.value) {
+              @for (residentType of residentTypes(); track residentType.value) {
                 <option [value]="residentType.value">{{ residentType.label }}</option>
               }
             </select>
@@ -117,22 +124,19 @@ export class ResidentFormComponent implements OnInit {
   readonly loading = signal(true);
   readonly apartments = signal<Apartment[]>([]);
   readonly duplicateResident = signal<User | null>(null);
-  readonly residentTypes = [
-    { value: 'Owner' as ResidentType, label: 'Owner' },
-    { value: 'Tenant' as ResidentType, label: 'Tenant' },
-    { value: 'FamilyMember' as ResidentType, label: 'Family Member' },
-    { value: 'CoOccupant' as ResidentType, label: 'Co-Occupant' },
-  ];
+  readonly residentTypes = signal<Array<{ value: ResidentType; label: string }>>([]);
 
   readonly form = this.fb.group({
     fullName: ['', Validators.required],
     email: ['', [Validators.required, Validators.email]],
-    phone: ['', Validators.required],
+    phone: ['', [Validators.required, Validators.pattern(PHONE_PATTERN)]],
     residentType: ['Owner' as ResidentType, Validators.required],
     apartmentId: ['', Validators.required],
   });
 
   ngOnInit() {
+    this.configureResidentTypes();
+
     const sid = this.auth.societyId();
     if (!sid) {
       this.loading.set(false);
@@ -202,5 +206,22 @@ export class ResidentFormComponent implements OnInit {
 
   apartmentLabel(apartment: Apartment) {
     return apartment.blockName ? `${apartment.apartmentNumber} - ${apartment.blockName}` : apartment.apartmentNumber;
+  }
+
+  private configureResidentTypes() {
+    const user = this.auth.user();
+    const options = user?.role === 'SUAdmin'
+      ? [{ value: 'Owner' as ResidentType, label: 'Owner' }]
+      : user?.residentType === 'Owner'
+        ? [
+            { value: 'Tenant' as ResidentType, label: 'Tenant' },
+            { value: 'FamilyMember' as ResidentType, label: 'Family Member' },
+          ]
+        : user?.residentType === 'Tenant'
+          ? [{ value: 'CoOccupant' as ResidentType, label: 'Co-Occupant' }]
+          : [{ value: 'Owner' as ResidentType, label: 'Owner' }];
+
+    this.residentTypes.set(options);
+    this.form.controls.residentType.setValue(options[0].value);
   }
 }

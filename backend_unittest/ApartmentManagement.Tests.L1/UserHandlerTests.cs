@@ -16,10 +16,11 @@ public class CreateUserCommandHandlerTests
     private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
     private readonly Mock<INotificationService> _notificationMock = new();
     private readonly Mock<IEventPublisher> _eventPublisherMock = new();
+    private readonly Mock<ICurrentUserService> _currentUserServiceMock = new();
     private readonly Mock<ILogger<CreateUserCommandHandler>> _loggerMock = new();
 
     private CreateUserCommandHandler CreateHandler() =>
-        new(_userRepoMock.Object, _apartmentRepoMock.Object, _notificationMock.Object, _eventPublisherMock.Object, _loggerMock.Object);
+        new(_userRepoMock.Object, _apartmentRepoMock.Object, _notificationMock.Object, _eventPublisherMock.Object, _currentUserServiceMock.Object, _loggerMock.Object);
 
     [Fact]
     public async Task Handle_WithNewUser_CreatesUserAndSendsOtp()

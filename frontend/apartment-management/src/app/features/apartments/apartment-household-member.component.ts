@@ -10,6 +10,8 @@ import { PageHeaderComponent } from '../../shared/components/page-header/page-he
 import { UserService } from '../../core/services/apartment.service';
 import { AuthService } from '../../core/services/auth.service';
 
+const PHONE_PATTERN = /^\d{10}$/;
+
 @Component({
   selector: 'app-apartment-household-member',
   standalone: true,
@@ -23,20 +25,36 @@ import { AuthService } from '../../core/services/auth.service';
           <mat-form-field appearance="fill" class="full-width">
             <mat-label>Full name</mat-label>
             <input matInput formControlName="fullName">
+            @if (form.controls.fullName.invalid && form.controls.fullName.touched) {
+              <mat-error>Full name is required</mat-error>
+            }
           </mat-form-field>
           <mat-form-field appearance="fill" class="full-width">
             <mat-label>Email</mat-label>
             <input matInput type="email" formControlName="email">
+            @if (form.controls.email.invalid && form.controls.email.touched) {
+              <mat-error>Valid email is required</mat-error>
+            }
           </mat-form-field>
           <mat-form-field appearance="fill" class="full-width">
             <mat-label>Phone</mat-label>
             <input matInput formControlName="phone">
+            @if (form.controls.phone.invalid && form.controls.phone.touched) {
+              <mat-error>
+                @if (form.controls.phone.hasError('required')) {
+                  Phone is required
+                } @else {
+                  Phone must be exactly 10 digits
+                }
+              </mat-error>
+            }
           </mat-form-field>
           <mat-form-field appearance="fill" class="full-width">
             <mat-label>Resident type</mat-label>
             <mat-select formControlName="residentType">
-              <mat-option value="FamilyMember">Family Member</mat-option>
-              <mat-option value="CoOccupant">Co-Occupant</mat-option>
+              @for (residentType of residentTypes(); track residentType.value) {
+                <mat-option [value]="residentType.value">{{ residentType.label }}</mat-option>
+              }
             </mat-select>
           </mat-form-field>
           <button mat-raised-button color="primary" type="submit" [disabled]="loading() || form.invalid">
@@ -55,18 +73,28 @@ export class ApartmentHouseholdMemberComponent implements OnInit {
   private readonly router = inject(Router);
 
   readonly loading = signal(false);
+  readonly residentTypes = signal<Array<{ value: 'FamilyMember' | 'CoOccupant'; label: string }>>([]);
 
   readonly form = this.fb.group({
     fullName: ['', Validators.required],
     email: ['', [Validators.required, Validators.email]],
-    phone: ['', Validators.required],
+    phone: ['', [Validators.required, Validators.pattern(PHONE_PATTERN)]],
     residentType: ['FamilyMember' as 'FamilyMember' | 'CoOccupant', Validators.required],
   });
 
   ngOnInit() {
-    if (!this.auth.isAdmin()) {
+    const user = this.auth.user();
+    if (!user || user.role !== 'SUUser' || (user.residentType !== 'Owner' && user.residentType !== 'Tenant')) {
       this.router.navigate(['/apartments', this.route.snapshot.paramMap.get('id')]);
+      return;
     }
+
+    const options = user.residentType === 'Owner'
+      ? [{ value: 'FamilyMember' as const, label: 'Family Member' }]
+      : [{ value: 'CoOccupant' as const, label: 'Co-Occupant' }];
+
+    this.residentTypes.set(options);
+    this.form.controls.residentType.setValue(options[0].value);
   }
 
   submit() {
