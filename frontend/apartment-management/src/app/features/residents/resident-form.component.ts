@@ -219,9 +219,14 @@ export class ResidentFormComponent implements OnInit {
           ]
         : user?.residentType === 'Tenant'
           ? [{ value: 'CoOccupant' as ResidentType, label: 'Co-Occupant' }]
-          : [{ value: 'Owner' as ResidentType, label: 'Owner' }];
+          : [];
 
     this.residentTypes.set(options);
-    this.form.controls.residentType.setValue(options[0].value);
+    if (options.length > 0) {
+      this.form.controls.residentType.setValue(options[0].value);
+    } else {
+      this.form.controls.residentType.setValue('Owner');
+      this.form.controls.residentType.disable();
+    }
   }
 }
