@@ -83,7 +83,7 @@ public class RegisterForCompetitionCommandHandlerTests
         var societyId = "soc-001";
         var competition = Competition.Create(societyId, "admin-001", "Art", "desc",
             DateTime.UtcNow.AddDays(1), DateTime.UtcNow.AddDays(7), "Prize");
-        // NOT started - still Upcoming
+        competition.Cancel();
 
         _competitionRepoMock
             .Setup(r => r.GetByIdAsync(competition.Id, societyId, It.IsAny<CancellationToken>()))

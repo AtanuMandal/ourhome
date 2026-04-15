@@ -169,15 +169,17 @@ public sealed class AcceptServiceRequestCommandHandler(
     {
         try
         {
-            var provider = await providerRepository.GetByIdAsync(request.ProviderId, string.Empty, ct)
-                ?? throw new NotFoundException("ServiceProvider", request.ProviderId);
+            var provider = await providerRepository.GetByIdAsync(request.ProviderId, request.SocietyId, ct);
+            if (provider is null)
+                return Result<bool>.Failure(ErrorCodes.ServiceProviderNotFound, $"Service provider with id '{request.ProviderId}' was not found.");
 
             if (provider.Status != ServiceProviderStatus.Approved)
                 return Result<bool>.Failure(ErrorCodes.ServiceProviderNotApproved,
                     "Service provider is not approved.");
 
-            var serviceRequest = await requestRepository.GetByIdAsync(request.RequestId, request.SocietyId, ct)
-                ?? throw new NotFoundException("ServiceRequest", request.RequestId);
+            var serviceRequest = await requestRepository.GetByIdAsync(request.RequestId, request.SocietyId, ct);
+            if (serviceRequest is null)
+                return Result<bool>.Failure(ErrorCodes.ServiceRequestNotFound, $"Service request with id '{request.RequestId}' was not found.");
 
             if (serviceRequest.Status != ServiceRequestStatus.Open)
                 return Result<bool>.Failure(ErrorCodes.ServiceRequestNotOpen,
@@ -186,10 +188,6 @@ public sealed class AcceptServiceRequestCommandHandler(
             serviceRequest.Accept(request.ProviderId);
             await requestRepository.UpdateAsync(serviceRequest, ct);
             return Result<bool>.Success(true);
-        }
-        catch (NotFoundException ex)
-        {
-            return Result<bool>.Failure(ErrorCodes.NotFound, ex.Message);
         }
         catch (Exception ex)
         {

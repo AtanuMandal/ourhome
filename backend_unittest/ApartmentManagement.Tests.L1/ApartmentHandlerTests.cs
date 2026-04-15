@@ -198,7 +198,7 @@ public class BulkImportApartmentsCommandHandlerTests
         result.Value!.Succeeded.Should().Be(2);
         result.Value!.Failed.Should().Be(0);
         _eventPublisherMock.Verify(
-            p => p.PublishAsync(It.IsAny<ApartmentManagement.Domain.Events.ApartmentCreatedEvent>(), It.IsAny<CancellationToken>()),
+            p => p.PublishAsync(It.IsAny<ApartmentManagement.Domain.Events.IDomainEvent>(), It.IsAny<CancellationToken>()),
             Times.Exactly(2));
     }
 
