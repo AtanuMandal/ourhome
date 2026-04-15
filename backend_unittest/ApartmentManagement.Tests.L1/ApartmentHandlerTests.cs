@@ -227,6 +227,40 @@ public class BulkImportApartmentsCommandHandlerTests
             _loggerMock.Object);
 
     [Fact]
+    public async Task Handle_WithAllNewApartments_SucceedsForAll()
+    {
+        // Arrange
+        var societyId = "soc-001";
+
+        _apartmentRepoMock
+            .Setup(r => r.GetByUnitNumberAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Apartment?)null);
+        _apartmentRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<Apartment>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Apartment a, CancellationToken _) => a);
+
+        var handler = CreateHandler();
+        var apartments = new List<CreateApartmentRequest>
+        {
+            new("A101", "A", 1, 3,["P1"], null, 500, 600, 700),
+            new("A102", "A", 1, 3,["P2"], null, 500, 600, 700)
+        };
+        var command = new BulkImportApartmentsCommand(societyId, apartments);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Succeeded.Should().Be(2);
+        result.Value!.Failed.Should().Be(0);
+        _eventPublisherMock.Verify(
+            p => p.PublishAsync(It.IsAny<ApartmentManagement.Domain.Events.IDomainEvent>(), It.IsAny<CancellationToken>()),
+            Times.Exactly(2));
+    }
+        
+
+    [Fact]
     public async Task Handle_WithDuplicateApartmentNumbersAcrossBlocks_ReturnsFailures()
     {
         var societyId = "soc-001";
