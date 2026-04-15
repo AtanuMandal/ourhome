@@ -330,8 +330,8 @@ public class GetApartmentsBySocietyQueryHandlerTests
         var societyId = "society-001";
         var apartments = new List<Apartment>
         {
-            Apartment.Create(societyId, "A101", "A", 1, 3, [], 500, 600, 700),
-            Apartment.Create(societyId, "A102", "A", 1, 2, [], 400, 500, 600)
+            Apartment.Create(societyId, "A101", "A", 1, 3, ["P1"], 500, 600, 700),
+            Apartment.Create(societyId, "A102", "A", 1, 2, ["P2"], 400, 500, 600)
         };
 
         _apartmentRepoMock
@@ -345,6 +345,7 @@ public class GetApartmentsBySocietyQueryHandlerTests
         result.IsSuccess.Should().BeTrue();
         result.Value!.Items.Should().HaveCount(2);
         result.Value.Items.Select(a => a.ApartmentNumber).Should().Contain(new[] { "A101", "A102" });
+        result.Value.Items.SelectMany(a => a.ParkingSlots).Should().Contain(new[] { "P1", "P2" });
     }
 
     [Fact]
@@ -368,5 +369,30 @@ public class GetApartmentsBySocietyQueryHandlerTests
         result.IsSuccess.Should().BeTrue();
         result.Value!.Items.Should().ContainSingle();
         result.Value.Items[0].ApartmentNumber.Should().Be("B101");
+    }
+
+    [Fact]
+    public async Task Handle_WithStatusFilter_UsesStatusRepositoryAndReturnsFilteredApartments()
+    {
+        var societyId = "society-001";
+        var apartment = Apartment.Create(societyId, "M101", "M", 1, 3, ["PM1"], 500, 600, 700);
+        apartment.MarkUnderMaintenance();
+
+        _apartmentRepoMock
+            .Setup(r => r.GetByStatusAsync(societyId, ApartmentStatus.UnderMaintenance, 1, 20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<Apartment> { apartment });
+
+        var query = new GetApartmentsBySocietyQuery(
+            societyId,
+            new PaginationParams { Page = 1, PageSize = 20 },
+            ApartmentStatus.UnderMaintenance,
+            null);
+
+        var result = await CreateHandler().Handle(query, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Items.Should().ContainSingle();
+        result.Value.Items[0].Status.Should().Be("UnderMaintenance");
+        _apartmentRepoMock.Verify(r => r.GetAllAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 }
