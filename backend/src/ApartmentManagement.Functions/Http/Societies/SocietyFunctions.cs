@@ -46,7 +46,7 @@ public class SocietyFunctions(ISender mediator)
 
     [Function("UpdateSociety")]
     public async Task<IActionResult> UpdateSociety(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "put", Route = "societies/{id}")] HttpRequest req,
+        [HttpTrigger(AuthorizationLevel.User, "put", Route = "societies/{id}")] HttpRequest req,
         string id, CancellationToken ct)
     {
         var body = await req.DeserializeAsync<UpdateSocietyRequest>(ct);
@@ -59,6 +59,7 @@ public class SocietyFunctions(ISender mediator)
                 body.ContactPhone,
                 body.TotalBlocks,
                 body.TotalApartments,
+                body.MaintenanceOverdueThresholdDays,
                 body.SocietyUsers,
                 body.Committees),
             ct);

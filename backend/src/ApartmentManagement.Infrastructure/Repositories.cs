@@ -256,44 +256,82 @@ public class VisitorLogRepository(CosmosClient client, string dbName, ILogger<Vi
     }
 }
 
-public class FeeScheduleRepository(CosmosClient client, string dbName, ILogger<FeeScheduleRepository> logger)
-    : CosmosDbRepository<FeeSchedule>(client, dbName, "fee_schedules", logger), IFeeScheduleRepository
+public class MaintenanceScheduleRepository(CosmosClient client, string dbName, ILogger<MaintenanceScheduleRepository> logger)
+    : CosmosDbRepository<MaintenanceSchedule>(client, dbName, "maintenance_schedules", logger), IMaintenanceScheduleRepository
 {
-    public async Task<IReadOnlyList<FeeSchedule>> GetActiveAsync(string societyId, CancellationToken ct = default)
+    public async Task<IReadOnlyList<MaintenanceSchedule>> GetActiveAsync(string societyId, CancellationToken ct = default)
     {
         var q = new QueryDefinition("SELECT * FROM c WHERE c.societyId = @sid AND c.isActive = true")
             .WithParameter("@sid", societyId);
         return await ExecuteQueryAsync(q, societyId, ct);
     }
 
-    public async Task<IReadOnlyList<FeeSchedule>> GetByApartmentAsync(string societyId, string apartmentId, CancellationToken ct = default)
+    public async Task<IReadOnlyList<MaintenanceSchedule>> GetByApartmentAsync(string societyId, string apartmentId, CancellationToken ct = default)
     {
-        var q = new QueryDefinition("SELECT * FROM c WHERE c.societyId = @sid AND c.apartmentId = @aid")
+        var q = new QueryDefinition("SELECT * FROM c WHERE c.societyId = @sid AND (IS_NULL(c.apartmentId) OR c.apartmentId = @aid)")
             .WithParameter("@sid", societyId).WithParameter("@aid", apartmentId);
         return await ExecuteQueryAsync(q, societyId, ct);
     }
+
+    public async Task<IReadOnlyList<MaintenanceSchedule>> GetActiveDueOnAsync(DateTime dueOnUtc, CancellationToken ct = default)
+    {
+        var q = new QueryDefinition("SELECT * FROM c WHERE c.isActive = true AND c.nextDueDate <= @dueOn")
+            .WithParameter("@dueOn", dueOnUtc.ToString("o"));
+        return await ExecuteCrossPartitionQueryAsync(q, ct);
+    }
 }
 
-public class FeePaymentRepository(CosmosClient client, string dbName, ILogger<FeePaymentRepository> logger)
-    : CosmosDbRepository<FeePayment>(client, dbName, "fee_payments", logger), IFeePaymentRepository
+public class MaintenanceChargeRepository(CosmosClient client, string dbName, ILogger<MaintenanceChargeRepository> logger)
+    : CosmosDbRepository<MaintenanceCharge>(client, dbName, "maintenance_charges", logger), IMaintenanceChargeRepository
 {
-    public async Task<IReadOnlyList<FeePayment>> GetByApartmentAsync(string societyId, string apartmentId, int page, int pageSize, CancellationToken ct = default)
+    public async Task<IReadOnlyList<MaintenanceCharge>> GetByApartmentAsync(string societyId, string apartmentId, int page, int pageSize, int? year, int? month, CancellationToken ct = default)
     {
-        var q = new QueryDefinition("SELECT * FROM c WHERE c.societyId = @sid AND c.apartmentId = @aid OFFSET @offset LIMIT @limit")
+        var queryText = "SELECT * FROM c WHERE c.societyId = @sid AND c.apartmentId = @aid";
+        if (year.HasValue)
+            queryText += " AND c.chargeYear = @year";
+        if (month.HasValue)
+            queryText += " AND c.chargeMonth = @month";
+        queryText += " OFFSET @offset LIMIT @limit";
+
+        var q = new QueryDefinition(queryText)
             .WithParameter("@sid", societyId).WithParameter("@aid", apartmentId)
             .WithParameter("@offset", (page - 1) * pageSize).WithParameter("@limit", pageSize);
+        if (year.HasValue)
+            q.WithParameter("@year", year.Value);
+        if (month.HasValue)
+            q.WithParameter("@month", month.Value);
         return await ExecuteQueryAsync(q, societyId, ct);
     }
 
-    public async Task<IReadOnlyList<FeePayment>> GetOverdueAsync(string societyId, CancellationToken ct = default)
+    public async Task<IReadOnlyList<MaintenanceCharge>> GetBySocietyAsync(string societyId, int page, int pageSize, string? apartmentId, PaymentStatus? status, int? year, int? month, CancellationToken ct = default)
     {
-        var now = DateTime.UtcNow.ToString("o");
-        var q = new QueryDefinition("SELECT * FROM c WHERE c.societyId = @sid AND c.status = @status AND c.dueDate < @now")
-            .WithParameter("@sid", societyId).WithParameter("@status", PaymentStatus.Pending.ToString()).WithParameter("@now", now);
+        var queryText = "SELECT * FROM c WHERE c.societyId = @sid";
+        if (!string.IsNullOrWhiteSpace(apartmentId))
+            queryText += " AND c.apartmentId = @aid";
+        if (status.HasValue)
+            queryText += " AND c.status = @status";
+        if (year.HasValue)
+            queryText += " AND c.chargeYear = @year";
+        if (month.HasValue)
+            queryText += " AND c.chargeMonth = @month";
+        queryText += " OFFSET @offset LIMIT @limit";
+
+        var q = new QueryDefinition(queryText)
+            .WithParameter("@sid", societyId)
+            .WithParameter("@offset", (page - 1) * pageSize)
+            .WithParameter("@limit", pageSize);
+        if (!string.IsNullOrWhiteSpace(apartmentId))
+            q.WithParameter("@aid", apartmentId);
+        if (status.HasValue)
+            q.WithParameter("@status", status.Value.ToString());
+        if (year.HasValue)
+            q.WithParameter("@year", year.Value);
+        if (month.HasValue)
+            q.WithParameter("@month", month.Value);
         return await ExecuteQueryAsync(q, societyId, ct);
     }
 
-    public async Task<IReadOnlyList<FeePayment>> GetByStatusAsync(string societyId, PaymentStatus status, int page, int pageSize, CancellationToken ct = default)
+    public async Task<IReadOnlyList<MaintenanceCharge>> GetByStatusAsync(string societyId, PaymentStatus status, int page, int pageSize, CancellationToken ct = default)
     {
         var q = new QueryDefinition("SELECT * FROM c WHERE c.societyId = @sid AND c.status = @status OFFSET @offset LIMIT @limit")
             .WithParameter("@sid", societyId).WithParameter("@status", status.ToString())
@@ -301,14 +339,25 @@ public class FeePaymentRepository(CosmosClient client, string dbName, ILogger<Fe
         return await ExecuteQueryAsync(q, societyId, ct);
     }
 
-    public async Task<IReadOnlyList<FeePayment>> GetDueSoonAsync(string societyId, int withinDays, CancellationToken ct = default)
+    public async Task<IReadOnlyList<MaintenanceCharge>> GetDueSoonAsync(string societyId, int withinDays, CancellationToken ct = default)
     {
         var start = DateTime.UtcNow.ToString("o");
         var end = DateTime.UtcNow.AddDays(withinDays).ToString("o");
-        var q = new QueryDefinition("SELECT * FROM c WHERE c.societyId = @sid AND c.status = @status AND c.dueDate >= @start AND c.dueDate <= @end")
-            .WithParameter("@sid", societyId).WithParameter("@status", PaymentStatus.Pending.ToString())
+        var q = new QueryDefinition("SELECT * FROM c WHERE c.societyId = @sid AND ARRAY_CONTAINS(@statuses, c.status) AND c.dueDate >= @start AND c.dueDate <= @end")
+            .WithParameter("@sid", societyId).WithParameter("@statuses", new[] { PaymentStatus.Pending.ToString(), PaymentStatus.ProofSubmitted.ToString() })
             .WithParameter("@start", start).WithParameter("@end", end);
         return await ExecuteQueryAsync(q, societyId, ct);
+    }
+
+    public async Task<MaintenanceCharge?> GetByScheduleAndPeriodAsync(string societyId, string scheduleId, string apartmentId, int year, int month, CancellationToken ct = default)
+    {
+        var q = new QueryDefinition("SELECT * FROM c WHERE c.societyId = @sid AND c.scheduleId = @scheduleId AND c.apartmentId = @apartmentId AND c.chargeYear = @year AND c.chargeMonth = @month")
+            .WithParameter("@sid", societyId)
+            .WithParameter("@scheduleId", scheduleId)
+            .WithParameter("@apartmentId", apartmentId)
+            .WithParameter("@year", year)
+            .WithParameter("@month", month);
+        return (await ExecuteQueryAsync(q, societyId, ct)).FirstOrDefault();
     }
 }
 

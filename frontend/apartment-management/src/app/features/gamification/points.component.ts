@@ -25,7 +25,7 @@ import { UserPoints } from '../../core/models/gamification.model';
           </div>
         </div>
 
-        @if (data()!.history?.length) {
+        @if (data()!.history.length) {
           <div class="card" style="margin-top:12px">
             <h3 style="font-size:14px;font-weight:600;margin:0 0 12px">Points History</h3>
             @for (event of data()!.history; track event.id) {

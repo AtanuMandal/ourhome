@@ -76,7 +76,7 @@ public class SocietyIntegrationTests : IntegrationTestBase
 
         // Act – update
         var updateCmd = new UpdateSocietyCommand(
-            created.Id, "Updated Valley", "updated@valley.com", "+91-1234567890", 5, 100, [], []);
+            created.Id, "Updated Valley", "updated@valley.com", "+91-1234567890", 5, 100, 7, [], []);
         var updateResult = await Mediator.Send(updateCmd);
 
         // Assert
@@ -93,7 +93,7 @@ public class SocietyIntegrationTests : IntegrationTestBase
     [Fact]
     public async Task UpdateSociety_WhenNotFound_ReturnsFailure()
     {
-        var cmd = new UpdateSocietyCommand("bad-id", "X", "x@x.com", "+1", 1, 1, [], []);
+        var cmd = new UpdateSocietyCommand("bad-id", "X", "x@x.com", "+1", 1, 1, 7, [], []);
         var result = await Mediator.Send(cmd);
 
         result.IsFailure.Should().BeTrue();
@@ -121,6 +121,7 @@ public class SocietyIntegrationTests : IntegrationTestBase
             created.Society.ContactPhone,
             created.Society.TotalBlocks,
             created.Society.TotalApartments,
+            created.Society.MaintenanceOverdueThresholdDays,
             [new SocietyUserAssignmentRequest(created.Admin.Email, "President")],
             [new SocietyCommitteeRequest("Finance Committee", [
                 new SocietyUserAssignmentRequest(created.Admin.Email, "Chairman"),

@@ -11,7 +11,9 @@ const STATUS_MAP: Record<string, ChipVariant> = {
   // Booking
   Pending: 'warn', Approved: 'success', Rejected: 'error', Cancelled: 'default',
   // Payment
-  Paid: 'success', Overdue: 'error', Waived: 'info',
+  Paid: 'success', Overdue: 'error', Waived: 'info', ProofSubmitted: 'info', Failed: 'error',
+  // Maintenance schedule
+  Active: 'success', Inactive: 'default',
   // Visitor
   Expected: 'info', CheckedIn: 'success', CheckedOut: 'default',
   // Service Request

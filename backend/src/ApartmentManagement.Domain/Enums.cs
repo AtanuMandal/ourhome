@@ -16,7 +16,9 @@ public enum ComplaintPriority { Low, Medium, High, Critical }
 public enum NoticeCategory { Maintenance, Events, General, Financial, Emergency }
 public enum VisitorStatus { Pending, Approved, Denied, CheckedIn, CheckedOut }
 public enum FeeFrequency { Monthly, Quarterly, Annual, OneTime }
-public enum PaymentStatus { Pending, Paid, Failed, Overdue, Cancelled }
+public enum PaymentStatus { Pending, ProofSubmitted, Paid, Failed, Rejected, Overdue, Cancelled }
+public enum MaintenancePricingType { FixedAmount, PerSquareFoot }
+public enum MaintenanceAreaBasis { CarpetArea, BuildUpArea, SuperBuildUpArea }
 public enum CompetitionStatus { Upcoming, Active, Completed, Cancelled }
 public enum ServiceProviderStatus { Pending, Approved, Rejected, Suspended }
 public enum ServiceRequestStatus { Open, Accepted, InProgress, Completed, Cancelled }

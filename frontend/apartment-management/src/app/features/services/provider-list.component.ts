@@ -34,7 +34,7 @@ import { ServiceProvider } from '../../core/models/service-provider.model';
               <div class="pc-icon"><span class="material-icons">build</span></div>
               <div class="pc-info">
                 <span class="pc-name">{{ p.providerName }}</span>
-                <span class="pc-cat">{{ p.serviceTypes?.join(', ') }}</span>
+                <span class="pc-cat">{{ p.serviceTypes.join(', ') }}</span>
                 <span class="pc-contact">{{ p.contactName }}</span>
                 @if (p.rating) {
                   <span class="pc-rating">

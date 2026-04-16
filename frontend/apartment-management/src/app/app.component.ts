@@ -46,7 +46,7 @@ export class AppComponent {
     { path: '/complaints', icon: 'report_problem',          label: 'Complaints' },
     { path: '/notices',    icon: 'notifications',           label: 'Notices' },
     { path: '/visitors',   icon: 'badge',                   label: 'Visitors' },
-    { path: '/fees',       icon: 'account_balance_wallet',  label: 'Fees' },
+    { path: '/maintenance', icon: 'receipt_long',            label: 'Maintenance' },
     { path: '/rewards',    icon: 'emoji_events',            label: 'Rewards' },
     { path: '/services',   icon: 'build',                   label: 'Services' },
     { path: '/society',    icon: 'location_city',           label: 'Society', adminOnly: true },

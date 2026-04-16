@@ -48,6 +48,6 @@ export class BottomNavComponent {
     { path: '/complaints',  icon: 'report_problem',  label: 'Complaints' },
     { path: '/notices',     icon: 'notifications',   label: 'Notices' },
     { path: '/amenities',   icon: 'event_available', label: 'Bookings' },
-    { path: '/fees',        icon: 'account_balance_wallet', label: 'Fees' },
+    { path: '/maintenance', icon: 'receipt_long', label: 'Maintenance' },
   ];
 }

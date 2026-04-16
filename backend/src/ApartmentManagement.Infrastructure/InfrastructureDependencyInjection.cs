@@ -14,7 +14,8 @@ public static class InfrastructureDependencyInjection
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
         services.Configure<InfrastructureSettings>(configuration.GetSection("Infrastructure"));
-
+       // services.ConfigureFunctionsWebApplication(ChainedBuilderExtensions=>)
+        services.AddHttpContextAccessor();
         services.AddSingleton<CosmosClient>(sp =>
         {
             var settings = sp.GetRequiredService<IOptions<InfrastructureSettings>>().Value;
@@ -67,15 +68,15 @@ public static class InfrastructureDependencyInjection
             sp.GetRequiredService<IOptions<InfrastructureSettings>>().Value.CosmosDbDatabaseName,
             sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<VisitorLogRepository>>()));
 
-        services.AddScoped<IFeeScheduleRepository>(sp => new FeeScheduleRepository(
+        services.AddScoped<IMaintenanceScheduleRepository>(sp => new MaintenanceScheduleRepository(
             sp.GetRequiredService<CosmosClient>(),
             sp.GetRequiredService<IOptions<InfrastructureSettings>>().Value.CosmosDbDatabaseName,
-            sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<FeeScheduleRepository>>()));
+            sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<MaintenanceScheduleRepository>>()));
 
-        services.AddScoped<IFeePaymentRepository>(sp => new FeePaymentRepository(
+        services.AddScoped<IMaintenanceChargeRepository>(sp => new MaintenanceChargeRepository(
             sp.GetRequiredService<CosmosClient>(),
             sp.GetRequiredService<IOptions<InfrastructureSettings>>().Value.CosmosDbDatabaseName,
-            sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<FeePaymentRepository>>()));
+            sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<MaintenanceChargeRepository>>()));
 
         services.AddScoped<ICompetitionRepository>(sp => new CompetitionRepository(
             sp.GetRequiredService<CosmosClient>(),
@@ -116,7 +117,7 @@ public static class InfrastructureDependencyInjection
         services.AddSingleton<ICacheService, InMemoryCacheService>();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
 
-        services.AddHttpContextAccessor();
+        
 
         return services;
     }

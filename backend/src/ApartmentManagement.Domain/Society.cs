@@ -17,6 +17,7 @@ public sealed class Society : BaseEntity
     public int TotalBlocks { get; private set; }
     public int TotalApartments { get; private set; }
     public MaintenanceFeeStructure? FeeStructure { get; private set; }
+    public int MaintenanceOverdueThresholdDays { get; private set; } = 7;
     public SocietyStatus Status { get; private set; }
     public List<string> AdminUserIds { get; private set; } = [];
     public List<string> AmenityIds { get; private set; } = [];
@@ -112,13 +113,30 @@ public sealed class Society : BaseEntity
     }
 
     /// <summary>Updates society name and block/apartment counts.</summary>
-    public void Update(string name, string contactEmail, string contactPhone, int totalBlocks, int totalApartments)
+    public void Update(
+        string name,
+        string contactEmail,
+        string contactPhone,
+        int totalBlocks,
+        int totalApartments,
+        int? maintenanceOverdueThresholdDays = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name, nameof(name));
         Name = name.Trim();
         UpdateContact(contactEmail, contactPhone);
         if (totalBlocks > 0) TotalBlocks = totalBlocks;
         if (totalApartments > 0) TotalApartments = totalApartments;
+        if (maintenanceOverdueThresholdDays.HasValue)
+            SetMaintenanceOverdueThreshold(maintenanceOverdueThresholdDays.Value);
+        TouchUpdatedAt();
+    }
+
+    public void SetMaintenanceOverdueThreshold(int thresholdDays)
+    {
+        if (thresholdDays < 0)
+            throw new ArgumentOutOfRangeException(nameof(thresholdDays), "Threshold must be zero or greater.");
+
+        MaintenanceOverdueThresholdDays = thresholdDays;
         TouchUpdatedAt();
     }
 

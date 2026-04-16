@@ -14,6 +14,7 @@ export interface Society {
   contactPhone?: string;
   totalBlocks: number;
   totalApartments: number;
+  maintenanceOverdueThresholdDays: number;
   status: string;
   adminUserIds: string[];
   societyUsers: SocietyUserAssignment[];
@@ -65,6 +66,7 @@ export interface UpdateSocietyDto {
   contactPhone?: string;
   totalBlocks?: number;
   totalApartments?: number;
+  maintenanceOverdueThresholdDays?: number;
   societyUsers?: SocietyUserAssignmentInput[];
   committees?: SocietyCommitteeInput[];
 }

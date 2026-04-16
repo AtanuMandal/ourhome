@@ -5,7 +5,7 @@ using ApartmentManagement.Application.Commands.Amenity;
 using ApartmentManagement.Application.Commands.Complaint;
 using ApartmentManagement.Application.Commands.Notice;
 using ApartmentManagement.Application.Commands.Visitor;
-using ApartmentManagement.Application.Commands.Fee;
+using ApartmentManagement.Application.Commands.Maintenance;
 using ApartmentManagement.Application.Commands.Gamification;
 using ApartmentManagement.Application.Commands.ServiceProvider;
 using ApartmentManagement.Domain.Enums;
@@ -201,17 +201,58 @@ public sealed class RegisterVisitorCommandValidator : AbstractValidator<Register
     }
 }
 
-// ─── Fee ─────────────────────────────────────────────────────────────────────
+// ─── Maintenance ─────────────────────────────────────────────────────────────
 
-public sealed class CreateFeeScheduleCommandValidator : AbstractValidator<CreateFeeScheduleCommand>
+public sealed class CreateMaintenanceScheduleCommandValidator : AbstractValidator<CreateMaintenanceScheduleCommand>
 {
-    public CreateFeeScheduleCommandValidator()
+    public CreateMaintenanceScheduleCommandValidator()
     {
-        RuleFor(x => x.Amount).GreaterThan(0);
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.Rate).GreaterThan(0);
         RuleFor(x => x.DueDay).InclusiveBetween(1, 28);
         RuleFor(x => x.Frequency).IsInEnum();
-        RuleFor(x => x.ApartmentId).NotEmpty();
         RuleFor(x => x.SocietyId).NotEmpty();
+        RuleFor(x => x)
+            .Must(x => x.PricingType == MaintenancePricingType.FixedAmount ? x.AreaBasis is null : x.AreaBasis is not null)
+            .WithMessage("Area basis is required only for per-square-foot maintenance schedules.");
+    }
+}
+
+public sealed class UpdateMaintenanceScheduleCommandValidator : AbstractValidator<UpdateMaintenanceScheduleCommand>
+{
+    public UpdateMaintenanceScheduleCommandValidator()
+    {
+        RuleFor(x => x.ScheduleId).NotEmpty();
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.Rate).GreaterThan(0);
+        RuleFor(x => x.DueDay).InclusiveBetween(1, 28);
+        RuleFor(x => x.Frequency).IsInEnum();
+        RuleFor(x => x.ChangeReason).NotEmpty().MaximumLength(500);
+        RuleFor(x => x.SocietyId).NotEmpty();
+        RuleFor(x => x)
+            .Must(x => x.PricingType == MaintenancePricingType.FixedAmount ? x.AreaBasis is null : x.AreaBasis is not null)
+            .WithMessage("Area basis is required only for per-square-foot maintenance schedules.");
+    }
+}
+
+public sealed class SubmitMaintenancePaymentProofCommandValidator : AbstractValidator<SubmitMaintenancePaymentProofCommand>
+{
+    public SubmitMaintenancePaymentProofCommandValidator()
+    {
+        RuleFor(x => x.SocietyId).NotEmpty();
+        RuleFor(x => x.ChargeIds).NotEmpty();
+        RuleForEach(x => x.ChargeIds).NotEmpty();
+        RuleFor(x => x.ProofUrl).NotEmpty().MaximumLength(1000);
+    }
+}
+
+public sealed class MarkMaintenanceChargePaidCommandValidator : AbstractValidator<MarkMaintenanceChargePaidCommand>
+{
+    public MarkMaintenanceChargePaidCommandValidator()
+    {
+        RuleFor(x => x.SocietyId).NotEmpty();
+        RuleFor(x => x.ChargeId).NotEmpty();
+        RuleFor(x => x.PaymentMethod).NotEmpty().MaximumLength(100);
     }
 }
 

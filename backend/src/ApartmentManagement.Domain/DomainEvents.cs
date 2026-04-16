@@ -48,8 +48,8 @@ public record NoticePostedEvent(string NoticeId, string SocietyId, string Catego
 public record VisitorArrivedEvent(string VisitorLogId, string SocietyId, string HostApartmentId,
     string VisitorName) : DomainEvent(SocietyId);
 
-// ── Fee ───────────────────────────────────────────────────────────────────────
-public record FeePaymentDueEvent(string FeeScheduleId, string SocietyId, string ApartmentId,
+// ── Maintenance ───────────────────────────────────────────────────────────────
+public record MaintenanceChargeDueEvent(string ScheduleId, string SocietyId, string ApartmentId,
     decimal Amount, DateTime DueDate) : DomainEvent(SocietyId);
 
 public record FeePaymentReceivedEvent(string PaymentId, string SocietyId, string ApartmentId,

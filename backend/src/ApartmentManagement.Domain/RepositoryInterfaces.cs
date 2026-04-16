@@ -88,22 +88,24 @@ public interface IVisitorLogRepository : IRepository<VisitorLog>
     Task<VisitorLog?> GetByPassCodeAsync(string passCode, CancellationToken ct = default);
 }
 
-// ─── Fee Schedule ─────────────────────────────────────────────────────────────
+// ─── Maintenance Schedule ─────────────────────────────────────────────────────
 
-public interface IFeeScheduleRepository : IRepository<FeeSchedule>
+public interface IMaintenanceScheduleRepository : IRepository<MaintenanceSchedule>
 {
-    Task<IReadOnlyList<FeeSchedule>> GetActiveAsync(string societyId, CancellationToken ct = default);
-    Task<IReadOnlyList<FeeSchedule>> GetByApartmentAsync(string societyId, string apartmentId, CancellationToken ct = default);
+    Task<IReadOnlyList<MaintenanceSchedule>> GetActiveAsync(string societyId, CancellationToken ct = default);
+    Task<IReadOnlyList<MaintenanceSchedule>> GetByApartmentAsync(string societyId, string apartmentId, CancellationToken ct = default);
+    Task<IReadOnlyList<MaintenanceSchedule>> GetActiveDueOnAsync(DateTime dueOnUtc, CancellationToken ct = default);
 }
 
-// ─── Fee Payment ──────────────────────────────────────────────────────────────
+// ─── Maintenance Charge ───────────────────────────────────────────────────────
 
-public interface IFeePaymentRepository : IRepository<FeePayment>
+public interface IMaintenanceChargeRepository : IRepository<MaintenanceCharge>
 {
-    Task<IReadOnlyList<FeePayment>> GetByApartmentAsync(string societyId, string apartmentId, int page, int pageSize, CancellationToken ct = default);
-    Task<IReadOnlyList<FeePayment>> GetOverdueAsync(string societyId, CancellationToken ct = default);
-    Task<IReadOnlyList<FeePayment>> GetByStatusAsync(string societyId, PaymentStatus status, int page, int pageSize, CancellationToken ct = default);
-    Task<IReadOnlyList<FeePayment>> GetDueSoonAsync(string societyId, int withinDays, CancellationToken ct = default);
+    Task<IReadOnlyList<MaintenanceCharge>> GetByApartmentAsync(string societyId, string apartmentId, int page, int pageSize, int? year, int? month, CancellationToken ct = default);
+    Task<IReadOnlyList<MaintenanceCharge>> GetBySocietyAsync(string societyId, int page, int pageSize, string? apartmentId, PaymentStatus? status, int? year, int? month, CancellationToken ct = default);
+    Task<IReadOnlyList<MaintenanceCharge>> GetByStatusAsync(string societyId, PaymentStatus status, int page, int pageSize, CancellationToken ct = default);
+    Task<IReadOnlyList<MaintenanceCharge>> GetDueSoonAsync(string societyId, int withinDays, CancellationToken ct = default);
+    Task<MaintenanceCharge?> GetByScheduleAndPeriodAsync(string societyId, string scheduleId, string apartmentId, int year, int month, CancellationToken ct = default);
 }
 
 // ─── Competition ──────────────────────────────────────────────────────────────

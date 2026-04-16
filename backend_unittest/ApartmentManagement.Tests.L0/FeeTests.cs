@@ -5,33 +5,69 @@ using FluentAssertions;
 
 namespace ApartmentManagement.Tests.L0.Domain;
 
-public class FeeScheduleTests
+public class MaintenanceScheduleTests
 {
     private const string SocietyId = "society-001";
     private const string ApartmentId = "apt-001";
 
     [Fact]
-    public void Create_WithValidParameters_ReturnsActiveFeeSchedule()
+    public void Create_WithValidParameters_ReturnsActiveMaintenanceSchedule()
     {
         // Arrange & Act
-        var schedule = FeeSchedule.Create(SocietyId, ApartmentId, "Monthly Maintenance", 2500m, FeeFrequency.Monthly, 5);
+        var schedule = MaintenanceSchedule.Create(
+            SocietyId,
+            ApartmentId,
+            "Monthly Maintenance",
+            "Monthly common area upkeep",
+            2.5m,
+            MaintenancePricingType.PerSquareFoot,
+            MaintenanceAreaBasis.SuperBuildUpArea,
+            FeeFrequency.Monthly,
+            5);
 
         // Assert
         schedule.Id.Should().NotBeNullOrEmpty();
         schedule.IsActive.Should().BeTrue();
-        schedule.Amount.Should().Be(2500m);
+        schedule.Rate.Should().Be(2.5m);
         schedule.DueDay.Should().Be(5);
         schedule.Frequency.Should().Be(FeeFrequency.Monthly);
+        schedule.AreaBasis.Should().Be(MaintenanceAreaBasis.SuperBuildUpArea);
     }
 
     [Fact]
-    public void Create_WithNegativeAmount_ThrowsArgumentOutOfRangeException()
+    public void Create_WithNegativeRate_ThrowsArgumentOutOfRangeException()
     {
         // Arrange & Act
-        var act = () => FeeSchedule.Create(SocietyId, ApartmentId, "Maintenance", -100m, FeeFrequency.Monthly, 5);
+        var act = () => MaintenanceSchedule.Create(
+            SocietyId,
+            ApartmentId,
+            "Maintenance",
+            null,
+            -100m,
+            MaintenancePricingType.FixedAmount,
+            null,
+            FeeFrequency.Monthly,
+            5);
 
         // Assert
         act.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
+    public void Create_PerSquareFootWithoutAreaBasis_ThrowsArgumentException()
+    {
+        var act = () => MaintenanceSchedule.Create(
+            SocietyId,
+            ApartmentId,
+            "Maintenance",
+            null,
+            3m,
+            MaintenancePricingType.PerSquareFoot,
+            null,
+            FeeFrequency.Monthly,
+            5);
+
+        act.Should().Throw<ArgumentException>();
     }
 
     [Theory]
@@ -41,30 +77,72 @@ public class FeeScheduleTests
     public void Create_WithInvalidDueDay_ThrowsArgumentOutOfRangeException(int dueDay)
     {
         // Arrange & Act
-        var act = () => FeeSchedule.Create(SocietyId, ApartmentId, "Maintenance", 1000m, FeeFrequency.Monthly, dueDay);
+        var act = () => MaintenanceSchedule.Create(
+            SocietyId,
+            ApartmentId,
+            "Maintenance",
+            null,
+            1000m,
+            MaintenancePricingType.FixedAmount,
+            null,
+            FeeFrequency.Monthly,
+            dueDay);
 
         // Assert
         act.Should().Throw<ArgumentOutOfRangeException>();
     }
 
     [Fact]
-    public void Deactivate_SetsIsActiveFalse()
+    public void Update_RecordsChangeHistory()
     {
         // Arrange
-        var schedule = FeeSchedule.Create(SocietyId, ApartmentId, "Maintenance", 1000m, FeeFrequency.Monthly, 5);
+        var schedule = MaintenanceSchedule.Create(
+            SocietyId,
+            ApartmentId,
+            "Maintenance",
+            null,
+            1000m,
+            MaintenancePricingType.FixedAmount,
+            null,
+            FeeFrequency.Monthly,
+            5);
 
         // Act
-        schedule.Deactivate();
+        schedule.Update(
+            ApartmentId,
+            "Updated Maintenance",
+            "Revised amount",
+            1250m,
+            MaintenancePricingType.FixedAmount,
+            null,
+            FeeFrequency.Monthly,
+            7,
+            true,
+            "admin-001",
+            "Admin User",
+            "Annual revision");
 
         // Assert
-        schedule.IsActive.Should().BeFalse();
+        schedule.Rate.Should().Be(1250m);
+        schedule.ChangeHistory.Should().ContainSingle();
+        schedule.ChangeHistory[0].PreviousRate.Should().Be(1000m);
+        schedule.ChangeHistory[0].NewRate.Should().Be(1250m);
     }
 
     [Fact]
     public void CalculateNextDueDate_ReturnsCorrectFutureDate()
     {
         // Arrange
-        var schedule = FeeSchedule.Create(SocietyId, ApartmentId, "Maintenance", 1000m, FeeFrequency.Monthly, 15);
+        var schedule = MaintenanceSchedule.Create(
+            SocietyId,
+            ApartmentId,
+            "Maintenance",
+            null,
+            1000m,
+            MaintenancePricingType.FixedAmount,
+            null,
+            FeeFrequency.Monthly,
+            15);
         var from = new DateTime(2024, 1, 20, 0, 0, 0, DateTimeKind.Utc);
 
         // Act
@@ -77,33 +155,43 @@ public class FeeScheduleTests
     }
 
     [Fact]
-    public void UpdateAmount_WithValidAmount_UpdatesAmount()
+    public void AdvanceNextDueDate_MovesToNextCycle()
     {
         // Arrange
-        var schedule = FeeSchedule.Create(SocietyId, ApartmentId, "Maintenance", 1000m, FeeFrequency.Monthly, 5);
+        var schedule = MaintenanceSchedule.Create(
+            SocietyId,
+            ApartmentId,
+            "Maintenance",
+            null,
+            1000m,
+            MaintenancePricingType.FixedAmount,
+            null,
+            FeeFrequency.Monthly,
+            5);
+        var original = schedule.NextDueDate;
 
         // Act
-        schedule.UpdateAmount(1500m);
+        schedule.AdvanceNextDueDate();
 
         // Assert
-        schedule.Amount.Should().Be(1500m);
+        schedule.NextDueDate.Should().BeAfter(original);
     }
 }
 
-public class FeePaymentTests
+public class MaintenanceChargeTests
 {
     private const string SocietyId = "society-001";
     private const string ApartmentId = "apt-001";
     private const string ScheduleId = "schedule-001";
 
     [Fact]
-    public void Create_WithValidParameters_ReturnsPendingPayment()
+    public void Create_WithValidParameters_ReturnsPendingCharge()
     {
         // Arrange
         var dueDate = DateTime.UtcNow.AddDays(5);
 
         // Act
-        var payment = FeePayment.Create(SocietyId, ApartmentId, ScheduleId, "Monthly Maintenance", 2500m, dueDate);
+        var payment = MaintenanceCharge.Create(SocietyId, ApartmentId, ScheduleId, "Monthly Maintenance", 2500m, dueDate);
 
         // Assert
         payment.Id.Should().NotBeNullOrEmpty();
@@ -113,20 +201,20 @@ public class FeePaymentTests
     }
 
     [Fact]
-    public void Create_RaisesFeePaymentDueEvent()
+    public void Create_RaisesMaintenanceChargeDueEvent()
     {
         // Arrange & Act
-        var payment = FeePayment.Create(SocietyId, ApartmentId, ScheduleId, "Maintenance", 1000m, DateTime.UtcNow.AddDays(5));
+        var payment = MaintenanceCharge.Create(SocietyId, ApartmentId, ScheduleId, "Maintenance", 1000m, DateTime.UtcNow.AddDays(5));
 
         // Assert
-        payment.DomainEvents.Should().ContainSingle(e => e is FeePaymentDueEvent);
+        payment.DomainEvents.Should().ContainSingle(e => e is MaintenanceChargeDueEvent);
     }
 
     [Fact]
     public void Create_WithZeroAmount_ThrowsArgumentOutOfRangeException()
     {
         // Arrange & Act
-        var act = () => FeePayment.Create(SocietyId, ApartmentId, ScheduleId, "Maintenance", 0m, DateTime.UtcNow.AddDays(5));
+        var act = () => MaintenanceCharge.Create(SocietyId, ApartmentId, ScheduleId, "Maintenance", 0m, DateTime.UtcNow.AddDays(5));
 
         // Assert
         act.Should().Throw<ArgumentOutOfRangeException>();
@@ -136,7 +224,7 @@ public class FeePaymentTests
     public void MarkPaid_SetsStatusPaidAndRecordsTransaction()
     {
         // Arrange
-        var payment = FeePayment.Create(SocietyId, ApartmentId, ScheduleId, "Maintenance", 2500m, DateTime.UtcNow.AddDays(5));
+        var payment = MaintenanceCharge.Create(SocietyId, ApartmentId, ScheduleId, "Maintenance", 2500m, DateTime.UtcNow.AddDays(5));
 
         // Act
         payment.MarkPaid("UPI", "TXN123", "https://receipts.example.com/123");
@@ -144,33 +232,36 @@ public class FeePaymentTests
         // Assert
         payment.Status.Should().Be(PaymentStatus.Paid);
         payment.PaidAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
-        payment.TransactionId.Should().Be("TXN123");
+        payment.TransactionReference.Should().Be("TXN123");
         payment.ReceiptUrl.Should().Be("https://receipts.example.com/123");
     }
 
     [Fact]
-    public void MarkPaid_RaisesFeePaymentReceivedEvent()
+    public void SubmitProof_SetsStatusToProofSubmitted()
     {
         // Arrange
-        var payment = FeePayment.Create(SocietyId, ApartmentId, ScheduleId, "Maintenance", 2500m, DateTime.UtcNow.AddDays(5));
+        var payment = MaintenanceCharge.Create(SocietyId, ApartmentId, ScheduleId, "Maintenance", 2500m, DateTime.UtcNow.AddDays(5));
 
         // Act
-        payment.MarkPaid("UPI", "TXN123");
+        payment.SubmitProof("https://proofs.example.com/123", "UPI screenshot", "user-001");
 
         // Assert
-        payment.DomainEvents.Should().Contain(e => e is FeePaymentReceivedEvent);
+        payment.Status.Should().Be(PaymentStatus.ProofSubmitted);
+        payment.Proofs.Should().ContainSingle();
     }
 
     [Fact]
-    public void MarkOverdue_SetsStatusOverdue()
+    public void ApprovePayment_RaisesFeePaymentReceivedEvent()
     {
         // Arrange
-        var payment = FeePayment.Create(SocietyId, ApartmentId, ScheduleId, "Maintenance", 2500m, DateTime.UtcNow.AddDays(-5));
+        var payment = MaintenanceCharge.Create(SocietyId, ApartmentId, ScheduleId, "Maintenance", 2500m, DateTime.UtcNow.AddDays(5));
+        payment.SubmitProof("https://proofs.example.com/123", "UPI screenshot", "user-001");
 
         // Act
-        payment.MarkOverdue();
+        payment.ApprovePayment("UPI", "TXN123", null);
 
         // Assert
-        payment.Status.Should().Be(PaymentStatus.Overdue);
+        payment.Status.Should().Be(PaymentStatus.Paid);
+        payment.DomainEvents.Should().Contain(e => e is FeePaymentReceivedEvent);
     }
 }
