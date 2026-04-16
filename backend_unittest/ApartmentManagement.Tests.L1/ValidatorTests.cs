@@ -1,6 +1,7 @@
 using ApartmentManagement.Application.Commands.Amenity;
 using ApartmentManagement.Application.Commands.Complaint;
 using ApartmentManagement.Application.Commands.Society;
+using ApartmentManagement.Application.Commands.User;
 using ApartmentManagement.Application.Validators;
 using ApartmentManagement.Domain.Enums;
 using FluentAssertions;
@@ -260,5 +261,44 @@ public class CreateComplaintCommandValidatorTests
         // Assert
         result.IsValid.Should().BeFalse();
         result.Errors.Should().Contain(e => e.PropertyName == "SocietyId");
+    }
+}
+
+public class ResidentCommandValidatorTests
+{
+    [Fact]
+    public void CreateUserValidator_WithInvalidPhone_FailsValidation()
+    {
+        var validator = new CreateUserCommandValidator();
+        var command = new CreateUserCommand("soc-001", "Resident", "resident@test.com", "12345AB789", UserRole.SUUser, ResidentType.Owner, "apt-1");
+
+        var result = validator.Validate(command);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.PropertyName == "Phone");
+    }
+
+    [Fact]
+    public void TransferOwnershipValidator_WithMissingName_FailsValidation()
+    {
+        var validator = new TransferApartmentOwnershipCommandValidator();
+        var command = new TransferApartmentOwnershipCommand("soc-001", "apt-1", string.Empty, "owner@test.com", "9876543210");
+
+        var result = validator.Validate(command);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.PropertyName == "FullName");
+    }
+
+    [Fact]
+    public void AddHouseholdMemberValidator_WithInvalidResidentType_FailsValidation()
+    {
+        var validator = new AddHouseholdMemberCommandValidator();
+        var command = new AddHouseholdMemberCommand("soc-001", "apt-1", "Resident", "member@test.com", "9876543210", ResidentType.Owner);
+
+        var result = validator.Validate(command);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.PropertyName == "ResidentType");
     }
 }

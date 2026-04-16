@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, computed, inject, signal, OnInit } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -72,15 +72,19 @@ import { Apartment, ApartmentStatus } from '../../core/models/apartment.model';
           }
         </div>
 
-        @if (isAdmin()) {
+        @if (isAdmin() || canManageHousehold()) {
           <div class="card admin-card">
             <h3>Resident management</h3>
             <p class="admin-copy">Open dedicated pages to review resident history or manage owners, tenants, and household members.</p>
             <div class="action-row">
-              <a mat-stroked-button [routerLink]="['/apartments', item()!.id, 'resident-history']">View Resident History</a>
-              <a mat-stroked-button [routerLink]="['/apartments', item()!.id, 'transfer-owner']">Transfer Owner</a>
-              <a mat-stroked-button [routerLink]="['/apartments', item()!.id, 'transfer-tenant']">Add / Transfer Tenant</a>
-              <a mat-stroked-button [routerLink]="['/apartments', item()!.id, 'add-household-member']">Add Family / Co-Occupant</a>
+              @if (isAdmin()) {
+                <a mat-stroked-button [routerLink]="['/apartments', item()!.id, 'resident-history']">View Resident History</a>
+                <a mat-stroked-button [routerLink]="['/apartments', item()!.id, 'transfer-owner']">Transfer Owner</a>
+                <a mat-stroked-button [routerLink]="['/apartments', item()!.id, 'transfer-tenant']">Add / Transfer Tenant</a>
+              }
+              @if (canManageHousehold()) {
+                <a mat-stroked-button [routerLink]="['/apartments', item()!.id, 'add-household-member']">Add Family / Co-Occupant</a>
+              }
             </div>
           </div>
 
@@ -151,6 +155,10 @@ export class ApartmentDetailComponent implements OnInit {
   readonly actionLoading = signal(false);
   readonly item = signal<Apartment | null>(null);
   readonly isAdmin = this.auth.isAdmin;
+  readonly canManageHousehold = computed(() => {
+    const user = this.auth.user();
+    return user?.role === 'SUUser' && (user.residentType === 'Owner' || user.residentType === 'Tenant');
+  });
   statusReason = '';
 
   ngOnInit() {

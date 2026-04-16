@@ -105,14 +105,15 @@ public class SocietyIntegrationTests : IntegrationTestBase
         var created = (await Mediator.Send(ValidCreateSocietyCommand("Community Plaza"))).Value!;
         CurrentUserService.UserId = created.Admin.Id;
 
-        var resident = (await Mediator.Send(new CreateUserCommand(
-            created.Society.Id,
-            "Priya Resident",
-            "priya@community.com",
-            "+91-9988776655",
-            UserRole.SUUser,
-            ResidentType.SocietyAdmin,
-            null))).Value!;
+        var resident = await UserRepo.CreateAsync(
+            ApartmentManagement.Domain.Entities.User.Create(
+                created.Society.Id,
+                "Priya Resident",
+                "priya@community.com",
+                "9988776655",
+                UserRole.SUUser,
+                ResidentType.SocietyAdmin),
+            CancellationToken.None);
 
         var updateResult = await Mediator.Send(new UpdateSocietyCommand(
             created.Society.Id,
