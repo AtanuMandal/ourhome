@@ -11,10 +11,8 @@ import { LoadingSpinnerComponent } from '../../shared/components/loading-spinner
 import { AuthService } from '../../core/services/auth.service';
 import { ComplaintService } from '../../core/services/complaint.service';
 import { NoticeService } from '../../core/services/notice.service';
-import { FeeService } from '../../core/services/fee.service';
 import { Complaint } from '../../core/models/complaint.model';
 import { Notice } from '../../core/models/notice.model';
-import { FeeSchedule } from '../../core/models/fee.model';
 
 interface QuickAction { icon: string; label: string; route: string; color: string; }
 
@@ -45,7 +43,7 @@ export class DashboardComponent implements OnInit {
     { icon: 'report_problem',         label: 'Complaint',  route: '/complaints/new',  color: '#ef5350' },
     { icon: 'event_available',        label: 'Book',       route: '/amenities',        color: '#26a69a' },
     { icon: 'badge',                  label: 'Visitor',    route: '/visitors/register',color: '#7e57c2' },
-    { icon: 'account_balance_wallet', label: 'Pay Fee',    route: '/fees',             color: '#42a5f5' },
+    { icon: 'receipt_long',           label: 'Maintenance', route: '/maintenance',      color: '#42a5f5' },
     { icon: 'build',                  label: 'Service',    route: '/services',         color: '#ff7043' },
     { icon: 'emoji_events',           label: 'Rewards',    route: '/rewards',          color: '#ffca28' },
   ];

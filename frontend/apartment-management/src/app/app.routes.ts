@@ -59,9 +59,9 @@ export const routes: Routes = [
   },
 
   {
-    path: 'fees',
+    path: 'maintenance',
     canActivate: [authGuard],
-    loadChildren: () => import('./features/fees/fees.routes').then(m => m.FEE_ROUTES),
+    loadChildren: () => import('./features/maintenance/maintenance.routes').then(m => m.MAINTENANCE_ROUTES),
   },
 
   {

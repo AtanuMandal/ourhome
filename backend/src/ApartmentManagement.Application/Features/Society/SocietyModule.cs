@@ -85,6 +85,7 @@ public record UpdateSocietyCommand(
     string ContactPhone,
     int TotalBlocks,
     int TotalApartments,
+    int MaintenanceOverdueThresholdDays,
     IReadOnlyList<SocietyUserAssignmentRequest>? SocietyUsers,
     IReadOnlyList<SocietyCommitteeRequest>? Committees)
     : IRequest<Result<SocietyResponse>>;
@@ -108,7 +109,7 @@ public sealed class UpdateSocietyCommandHandler(
                 ?? throw new NotFoundException("Society", request.SocietyId);
 
             society.Update(request.Name, request.ContactEmail, request.ContactPhone,
-                request.TotalBlocks, request.TotalApartments);
+                request.TotalBlocks, request.TotalApartments, request.MaintenanceOverdueThresholdDays);
             var societyUsers = await ResolveSocietyUsersAsync(request.SocietyId, request.SocietyUsers ?? [], userRepository, ct);
             var committees = new List<Domain.Entities.Society.SocietyCommittee>((request.Committees ?? []).Count);
             foreach (var committee in request.Committees ?? [])

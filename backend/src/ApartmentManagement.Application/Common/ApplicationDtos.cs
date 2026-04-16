@@ -22,14 +22,14 @@ public record UpdateSocietyRequest(
     string ContactPhone,
     int TotalBlocks,
     int TotalApartments,
+    int MaintenanceOverdueThresholdDays,
     IReadOnlyList<SocietyUserAssignmentRequest>? SocietyUsers,
     IReadOnlyList<SocietyCommitteeRequest>? Committees);
-
-public record ConfigureFeeRequest(decimal BaseAmount, decimal PerRoomCharge, decimal ParkingCharge, string Currency);
 
 public record SocietyResponse(
     string Id, string Name, AddressDto Address, string ContactEmail, string ContactPhone,
     int TotalBlocks, int TotalApartments, string Status, IReadOnlyList<string> AdminUserIds,
+    int MaintenanceOverdueThresholdDays,
     IReadOnlyList<SocietyUserAssignmentDto> SocietyUsers,
     IReadOnlyList<SocietyCommitteeDto> Committees,
     DateTime CreatedAt);
@@ -206,24 +206,92 @@ public sealed record RegisterVisitorRequest(
     string VisitorName, string VisitorPhone, string? VisitorEmail,
     string Purpose, string ApartmentId, string HostUserId, string? VehicleNumber = null);
 
-// ─── Fee ─────────────────────────────────────────────────────────────────────
+// ─── Maintenance ─────────────────────────────────────────────────────────────
 
-public sealed record FeeScheduleDto(
-    string Id, string SocietyId, string ApartmentId, string Description,
-    decimal Amount, FeeFrequency Frequency, int DueDay,
-    DateTime NextDueDate, bool IsActive, DateTime CreatedAt, DateTime UpdatedAt);
+public sealed record MaintenanceScheduleChangeDto(
+    decimal PreviousRate,
+    decimal NewRate,
+    string? AreaBasis,
+    string ChangedByUserId,
+    string ChangedByUserName,
+    string Reason,
+    DateTime ChangedAt);
 
-public sealed record FeePaymentDto(
-    string Id, string SocietyId, string ApartmentId, string FeeScheduleId,
-    string Description, decimal Amount, PaymentStatus Status,
-    DateTime DueDate, DateTime? PaidAt, string? PaymentMethod,
-    string? TransactionId, string? ReceiptUrl, DateTime CreatedAt, DateTime UpdatedAt);
+public sealed record MaintenanceScheduleDto(
+    string Id,
+    string SocietyId,
+    string? ApartmentId,
+    string Name,
+    string? Description,
+    decimal Rate,
+    string PricingType,
+    string? AreaBasis,
+    string Frequency,
+    int DueDay,
+    DateTime NextDueDate,
+    bool IsActive,
+    IReadOnlyList<MaintenanceScheduleChangeDto> ChangeHistory,
+    DateTime CreatedAt,
+    DateTime UpdatedAt);
 
-public sealed record CreateFeeScheduleRequest(
-    string ApartmentId, string Description, decimal Amount, FeeFrequency Frequency, int DueDay);
+public sealed record MaintenancePaymentProofDto(
+    string ProofUrl,
+    string? Notes,
+    string SubmittedByUserId,
+    DateTime SubmittedAt);
 
-public sealed record RecordPaymentRequest(
-    string PaymentMethod, string TransactionId, string? ReceiptUrl = null);
+public sealed record MaintenanceChargeDto(
+    string Id,
+    string SocietyId,
+    string ApartmentId,
+    string ApartmentNumber,
+    string ScheduleId,
+    string ScheduleName,
+    int ChargeYear,
+    int ChargeMonth,
+    decimal Amount,
+    string Status,
+    DateTime DueDate,
+    bool IsOverdue,
+    DateTime? PaidAt,
+    string? PaymentMethod,
+    string? TransactionReference,
+    IReadOnlyList<MaintenancePaymentProofDto> Proofs,
+    DateTime CreatedAt,
+    DateTime UpdatedAt);
+
+public sealed record CreateMaintenanceScheduleRequest(
+    string Name,
+    string? Description,
+    string? ApartmentId,
+    decimal Rate,
+    [property: JsonConverter(typeof(JsonStringEnumConverter))] MaintenancePricingType PricingType,
+    [property: JsonConverter(typeof(JsonStringEnumConverter))] MaintenanceAreaBasis? AreaBasis,
+    [property: JsonConverter(typeof(JsonStringEnumConverter))] FeeFrequency Frequency,
+    int DueDay);
+
+public sealed record UpdateMaintenanceScheduleRequest(
+    string Name,
+    string? Description,
+    string? ApartmentId,
+    decimal Rate,
+    [property: JsonConverter(typeof(JsonStringEnumConverter))] MaintenancePricingType PricingType,
+    [property: JsonConverter(typeof(JsonStringEnumConverter))] MaintenanceAreaBasis? AreaBasis,
+    [property: JsonConverter(typeof(JsonStringEnumConverter))] FeeFrequency Frequency,
+    int DueDay,
+    bool IsActive,
+    string ChangeReason);
+
+public sealed record SubmitMaintenancePaymentProofRequest(
+    IReadOnlyList<string> ChargeIds,
+    string ProofUrl,
+    string? Notes = null);
+
+public sealed record MarkMaintenanceChargePaidRequest(
+    string PaymentMethod,
+    string? TransactionReference,
+    string? ReceiptUrl = null,
+    string? Notes = null);
 
 // ─── Gamification ─────────────────────────────────────────────────────────────
 

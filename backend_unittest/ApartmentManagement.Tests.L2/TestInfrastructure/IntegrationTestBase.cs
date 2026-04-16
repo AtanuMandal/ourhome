@@ -15,11 +15,11 @@ public sealed class FakeCurrentUserService : ICurrentUserService
     public string UserId { get; set; } = "test-user-id";
     public string SocietyId { get; set; } = "test-society-id";
     public string Email { get; set; } = "admin@test.com";
-    public string Role { get; set; } = "SocietyAdmin";
+    public string Role { get; set; } = "SUAdmin";
     public bool IsAuthenticated => true;
 
     public bool IsInRole(string role) =>
-        role == Role || role == "SocietyAdmin" || role == "SuperAdmin";
+        role == Role || role == "SUAdmin" || role == "HQAdmin" || role == "SocietyAdmin" || role == "SuperAdmin";
 
     public bool IsInRoles(params string[] roles) => roles.Any(IsInRole);
 }
@@ -161,8 +161,8 @@ public abstract class IntegrationTestBase : IDisposable
     protected FakeComplaintRepository ComplaintRepo { get; }
     protected FakeNoticeRepository NoticeRepo { get; }
     protected FakeVisitorLogRepository VisitorRepo { get; }
-    protected FakeFeeScheduleRepository FeeScheduleRepo { get; }
-    protected FakeFeePaymentRepository FeePaymentRepo { get; }
+    protected FakeMaintenanceScheduleRepository MaintenanceScheduleRepo { get; }
+    protected FakeMaintenanceChargeRepository MaintenanceChargeRepo { get; }
     protected FakeCompetitionRepository CompetitionRepo { get; }
     protected FakeCompetitionEntryRepository CompetitionEntryRepo { get; }
     protected FakeRewardPointsRepository RewardPointsRepo { get; }
@@ -183,8 +183,8 @@ public abstract class IntegrationTestBase : IDisposable
         ComplaintRepo = new FakeComplaintRepository();
         NoticeRepo = new FakeNoticeRepository();
         VisitorRepo = new FakeVisitorLogRepository();
-        FeeScheduleRepo = new FakeFeeScheduleRepository();
-        FeePaymentRepo = new FakeFeePaymentRepository();
+        MaintenanceScheduleRepo = new FakeMaintenanceScheduleRepository();
+        MaintenanceChargeRepo = new FakeMaintenanceChargeRepository();
         CompetitionRepo = new FakeCompetitionRepository();
         CompetitionEntryRepo = new FakeCompetitionEntryRepository();
         RewardPointsRepo = new FakeRewardPointsRepository();
@@ -221,8 +221,8 @@ public abstract class IntegrationTestBase : IDisposable
         services.AddSingleton<IComplaintRepository>(ComplaintRepo);
         services.AddSingleton<INoticeRepository>(NoticeRepo);
         services.AddSingleton<IVisitorLogRepository>(VisitorRepo);
-        services.AddSingleton<IFeeScheduleRepository>(FeeScheduleRepo);
-        services.AddSingleton<IFeePaymentRepository>(FeePaymentRepo);
+        services.AddSingleton<IMaintenanceScheduleRepository>(MaintenanceScheduleRepo);
+        services.AddSingleton<IMaintenanceChargeRepository>(MaintenanceChargeRepo);
         services.AddSingleton<ICompetitionRepository>(CompetitionRepo);
         services.AddSingleton<ICompetitionEntryRepository>(CompetitionEntryRepo);
         services.AddSingleton<IRewardPointsRepository>(RewardPointsRepo);

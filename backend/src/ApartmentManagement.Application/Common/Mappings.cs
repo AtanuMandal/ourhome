@@ -21,6 +21,7 @@ public static class MappingExtensions
             society.TotalApartments,
             society.Status.ToString(),
             society.AdminUserIds,
+            society.MaintenanceOverdueThresholdDays,
             society.SocietyUsers
                 .Select(user => new SocietyUserAssignmentDto(user.UserId, user.FullName, user.Email, user.RoleTitle))
                 .ToList(),
@@ -188,32 +189,59 @@ public static class MappingExtensions
             log.Duration?.TotalMinutes,
             log.CreatedAt);
 
-    public static FeeScheduleResponse ToResponse(this FeeSchedule schedule) =>
+    public static MaintenanceScheduleDto ToResponse(this MaintenanceSchedule schedule) =>
         new(
             schedule.Id,
             schedule.SocietyId,
             schedule.ApartmentId,
+            schedule.Name,
             schedule.Description,
-            schedule.Amount,
+            schedule.Rate,
+            schedule.PricingType.ToString(),
+            schedule.AreaBasis?.ToString(),
             schedule.Frequency.ToString(),
             schedule.DueDay,
             schedule.NextDueDate,
-            schedule.IsActive);
+            schedule.IsActive,
+            schedule.ChangeHistory
+                .Select(change => new MaintenanceScheduleChangeDto(
+                    change.PreviousRate,
+                    change.NewRate,
+                    change.AreaBasis?.ToString(),
+                    change.ChangedByUserId,
+                    change.ChangedByUserName,
+                    change.Reason,
+                    change.ChangedAt))
+                .ToList(),
+            schedule.CreatedAt,
+            schedule.UpdatedAt);
 
-    public static FeePaymentResponse ToResponse(this FeePayment payment) =>
+    public static MaintenanceChargeDto ToResponse(this MaintenanceCharge charge, string apartmentNumber, int overdueThresholdDays) =>
         new(
-            payment.Id,
-            payment.SocietyId,
-            payment.ApartmentId,
-            payment.FeeScheduleId,
-            payment.Description,
-            payment.Amount,
-            payment.Status.ToString(),
-            payment.DueDate,
-            payment.PaidAt,
-            payment.PaymentMethod,
-            payment.TransactionId,
-            payment.ReceiptUrl);
+            charge.Id,
+            charge.SocietyId,
+            charge.ApartmentId,
+            apartmentNumber,
+            charge.ScheduleId,
+            charge.ScheduleName,
+            charge.ChargeYear,
+            charge.ChargeMonth,
+            charge.Amount,
+            charge.Status.ToString(),
+            charge.DueDate,
+            charge.Status != Domain.Enums.PaymentStatus.Paid && charge.DueDate.Date.AddDays(overdueThresholdDays) < DateTime.UtcNow.Date,
+            charge.PaidAt,
+            charge.PaymentMethod,
+            charge.TransactionReference,
+            charge.Proofs
+                .Select(proof => new MaintenancePaymentProofDto(
+                    proof.ProofUrl,
+                    proof.Notes,
+                    proof.SubmittedByUserId,
+                    proof.SubmittedAt))
+                .ToList(),
+            charge.CreatedAt,
+            charge.UpdatedAt);
 
     public static CompetitionResponse ToResponse(this Competition competition) =>
         new(

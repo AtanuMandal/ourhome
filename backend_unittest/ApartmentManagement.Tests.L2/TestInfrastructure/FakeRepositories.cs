@@ -246,52 +246,76 @@ public sealed class FakeVisitorLogRepository : FakeRepository<VisitorLog>, IVisi
     }
 }
 
-// ─── Fee Schedule ─────────────────────────────────────────────────────────────
+// ─── Maintenance Schedule ─────────────────────────────────────────────────────
 
-public sealed class FakeFeeScheduleRepository : FakeRepository<FeeSchedule>, IFeeScheduleRepository
+public sealed class FakeMaintenanceScheduleRepository : FakeRepository<MaintenanceSchedule>, IMaintenanceScheduleRepository
 {
-    public Task<IReadOnlyList<FeeSchedule>> GetActiveAsync(string societyId, CancellationToken ct = default)
+    public Task<IReadOnlyList<MaintenanceSchedule>> GetActiveAsync(string societyId, CancellationToken ct = default)
     {
-        IReadOnlyList<FeeSchedule> result = Store.Values
+        IReadOnlyList<MaintenanceSchedule> result = Store.Values
             .Where(s => s.SocietyId == societyId && s.IsActive)
             .ToList();
         return Task.FromResult(result);
     }
 
-    public Task<IReadOnlyList<FeeSchedule>> GetByApartmentAsync(string societyId, string apartmentId, CancellationToken ct = default)
+    public Task<IReadOnlyList<MaintenanceSchedule>> GetByApartmentAsync(string societyId, string apartmentId, CancellationToken ct = default)
     {
-        IReadOnlyList<FeeSchedule> result = Store.Values
-            .Where(s => s.SocietyId == societyId && s.ApartmentId == apartmentId)
+        IReadOnlyList<MaintenanceSchedule> result = Store.Values
+            .Where(s => s.SocietyId == societyId && (string.IsNullOrWhiteSpace(s.ApartmentId) || s.ApartmentId == apartmentId))
+            .ToList();
+        return Task.FromResult(result);
+    }
+
+    public Task<IReadOnlyList<MaintenanceSchedule>> GetActiveDueOnAsync(DateTime dueOnUtc, CancellationToken ct = default)
+    {
+        IReadOnlyList<MaintenanceSchedule> result = Store.Values
+            .Where(s => s.IsActive && s.NextDueDate.Date <= dueOnUtc.Date)
             .ToList();
         return Task.FromResult(result);
     }
 }
 
-// ─── Fee Payment ──────────────────────────────────────────────────────────────
+// ─── Maintenance Charge ───────────────────────────────────────────────────────
 
-public sealed class FakeFeePaymentRepository : FakeRepository<FeePayment>, IFeePaymentRepository
+public sealed class FakeMaintenanceChargeRepository : FakeRepository<MaintenanceCharge>, IMaintenanceChargeRepository
 {
-    public Task<IReadOnlyList<FeePayment>> GetByApartmentAsync(string societyId, string apartmentId, int page, int pageSize, CancellationToken ct = default)
+    public Task<IReadOnlyList<MaintenanceCharge>> GetByApartmentAsync(string societyId, string apartmentId, int page, int pageSize, int? year, int? month, CancellationToken ct = default)
     {
-        IReadOnlyList<FeePayment> result = Store.Values
+        var query = Store.Values
             .Where(p => p.SocietyId == societyId && p.ApartmentId == apartmentId)
+            .AsEnumerable();
+        if (year.HasValue)
+            query = query.Where(p => p.ChargeYear == year.Value);
+        if (month.HasValue)
+            query = query.Where(p => p.ChargeMonth == month.Value);
+        IReadOnlyList<MaintenanceCharge> result = query
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToList();
         return Task.FromResult(result);
     }
 
-    public Task<IReadOnlyList<FeePayment>> GetOverdueAsync(string societyId, CancellationToken ct = default)
+    public Task<IReadOnlyList<MaintenanceCharge>> GetBySocietyAsync(string societyId, int page, int pageSize, string? apartmentId, PaymentStatus? status, int? year, int? month, CancellationToken ct = default)
     {
-        IReadOnlyList<FeePayment> result = Store.Values
-            .Where(p => p.SocietyId == societyId && p.Status == PaymentStatus.Overdue)
+        var query = Store.Values.Where(p => p.SocietyId == societyId).AsEnumerable();
+        if (!string.IsNullOrWhiteSpace(apartmentId))
+            query = query.Where(p => p.ApartmentId == apartmentId);
+        if (status.HasValue)
+            query = query.Where(p => p.Status == status.Value);
+        if (year.HasValue)
+            query = query.Where(p => p.ChargeYear == year.Value);
+        if (month.HasValue)
+            query = query.Where(p => p.ChargeMonth == month.Value);
+        IReadOnlyList<MaintenanceCharge> result = query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToList();
         return Task.FromResult(result);
     }
 
-    public Task<IReadOnlyList<FeePayment>> GetByStatusAsync(string societyId, PaymentStatus status, int page, int pageSize, CancellationToken ct = default)
+    public Task<IReadOnlyList<MaintenanceCharge>> GetByStatusAsync(string societyId, PaymentStatus status, int page, int pageSize, CancellationToken ct = default)
     {
-        IReadOnlyList<FeePayment> result = Store.Values
+        IReadOnlyList<MaintenanceCharge> result = Store.Values
             .Where(p => p.SocietyId == societyId && p.Status == status)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
@@ -299,13 +323,26 @@ public sealed class FakeFeePaymentRepository : FakeRepository<FeePayment>, IFeeP
         return Task.FromResult(result);
     }
 
-    public Task<IReadOnlyList<FeePayment>> GetDueSoonAsync(string societyId, int withinDays, CancellationToken ct = default)
+    public Task<IReadOnlyList<MaintenanceCharge>> GetDueSoonAsync(string societyId, int withinDays, CancellationToken ct = default)
     {
         var cutoff = DateTime.UtcNow.AddDays(withinDays);
-        IReadOnlyList<FeePayment> result = Store.Values
-            .Where(p => p.SocietyId == societyId && p.Status == PaymentStatus.Pending && p.DueDate <= cutoff)
+        IReadOnlyList<MaintenanceCharge> result = Store.Values
+            .Where(p => p.SocietyId == societyId &&
+                        (p.Status == PaymentStatus.Pending || p.Status == PaymentStatus.ProofSubmitted) &&
+                        p.DueDate <= cutoff)
             .ToList();
         return Task.FromResult(result);
+    }
+
+    public Task<MaintenanceCharge?> GetByScheduleAndPeriodAsync(string societyId, string scheduleId, string apartmentId, int year, int month, CancellationToken ct = default)
+    {
+        var found = Store.Values.FirstOrDefault(p =>
+            p.SocietyId == societyId &&
+            p.ScheduleId == scheduleId &&
+            p.ApartmentId == apartmentId &&
+            p.ChargeYear == year &&
+            p.ChargeMonth == month);
+        return Task.FromResult<MaintenanceCharge?>(found);
     }
 }
 

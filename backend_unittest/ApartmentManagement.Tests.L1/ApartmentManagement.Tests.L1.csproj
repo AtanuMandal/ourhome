@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\backend\src\ApartmentManagement.Domain\ApartmentManagement.Domain.csproj" />
     <ProjectReference Include="..\..\backend\src\ApartmentManagement.Application\ApartmentManagement.Application.csproj" />
+    <ProjectReference Include="..\..\backend\src\ApartmentManagement.Functions\ApartmentManagement.Functions.csproj" />
     <ProjectReference Include="..\..\backend\src\ApartmentManagement.Shared\ApartmentManagement.Shared.csproj" />
   </ItemGroup>
 

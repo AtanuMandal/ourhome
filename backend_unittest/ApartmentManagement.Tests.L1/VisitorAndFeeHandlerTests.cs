@@ -1,8 +1,9 @@
 using ApartmentManagement.Application.Commands.Visitor;
-using ApartmentManagement.Application.Commands.Fee;
+using ApartmentManagement.Application.Commands.Maintenance;
 using ApartmentManagement.Application.Interfaces;
 using ApartmentManagement.Domain.Entities;
 using ApartmentManagement.Domain.Enums;
+using ApartmentManagement.Domain.Events;
 using ApartmentManagement.Domain.Repositories;
 using ApartmentManagement.Shared.Constants;
 using FluentAssertions;
@@ -130,87 +131,157 @@ public class CheckInVisitorCommandHandlerTests
     }
 }
 
-public class CreateFeeScheduleCommandHandlerTests
+public class CreateMaintenanceScheduleCommandHandlerTests
 {
-    private readonly Mock<IFeeScheduleRepository> _feeScheduleRepoMock = new();
-    private readonly Mock<ILogger<CreateFeeScheduleCommandHandler>> _loggerMock = new();
+    private readonly Mock<IMaintenanceScheduleRepository> _scheduleRepoMock = new();
+    private readonly Mock<IMaintenanceChargeRepository> _chargeRepoMock = new();
+    private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
+    private readonly Mock<ICurrentUserService> _currentUserMock = new();
+    private readonly Mock<ILogger<CreateMaintenanceScheduleCommandHandler>> _loggerMock = new();
 
-    private CreateFeeScheduleCommandHandler CreateHandler() =>
-        new(_feeScheduleRepoMock.Object, _loggerMock.Object);
+    private CreateMaintenanceScheduleCommandHandler CreateHandler() =>
+        new(_scheduleRepoMock.Object, _chargeRepoMock.Object, _apartmentRepoMock.Object, _currentUserMock.Object, _loggerMock.Object);
 
     [Fact]
-    public async Task Handle_WithValidCommand_CreatesFeeScheduleAndReturnsSuccess()
+    public async Task Handle_WithValidCommand_CreatesMaintenanceScheduleAndInitialCharge()
     {
         // Arrange
-        _feeScheduleRepoMock
-            .Setup(r => r.CreateAsync(It.IsAny<FeeSchedule>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((FeeSchedule s, CancellationToken _) => s);
+        var apartment = Apartment.Create("soc-001", "A-101", "A", 1, 3, [], 500, 600, 700);
+
+        _currentUserMock.Setup(x => x.IsInRoles(It.IsAny<string[]>())).Returns(true);
+        _scheduleRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<MaintenanceSchedule>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MaintenanceSchedule s, CancellationToken _) => s);
+        _apartmentRepoMock
+            .Setup(r => r.GetByIdAsync(apartment.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(apartment);
+        _chargeRepoMock
+            .Setup(r => r.GetByScheduleAndPeriodAsync("soc-001", It.IsAny<string>(), apartment.Id, It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MaintenanceCharge?)null);
+        _chargeRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<MaintenanceCharge>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MaintenanceCharge c, CancellationToken _) => c);
 
         var handler = CreateHandler();
-        var command = new CreateFeeScheduleCommand("soc-001", "apt-001", "Monthly Maintenance", 2500m, FeeFrequency.Monthly, 5);
+        var command = new CreateMaintenanceScheduleCommand(
+            "soc-001",
+            "Monthly Maintenance",
+            "Monthly upkeep",
+            apartment.Id,
+            2500m,
+            MaintenancePricingType.FixedAmount,
+            null,
+            FeeFrequency.Monthly,
+            5);
 
         // Act
         var result = await handler.Handle(command, CancellationToken.None);
 
         // Assert
         result.IsSuccess.Should().BeTrue();
-        _feeScheduleRepoMock.Verify(r => r.CreateAsync(It.IsAny<FeeSchedule>(), It.IsAny<CancellationToken>()), Times.Once);
+        result.Value!.Name.Should().Be("Monthly Maintenance");
+        _scheduleRepoMock.Verify(r => r.CreateAsync(It.IsAny<MaintenanceSchedule>(), It.IsAny<CancellationToken>()), Times.Once);
+        _chargeRepoMock.Verify(r => r.CreateAsync(It.IsAny<MaintenanceCharge>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 }
 
-public class RecordFeePaymentCommandHandlerTests
+public class SubmitMaintenancePaymentProofCommandHandlerTests
 {
-    private readonly Mock<IFeePaymentRepository> _feePaymentRepoMock = new();
-    private readonly Mock<IEventPublisher> _eventPublisherMock = new();
+    private readonly Mock<IMaintenanceChargeRepository> _chargeRepoMock = new();
+    private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
+    private readonly Mock<ISocietyRepository> _societyRepoMock = new();
+    private readonly Mock<IUserRepository> _userRepoMock = new();
     private readonly Mock<INotificationService> _notificationMock = new();
-    private readonly Mock<ILogger<RecordFeePaymentCommandHandler>> _loggerMock = new();
+    private readonly Mock<ICurrentUserService> _currentUserMock = new();
+    private readonly Mock<ILogger<SubmitMaintenancePaymentProofCommandHandler>> _loggerMock = new();
 
-    private RecordFeePaymentCommandHandler CreateHandler() =>
-        new(_feePaymentRepoMock.Object, _notificationMock.Object, _eventPublisherMock.Object, _loggerMock.Object);
+    private SubmitMaintenancePaymentProofCommandHandler CreateHandler() =>
+        new(_chargeRepoMock.Object, _apartmentRepoMock.Object, _societyRepoMock.Object, _userRepoMock.Object, _notificationMock.Object, _currentUserMock.Object, _loggerMock.Object);
 
     [Fact]
-    public async Task Handle_WhenPaymentExists_MarksAsPaidAndReturnsSuccess()
+    public async Task Handle_WhenResidentOwnsCharge_SubmitsProofAndNotifiesAdmins()
     {
         // Arrange
-        var payment = FeePayment.Create("soc-001", "apt-001", "schedule-001",
-            "Monthly Maintenance", 2500m, DateTime.UtcNow.AddDays(5));
+        var apartment = Apartment.Create("soc-001", "A-101", "A", 1, 3, [], 500, 600, 700);
+        var payment = MaintenanceCharge.Create("soc-001", apartment.Id, "schedule-001", "Monthly Maintenance", 2500m, DateTime.UtcNow.AddDays(5));
+        var resident = User.Create("soc-001", "Resident User", "resident@test.com", "9999999999", UserRole.SUUser, ResidentType.Owner, apartment.Id);
+        var society = Society.Create("Our Home", new Domain.ValueObjects.Address("Street", "City", "State", "12345", "India"), "soc@test.com", "8888888888", 1, 10);
+        society.AssignAdmin("admin-001");
         var paymentId = payment.Id;
 
-        _feePaymentRepoMock
+        _currentUserMock.SetupGet(x => x.UserId).Returns(resident.Id);
+        _currentUserMock.Setup(x => x.IsInRoles(It.IsAny<string[]>())).Returns(false);
+        _userRepoMock
+            .Setup(r => r.GetByIdAsync(resident.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(resident);
+        _societyRepoMock
+            .Setup(r => r.GetByIdAsync("soc-001", "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(society);
+        _chargeRepoMock
             .Setup(r => r.GetByIdAsync(paymentId, "soc-001", It.IsAny<CancellationToken>()))
             .ReturnsAsync(payment);
-        _feePaymentRepoMock
-            .Setup(r => r.UpdateAsync(It.IsAny<FeePayment>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((FeePayment p, CancellationToken _) => p);
+        _chargeRepoMock
+            .Setup(r => r.UpdateAsync(It.IsAny<MaintenanceCharge>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MaintenanceCharge p, CancellationToken _) => p);
+        _apartmentRepoMock
+            .Setup(r => r.GetByIdAsync(apartment.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(apartment);
 
         var handler = CreateHandler();
-        var command = new RecordFeePaymentCommand("soc-001", paymentId, "UPI", "TXN123", null);
+        var command = new SubmitMaintenancePaymentProofCommand("soc-001", [paymentId], "https://proofs.example.com/1", "UPI receipt");
 
         // Act
         var result = await handler.Handle(command, CancellationToken.None);
 
         // Assert
         result.IsSuccess.Should().BeTrue();
-        payment.Status.Should().Be(PaymentStatus.Paid);
-        payment.TransactionId.Should().Be("TXN123");
+        payment.Status.Should().Be(PaymentStatus.ProofSubmitted);
+        payment.Proofs.Should().ContainSingle();
+        _notificationMock.Verify(n => n.SendPushNotificationAsync("admin-001", It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
     }
+}
+
+public class MarkMaintenanceChargePaidCommandHandlerTests
+{
+    private readonly Mock<IMaintenanceChargeRepository> _chargeRepoMock = new();
+    private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
+    private readonly Mock<ISocietyRepository> _societyRepoMock = new();
+    private readonly Mock<IEventPublisher> _eventPublisherMock = new();
+    private readonly Mock<ICurrentUserService> _currentUserMock = new();
+    private readonly Mock<ILogger<MarkMaintenanceChargePaidCommandHandler>> _loggerMock = new();
+
+    private MarkMaintenanceChargePaidCommandHandler CreateHandler() =>
+        new(_chargeRepoMock.Object, _apartmentRepoMock.Object, _societyRepoMock.Object, _eventPublisherMock.Object, _currentUserMock.Object, _loggerMock.Object);
 
     [Fact]
-    public async Task Handle_WhenPaymentNotFound_ReturnsFailure()
+    public async Task Handle_WhenChargeExists_MarksAsPaidAndPublishesEvent()
     {
-        // Arrange
-        _feePaymentRepoMock
-            .Setup(r => r.GetByIdAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((FeePayment?)null);
+        var apartment = Apartment.Create("soc-001", "A-101", "A", 1, 3, [], 500, 600, 700);
+        var charge = MaintenanceCharge.Create("soc-001", apartment.Id, "schedule-001", "Monthly Maintenance", 2500m, DateTime.UtcNow.AddDays(5));
+        var society = Society.Create("Our Home", new Domain.ValueObjects.Address("Street", "City", "State", "12345", "India"), "soc@test.com", "8888888888", 1, 10);
+
+        _currentUserMock.Setup(x => x.IsInRoles(It.IsAny<string[]>())).Returns(true);
+        _chargeRepoMock
+            .Setup(r => r.GetByIdAsync(charge.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(charge);
+        _chargeRepoMock
+            .Setup(r => r.UpdateAsync(It.IsAny<MaintenanceCharge>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MaintenanceCharge c, CancellationToken _) => c);
+        _apartmentRepoMock
+            .Setup(r => r.GetByIdAsync(apartment.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(apartment);
+        _societyRepoMock
+            .Setup(r => r.GetByIdAsync("soc-001", "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(society);
 
         var handler = CreateHandler();
-        var command = new RecordFeePaymentCommand("soc-001", "invalid-id", "UPI", "TXN123", null);
+        var command = new MarkMaintenanceChargePaidCommand("soc-001", charge.Id, "UPI", "TXN123", null, null);
 
-        // Act
         var result = await handler.Handle(command, CancellationToken.None);
 
-        // Assert
-        result.IsFailure.Should().BeTrue();
-        result.ErrorCode.Should().Be(ErrorCodes.PaymentNotFound);
+        result.IsSuccess.Should().BeTrue();
+        charge.Status.Should().Be(PaymentStatus.Paid);
+        charge.TransactionReference.Should().Be("TXN123");
+        _eventPublisherMock.Verify(e => e.PublishAsync(It.IsAny<IDomainEvent>(), It.IsAny<CancellationToken>()), Times.AtLeastOnce);
     }
 }
