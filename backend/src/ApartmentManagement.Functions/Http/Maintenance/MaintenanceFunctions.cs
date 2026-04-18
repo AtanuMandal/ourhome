@@ -117,6 +117,17 @@ public class MaintenanceFunctions(ISender mediator)
         return result.ToActionResult();
     }
 
+    [Function("GetMaintenanceChargeGrid")]
+    public async Task<IActionResult> GetMaintenanceChargeGrid(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "societies/{societyId}/maintenance/grid")] HttpRequest req,
+        string societyId, CancellationToken ct)
+    {
+        int.TryParse(req.Query["year"], out var year);
+        var effectiveYear = year > 0 ? year : DateTime.UtcNow.Year;
+        var result = await mediator.Send(new GetMaintenanceChargeGridQuery(societyId, effectiveYear), ct);
+        return result.ToActionResult();
+    }
+
     [Function("SubmitMaintenancePaymentProof")]
     public async Task<IActionResult> SubmitMaintenancePaymentProof(
         [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "societies/{societyId}/maintenance/payments/proof")] HttpRequest req,

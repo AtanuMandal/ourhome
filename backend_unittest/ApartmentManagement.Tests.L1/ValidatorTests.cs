@@ -302,3 +302,32 @@ public class ResidentCommandValidatorTests
         result.Errors.Should().Contain(e => e.PropertyName == "ResidentType");
     }
 }
+
+public class UpdateSocietyCommandValidatorTests
+{
+    private readonly UpdateSocietyCommandValidator _validator = new();
+
+    private static UpdateSocietyCommand ValidCommand() => new(
+        "soc-001",
+        "Green Valley",
+        "admin@gv.com",
+        "+91-9876543210",
+        3,
+        60,
+        7,
+        null,
+        null);
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(91)]
+    public void Validate_WithOutOfRangeMaintenanceThreshold_FailsValidation(int thresholdDays)
+    {
+        var command = ValidCommand() with { MaintenanceOverdueThresholdDays = thresholdDays };
+
+        var result = _validator.Validate(command);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.PropertyName == "MaintenanceOverdueThresholdDays");
+    }
+}

@@ -114,7 +114,7 @@ import { Society, SocietyCommittee, SocietyUserAssignment } from '../../core/mod
              </div>
              <mat-form-field appearance="fill" class="full-width">
                <mat-label>Maintenance overdue threshold (days)</mat-label>
-               <input matInput type="number" formControlName="maintenanceOverdueThresholdDays" min="0">
+               <input matInput type="number" formControlName="maintenanceOverdueThresholdDays" min="1" max="90">
              </mat-form-field>
 
             <mat-divider style="margin:16px 0"></mat-divider>
@@ -246,7 +246,7 @@ export class SocietyDetailComponent implements OnInit {
     contactPhone: ['', Validators.required],
     totalBlocks: [1, [Validators.required, Validators.min(1)]],
     totalApartments: [1, [Validators.required, Validators.min(1)]],
-    maintenanceOverdueThresholdDays: [0, [Validators.required, Validators.min(0)]],
+    maintenanceOverdueThresholdDays: [7, [Validators.required, Validators.min(1), Validators.max(90)]],
     societyUsers: this.fb.array([]),
     committees: this.fb.array([]),
   });
@@ -326,7 +326,7 @@ export class SocietyDetailComponent implements OnInit {
       contactPhone: this.form.controls.contactPhone.value ?? '',
       totalBlocks: this.form.controls.totalBlocks.value ?? 1,
       totalApartments: this.form.controls.totalApartments.value ?? 1,
-      maintenanceOverdueThresholdDays: this.form.controls.maintenanceOverdueThresholdDays.value ?? 0,
+      maintenanceOverdueThresholdDays: this.form.controls.maintenanceOverdueThresholdDays.value ?? 7,
       societyUsers: this.societyUsers.controls
         .map(control => ({
           email: control.get('email')?.value?.trim() ?? '',
@@ -363,7 +363,7 @@ export class SocietyDetailComponent implements OnInit {
       contactPhone: society?.contactPhone ?? '',
       totalBlocks: society?.totalBlocks ?? 1,
       totalApartments: society?.totalApartments ?? 1,
-      maintenanceOverdueThresholdDays: society?.maintenanceOverdueThresholdDays ?? 0,
+      maintenanceOverdueThresholdDays: this.normalizeMaintenanceThreshold(society?.maintenanceOverdueThresholdDays),
     });
 
     this.societyUsers.clear();
@@ -388,5 +388,10 @@ export class SocietyDetailComponent implements OnInit {
       name: [committee?.name ?? '', Validators.required],
       members: this.fb.array((committee?.members ?? []).map(member => this.createUserGroup(member))),
     });
+  }
+
+  private normalizeMaintenanceThreshold(value?: number | null) {
+    if (!value || value < 1 || value > 90) return 7;
+    return value;
   }
 }

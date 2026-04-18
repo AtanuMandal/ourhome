@@ -29,11 +29,13 @@ public sealed class FakeSocietyRepository : FakeRepository<Society>, ISocietyRep
 
 public sealed class FakeApartmentRepository : FakeRepository<Apartment>, IApartmentRepository
 {
-    public Task<Apartment?> GetByUnitNumberAsync(string societyId, string block, string unitNumber, CancellationToken ct = default)
+    public Task<Apartment?> GetByLocationAsync(string societyId, string blockName, string apartmentNumber, int floorNumber, CancellationToken ct = default)
     {
         var found = Store.Values.FirstOrDefault(a =>
-            a.SocietyId == societyId &&
-            a.ApartmentNumber.Equals(unitNumber, StringComparison.OrdinalIgnoreCase));
+            string.Equals(a.SocietyId, societyId, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(a.BlockName, blockName, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(a.ApartmentNumber, apartmentNumber, StringComparison.OrdinalIgnoreCase) &&
+            a.FloorNumber == floorNumber);
         return Task.FromResult<Apartment?>(found);
     }
 

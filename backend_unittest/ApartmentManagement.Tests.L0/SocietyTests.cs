@@ -211,6 +211,18 @@ public class SocietyTests
         society.AmenityIds.Should().ContainSingle(id => id == amenityId);
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(91)]
+    public void SetMaintenanceOverdueThreshold_WithOutOfRangeValue_Throws(int thresholdDays)
+    {
+        var society = Society.Create("GV", ValidAddress(), "admin@gv.com", "+91-9876543210", 2, 40);
+
+        var act = () => society.SetMaintenanceOverdueThreshold(thresholdDays);
+
+        act.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
     [Fact]
     public void Update_WithValidData_UpdatesNameAndContact()
     {

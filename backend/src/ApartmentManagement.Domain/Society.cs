@@ -133,8 +133,8 @@ public sealed class Society : BaseEntity
 
     public void SetMaintenanceOverdueThreshold(int thresholdDays)
     {
-        if (thresholdDays < 0)
-            throw new ArgumentOutOfRangeException(nameof(thresholdDays), "Threshold must be zero or greater.");
+        if (thresholdDays < 1 || thresholdDays > 90)
+            throw new ArgumentOutOfRangeException(nameof(thresholdDays), "Threshold must be between 1 and 90 days.");
 
         MaintenanceOverdueThresholdDays = thresholdDays;
         TouchUpdatedAt();

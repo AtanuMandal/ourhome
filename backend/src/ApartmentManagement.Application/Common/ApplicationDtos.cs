@@ -260,6 +260,39 @@ public sealed record MaintenanceChargeDto(
     DateTime CreatedAt,
     DateTime UpdatedAt);
 
+public sealed record MaintenanceChargeGridChargeDto(
+    string Id,
+    string ScheduleId,
+    string ScheduleName,
+    decimal Amount,
+    string Status,
+    DateTime DueDate,
+    bool IsOverdue,
+    DateTime? PaidAt,
+    string? PaymentMethod,
+    string? TransactionReference,
+    string? ReceiptUrl,
+    string? Notes,
+    IReadOnlyList<MaintenancePaymentProofDto> Proofs);
+
+public sealed record MaintenanceChargeGridCellDto(
+    int Month,
+    decimal TotalAmount,
+    bool HasOverdue,
+    IReadOnlyList<MaintenanceChargeGridChargeDto> Charges);
+
+public sealed record MaintenanceChargeGridRowDto(
+    string ApartmentId,
+    string ApartmentNumber,
+    string? ResidentName,
+    IReadOnlyList<MaintenanceChargeGridCellDto> Months);
+
+public sealed record MaintenanceChargeGridDto(
+    string SocietyId,
+    int Year,
+    IReadOnlyList<int> Months,
+    IReadOnlyList<MaintenanceChargeGridRowDto> Rows);
+
 public sealed record CreateMaintenanceScheduleRequest(
     string Name,
     string? Description,
