@@ -85,11 +85,21 @@ public class ApartmentUserIntegrationTests : IntegrationTestBase
     }
 
     [Fact]
-    public async Task CreateApartment_DuplicateUnitNumberAcrossBlocks_ReturnsFailure()
+    public async Task CreateApartment_SameUnitNumberAcrossBlocks_Succeeds()
     {
         await Mediator.Send(AptCmd("202", "A"));
 
         var duplicate = await Mediator.Send(AptCmd("202", "B"));
+
+        duplicate.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CreateApartment_DuplicateLocation_ReturnsFailure()
+    {
+        await Mediator.Send(AptCmd("203", "A", 2));
+
+        var duplicate = await Mediator.Send(AptCmd("203", "A", 2));
 
         duplicate.IsFailure.Should().BeTrue();
         duplicate.ErrorCode.Should().Be(ApartmentManagement.Shared.Constants.ErrorCodes.ApartmentNumberDuplicate);
@@ -107,6 +117,18 @@ public class ApartmentUserIntegrationTests : IntegrationTestBase
         updateResult.IsSuccess.Should().BeTrue();
         updateResult.Value!.FloorNumber.Should().Be(3);
         updateResult.Value.NumberOfRooms.Should().Be(4);
+    }
+
+    [Fact]
+    public async Task UpdateApartment_ToExistingLocation_ReturnsFailure()
+    {
+        var first = (await Mediator.Send(AptCmd("302", "C", 2, 2))).Value!;
+        await Mediator.Send(AptCmd("302", "D", 3, 2));
+
+        var updateResult = await Mediator.Send(new UpdateApartmentCommand(SocietyId, first.Id, "D", 3, 4, ["P2"], 500, 600, 700));
+
+        updateResult.IsFailure.Should().BeTrue();
+        updateResult.ErrorCode.Should().Be(ApartmentManagement.Shared.Constants.ErrorCodes.ApartmentNumberDuplicate);
     }
 
     // ─── Apartment: change status ─────────────────────────────────────────────

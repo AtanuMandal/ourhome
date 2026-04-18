@@ -189,7 +189,7 @@ public class AcceptServiceRequestCommandHandlerTests
         var requestId = request.Id;
 
         _providerRepoMock
-            .Setup(r => r.GetByIdAsync(providerId, string.Empty, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByIdAsync(providerId, societyId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(provider);
         _requestRepoMock
             .Setup(r => r.GetByIdAsync(requestId, societyId, It.IsAny<CancellationToken>()))
@@ -221,7 +221,7 @@ public class AcceptServiceRequestCommandHandlerTests
         var providerId = provider.Id;
 
         _providerRepoMock
-            .Setup(r => r.GetByIdAsync(providerId, string.Empty, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByIdAsync(providerId, societyId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(provider);
 
         var handler = CreateHandler();
@@ -246,7 +246,7 @@ public class AcceptServiceRequestCommandHandlerTests
         var providerId = provider.Id;
 
         _providerRepoMock
-            .Setup(r => r.GetByIdAsync(providerId, string.Empty, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByIdAsync(providerId, societyId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(provider);
         _requestRepoMock
             .Setup(r => r.GetByIdAsync(It.IsAny<string>(), societyId, It.IsAny<CancellationToken>()))
@@ -260,6 +260,6 @@ public class AcceptServiceRequestCommandHandlerTests
 
         // Assert
         result.IsFailure.Should().BeTrue();
-        result.ErrorCode.Should().Be(ErrorCodes.NotFound);
+        result.ErrorCode.Should().Be(ErrorCodes.ServiceRequestNotFound);
     }
 }

@@ -39,11 +39,11 @@ public sealed class CreateApartmentCommandHandler(
                     ErrorCodes.ValidationFailed,
                     "Provide either ownerId or initialResident when onboarding an occupied apartment.");
 
-            var existing = await apartmentRepository.GetByUnitNumberAsync(
-                request.SocietyId, request.BlockName, request.ApartmentNumber, ct);
+            var existing = await apartmentRepository.GetByLocationAsync(
+                request.SocietyId, request.BlockName, request.ApartmentNumber, request.FloorNumber, ct);
             if (existing is not null)
                 return Result<ApartmentResponse>.Failure(ErrorCodes.ApartmentNumberDuplicate,
-                    $"Apartment {request.ApartmentNumber} already exists in this society.");
+                    ApartmentLocationMessages.DuplicateLocationMessage(request.ApartmentNumber, request.BlockName, request.FloorNumber));
 
             Domain.Entities.User? resident = null;
             ResidentType? residentType = null;
@@ -141,6 +141,20 @@ public sealed class UpdateApartmentCommandHandler(
         {
             var apartment = await apartmentRepository.GetByIdAsync(request.ApartmentId, request.SocietyId, ct)
                 ?? throw new NotFoundException("Apartment", request.ApartmentId);
+
+            var existing = await apartmentRepository.GetByLocationAsync(
+                request.SocietyId,
+                request.BlockName,
+                apartment.ApartmentNumber,
+                request.FloorNumber,
+                ct);
+
+            if (existing is not null && !string.Equals(existing.Id, apartment.Id, StringComparison.Ordinal))
+            {
+                return Result<ApartmentResponse>.Failure(
+                    ErrorCodes.ApartmentNumberDuplicate,
+                    ApartmentLocationMessages.DuplicateLocationMessage(apartment.ApartmentNumber, request.BlockName, request.FloorNumber));
+            }
 
             apartment.Update(request.BlockName, request.FloorNumber, request.NumberOfRooms, request.ParkingSlots,
                 request.CarpetArea, request.BuildUpArea, request.SuperBuildArea);
@@ -261,11 +275,11 @@ public sealed class BulkImportApartmentsCommandHandler(
         {
             try
             {
-                var existing = await apartmentRepository.GetByUnitNumberAsync(
-                    request.SocietyId, req.BlockName, req.ApartmentNumber, ct);
+                var existing = await apartmentRepository.GetByLocationAsync(
+                    request.SocietyId, req.BlockName, req.ApartmentNumber, req.FloorNumber, ct);
                 if (existing is not null)
                 {
-                    errors.Add($"Apartment {req.ApartmentNumber} already exists in this society.");
+                    errors.Add(ApartmentLocationMessages.DuplicateLocationMessage(req.ApartmentNumber, req.BlockName, req.FloorNumber));
                     continue;
                 }
 
@@ -328,6 +342,12 @@ public sealed class BulkImportApartmentsCommandHandler(
             request.Apartments.Count - succeeded, errors);
         return Result<BulkImportResult>.Success(result);
     }
+}
+
+internal static class ApartmentLocationMessages
+{
+    internal static string DuplicateLocationMessage(string apartmentNumber, string blockName, int floorNumber) =>
+        $"Apartment {apartmentNumber.Trim()} in block {blockName.Trim()} on floor {floorNumber} already exists in this society.";
 }
 
 // ─── Queries ──────────────────────────────────────────────────────────────────

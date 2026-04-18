@@ -38,7 +38,7 @@ public class CreateApartmentCommandHandlerTests
         var societyId = "society-001";
 
         _apartmentRepoMock
-            .Setup(r => r.GetByUnitNumberAsync(societyId, "A", "A101", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByLocationAsync(societyId, "A", "A101", 1, It.IsAny<CancellationToken>()))
             .ReturnsAsync((Apartment?)null);
         _apartmentRepoMock
             .Setup(r => r.CreateAsync(It.IsAny<Apartment>(), It.IsAny<CancellationToken>()))
@@ -59,13 +59,13 @@ public class CreateApartmentCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WhenApartmentNumberExistsInAnotherBlock_ReturnsFailure()
+    public async Task Handle_WhenApartmentLocationExists_ReturnsFailure()
     {
         var societyId = "society-001";
-        var existingApartment = Apartment.Create(societyId, "A101", "A", 1, 3, [], 500, 600, 700);
+        var existingApartment = Apartment.Create(societyId, "A101", "B", 2, 3, [], 500, 600, 700);
 
         _apartmentRepoMock
-            .Setup(r => r.GetByUnitNumberAsync(societyId, "B", "A101", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByLocationAsync(societyId, "B", "A101", 2, It.IsAny<CancellationToken>()))
             .ReturnsAsync(existingApartment);
 
         var handler = CreateHandler();
@@ -85,7 +85,7 @@ public class CreateApartmentCommandHandlerTests
         _currentUserServiceMock.SetupGet(s => s.UserId).Returns("admin-001");
 
         _apartmentRepoMock
-            .Setup(r => r.GetByUnitNumberAsync(societyId, "A", "A102", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByLocationAsync(societyId, "A", "A102", 1, It.IsAny<CancellationToken>()))
             .ReturnsAsync((Apartment?)null);
         _apartmentRepoMock
             .Setup(r => r.CreateAsync(It.IsAny<Apartment>(), It.IsAny<CancellationToken>()))
@@ -144,7 +144,7 @@ public class CreateApartmentCommandHandlerTests
         typeof(BaseEntity).GetProperty(nameof(BaseEntity.SocietyId))!.SetValue(society, societyId);
 
         _apartmentRepoMock
-            .Setup(r => r.GetByUnitNumberAsync(societyId, "A", "A103", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByLocationAsync(societyId, "A", "A103", 1, It.IsAny<CancellationToken>()))
             .ReturnsAsync((Apartment?)null);
         _apartmentRepoMock
             .Setup(r => r.CreateAsync(It.IsAny<Apartment>(), It.IsAny<CancellationToken>()))
@@ -207,7 +207,7 @@ public class CreateApartmentCommandHandlerTests
             ResidentType.Owner);
 
         _apartmentRepoMock
-            .Setup(r => r.GetByUnitNumberAsync(societyId, "A", "A105", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByLocationAsync(societyId, "A", "A105", 1, It.IsAny<CancellationToken>()))
             .ReturnsAsync((Apartment?)null);
         _apartmentRepoMock
             .Setup(r => r.CreateAsync(It.IsAny<Apartment>(), It.IsAny<CancellationToken>()))
@@ -232,6 +232,38 @@ public class CreateApartmentCommandHandlerTests
         result.IsSuccess.Should().BeTrue();
         result.Value!.Status.Should().Be("Occupied");
         result.Value.Residents.Should().ContainSingle(r => r.ResidentType == "Owner" && r.UserId == owner.Id);
+    }
+}
+
+public class UpdateApartmentCommandHandlerTests
+{
+    private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
+    private readonly Mock<ILogger<UpdateApartmentCommandHandler>> _loggerMock = new();
+
+    private UpdateApartmentCommandHandler CreateHandler() =>
+        new(_apartmentRepoMock.Object, _loggerMock.Object);
+
+    [Fact]
+    public async Task Handle_WhenAnotherApartmentAlreadyUsesSameLocation_ReturnsFailure()
+    {
+        var societyId = "society-001";
+        var apartment = Apartment.Create(societyId, "A101", "A", 1, 3, [], 500, 600, 700);
+        var conflictingApartment = Apartment.Create(societyId, "A101", "B", 2, 3, [], 500, 600, 700);
+
+        _apartmentRepoMock
+            .Setup(r => r.GetByIdAsync(apartment.Id, societyId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(apartment);
+        _apartmentRepoMock
+            .Setup(r => r.GetByLocationAsync(societyId, "B", "A101", 2, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(conflictingApartment);
+
+        var result = await CreateHandler().Handle(
+            new UpdateApartmentCommand(societyId, apartment.Id, "B", 2, 4, ["P2"], 500, 600, 700),
+            CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.ApartmentNumberDuplicate);
+        _apartmentRepoMock.Verify(r => r.UpdateAsync(It.IsAny<Apartment>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 }
 
@@ -299,7 +331,7 @@ public class BulkImportApartmentsCommandHandlerTests
         var societyId = "soc-001";
 
         _apartmentRepoMock
-            .Setup(r => r.GetByUnitNumberAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByLocationAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Apartment?)null);
         _apartmentRepoMock
             .Setup(r => r.CreateAsync(It.IsAny<Apartment>(), It.IsAny<CancellationToken>()))
@@ -327,19 +359,19 @@ public class BulkImportApartmentsCommandHandlerTests
         
 
     [Fact]
-    public async Task Handle_WithDuplicateApartmentNumbersAcrossBlocks_ReturnsFailures()
+    public async Task Handle_WithDuplicateApartmentLocations_ReturnsFailures()
     {
         var societyId = "soc-001";
         var existing = Apartment.Create(societyId, "A101", "A", 1, 3, [], 500, 600, 700);
 
         _apartmentRepoMock
-            .Setup(r => r.GetByUnitNumberAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByLocationAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(existing);
 
         var apartments = new List<CreateApartmentRequest>
         {
             new("A101", "A", 1, 3, ["P1"], null, 500, 600, 700),
-            new("A101", "B", 2, 4, ["P2"], null, 500, 600, 700),
+            new("A101", "A", 1, 4, ["P2"], null, 500, 600, 700),
         };
 
         var result = await CreateHandler().Handle(new BulkImportApartmentsCommand(societyId, apartments), CancellationToken.None);

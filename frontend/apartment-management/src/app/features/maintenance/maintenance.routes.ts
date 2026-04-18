@@ -8,6 +8,11 @@ export const MAINTENANCE_ROUTES: Routes = [
     loadComponent: () => import('./maintenance-dashboard.component').then(m => m.MaintenanceDashboardComponent),
   },
   {
+    path: 'admin/grid',
+    canActivate: [adminGuard],
+    loadComponent: () => import('./maintenance-admin-grid.component').then(m => m.MaintenanceAdminGridComponent),
+  },
+  {
     path: 'admin',
     canActivate: [adminGuard],
     loadComponent: () => import('./maintenance-admin.component').then(m => m.MaintenanceAdminComponent),

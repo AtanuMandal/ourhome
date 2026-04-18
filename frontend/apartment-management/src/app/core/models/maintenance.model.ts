@@ -40,6 +40,43 @@ export interface MaintenancePaymentProof {
   submittedAt: string;
 }
 
+export interface MaintenanceGridCharge {
+  id: string;
+  scheduleId: string;
+  scheduleName: string;
+  amount: number;
+  status: MaintenanceChargeStatus;
+  dueDate: string;
+  isOverdue: boolean;
+  paidAt?: string | null;
+  paymentMethod?: string | null;
+  transactionReference?: string | null;
+  receiptUrl?: string | null;
+  notes?: string | null;
+  proofs: MaintenancePaymentProof[];
+}
+
+export interface MaintenanceGridCell {
+  month: number;
+  totalAmount: number;
+  hasOverdue: boolean;
+  charges: MaintenanceGridCharge[];
+}
+
+export interface MaintenanceGridRow {
+  apartmentId: string;
+  apartmentNumber: string;
+  residentName?: string | null;
+  months: MaintenanceGridCell[];
+}
+
+export interface MaintenanceChargeGrid {
+  societyId: string;
+  year: number;
+  months: number[];
+  rows: MaintenanceGridRow[];
+}
+
 export interface MaintenanceCharge {
   id: string;
   societyId: string;

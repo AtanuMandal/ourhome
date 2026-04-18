@@ -32,7 +32,7 @@ This document outlines the steps to add new apartments to an existing society in
    - Ensure the new apartment appears in the list of apartments for the selected society.
 
 ## Notes
-- Ensure that the apartment number is unique within the society.
+- Ensure that the combination of apartment number, block nubber and floor number  is unique within the society.
 - If the apartment is already occupied, ensure that the owner/resident details are accurate.
 - If the apartment is vacant, mark it as "Available" in the system.
 

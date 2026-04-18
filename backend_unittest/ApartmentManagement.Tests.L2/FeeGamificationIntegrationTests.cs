@@ -173,6 +173,53 @@ public class FeeGamificationIntegrationTests : IntegrationTestBase
         historyResult.Value!.Items.Should().Contain(item => item.Id == charge.Id && item.ScheduleName == "Maintenance");
     }
 
+    [Fact]
+    public async Task GetMaintenanceChargeGrid_ReturnsApartmentRowsAndMonthCells()
+    {
+        var context = await SeedMaintenanceContextAsync();
+        context.Society.SetMaintenanceOverdueThreshold(5);
+        await SocietyRepo.UpdateAsync(context.Society);
+
+        context.Apartment.AssignOwner(context.Resident.Id, context.Resident.FullName ?? "Resident User");
+        await ApartmentRepo.UpdateAsync(context.Apartment);
+
+        var secondApartment = Apartment.Create(context.Society.Id, "B-202", "B", 2, 4, [], 900, 1000, 1100);
+        secondApartment.AssignOwner("owner-002", "Owner Two");
+        await ApartmentRepo.CreateAsync(secondApartment);
+
+        var firstCharge = MaintenanceCharge.Create(
+            context.Society.Id,
+            context.Apartment.Id,
+            "schedule-jan",
+            "General Maintenance",
+            1000m,
+            new DateTime(DateTime.UtcNow.Year, 1, 5, 0, 0, 0, DateTimeKind.Utc));
+        var secondCharge = MaintenanceCharge.Create(
+            context.Society.Id,
+            secondApartment.Id,
+            "schedule-feb",
+            "General Maintenance",
+            1500m,
+            new DateTime(DateTime.UtcNow.Year, 2, 10, 0, 0, 0, DateTimeKind.Utc));
+
+        await MaintenanceChargeRepo.CreateAsync(firstCharge);
+        await MaintenanceChargeRepo.CreateAsync(secondCharge);
+
+        var gridResult = await Mediator.Send(new GetMaintenanceChargeGridQuery(context.Society.Id, DateTime.UtcNow.Year));
+
+        gridResult.IsSuccess.Should().BeTrue();
+        gridResult.Value!.Rows.Should().HaveCount(2);
+        var firstRow = gridResult.Value.Rows.Single(row => row.ApartmentId == context.Apartment.Id);
+        firstRow.ResidentName.Should().Be(context.Resident.FullName);
+        firstRow.Months.Should().HaveCount(12);
+        firstRow.Months.Single(month => month.Month == 1).Charges.Should().ContainSingle(charge => charge.Id == firstCharge.Id);
+        firstRow.Months.Single(month => month.Month == 1).HasOverdue.Should().BeTrue();
+
+        var secondRow = gridResult.Value.Rows.Single(row => row.ApartmentId == secondApartment.Id);
+        secondRow.ResidentName.Should().Be("Owner Two");
+        secondRow.Months.Single(month => month.Month == 2).Charges.Should().ContainSingle(charge => charge.Id == secondCharge.Id);
+    }
+
     // ─── Gamification: Award Points → get user points ────────────────────────
 
     [Fact]

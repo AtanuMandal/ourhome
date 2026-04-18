@@ -42,10 +42,18 @@ public class SocietyRepository(CosmosClient client, string dbName, ILogger<Socie
 public class ApartmentRepository(CosmosClient client, string dbName, ILogger<ApartmentRepository> logger)
     : CosmosDbRepository<Apartment>(client, dbName, "apartments", logger), IApartmentRepository
 {
-    public async Task<Apartment?> GetByUnitNumberAsync(string societyId, string block, string unitNumber, CancellationToken ct = default)
+    public async Task<Apartment?> GetByLocationAsync(string societyId, string blockName, string apartmentNumber, int floorNumber, CancellationToken ct = default)
     {
-        var q = new QueryDefinition("SELECT * FROM c WHERE c.societyId = @sid AND c.apartmentNumber = @unit")
-            .WithParameter("@sid", societyId).WithParameter("@unit", unitNumber);
+        var q = new QueryDefinition(@"
+SELECT * FROM c
+WHERE c.societyId = @sid
+  AND c.apartmentNumber = @apartmentNumber
+  AND c.blockName = @blockName
+  AND c.floorNumber = @floorNumber")
+            .WithParameter("@sid", societyId)
+            .WithParameter("@apartmentNumber", apartmentNumber.Trim().ToUpperInvariant())
+            .WithParameter("@blockName", blockName.Trim().ToUpperInvariant())
+            .WithParameter("@floorNumber", floorNumber);
         var results = await ExecuteQueryAsync(q, societyId, ct);
         return results.FirstOrDefault();
     }

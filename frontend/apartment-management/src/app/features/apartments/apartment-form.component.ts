@@ -1,4 +1,5 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormBuilder, Validators, ReactiveFormsModule } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -27,7 +28,16 @@ type OccupancyOption = 'Available' | 'Owner' | 'Tenant';
             <mat-label>Apartment Number</mat-label>
             <input matInput formControlName="apartmentNumber" placeholder="e.g. A-101">
             @if (form.get('apartmentNumber')?.invalid && form.get('apartmentNumber')?.touched) {
-              <mat-error>Apartment number is required</mat-error>
+              <mat-error>
+                @if (form.get('apartmentNumber')?.hasError('duplicateLocation')) {
+                  Another apartment already uses this apartment number, block, and floor in the society.
+                } @else {
+                  Apartment number is required
+                }
+              </mat-error>
+            }
+            @if (editId) {
+              <mat-hint>Apartment number cannot be changed after creation.</mat-hint>
             }
           </mat-form-field>
 
@@ -35,14 +45,27 @@ type OccupancyOption = 'Available' | 'Owner' | 'Tenant';
             <mat-label>Block Name</mat-label>
             <input matInput formControlName="blockName" placeholder="e.g. Block A">
             @if (form.get('blockName')?.invalid && form.get('blockName')?.touched) {
-              <mat-error>Block name is required</mat-error>
+              <mat-error>
+                @if (form.get('blockName')?.hasError('duplicateLocation')) {
+                  Another apartment already uses this apartment number, block, and floor in the society.
+                } @else {
+                  Block name is required
+                }
+              </mat-error>
             }
           </mat-form-field>
 
           <mat-form-field appearance="fill" class="full-width">
             <mat-label>Floor Number</mat-label>
             <input matInput type="number" formControlName="floorNumber">
+            @if (form.get('floorNumber')?.hasError('duplicateLocation') && form.get('floorNumber')?.touched) {
+              <mat-error>Another apartment already uses this apartment number, block, and floor in the society.</mat-error>
+            }
           </mat-form-field>
+
+          @if (duplicateLocationMessage()) {
+            <p class="helper-copy error-copy">{{ duplicateLocationMessage() }}</p>
+          }
 
           <mat-form-field appearance="fill" class="full-width">
             <mat-label>Number of Rooms</mat-label>
@@ -133,6 +156,7 @@ export class ApartmentFormComponent implements OnInit {
   private readonly router = inject(Router);
 
   readonly loading = signal(false);
+  readonly duplicateLocationMessage = signal('');
   editId = '';
 
   readonly form = this.fb.group({
@@ -153,9 +177,13 @@ export class ApartmentFormComponent implements OnInit {
   ngOnInit() {
     this.updateResidentValidators(this.form.controls.occupancy.value);
     this.form.controls.occupancy.valueChanges.subscribe(value => this.updateResidentValidators(value));
+    this.form.controls.apartmentNumber.valueChanges.subscribe(() => this.clearDuplicateLocationError());
+    this.form.controls.blockName.valueChanges.subscribe(() => this.clearDuplicateLocationError());
+    this.form.controls.floorNumber.valueChanges.subscribe(() => this.clearDuplicateLocationError());
 
     this.editId = this.route.snapshot.paramMap.get('id') ?? '';
     if (this.editId) {
+      this.form.controls.apartmentNumber.disable({ emitEvent: false });
       const sid = this.auth.societyId()!;
       this.loading.set(true);
       this.svc.get(sid, this.editId).subscribe({
@@ -179,6 +207,7 @@ export class ApartmentFormComponent implements OnInit {
 
   submit() {
     if (this.form.invalid) return;
+    this.clearDuplicateLocationError();
     const sid = this.auth.societyId()!;
     this.loading.set(true);
     const value = this.form.getRawValue();
@@ -217,7 +246,12 @@ export class ApartmentFormComponent implements OnInit {
         } satisfies CreateApartmentDto);
     action.subscribe({
       next: a => { this.loading.set(false); this.router.navigate(['/apartments', a.id]); },
-      error: () => this.loading.set(false),
+      error: error => {
+        this.loading.set(false);
+        if (this.handleDuplicateLocationError(error)) {
+          return;
+        }
+      },
     });
   }
 
@@ -251,5 +285,34 @@ export class ApartmentFormComponent implements OnInit {
 
     for (const control of residentControls)
       control.updateValueAndValidity({ emitEvent: false });
+  }
+
+  private handleDuplicateLocationError(error: unknown) {
+    if (!(error instanceof HttpErrorResponse) || error.status !== 409) {
+      return false;
+    }
+
+    const message = typeof error.error?.error === 'string'
+      ? error.error.error
+      : 'Another apartment already uses this apartment number, block, and floor in the society.';
+
+    this.duplicateLocationMessage.set(message);
+    for (const control of [this.form.controls.apartmentNumber, this.form.controls.blockName, this.form.controls.floorNumber]) {
+      control.setErrors({ ...(control.errors ?? {}), duplicateLocation: true });
+      control.markAsTouched();
+    }
+    return true;
+  }
+
+  private clearDuplicateLocationError() {
+    this.duplicateLocationMessage.set('');
+    for (const control of [this.form.controls.apartmentNumber, this.form.controls.blockName, this.form.controls.floorNumber]) {
+      if (!control.hasError('duplicateLocation')) {
+        continue;
+      }
+
+      const { duplicateLocation, ...rest } = control.errors ?? {};
+      control.setErrors(Object.keys(rest).length ? rest : null);
+    }
   }
 }

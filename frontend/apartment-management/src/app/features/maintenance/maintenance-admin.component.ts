@@ -6,6 +6,7 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { RouterLink } from '@angular/router';
 import { Observable } from 'rxjs';
 import { MaintenanceAreaBasis, MaintenanceFrequency, MaintenancePricingType, MaintenanceSchedule } from '../../core/models/maintenance.model';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
@@ -34,6 +35,7 @@ import {
     MatFormFieldModule,
     MatInputModule,
     MatProgressBarModule,
+    RouterLink,
     PageHeaderComponent,
     LoadingSpinnerComponent,
     EmptyStateComponent,
@@ -165,6 +167,9 @@ import {
               <h2 class="section-title">Charge register</h2>
               <p class="section-copy">Filter by year, month, or payment status and track overdue dues.</p>
             </div>
+            <button mat-stroked-button color="primary" routerLink="/maintenance/admin/grid" type="button">
+              Open payment grid
+            </button>
           </div>
 
           <form [formGroup]="filterForm" class="filters">

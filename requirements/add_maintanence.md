@@ -36,17 +36,18 @@ Apartment society SUAdmin must be able to configure and manage maintenance fees 
 
 ### Resident View
 - Resident can view their maintenance fee year and month wise , witha a option to pay
-- Resident can upload payment proff for single and multiple payments.
-- Once uplaoded admin will get notification for approval
+- Resident can upload payment proff for single and multiple payments for theirts apartment specific maintenance fees.
+- Once uplaoded admin will get notification for approval for the payment request.
 - Residents can view their maintenance fee payment history.
 - Payment records should show due date, amount, status, and overdue state.
 - Overdue amounts must be highlighted using society-specific overdue threshold settings.
 
 ### Administrator Controls
 - SUAdmin can create and modify fee schedules from the fee schedule list page.
-- SUAdmin can mark apartment maintenance payments as paid.
-- SUAdmin can see society-wide fee payments for all apartment and overdue status for all apartments.
-- The society configuration must include an overdue threshold in days for late fee identification.SUAdmin should be able to control this
+- SUAdmin can see society-wide fee payments for all apartment and overdue status for all apartments in agrid view month wise , where month will be in X axis and apartments with owner name will be in Y axis . Make a separate page for this .
+- SUAdmin can mark apartment maintenance payments as paid by viewing the uploaded file and other parameters from the same grid view of maintenance
+- The society configuration must include an overdue threshold in days for late fee identification.SUAdmin should be able to control this.
+- Overdue threshold should be between 1 to 90 days . 
 
 ## Acceptance Criteria
 - A fee schedule can be created with monthly, quarterly, or yearly recurrence.

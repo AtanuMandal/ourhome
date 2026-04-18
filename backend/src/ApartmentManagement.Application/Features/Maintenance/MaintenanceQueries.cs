@@ -1,6 +1,7 @@
 using ApartmentManagement.Application.Interfaces;
 using ApartmentManagement.Application.Mappings;
 using ApartmentManagement.Application.DTOs;
+using ApartmentManagement.Domain.Entities;
 using ApartmentManagement.Domain.Enums;
 using ApartmentManagement.Domain.Repositories;
 using ApartmentManagement.Shared.Constants;
@@ -137,4 +138,109 @@ public sealed class GetApartmentMaintenanceHistoryQueryHandler(
             return Result<PagedResult<MaintenanceChargeDto>>.Failure(ErrorCodes.InternalError, ex.Message);
         }
     }
+}
+
+public record GetMaintenanceChargeGridQuery(string SocietyId, int Year)
+    : IRequest<Result<MaintenanceChargeGridDto>>;
+
+public sealed class GetMaintenanceChargeGridQueryHandler(
+    IMaintenanceChargeRepository chargeRepository,
+    IApartmentRepository apartmentRepository,
+    ISocietyRepository societyRepository,
+    ICurrentUserService currentUserService)
+    : IRequestHandler<GetMaintenanceChargeGridQuery, Result<MaintenanceChargeGridDto>>
+{
+    public async Task<Result<MaintenanceChargeGridDto>> Handle(GetMaintenanceChargeGridQuery request, CancellationToken ct)
+    {
+        try
+        {
+            if (!currentUserService.IsInRoles("SUAdmin", "HQAdmin"))
+                throw new ForbiddenException("Only society admins can access the maintenance payment grid.");
+
+            var society = await societyRepository.GetByIdAsync(request.SocietyId, request.SocietyId, ct)
+                ?? throw new NotFoundException("Society", request.SocietyId);
+
+            var apartments = await apartmentRepository.GetAllAsync(request.SocietyId, ct);
+            var charges = await chargeRepository.GetBySocietyAsync(request.SocietyId, 1, 10000, null, null, request.Year, null, ct);
+            var monthNumbers = Enumerable.Range(1, 12).ToList();
+
+            var rows = apartments
+                .OrderBy(apartment => apartment.BlockName, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(apartment => apartment.ApartmentNumber, StringComparer.OrdinalIgnoreCase)
+                .Select(apartment =>
+                {
+                    var apartmentCharges = charges
+                        .Where(charge => string.Equals(charge.ApartmentId, apartment.Id, StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+
+                    var months = monthNumbers
+                        .Select(month =>
+                        {
+                            var monthCharges = apartmentCharges
+                                .Where(charge => charge.ChargeMonth == month)
+                                .OrderBy(charge => charge.DueDate)
+                                .Select(charge => ToGridChargeDto(charge, society.MaintenanceOverdueThresholdDays))
+                                .ToList();
+
+                            return new MaintenanceChargeGridCellDto(
+                                month,
+                                monthCharges.Sum(charge => charge.Amount),
+                                monthCharges.Any(charge => charge.IsOverdue),
+                                monthCharges);
+                        })
+                        .ToList();
+
+                    var residentName = apartment.GetResident(ResidentType.Owner)?.UserName
+                        ?? apartment.GetResident(ResidentType.Tenant)?.UserName
+                        ?? apartment.GetResidentsForRead().FirstOrDefault()?.UserName;
+
+                    return new MaintenanceChargeGridRowDto(
+                        apartment.Id,
+                        apartment.ApartmentNumber,
+                        residentName,
+                        months);
+                })
+                .ToList();
+
+            return Result<MaintenanceChargeGridDto>.Success(new MaintenanceChargeGridDto(
+                request.SocietyId,
+                request.Year,
+                monthNumbers,
+                rows));
+        }
+        catch (ForbiddenException ex)
+        {
+            return Result<MaintenanceChargeGridDto>.Failure(ErrorCodes.Forbidden, ex.Message);
+        }
+        catch (NotFoundException ex)
+        {
+            return Result<MaintenanceChargeGridDto>.Failure(ErrorCodes.SocietyNotFound, ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return Result<MaintenanceChargeGridDto>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+
+    private static MaintenanceChargeGridChargeDto ToGridChargeDto(MaintenanceCharge charge, int overdueThresholdDays) =>
+        new(
+            charge.Id,
+            charge.ScheduleId,
+            charge.ScheduleName,
+            charge.Amount,
+            charge.Status.ToString(),
+            charge.DueDate,
+            charge.Status != PaymentStatus.Paid && charge.DueDate.Date.AddDays(overdueThresholdDays) < DateTime.UtcNow.Date,
+            charge.PaidAt,
+            charge.PaymentMethod,
+            charge.TransactionReference,
+            charge.ReceiptUrl,
+            charge.Notes,
+            charge.Proofs
+                .Select(proof => new MaintenancePaymentProofDto(
+                    proof.ProofUrl,
+                    proof.Notes,
+                    proof.SubmittedByUserId,
+                    proof.SubmittedAt))
+                .ToList());
 }

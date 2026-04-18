@@ -51,6 +51,7 @@ public sealed class UpdateSocietyCommandValidator : AbstractValidator<UpdateSoci
         RuleFor(x => x.ContactPhone).NotEmpty();
         RuleFor(x => x.TotalBlocks).GreaterThan(0);
         RuleFor(x => x.TotalApartments).GreaterThan(0);
+        RuleFor(x => x.MaintenanceOverdueThresholdDays).InclusiveBetween(1, 90);
         When(x => x.SocietyUsers is not null, () =>
         {
             RuleForEach(x => x.SocietyUsers!)
@@ -107,6 +108,24 @@ public sealed class CreateApartmentCommandValidator : AbstractValidator<CreateAp
                 .Must(type => type is ResidentType.Owner or ResidentType.Tenant)
                 .WithMessage("Initial resident must be an owner or tenant.");
         });
+    }
+}
+
+public sealed class UpdateApartmentCommandValidator : AbstractValidator<UpdateApartmentCommand>
+{
+    public UpdateApartmentCommandValidator()
+    {
+        RuleFor(x => x.SocietyId).NotEmpty();
+        RuleFor(x => x.ApartmentId).NotEmpty();
+        RuleFor(x => x.BlockName).NotEmpty();
+        RuleFor(x => x.FloorNumber).GreaterThanOrEqualTo(0);
+        RuleFor(x => x.NumberOfRooms).InclusiveBetween(1, 20);
+        RuleFor(x => x.ParkingSlots).NotNull().Must(slots => slots.Count <= 10)
+            .WithMessage("No more than 10 parking slots can be assigned.");
+        RuleForEach(x => x.ParkingSlots).NotEmpty().MaximumLength(50);
+        RuleFor(x => x.CarpetArea).GreaterThan(0).WithMessage("Carpet area must be greater than 0.");
+        RuleFor(x => x.BuildUpArea).GreaterThan(0).WithMessage("BuildUp area must be greater than 0.");
+        RuleFor(x => x.SuperBuildArea).GreaterThan(0).WithMessage("SuperBuild area must be greater than 0.");
     }
 }
 

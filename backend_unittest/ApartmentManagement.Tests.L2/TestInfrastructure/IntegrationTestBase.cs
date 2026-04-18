@@ -19,7 +19,11 @@ public sealed class FakeCurrentUserService : ICurrentUserService
     public bool IsAuthenticated => true;
 
     public bool IsInRole(string role) =>
-        role == Role || role == "SUAdmin" || role == "HQAdmin" || role == "SocietyAdmin" || role == "SuperAdmin";
+        string.Equals(role, Role, StringComparison.OrdinalIgnoreCase)
+        || (string.Equals(Role, "SUAdmin", StringComparison.OrdinalIgnoreCase) && string.Equals(role, "SocietyAdmin", StringComparison.OrdinalIgnoreCase))
+        || (string.Equals(Role, "SocietyAdmin", StringComparison.OrdinalIgnoreCase) && string.Equals(role, "SUAdmin", StringComparison.OrdinalIgnoreCase))
+        || (string.Equals(Role, "HQAdmin", StringComparison.OrdinalIgnoreCase) && string.Equals(role, "SuperAdmin", StringComparison.OrdinalIgnoreCase))
+        || (string.Equals(Role, "SuperAdmin", StringComparison.OrdinalIgnoreCase) && string.Equals(role, "HQAdmin", StringComparison.OrdinalIgnoreCase));
 
     public bool IsInRoles(params string[] roles) => roles.Any(IsInRole);
 }

@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { ApiService } from './api.service';
 import {
   CreateMaintenanceScheduleDto,
+  MaintenanceChargeGrid,
   MaintenanceCharge,
   MaintenanceChargeFilters,
   MaintenanceSchedule,
@@ -57,6 +58,10 @@ export class MaintenanceService {
 
   markPaid(societyId: string, chargeId: string, dto: MarkMaintenanceChargePaidDto) {
     return this.api.post<boolean>(`societies/${societyId}/maintenance/charges/${chargeId}/mark-paid`, dto);
+  }
+
+  getChargeGrid(societyId: string, year: number) {
+    return this.api.get<MaintenanceChargeGrid>(`societies/${societyId}/maintenance/grid`, { year });
   }
 
   private toQuery(filters: MaintenanceChargeFilters): Record<string, string | number> {
