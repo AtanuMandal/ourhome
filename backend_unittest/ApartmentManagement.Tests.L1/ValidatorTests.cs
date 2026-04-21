@@ -1,5 +1,6 @@
 using ApartmentManagement.Application.Commands.Amenity;
 using ApartmentManagement.Application.Commands.Complaint;
+using ApartmentManagement.Application.Commands.Maintenance;
 using ApartmentManagement.Application.Commands.Society;
 using ApartmentManagement.Application.Commands.User;
 using ApartmentManagement.Application.Validators;
@@ -329,5 +330,83 @@ public class UpdateSocietyCommandValidatorTests
 
         result.IsValid.Should().BeFalse();
         result.Errors.Should().Contain(e => e.PropertyName == "MaintenanceOverdueThresholdDays");
+    }
+}
+
+public class MaintenanceScheduleCommandValidatorTests
+{
+    private readonly CreateMaintenanceScheduleCommandValidator _createValidator = new();
+    private readonly UpdateMaintenanceScheduleCommandValidator _updateValidator = new();
+    private readonly DeleteMaintenanceScheduleCommandValidator _deleteValidator = new();
+
+    [Fact]
+    public void CreateSchedule_WithValidLifecycleFields_PassesValidation()
+    {
+        var command = new CreateMaintenanceScheduleCommand(
+            "soc-001",
+            "Monthly Maintenance",
+            null,
+            null,
+            1200m,
+            MaintenancePricingType.FixedAmount,
+            null,
+            FeeFrequency.Monthly,
+            5,
+            4,
+            2026);
+
+        var result = _createValidator.Validate(command);
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void CreateSchedule_WithInvalidStartMonth_FailsValidation()
+    {
+        var command = new CreateMaintenanceScheduleCommand(
+            "soc-001",
+            "Monthly Maintenance",
+            null,
+            null,
+            1200m,
+            MaintenancePricingType.FixedAmount,
+            null,
+            FeeFrequency.Monthly,
+            5,
+            13,
+            2026);
+
+        var result = _createValidator.Validate(command);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(error => error.PropertyName == "StartMonth");
+    }
+
+    [Fact]
+    public void UpdateSchedule_WithInvalidEffectiveYear_FailsValidation()
+    {
+        var command = new UpdateMaintenanceScheduleCommand(
+            "soc-001",
+            "schedule-001",
+            false,
+            6,
+            1999,
+            "Deactivating old schedule");
+
+        var result = _updateValidator.Validate(command);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(error => error.PropertyName == "EffectiveYear");
+    }
+
+    [Fact]
+    public void DeleteSchedule_WithoutReason_FailsValidation()
+    {
+        var command = new DeleteMaintenanceScheduleCommand("soc-001", "schedule-001", "");
+
+        var result = _deleteValidator.Validate(command);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(error => error.PropertyName == "ChangeReason");
     }
 }

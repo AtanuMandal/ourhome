@@ -294,7 +294,12 @@ import { MAINTENANCE_PAGE_STYLES, MONTH_OPTIONS } from './maintenance-shared';
     </div>
   `,
   styles: [MAINTENANCE_PAGE_STYLES + `
-    .grid-shell { overflow-x: auto; }
+    .grid-shell {
+      overflow-x: auto;
+      overflow-y: scroll;
+      max-height: calc(100vh - 260px);
+      scrollbar-gutter: stable;
+    }
     .payment-grid { width: 100%; min-width: 1280px; border-collapse: separate; border-spacing: 0; }
     .payment-grid th, .payment-grid td { border: 1px solid var(--border); vertical-align: top; padding: 12px; background: white; }
     .payment-grid th { position: sticky; top: 0; background: #f8fafc; z-index: 1; text-align: left; }

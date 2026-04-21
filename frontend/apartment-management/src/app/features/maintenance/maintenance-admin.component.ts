@@ -54,111 +54,172 @@ import {
         <section #scheduleEditor class="card card--spaced">
           <div class="section-header">
             <div>
-              <h2 class="section-title">{{ editingScheduleId() ? 'Edit schedule' : 'Create schedule' }}</h2>
-              <p class="section-copy">Create society-wide or apartment-specific maintenance schedules with fixed or area-based pricing.</p>
+              <h2 class="section-title">{{ editingScheduleId() ? 'Manage schedule status' : 'Create schedule' }}</h2>
+              <p class="section-copy">
+                {{ editingScheduleId()
+                  ? 'Existing schedule details are read-only. You can activate or inactivate it from a specific month and year.'
+                  : 'Create society-wide or apartment-specific maintenance schedules with fixed or area-based pricing.' }}
+              </p>
             </div>
-            @if (editingScheduleId()) {
-              <button mat-stroked-button type="button" (click)="resetScheduleForm()">Cancel edit</button>
-            }
+            <div class="section-header__actions">
+              <button mat-stroked-button type="button" (click)="toggleSection('schedule-form')">
+                {{ isSectionOpen('schedule-form') ? 'Collapse' : 'Expand' }}
+              </button>
+              @if (editingScheduleId()) {
+                <button mat-stroked-button type="button" (click)="resetScheduleForm()">Cancel</button>
+              }
+            </div>
           </div>
 
-          <form [formGroup]="scheduleForm" (ngSubmit)="saveSchedule()" class="stack">
-            <mat-form-field appearance="fill" class="full-width">
-              <mat-label>Schedule name</mat-label>
-              <input #scheduleNameInput matInput formControlName="name">
-            </mat-form-field>
-
-            <mat-form-field appearance="fill" class="full-width">
-              <mat-label>Description</mat-label>
-              <textarea matInput rows="3" formControlName="description"></textarea>
-            </mat-form-field>
-
-            <div class="two-col">
-              <mat-form-field appearance="fill">
-                <mat-label>Scope</mat-label>
-                <select matNativeControl formControlName="scope" (change)="onScopeChanged()">
-                  @for (scope of scopeOptions; track scope.value) {
-                    <option [ngValue]="scope.value">{{ scope.label }}</option>
-                  }
-                </select>
-              </mat-form-field>
-
-              <mat-form-field appearance="fill">
-                <mat-label>Frequency</mat-label>
-                <select matNativeControl formControlName="frequency">
-                  @for (frequency of frequencyOptions; track frequency) {
-                    <option [ngValue]="frequency">{{ frequency }}</option>
-                  }
-                </select>
-              </mat-form-field>
-            </div>
-
-            @if (scheduleForm.controls.scope.value === 'Apartment') {
+          @if (isSectionOpen('schedule-form')) {
+            <form [formGroup]="scheduleForm" (ngSubmit)="saveSchedule()" class="stack">
               <mat-form-field appearance="fill" class="full-width">
-                <mat-label>Apartment</mat-label>
-                <select matNativeControl formControlName="apartmentId">
-                  @for (apartment of apartments(); track apartment.id) {
-                    <option [ngValue]="apartment.id">{{ formatApartmentLabel(apartment) }}</option>
-                  }
-                </select>
-              </mat-form-field>
-            }
-
-            <div class="two-col">
-              <mat-form-field appearance="fill">
-                <mat-label>Pricing type</mat-label>
-                <select matNativeControl formControlName="pricingType" (change)="onPricingTypeChanged()">
-                  @for (type of pricingTypeOptions; track type.value) {
-                    <option [ngValue]="type.value">{{ type.label }}</option>
-                  }
-                </select>
+                <mat-label>Schedule name</mat-label>
+                <input #scheduleNameInput matInput formControlName="name">
               </mat-form-field>
 
-              <mat-form-field appearance="fill">
-                <mat-label>Rate</mat-label>
-                <input matInput type="number" min="0.01" step="0.01" formControlName="rate">
-              </mat-form-field>
-            </div>
-
-            <div class="two-col">
-              <mat-form-field appearance="fill">
-                <mat-label>Area basis</mat-label>
-                <select matNativeControl formControlName="areaBasis">
-                  @for (basis of areaBasisOptions; track basis.value) {
-                    <option [ngValue]="basis.value">{{ basis.label }}</option>
-                  }
-                </select>
+              <mat-form-field appearance="fill" class="full-width">
+                <mat-label>Description</mat-label>
+                <textarea matInput rows="3" formControlName="description"></textarea>
               </mat-form-field>
 
-              <mat-form-field appearance="fill">
-                <mat-label>Due day</mat-label>
-                <input matInput type="number" min="1" max="28" formControlName="dueDay">
-              </mat-form-field>
-            </div>
-
-            @if (editingScheduleId()) {
               <div class="two-col">
                 <mat-form-field appearance="fill">
-                  <mat-label>Status</mat-label>
-                  <select matNativeControl formControlName="isActive">
-                    <option [ngValue]="true">Active</option>
-                    <option [ngValue]="false">Inactive</option>
+                  <mat-label>Scope</mat-label>
+                  <select matNativeControl formControlName="scope" (change)="onScopeChanged()">
+                    @for (scope of scopeOptions; track scope.value) {
+                      <option [ngValue]="scope.value">{{ scope.label }}</option>
+                    }
                   </select>
                 </mat-form-field>
 
                 <mat-form-field appearance="fill">
-                  <mat-label>Change reason</mat-label>
-                  <input matInput formControlName="changeReason">
+                  <mat-label>Frequency</mat-label>
+                  <select matNativeControl formControlName="frequency">
+                    @for (frequency of frequencyOptions; track frequency) {
+                      <option [ngValue]="frequency">{{ frequency }}</option>
+                    }
+                  </select>
                 </mat-form-field>
               </div>
-            }
 
-            <div class="action-row">
-              <button mat-raised-button color="primary" type="submit" [disabled]="scheduleForm.invalid || savingSchedule()">
-                {{ editingScheduleId() ? 'Update schedule' : 'Create schedule' }}
-              </button>
-            </div>
-          </form>
+              <div class="two-col">
+                <mat-form-field appearance="fill">
+                  <mat-label>Start month</mat-label>
+                  <select matNativeControl formControlName="startMonth">
+                    @for (month of monthOptions; track month.value) {
+                      <option [ngValue]="month.value">{{ month.label }}</option>
+                    }
+                  </select>
+                </mat-form-field>
+
+                <mat-form-field appearance="fill">
+                  <mat-label>Start year</mat-label>
+                  <select matNativeControl formControlName="startYear">
+                    @for (year of scheduleYearOptions; track year) {
+                      <option [ngValue]="year">{{ year }}</option>
+                    }
+                  </select>
+                </mat-form-field>
+              </div>
+
+              @if (scheduleForm.controls.scope.value === 'Apartment') {
+                <mat-form-field appearance="fill" class="full-width">
+                  <mat-label>Apartment</mat-label>
+                  <select matNativeControl formControlName="apartmentId">
+                    @for (apartment of apartments(); track apartment.id) {
+                      <option [ngValue]="apartment.id">{{ formatApartmentLabel(apartment) }}</option>
+                    }
+                  </select>
+                </mat-form-field>
+              }
+
+              <div class="two-col">
+                <mat-form-field appearance="fill">
+                  <mat-label>Pricing type</mat-label>
+                  <select matNativeControl formControlName="pricingType" (change)="onPricingTypeChanged()">
+                    @for (type of pricingTypeOptions; track type.value) {
+                      <option [ngValue]="type.value">{{ type.label }}</option>
+                    }
+                  </select>
+                </mat-form-field>
+
+                <mat-form-field appearance="fill">
+                  <mat-label>Rate</mat-label>
+                  <input matInput type="number" min="0.01" step="0.01" formControlName="rate">
+                </mat-form-field>
+              </div>
+
+              <div class="two-col">
+                <mat-form-field appearance="fill">
+                  <mat-label>Area basis</mat-label>
+                  <select matNativeControl formControlName="areaBasis">
+                    @for (basis of areaBasisOptions; track basis.value) {
+                      <option [ngValue]="basis.value">{{ basis.label }}</option>
+                    }
+                  </select>
+                </mat-form-field>
+
+                <mat-form-field appearance="fill">
+                  <mat-label>Due day</mat-label>
+                  <input matInput type="number" min="1" max="28" formControlName="dueDay">
+                </mat-form-field>
+              </div>
+
+              @if (editingScheduleId()) {
+                <div class="two-col">
+                  <mat-form-field appearance="fill">
+                    <mat-label>Status</mat-label>
+                    <select matNativeControl formControlName="isActive">
+                      <option [ngValue]="true">Active</option>
+                      <option [ngValue]="false">Inactive</option>
+                    </select>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="fill">
+                    <mat-label>Change reason</mat-label>
+                    <input matInput formControlName="changeReason">
+                  </mat-form-field>
+                </div>
+
+                <div class="two-col">
+                  <mat-form-field appearance="fill">
+                    <mat-label>Effective month</mat-label>
+                    <select matNativeControl formControlName="effectiveMonth">
+                      @for (month of monthOptions; track month.value) {
+                        <option [ngValue]="month.value">{{ month.label }}</option>
+                      }
+                    </select>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="fill">
+                    <mat-label>Effective year</mat-label>
+                    <select matNativeControl formControlName="effectiveYear">
+                      @for (year of scheduleYearOptions; track year) {
+                        <option [ngValue]="year">{{ year }}</option>
+                      }
+                    </select>
+                  </mat-form-field>
+                </div>
+              }
+
+              <div class="action-row">
+                <button mat-raised-button color="primary" type="submit" [disabled]="scheduleForm.invalid || savingSchedule() || deletingScheduleId() !== null">
+                  {{ editingScheduleId() ? 'Update status' : 'Create schedule' }}
+                </button>
+                @if (editingScheduleId() && !scheduleForm.controls.isActive.value) {
+                  <button
+                    mat-stroked-button
+                    color="warn"
+                    type="button"
+                    [disabled]="!scheduleForm.controls.changeReason.value?.trim() || deletingScheduleId() === editingScheduleId() || savingSchedule()"
+                    (click)="deleteSelectedSchedule()">
+                    Delete schedule
+                  </button>
+                }
+              </div>
+            </form>
+          }
         </section>
 
         <section class="card card--spaced">
@@ -167,163 +228,182 @@ import {
               <h2 class="section-title">Charge register</h2>
               <p class="section-copy">Filter by year, month, or payment status and track overdue dues.</p>
             </div>
-            <button mat-stroked-button color="primary" routerLink="/maintenance/admin/grid" type="button">
-              Open payment grid
-            </button>
+            <div class="section-header__actions">
+              <button mat-stroked-button type="button" (click)="toggleSection('charge-register')">
+                {{ isSectionOpen('charge-register') ? 'Collapse' : 'Expand' }}
+              </button>
+              <button mat-stroked-button color="primary" routerLink="/maintenance/admin/grid" type="button">
+                Open payment grid
+              </button>
+            </div>
           </div>
 
-          <form [formGroup]="filterForm" class="filters">
-            <mat-form-field appearance="fill">
-              <mat-label>Year</mat-label>
-              <select matNativeControl formControlName="year" (change)="refreshCharges()">
-                <option [ngValue]="null">All years</option>
-                @for (year of yearOptions(); track year) {
-                  <option [ngValue]="year">{{ year }}</option>
-                }
-              </select>
-            </mat-form-field>
-
-            <mat-form-field appearance="fill">
-              <mat-label>Month</mat-label>
-              <select matNativeControl formControlName="month" (change)="refreshCharges()">
-                <option [ngValue]="null">All months</option>
-                @for (month of monthOptions; track month.value) {
-                  <option [ngValue]="month.value">{{ month.label }}</option>
-                }
-              </select>
-            </mat-form-field>
-
-            <mat-form-field appearance="fill">
-              <mat-label>Status</mat-label>
-              <select matNativeControl formControlName="status" (change)="refreshCharges()">
-                <option [ngValue]="null">All statuses</option>
-                @for (status of chargeStatusOptions; track status) {
-                  <option [ngValue]="status">{{ status }}</option>
-                }
-              </select>
-            </mat-form-field>
-          </form>
-
-          <div class="sub-card stack">
-            <div>
-              <div class="section-title">Admin payment details</div>
-              <div class="section-copy">These values are applied when you approve a submitted proof or mark a charge paid manually.</div>
-            </div>
-
-            <form [formGroup]="settlementForm" class="stack">
-              <div class="two-col">
-                <mat-form-field appearance="fill">
-                  <mat-label>Payment method</mat-label>
-                  <input matInput formControlName="paymentMethod">
-                </mat-form-field>
-
-                <mat-form-field appearance="fill">
-                  <mat-label>Transaction reference</mat-label>
-                  <input matInput formControlName="transactionReference">
-                </mat-form-field>
-              </div>
-
-              <mat-form-field appearance="fill" class="full-width">
-                <mat-label>Receipt URL</mat-label>
-                <input matInput formControlName="receiptUrl" placeholder="https://...">
+          @if (isSectionOpen('charge-register')) {
+            <form [formGroup]="filterForm" class="filters">
+              <mat-form-field appearance="fill">
+                <mat-label>Year</mat-label>
+                <select matNativeControl formControlName="year" (change)="refreshCharges()">
+                  <option [ngValue]="null">All years</option>
+                  @for (year of yearOptions(); track year) {
+                    <option [ngValue]="year">{{ year }}</option>
+                  }
+                </select>
               </mat-form-field>
 
-              <mat-form-field appearance="fill" class="full-width">
-                <mat-label>Notes</mat-label>
-                <textarea matInput rows="2" formControlName="notes"></textarea>
+              <mat-form-field appearance="fill">
+                <mat-label>Month</mat-label>
+                <select matNativeControl formControlName="month" (change)="refreshCharges()">
+                  <option [ngValue]="null">All months</option>
+                  @for (month of monthOptions; track month.value) {
+                    <option [ngValue]="month.value">{{ month.label }}</option>
+                  }
+                </select>
+              </mat-form-field>
+
+              <mat-form-field appearance="fill">
+                <mat-label>Status</mat-label>
+                <select matNativeControl formControlName="status" (change)="refreshCharges()">
+                  <option [ngValue]="null">All statuses</option>
+                  @for (status of chargeStatusOptions; track status) {
+                    <option [ngValue]="status">{{ status }}</option>
+                  }
+                </select>
               </mat-form-field>
             </form>
-          </div>
 
-          @if (chargesLoading()) {
-            <mat-progress-bar mode="indeterminate"></mat-progress-bar>
-          }
+            <div class="sub-card stack">
+              <div class="section-header section-header--compact">
+                <div>
+                  <div class="section-title">Admin payment details</div>
+                  <div class="section-copy">These values are applied when you approve a submitted proof or mark a charge paid manually.</div>
+                </div>
+                <button class="card-toggle" type="button" (click)="toggleSection('settlement-details')">
+                  {{ isSectionOpen('settlement-details') ? 'Collapse' : 'Expand' }}
+                </button>
+              </div>
 
-          @if (chargeSections().length) {
-            <div class="stack">
-              @for (section of chargeSections(); track section.key) {
-                <div class="sub-card stack">
-                  <div class="section-header section-header--compact">
-                    <div>
-                      <div class="section-title">{{ section.label }}</div>
-                      <div class="section-copy">{{ section.charges.length }} charge{{ section.charges.length === 1 ? '' : 's' }} · {{ section.totalAmount | currency:'INR':'symbol':'1.2-2' }}</div>
-                    </div>
+              @if (isSectionOpen('settlement-details')) {
+                <form [formGroup]="settlementForm" class="stack">
+                  <div class="two-col">
+                    <mat-form-field appearance="fill">
+                      <mat-label>Payment method</mat-label>
+                      <input matInput formControlName="paymentMethod">
+                    </mat-form-field>
+
+                    <mat-form-field appearance="fill">
+                      <mat-label>Transaction reference</mat-label>
+                      <input matInput formControlName="transactionReference">
+                    </mat-form-field>
                   </div>
 
-                  @for (charge of section.charges; track charge.id) {
-                    <div class="charge-card" [class.charge-card--overdue]="charge.isOverdue">
-                      <div class="charge-card__header">
-                        <div class="charge-card__meta">
-                          <div class="charge-card__title">{{ charge.scheduleName }}</div>
-                          <div class="charge-card__sub">
-                            Apt {{ charge.apartmentNumber }} · Due {{ charge.dueDate | date:'mediumDate' }}
+                  <mat-form-field appearance="fill" class="full-width">
+                    <mat-label>Receipt URL</mat-label>
+                    <input matInput formControlName="receiptUrl" placeholder="https://...">
+                  </mat-form-field>
+
+                  <mat-form-field appearance="fill" class="full-width">
+                    <mat-label>Notes</mat-label>
+                    <textarea matInput rows="2" formControlName="notes"></textarea>
+                  </mat-form-field>
+                </form>
+              }
+            </div>
+
+            @if (chargesLoading()) {
+              <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+            }
+
+            @if (chargeSections().length) {
+              <div class="stack">
+                @for (section of chargeSections(); track section.key) {
+                  <div class="sub-card stack">
+                    <div class="section-header section-header--compact">
+                      <div>
+                        <div class="section-title">{{ section.label }}</div>
+                        <div class="section-copy">{{ section.charges.length }} charge{{ section.charges.length === 1 ? '' : 's' }} · {{ section.totalAmount | currency:'INR':'symbol':'1.2-2' }}</div>
+                      </div>
+                      <button class="card-toggle" type="button" (click)="toggleSection(sectionKey('charge-period', section.key))">
+                        {{ isSectionOpen(sectionKey('charge-period', section.key)) ? 'Collapse' : 'Expand' }}
+                      </button>
+                    </div>
+
+                    @if (isSectionOpen(sectionKey('charge-period', section.key))) {
+                      @for (charge of section.charges; track charge.id) {
+                        <div class="charge-card" [class.charge-card--overdue]="charge.isOverdue">
+                          <div class="charge-card__header">
+                            <div class="charge-card__meta">
+                              <div class="charge-card__title">{{ charge.scheduleName }}</div>
+                              <div class="charge-card__sub">
+                                Apt {{ charge.apartmentNumber }} · Due {{ charge.dueDate | date:'mediumDate' }}
+                              </div>
+                            </div>
+                            <app-status-chip [status]="charge.status"></app-status-chip>
                           </div>
-                        </div>
-                        <app-status-chip [status]="charge.status"></app-status-chip>
-                      </div>
 
-                      <div class="charge-card__details">
-                        <span>Amount: {{ charge.amount | currency:'INR':'symbol':'1.2-2' }}</span>
-                        @if (charge.isOverdue) {
-                          <span class="text-danger">Overdue</span>
-                        }
-                        @if (charge.transactionReference) {
-                          <span>Ref: {{ charge.transactionReference }}</span>
-                        }
-                        @if (charge.paidAt) {
-                          <span>Paid: {{ charge.paidAt | date:'mediumDate' }}</span>
-                        }
-                      </div>
+                          <div class="charge-card__details">
+                            <span>Amount: {{ charge.amount | currency:'INR':'symbol':'1.2-2' }}</span>
+                            @if (charge.isOverdue) {
+                              <span class="text-danger">Overdue</span>
+                            }
+                            @if (charge.transactionReference) {
+                              <span>Ref: {{ charge.transactionReference }}</span>
+                            }
+                            @if (charge.paidAt) {
+                              <span>Paid: {{ charge.paidAt | date:'mediumDate' }}</span>
+                            }
+                          </div>
 
-                      @if (charge.proofs.length) {
-                        <div class="proof-list">
-                          <div class="section-copy proof-list__title">Submitted proofs</div>
-                          @for (proof of charge.proofs; track proof.proofUrl + proof.submittedAt) {
-                            <div class="proof-item">
-                              <a [href]="proof.proofUrl" target="_blank" rel="noreferrer">{{ proof.proofUrl }}</a>
-                              <span>{{ proof.submittedAt | date:'medium' }}</span>
-                              @if (proof.notes) {
-                                <span>{{ proof.notes }}</span>
+                          @if (charge.proofs.length) {
+                            <div class="proof-list">
+                              <div class="section-copy proof-list__title">Submitted proofs</div>
+                              @for (proof of charge.proofs; track proof.proofUrl + proof.submittedAt) {
+                                <div class="proof-item">
+                                  <a [href]="proof.proofUrl" target="_blank" rel="noreferrer">{{ proof.proofUrl }}</a>
+                                  <span>{{ proof.submittedAt | date:'medium' }}</span>
+                                  @if (proof.notes) {
+                                    <span>{{ proof.notes }}</span>
+                                  }
+                                </div>
                               }
                             </div>
                           }
+
+                          <div class="action-row action-row--compact">
+                            @if (charge.status === 'ProofSubmitted') {
+                              <button
+                                mat-raised-button
+                                color="primary"
+                                type="button"
+                                [disabled]="processingChargeId() === charge.id || settlementForm.invalid"
+                                (click)="approveProof(charge)">
+                                Approve proof
+                              </button>
+                            }
+
+                            @if (charge.status !== 'Paid') {
+                              <button
+                                mat-stroked-button
+                                color="primary"
+                                type="button"
+                                [disabled]="processingChargeId() === charge.id || settlementForm.invalid"
+                                (click)="markPaid(charge)">
+                                Mark paid
+                              </button>
+                            }
+                          </div>
                         </div>
                       }
-
-                      <div class="action-row action-row--compact">
-                        @if (charge.status === 'ProofSubmitted') {
-                          <button
-                            mat-raised-button
-                            color="primary"
-                            type="button"
-                            [disabled]="processingChargeId() === charge.id || settlementForm.invalid"
-                            (click)="approveProof(charge)">
-                            Approve proof
-                          </button>
-                        }
-
-                        @if (charge.status !== 'Paid') {
-                          <button
-                            mat-stroked-button
-                            color="primary"
-                            type="button"
-                            [disabled]="processingChargeId() === charge.id || settlementForm.invalid"
-                            (click)="markPaid(charge)">
-                            Mark paid
-                          </button>
-                        }
-                      </div>
-                    </div>
-                  }
-                </div>
-              }
-            </div>
-          } @else {
-            <app-empty-state
-              icon="receipt_long"
-              title="No maintenance charges found"
-              message="Charges will appear here once schedules generate dues.">
-            </app-empty-state>
+                    }
+                  </div>
+                }
+              </div>
+            } @else {
+              <app-empty-state
+                icon="receipt_long"
+                title="No maintenance charges found"
+                message="Charges will appear here once schedules generate dues.">
+              </app-empty-state>
+            }
           }
         </section>
 
@@ -333,62 +413,78 @@ import {
               <h2 class="section-title">Schedules</h2>
               <p class="section-copy">Recurring maintenance configurations and their latest change history.</p>
             </div>
+            <button mat-stroked-button type="button" (click)="toggleSection('schedules-list')">
+              {{ isSectionOpen('schedules-list') ? 'Collapse' : 'Expand' }}
+            </button>
           </div>
 
-          @if (schedules().length) {
-            <div class="stack">
-              @for (schedule of schedules(); track schedule.id) {
-                <div class="sub-card stack" [class.sub-card--active]="editingScheduleId() === schedule.id">
-                  <div class="section-header section-header--compact">
-                    <div>
-                      <div class="section-title">{{ schedule.name }}</div>
-                      <div class="section-copy">
-                        {{ schedule.apartmentId ? apartmentLabel(schedule.apartmentId) : 'Entire society' }} ·
-                        {{ schedule.frequency }} ·
-                        Due on day {{ schedule.dueDay }}
+          @if (isSectionOpen('schedules-list')) {
+            @if (schedules().length) {
+              <div class="stack">
+                @for (schedule of schedules(); track schedule.id) {
+                  <div class="sub-card stack" [class.sub-card--active]="editingScheduleId() === schedule.id">
+                    <div class="section-header section-header--compact">
+                      <div>
+                        <div class="section-title">{{ schedule.name }}</div>
+                        <div class="section-copy">
+                          {{ schedule.apartmentId ? apartmentLabel(schedule.apartmentId) : 'Entire society' }} ·
+                          {{ schedule.frequency }} ·
+                          Due on day {{ schedule.dueDay }}
+                        </div>
+                      </div>
+                      <div class="section-header__actions">
+                        <app-status-chip [status]="scheduleStatus(schedule)"></app-status-chip>
+                        <button class="card-toggle" type="button" (click)="toggleSection(sectionKey('schedule', schedule.id))">
+                          {{ isSectionOpen(sectionKey('schedule', schedule.id)) ? 'Collapse' : 'Expand' }}
+                        </button>
                       </div>
                     </div>
-                    <app-status-chip [status]="schedule.isActive ? 'Active' : 'Inactive'"></app-status-chip>
-                  </div>
 
-                  <div class="charge-card__details">
-                    <span>Rate: {{ schedule.rate | currency:'INR':'symbol':'1.2-2' }}</span>
-                    <span>{{ schedule.pricingType === 'PerSquareFoot' ? 'Per sq. ft.' : 'Fixed amount' }}</span>
-                    @if (schedule.areaBasis) {
-                      <span>{{ formatAreaBasis(schedule.areaBasis) }}</span>
-                    }
-                    <span>Next due: {{ schedule.nextDueDate | date:'mediumDate' }}</span>
-                  </div>
+                    @if (isSectionOpen(sectionKey('schedule', schedule.id))) {
+                      <div class="charge-card__details">
+                        <span>Rate: {{ schedule.rate | currency:'INR':'symbol':'1.2-2' }}</span>
+                        <span>{{ schedule.pricingType === 'PerSquareFoot' ? 'Per sq. ft.' : 'Fixed amount' }}</span>
+                        @if (schedule.areaBasis) {
+                          <span>{{ formatAreaBasis(schedule.areaBasis) }}</span>
+                        }
+                        <span>Active from: {{ schedule.activeFromDate | date:'MMM yyyy' }}</span>
+                        @if (schedule.inactiveFromDate) {
+                          <span>Inactive from: {{ schedule.inactiveFromDate | date:'MMM yyyy' }}</span>
+                        }
+                        <span>Next due: {{ schedule.nextDueDate | date:'mediumDate' }}</span>
+                      </div>
 
-                  @if (schedule.description) {
-                    <div class="section-copy">{{ schedule.description }}</div>
-                  }
+                      @if (schedule.description) {
+                        <div class="section-copy">{{ schedule.description }}</div>
+                      }
 
-                  @if (schedule.changeHistory.length) {
-                    <div class="proof-list">
-                      <div class="section-copy proof-list__title">Change history</div>
-                      @for (change of schedule.changeHistory; track change.changedAt + change.reason) {
-                        <div class="proof-item">
-                          <span>{{ change.changedAt | date:'mediumDate' }} · {{ change.changedByUserName }}</span>
-                          <span>{{ change.reason }}</span>
-                          <span>{{ change.previousRate | currency:'INR':'symbol':'1.2-2' }} → {{ change.newRate | currency:'INR':'symbol':'1.2-2' }}</span>
+                      @if (schedule.changeHistory.length) {
+                        <div class="proof-list">
+                          <div class="section-copy proof-list__title">Change history</div>
+                          @for (change of schedule.changeHistory; track change.changedAt + change.reason) {
+                            <div class="proof-item">
+                              <span>{{ change.changedAt | date:'mediumDate' }} · {{ change.changedByUserName }}</span>
+                              <span>{{ change.reason }}</span>
+                              <span>{{ change.previousRate | currency:'INR':'symbol':'1.2-2' }} → {{ change.newRate | currency:'INR':'symbol':'1.2-2' }}</span>
+                            </div>
+                          }
                         </div>
                       }
-                    </div>
-                  }
 
-                  <div class="action-row action-row--compact">
-                    <button mat-stroked-button color="primary" type="button" (click)="$event.stopPropagation(); editSchedule(schedule)">Edit schedule</button>
+                      <div class="action-row action-row--compact">
+                        <button mat-stroked-button color="primary" type="button" (click)="$event.stopPropagation(); editSchedule(schedule)">Manage status</button>
+                      </div>
+                    }
                   </div>
-                </div>
-              }
-            </div>
-          } @else {
-            <app-empty-state
-              icon="build_circle"
-              title="No schedules configured"
-              message="Create a maintenance schedule to begin generating charges.">
-            </app-empty-state>
+                }
+              </div>
+            } @else {
+              <app-empty-state
+                icon="build_circle"
+                title="No schedules configured"
+                message="Create a maintenance schedule to begin generating charges.">
+              </app-empty-state>
+            }
           }
         </section>
       }
@@ -400,12 +496,14 @@ export class MaintenanceAdminComponent extends MaintenancePageBase {
   readonly scheduleEditor = viewChild<ElementRef<HTMLElement>>('scheduleEditor');
   readonly scheduleNameInput = viewChild<ElementRef<HTMLInputElement>>('scheduleNameInput');
   readonly savingSchedule = signal(false);
+  readonly deletingScheduleId = signal<string | null>(null);
   readonly processingChargeId = signal<string | null>(null);
 
   readonly scopeOptions = SCOPE_OPTIONS;
   readonly pricingTypeOptions = PRICING_TYPE_OPTIONS;
   readonly areaBasisOptions = AREA_BASIS_OPTIONS;
   readonly frequencyOptions = FREQUENCY_OPTIONS;
+  readonly scheduleYearOptions = Array.from({ length: 8 }, (_, index) => new Date().getFullYear() + index);
 
   readonly settlementForm = this.fb.group({
     paymentMethod: ['Manual', Validators.required],
@@ -425,11 +523,21 @@ export class MaintenanceAdminComponent extends MaintenancePageBase {
     areaBasis: ['' as MaintenanceAreaBasis | ''],
     frequency: ['Monthly' as MaintenanceFrequency, Validators.required],
     dueDay: [5, [Validators.required, Validators.min(1), Validators.max(28)]],
+    startMonth: [new Date().getMonth() + 1, [Validators.required, Validators.min(1), Validators.max(12)]],
+    startYear: [new Date().getFullYear(), [Validators.required, Validators.min(2000)]],
     isActive: [true],
+    effectiveMonth: [new Date().getMonth() + 1, [Validators.required, Validators.min(1), Validators.max(12)]],
+    effectiveYear: [new Date().getFullYear(), [Validators.required, Validators.min(2000)]],
     changeReason: [''],
   });
 
   readonly editingScheduleId = signal<string | null>(null);
+  readonly openSections = signal<Record<string, boolean>>({
+    'schedule-form': true,
+    'charge-register': true,
+    'settlement-details': true,
+    'schedules-list': true,
+  });
 
   protected get isAdminView() {
     return true;
@@ -449,25 +557,26 @@ export class MaintenanceAdminComponent extends MaintenancePageBase {
 
     const formValue = this.scheduleForm.getRawValue();
     const isEditing = !!this.editingScheduleId();
-    const dto = {
-      name: formValue.name ?? '',
-      description: formValue.description?.trim() || null,
-      apartmentId: formValue.scope === 'Apartment' ? formValue.apartmentId || null : null,
-      rate: Number(formValue.rate ?? 0),
-      pricingType: formValue.pricingType as MaintenancePricingType,
-      areaBasis: formValue.pricingType === 'PerSquareFoot' && formValue.areaBasis ? formValue.areaBasis as MaintenanceAreaBasis : null,
-      frequency: formValue.frequency as MaintenanceFrequency,
-      dueDay: Number(formValue.dueDay ?? 1),
-    };
-
     this.savingSchedule.set(true);
     const request = isEditing
       ? this.maintenance.updateSchedule(societyId, this.editingScheduleId()!, {
-          ...dto,
           isActive: !!formValue.isActive,
+          effectiveMonth: Number(formValue.effectiveMonth ?? new Date().getMonth() + 1),
+          effectiveYear: Number(formValue.effectiveYear ?? new Date().getFullYear()),
           changeReason: formValue.changeReason?.trim() ?? '',
         })
-      : this.maintenance.createSchedule(societyId, dto);
+      : this.maintenance.createSchedule(societyId, {
+          name: formValue.name ?? '',
+          description: formValue.description?.trim() || null,
+          apartmentId: formValue.scope === 'Apartment' ? formValue.apartmentId || null : null,
+          rate: Number(formValue.rate ?? 0),
+          pricingType: formValue.pricingType as MaintenancePricingType,
+          areaBasis: formValue.pricingType === 'PerSquareFoot' && formValue.areaBasis ? formValue.areaBasis as MaintenanceAreaBasis : null,
+          frequency: formValue.frequency as MaintenanceFrequency,
+          dueDay: Number(formValue.dueDay ?? 1),
+          startMonth: Number(formValue.startMonth ?? new Date().getMonth() + 1),
+          startYear: Number(formValue.startYear ?? new Date().getFullYear()),
+        });
 
     request.subscribe({
       next: () => {
@@ -475,14 +584,17 @@ export class MaintenanceAdminComponent extends MaintenancePageBase {
         this.resetScheduleForm();
         this.loadSchedules(societyId);
         this.refreshCharges();
-        this.snackBar.open(isEditing ? 'Maintenance schedule updated.' : 'Maintenance schedule created.', 'Dismiss', { duration: 4000 });
+        this.snackBar.open(isEditing ? 'Maintenance schedule status updated.' : 'Maintenance schedule created.', 'Dismiss', { duration: 4000 });
       },
       error: () => this.savingSchedule.set(false),
     });
   }
 
   editSchedule(schedule: MaintenanceSchedule) {
+    const effectiveDate = schedule.inactiveFromDate ? new Date(schedule.inactiveFromDate) : new Date(schedule.nextDueDate);
     this.editingScheduleId.set(schedule.id);
+    this.expandSection('schedule-form');
+    this.expandSection(this.sectionKey('schedule', schedule.id));
     this.scheduleForm.patchValue({
       id: schedule.id,
       name: schedule.name,
@@ -494,11 +606,16 @@ export class MaintenanceAdminComponent extends MaintenancePageBase {
       areaBasis: schedule.areaBasis ?? '',
       frequency: schedule.frequency,
       dueDay: schedule.dueDay,
+      startMonth: schedule.startMonth,
+      startYear: schedule.startYear,
       isActive: schedule.isActive,
+      effectiveMonth: effectiveDate.getUTCMonth() + 1,
+      effectiveYear: effectiveDate.getUTCFullYear(),
       changeReason: '',
     });
     this.onScopeChanged();
     this.onPricingTypeChanged();
+    this.setScheduleDetailsEditable(false);
     queueMicrotask(() => {
       this.scheduleEditor()?.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
       this.scheduleNameInput()?.nativeElement.focus();
@@ -507,6 +624,7 @@ export class MaintenanceAdminComponent extends MaintenancePageBase {
 
   resetScheduleForm() {
     this.editingScheduleId.set(null);
+    this.expandSection('schedule-form');
     this.scheduleForm.reset({
       id: '',
       name: '',
@@ -518,11 +636,35 @@ export class MaintenanceAdminComponent extends MaintenancePageBase {
       areaBasis: '',
       frequency: 'Monthly',
       dueDay: 5,
+      startMonth: new Date().getMonth() + 1,
+      startYear: new Date().getFullYear(),
       isActive: true,
+      effectiveMonth: new Date().getMonth() + 1,
+      effectiveYear: new Date().getFullYear(),
       changeReason: '',
     });
+    this.setScheduleDetailsEditable(true);
     this.onScopeChanged();
     this.onPricingTypeChanged();
+  }
+
+  deleteSelectedSchedule() {
+    const societyId = this.auth.societyId();
+    const scheduleId = this.editingScheduleId();
+    const changeReason = this.scheduleForm.controls.changeReason.value?.trim();
+    if (!societyId || !scheduleId || !changeReason) return;
+
+    this.deletingScheduleId.set(scheduleId);
+    this.maintenance.deleteSchedule(societyId, scheduleId, { changeReason }).subscribe({
+      next: () => {
+        this.deletingScheduleId.set(null);
+        this.resetScheduleForm();
+        this.loadSchedules(societyId);
+        this.refreshCharges();
+        this.snackBar.open('Maintenance schedule deleted.', 'Dismiss', { duration: 4000 });
+      },
+      error: () => this.deletingScheduleId.set(null),
+    });
   }
 
   onPricingTypeChanged() {
@@ -547,7 +689,9 @@ export class MaintenanceAdminComponent extends MaintenancePageBase {
     const apartmentControl = this.scheduleForm.controls.apartmentId;
     if (this.scheduleForm.controls.scope.value === 'Apartment') {
       apartmentControl.setValidators([Validators.required]);
-      apartmentControl.enable({ emitEvent: false });
+      if (!this.editingScheduleId()) {
+        apartmentControl.enable({ emitEvent: false });
+      }
       apartmentControl.updateValueAndValidity({ emitEvent: false });
       return;
     }
@@ -556,6 +700,45 @@ export class MaintenanceAdminComponent extends MaintenancePageBase {
     apartmentControl.setValue('', { emitEvent: false });
     apartmentControl.disable({ emitEvent: false });
     apartmentControl.updateValueAndValidity({ emitEvent: false });
+  }
+
+  isSectionOpen(sectionKey: string) {
+    return this.openSections()[sectionKey] ?? true;
+  }
+
+  toggleSection(sectionKey: string) {
+    this.openSections.update(current => ({
+      ...current,
+      [sectionKey]: !(current[sectionKey] ?? true),
+    }));
+  }
+
+  sectionKey(prefix: string, suffix: string) {
+    return `${prefix}:${suffix}`;
+  }
+
+  private expandSection(sectionKey: string) {
+    this.openSections.update(current => ({ ...current, [sectionKey]: true }));
+  }
+
+  private setScheduleDetailsEditable(isEditable: boolean) {
+    const detailControls = [
+      this.scheduleForm.controls.name,
+      this.scheduleForm.controls.description,
+      this.scheduleForm.controls.scope,
+      this.scheduleForm.controls.apartmentId,
+      this.scheduleForm.controls.rate,
+      this.scheduleForm.controls.pricingType,
+      this.scheduleForm.controls.areaBasis,
+      this.scheduleForm.controls.frequency,
+      this.scheduleForm.controls.dueDay,
+      this.scheduleForm.controls.startMonth,
+      this.scheduleForm.controls.startYear,
+    ];
+
+    detailControls.forEach(control =>
+      isEditable ? control.enable({ emitEvent: false }) : control.disable({ emitEvent: false })
+    );
   }
 
   approveProof(chargeId: { id: string }) {

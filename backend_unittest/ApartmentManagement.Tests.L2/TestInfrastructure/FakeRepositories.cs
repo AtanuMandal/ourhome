@@ -255,7 +255,7 @@ public sealed class FakeMaintenanceScheduleRepository : FakeRepository<Maintenan
     public Task<IReadOnlyList<MaintenanceSchedule>> GetActiveAsync(string societyId, CancellationToken ct = default)
     {
         IReadOnlyList<MaintenanceSchedule> result = Store.Values
-            .Where(s => s.SocietyId == societyId && s.IsActive)
+            .Where(s => s.SocietyId == societyId && s.IsEffectiveOn(DateTime.UtcNow.Date))
             .ToList();
         return Task.FromResult(result);
     }
@@ -271,7 +271,7 @@ public sealed class FakeMaintenanceScheduleRepository : FakeRepository<Maintenan
     public Task<IReadOnlyList<MaintenanceSchedule>> GetActiveDueOnAsync(DateTime dueOnUtc, CancellationToken ct = default)
     {
         IReadOnlyList<MaintenanceSchedule> result = Store.Values
-            .Where(s => s.IsActive && s.NextDueDate.Date <= dueOnUtc.Date)
+            .Where(s => s.IsEffectiveOn(dueOnUtc.Date) && s.NextDueDate.Date <= dueOnUtc.Date)
             .ToList();
         return Task.FromResult(result);
     }

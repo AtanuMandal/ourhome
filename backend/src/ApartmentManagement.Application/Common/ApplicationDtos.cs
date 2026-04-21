@@ -228,6 +228,10 @@ public sealed record MaintenanceScheduleDto(
     string? AreaBasis,
     string Frequency,
     int DueDay,
+    int StartMonth,
+    int StartYear,
+    DateTime ActiveFromDate,
+    DateTime? InactiveFromDate,
     DateTime NextDueDate,
     bool IsActive,
     IReadOnlyList<MaintenanceScheduleChangeDto> ChangeHistory,
@@ -303,18 +307,17 @@ public sealed record CreateMaintenanceScheduleRequest(
     [property: JsonConverter(typeof(JsonStringEnumConverter))] MaintenancePricingType PricingType,
     [property: JsonConverter(typeof(JsonStringEnumConverter))] MaintenanceAreaBasis? AreaBasis,
     [property: JsonConverter(typeof(JsonStringEnumConverter))] FeeFrequency Frequency,
-    int DueDay);
+    int DueDay,
+    int StartMonth,
+    int StartYear);
 
 public sealed record UpdateMaintenanceScheduleRequest(
-    string Name,
-    string? Description,
-    string? ApartmentId,
-    decimal Rate,
-    [property: JsonConverter(typeof(JsonStringEnumConverter))] MaintenancePricingType PricingType,
-    [property: JsonConverter(typeof(JsonStringEnumConverter))] MaintenanceAreaBasis? AreaBasis,
-    [property: JsonConverter(typeof(JsonStringEnumConverter))] FeeFrequency Frequency,
-    int DueDay,
     bool IsActive,
+    int EffectiveMonth,
+    int EffectiveYear,
+    string ChangeReason);
+
+public sealed record DeleteMaintenanceScheduleRequest(
     string ChangeReason);
 
 public sealed record SubmitMaintenancePaymentProofRequest(

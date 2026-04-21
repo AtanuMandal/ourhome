@@ -31,7 +31,9 @@ public class MaintenanceFunctions(ISender mediator)
                 body.PricingType,
                 body.AreaBasis,
                 body.Frequency,
-                body.DueDay),
+                body.DueDay,
+                body.StartMonth,
+                body.StartYear),
             ct);
         return result.ToActionResult(201);
     }
@@ -48,16 +50,24 @@ public class MaintenanceFunctions(ISender mediator)
             new UpdateMaintenanceScheduleCommand(
                 societyId,
                 scheduleId,
-                body.Name,
-                body.Description,
-                body.ApartmentId,
-                body.Rate,
-                body.PricingType,
-                body.AreaBasis,
-                body.Frequency,
-                body.DueDay,
                 body.IsActive,
+                body.EffectiveMonth,
+                body.EffectiveYear,
                 body.ChangeReason),
+            ct);
+        return result.ToActionResult();
+    }
+
+    [Function("DeleteMaintenanceSchedule")]
+    public async Task<IActionResult> DeleteMaintenanceSchedule(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "delete", Route = "societies/{societyId}/maintenance/schedules/{scheduleId}")] HttpRequest req,
+        string societyId, string scheduleId, CancellationToken ct)
+    {
+        var body = await req.DeserializeAsync<DeleteMaintenanceScheduleRequest>(ct);
+        if (body is null) return new BadRequestObjectResult("Invalid request body");
+
+        var result = await mediator.Send(
+            new DeleteMaintenanceScheduleCommand(societyId, scheduleId, body.ChangeReason),
             ct);
         return result.ToActionResult();
     }

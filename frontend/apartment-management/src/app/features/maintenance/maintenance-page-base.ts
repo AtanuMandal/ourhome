@@ -104,6 +104,22 @@ export abstract class MaintenancePageBase {
     return formatAreaBasisLabel(areaBasis);
   }
 
+  scheduleStatus(schedule: MaintenanceSchedule) {
+    const today = new Date();
+    const activeFrom = new Date(schedule.activeFromDate);
+    const inactiveFrom = schedule.inactiveFromDate ? new Date(schedule.inactiveFromDate) : null;
+
+    if (activeFrom > today) {
+      return 'Upcoming';
+    }
+
+    if (inactiveFrom && inactiveFrom <= today) {
+      return 'Inactive';
+    }
+
+    return 'Active';
+  }
+
   protected currentApartmentId() {
     const user = this.auth.user();
     return user?.apartmentId ?? user?.apartments?.[0]?.apartmentId ?? null;

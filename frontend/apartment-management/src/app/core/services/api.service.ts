@@ -35,6 +35,10 @@ export class ApiService {
     return this.http.delete<T>(`${this.base}/${path}`);
   }
 
+  deleteWithBody<T>(path: string, body: unknown): Observable<T> {
+    return this.http.request<T>('DELETE', `${this.base}/${path}`, { body });
+  }
+
   /** Convenience: GET with page + pageSize */
   getPaged<T>(path: string, page = 1, pageSize = 20, extra?: Record<string, string | number>): Observable<PagedResult<T>> {
     return this.get<PagedResult<T>>(path, { page, pageSize, ...extra });

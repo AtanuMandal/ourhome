@@ -3,6 +3,7 @@ import { ApiService } from './api.service';
 import {
   CreateMaintenancePenaltyChargeDto,
   CreateMaintenanceScheduleDto,
+  DeleteMaintenanceScheduleDto,
   MaintenanceChargeGrid,
   MaintenanceCharge,
   MaintenanceChargeFilters,
@@ -29,6 +30,10 @@ export class MaintenanceService {
 
   updateSchedule(societyId: string, scheduleId: string, dto: UpdateMaintenanceScheduleDto) {
     return this.api.put<MaintenanceSchedule>(`societies/${societyId}/maintenance/schedules/${scheduleId}`, dto);
+  }
+
+  deleteSchedule(societyId: string, scheduleId: string, dto: DeleteMaintenanceScheduleDto) {
+    return this.api.deleteWithBody<boolean>(`societies/${societyId}/maintenance/schedules/${scheduleId}`, dto);
   }
 
   listCharges(societyId: string, filters: MaintenanceChargeFilters = {}) {

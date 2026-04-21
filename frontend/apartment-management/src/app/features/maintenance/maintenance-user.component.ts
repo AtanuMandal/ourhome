@@ -194,7 +194,7 @@ import { MAINTENANCE_PAGE_STYLES } from './maintenance-shared';
                         Due on day {{ schedule.dueDay }}
                       </div>
                     </div>
-                    <app-status-chip [status]="schedule.isActive ? 'Active' : 'Inactive'"></app-status-chip>
+                    <app-status-chip [status]="scheduleStatus(schedule)"></app-status-chip>
                   </div>
 
                   <div class="charge-card__details">

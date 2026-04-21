@@ -55,8 +55,20 @@ export const MAINTENANCE_PAGE_STYLES = `
   .full-width { width: 100%; }
   .section-header { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
   .section-header--compact { align-items: center; }
+  .section-header__actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; align-items: center; }
   .section-title { margin: 0; font-size: 16px; font-weight: 600; }
   .section-copy { color: var(--text-secondary); font-size: 13px; }
+  .card-toggle {
+    align-self: flex-start;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: white;
+    color: var(--text-primary);
+    cursor: pointer;
+    font: inherit;
+    padding: 6px 12px;
+  }
+  .card-toggle:hover { background: #f8fafc; }
   .sub-card {
     border: 1px solid var(--border);
     border-radius: 14px;

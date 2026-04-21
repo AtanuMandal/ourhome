@@ -7,6 +7,7 @@ Apartment society SUAdmin must be able to configure and manage maintenance fees 
 
 ### Fee Schedule Configuration
 - SUAdmin can create maintenance fee schedules for a society.
+- SUAdmin can select from which month and year this new schedule will be active so that charges post can be done from that month and that year for apartments .
 - Schedules support the following frequencies:
   - Monthly
   - Quarterly
@@ -19,19 +20,16 @@ Apartment society SUAdmin must be able to configure and manage maintenance fees 
   - Built-up area
   - Super built-up area
 - Fees may optionally be specific to a single apartment or apply at the society level.
-- SUAdmin can update schedule rates over time.
-- Each schedule update must store a change history entry with:
-  - previous amount
-  - new amount
-  - area basis (if applicable)
-  - changed by user
-  - timestamp
-  - change reason
-
+- SUAdmin cant update schedule apart from making it inactive from a certain month and year.
+- There should be only one active schedule for a given socity at any time consider an inactive schdule as active before its efective from date.
+- SUAdmin can delete an future existing schedule when its in inacive status and a active schedule already present for the socity. 
 ### Recurring Fee Posting
 - The system must generate maintenance charges automatically according to the selected frequency for upcoming six month.
 - Generated charges should be visible in the resident payment history view.
-- When a fee is created or updated, the correct apartment charge should be calculated using the  selected frequency schedules.
+- When a fee is created , the correct apartment charge should be calculated using the  selected frequency schedules from which date it is active.
+- When a schedule is inactivated/Deleted then any fees against the schdule will be deleted from the time it is made inacive or deleted 
+- IN case a future schedule is deleted all future chnages will be permanently deleted.
+- In case a schedule is acivated again it will post charges based on existing logic .
 - The schedule should include a due day for each charge.
 
 ### Resident View
