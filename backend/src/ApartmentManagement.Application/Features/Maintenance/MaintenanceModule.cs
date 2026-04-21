@@ -177,7 +177,7 @@ public sealed class SubmitMaintenancePaymentProofCommandHandler(
                 charge.SubmitProof(request.ProofUrl, request.Notes, actor.Id);
                 var saved = await chargeRepository.UpdateAsync(charge, ct);
                 var apartment = await apartmentRepository.GetByIdAsync(saved.ApartmentId, request.SocietyId, ct);
-                updated.Add(saved.ToResponse(apartment?.ApartmentNumber ?? saved.ApartmentId, society.MaintenanceOverdueThresholdDays));
+                updated.Add(saved.ToResponse(apartment?.ToDisplayLabel() ?? saved.ApartmentId, society.MaintenanceOverdueThresholdDays));
             }
 
             foreach (var adminUserId in society.AdminUserIds.Distinct(StringComparer.OrdinalIgnoreCase))
@@ -238,7 +238,7 @@ public sealed class MarkMaintenanceChargePaidCommandHandler(
             updated.ClearDomainEvents();
 
             var apartment = await apartmentRepository.GetByIdAsync(updated.ApartmentId, request.SocietyId, ct);
-            return Result<MaintenanceChargeDto>.Success(updated.ToResponse(apartment?.ApartmentNumber ?? updated.ApartmentId, society.MaintenanceOverdueThresholdDays));
+            return Result<MaintenanceChargeDto>.Success(updated.ToResponse(apartment?.ToDisplayLabel() ?? updated.ApartmentId, society.MaintenanceOverdueThresholdDays));
         }
         catch (ForbiddenException ex)
         {
@@ -293,7 +293,7 @@ public sealed class ApproveMaintenancePaymentProofCommandHandler(
             updated.ClearDomainEvents();
 
             var apartment = await apartmentRepository.GetByIdAsync(updated.ApartmentId, request.SocietyId, ct);
-            return Result<MaintenanceChargeDto>.Success(updated.ToResponse(apartment?.ApartmentNumber ?? updated.ApartmentId, society.MaintenanceOverdueThresholdDays));
+            return Result<MaintenanceChargeDto>.Success(updated.ToResponse(apartment?.ToDisplayLabel() ?? updated.ApartmentId, society.MaintenanceOverdueThresholdDays));
         }
         catch (ForbiddenException ex)
         {
@@ -348,7 +348,7 @@ public sealed class CreateMaintenancePenaltyChargeCommandHandler(
                 request.Reason);
 
             var created = await chargeRepository.CreateAsync(charge, ct);
-            return Result<MaintenanceChargeDto>.Success(created.ToResponse(apartment.ApartmentNumber, society.MaintenanceOverdueThresholdDays));
+            return Result<MaintenanceChargeDto>.Success(created.ToResponse(apartment.ToDisplayLabel(), society.MaintenanceOverdueThresholdDays));
         }
         catch (ForbiddenException ex)
         {

@@ -75,7 +75,7 @@ public sealed class GetMaintenanceChargesQueryHandler(
             foreach (var charge in charges)
             {
                 var apartment = await apartmentRepository.GetByIdAsync(charge.ApartmentId, request.SocietyId, ct);
-                items.Add(charge.ToResponse(apartment?.ApartmentNumber ?? charge.ApartmentId, society.MaintenanceOverdueThresholdDays));
+                items.Add(charge.ToResponse(apartment?.ToDisplayLabel() ?? charge.ApartmentId, society.MaintenanceOverdueThresholdDays));
             }
 
             return Result<PagedResult<MaintenanceChargeDto>>.Success(
@@ -123,7 +123,7 @@ public sealed class GetApartmentMaintenanceHistoryQueryHandler(
                 ?? throw new NotFoundException("Society", request.SocietyId);
 
             var items = charges
-                .Select(charge => charge.ToResponse(apartment?.ApartmentNumber ?? request.ApartmentId, society.MaintenanceOverdueThresholdDays))
+                .Select(charge => charge.ToResponse(apartment?.ToDisplayLabel() ?? request.ApartmentId, society.MaintenanceOverdueThresholdDays))
                 .ToList();
 
             return Result<PagedResult<MaintenanceChargeDto>>.Success(
@@ -166,6 +166,7 @@ public sealed class GetMaintenanceChargeGridQueryHandler(
 
             var rows = apartments
                 .OrderBy(apartment => apartment.BlockName, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(apartment => apartment.FloorNumber)
                 .ThenBy(apartment => apartment.ApartmentNumber, StringComparer.OrdinalIgnoreCase)
                 .Select(apartment =>
                 {
@@ -196,7 +197,7 @@ public sealed class GetMaintenanceChargeGridQueryHandler(
 
                     return new MaintenanceChargeGridRowDto(
                         apartment.Id,
-                        apartment.ApartmentNumber,
+                        apartment.ToDisplayLabel(),
                         residentName,
                         months);
                 })

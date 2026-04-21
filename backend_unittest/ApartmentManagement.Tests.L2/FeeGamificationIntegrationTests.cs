@@ -235,7 +235,10 @@ public class FeeGamificationIntegrationTests : IntegrationTestBase
             new PaginationParams { Page = 1, PageSize = 10 }));
 
         historyResult.IsSuccess.Should().BeTrue();
-        historyResult.Value!.Items.Should().Contain(item => item.Id == charge.Id && item.ScheduleName == "Maintenance");
+        historyResult.Value!.Items.Should().Contain(item =>
+            item.Id == charge.Id &&
+            item.ScheduleName == "Maintenance" &&
+            item.ApartmentNumber == "A 1-A-101");
     }
 
     [Fact]
@@ -275,6 +278,7 @@ public class FeeGamificationIntegrationTests : IntegrationTestBase
         gridResult.IsSuccess.Should().BeTrue();
         gridResult.Value!.Rows.Should().HaveCount(2);
         var firstRow = gridResult.Value.Rows.Single(row => row.ApartmentId == context.Apartment.Id);
+        firstRow.ApartmentNumber.Should().Be("A 1-A-101");
         firstRow.ResidentName.Should().Be(context.Resident.FullName);
         firstRow.Months.Should().HaveCount(12);
         firstRow.Months.Single(month => month.Month == 1).Charges.Should().ContainSingle(charge => charge.Id == firstCharge.Id);

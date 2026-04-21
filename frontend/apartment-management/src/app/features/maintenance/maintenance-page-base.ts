@@ -1,7 +1,7 @@
 import { computed, inject, signal } from '@angular/core';
 import { FormBuilder } from '@angular/forms';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { Apartment } from '../../core/models/apartment.model';
+import { Apartment, formatApartmentLabel } from '../../core/models/apartment.model';
 import {
   MaintenanceAreaBasis,
   MaintenanceCharge,
@@ -96,6 +96,10 @@ export abstract class MaintenancePageBase {
     return apartmentLabel(this.apartments(), apartmentId);
   }
 
+  formatApartmentLabel(apartment: Apartment) {
+    return formatApartmentLabel(apartment);
+  }
+
   formatAreaBasis(areaBasis: MaintenanceAreaBasis) {
     return formatAreaBasisLabel(areaBasis);
   }
@@ -127,7 +131,7 @@ export abstract class MaintenancePageBase {
       this.apartmentsService.list(societyId, 1, 500).subscribe({
         next: result => {
           this.apartments.set((result.items ?? []).slice().sort((left, right) =>
-            `${left.blockName}-${left.apartmentNumber}`.localeCompare(`${right.blockName}-${right.apartmentNumber}`)
+            formatApartmentLabel(left).localeCompare(formatApartmentLabel(right), undefined, { numeric: true, sensitivity: 'base' })
           ));
           done();
         },

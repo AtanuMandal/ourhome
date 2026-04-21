@@ -96,7 +96,7 @@ public sealed class CreateApartmentCommandHandler(
                     created.AssignTenant(resident!.Id, resident.FullName);
 
                 created = await apartmentRepository.UpdateAsync(created, ct);
-                resident.LinkApartment(created.Id, created.ApartmentNumber, residentType.Value, makePrimary: string.IsNullOrWhiteSpace(resident.ApartmentId));
+                resident.LinkApartment(created.Id, created.ToDisplayLabel(), residentType.Value, makePrimary: string.IsNullOrWhiteSpace(resident.ApartmentId));
                 await userRepository.UpdateAsync(resident, ct);
             }
 
@@ -312,7 +312,7 @@ public sealed class BulkImportApartmentsCommandHandler(
                     {
                         created.AssignOwner(owner.Id, owner.FullName);
                         created = await apartmentRepository.UpdateAsync(created, ct);
-                        owner.LinkApartment(created.Id, created.ApartmentNumber, ResidentType.Owner, makePrimary: string.IsNullOrWhiteSpace(owner.ApartmentId));
+                        owner.LinkApartment(created.Id, created.ToDisplayLabel(), ResidentType.Owner, makePrimary: string.IsNullOrWhiteSpace(owner.ApartmentId));
                         await userRepository.UpdateAsync(owner, ct);
                     }
                 }

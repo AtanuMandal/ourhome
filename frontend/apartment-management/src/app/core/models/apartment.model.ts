@@ -20,6 +20,12 @@ export interface Apartment {
   createdAt: string;
 }
 
+export interface ApartmentLabelSource {
+  apartmentNumber: string;
+  blockName?: string | null;
+  floorNumber?: number | null;
+}
+
 export interface ApartmentResident {
   userId: string;
   userName: string;
@@ -81,4 +87,28 @@ export interface BulkImportResult {
   succeeded: number;
   failed: number;
   errors: string[];
+}
+
+export function formatApartmentLabel(apartment: ApartmentLabelSource | null | undefined) {
+  if (!apartment) {
+    return 'Assigned apartment';
+  }
+
+  const apartmentNumber = apartment.apartmentNumber?.trim() ?? '';
+  const blockName = apartment.blockName?.trim() ?? '';
+  const floorNumber = apartment.floorNumber;
+
+  if (!blockName && (floorNumber === undefined || floorNumber === null)) {
+    return apartmentNumber;
+  }
+
+  if (!blockName) {
+    return `${floorNumber}-${apartmentNumber}`;
+  }
+
+  if (floorNumber === undefined || floorNumber === null) {
+    return `${blockName} ${apartmentNumber}`;
+  }
+
+  return `${blockName} ${floorNumber}-${apartmentNumber}`;
 }

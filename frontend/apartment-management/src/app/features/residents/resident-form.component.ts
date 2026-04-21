@@ -9,7 +9,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 import { ApartmentService, UserService } from '../../core/services/apartment.service';
 import { AuthService } from '../../core/services/auth.service';
-import { Apartment } from '../../core/models/apartment.model';
+import { Apartment, formatApartmentLabel } from '../../core/models/apartment.model';
 import { User } from '../../core/models/user.model';
 
 type ResidentType = 'Owner' | 'Tenant' | 'FamilyMember' | 'CoOccupant';
@@ -146,7 +146,7 @@ export class ResidentFormComponent implements OnInit {
     this.apartmentSvc.list(sid, 1, 500).subscribe({
       next: response => {
         const apartments = [...(response.items ?? [])].sort((left, right) =>
-          left.apartmentNumber.localeCompare(right.apartmentNumber, undefined, { numeric: true, sensitivity: 'base' }));
+          formatApartmentLabel(left).localeCompare(formatApartmentLabel(right), undefined, { numeric: true, sensitivity: 'base' }));
         this.apartments.set(apartments);
         this.loading.set(false);
       },
@@ -205,7 +205,7 @@ export class ResidentFormComponent implements OnInit {
   }
 
   apartmentLabel(apartment: Apartment) {
-    return apartment.blockName ? `${apartment.apartmentNumber} - ${apartment.blockName}` : apartment.apartmentNumber;
+    return formatApartmentLabel(apartment);
   }
 
   private configureResidentTypes() {

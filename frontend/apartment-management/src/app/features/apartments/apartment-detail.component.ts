@@ -13,7 +13,7 @@ import { StatusChipComponent } from '../../shared/components/status-chip/status-
 import { LoadingSpinnerComponent } from '../../shared/components/loading-spinner/loading-spinner.component';
 import { ApartmentService } from '../../core/services/apartment.service';
 import { AuthService } from '../../core/services/auth.service';
-import { Apartment, ApartmentStatus } from '../../core/models/apartment.model';
+import { Apartment, ApartmentStatus, formatApartmentLabel } from '../../core/models/apartment.model';
 
 @Component({
   selector: 'app-apartment-detail',
@@ -24,7 +24,7 @@ import { Apartment, ApartmentStatus } from '../../core/models/apartment.model';
     PageHeaderComponent, StatusChipComponent, LoadingSpinnerComponent,
   ],
   template: `
-    <app-page-header [title]="item()?.apartmentNumber ?? 'Apartment'" [showBack]="true">
+    <app-page-header [title]="item() ? formatApartmentLabel(item()!) : 'Apartment'" [showBack]="true">
       <div actions>
         @if (isAdmin() && item()) {
           <a [routerLink]="['/apartments', item()!.id, 'edit']" mat-icon-button aria-label="Edit apartment">
@@ -40,7 +40,7 @@ import { Apartment, ApartmentStatus } from '../../core/models/apartment.model';
         <app-loading-spinner></app-loading-spinner>
       } @else if (item()) {
         <div class="card">
-          <div class="detail-row"><span class="label">Unit</span><span>{{ item()!.apartmentNumber }}</span></div>
+          <div class="detail-row"><span class="label">Unit</span><span>{{ formatApartmentLabel(item()!) }}</span></div>
           <mat-divider></mat-divider>
           <div class="detail-row"><span class="label">Rooms</span><span>{{ item()!.numberOfRooms }}</span></div>
           <mat-divider></mat-divider>
@@ -191,7 +191,7 @@ export class ApartmentDetailComponent implements OnInit {
     const sid = this.auth.societyId();
     const apartment = this.item();
     if (!sid || !apartment) return;
-    if (!window.confirm(`Delete apartment ${apartment.apartmentNumber}?`)) return;
+    if (!window.confirm(`Delete apartment ${formatApartmentLabel(apartment)}?`)) return;
 
     this.actionLoading.set(true);
     this.svc.delete(sid, apartment.id).subscribe({
@@ -206,6 +206,10 @@ export class ApartmentDetailComponent implements OnInit {
 
   currentResidentName(residentType: 'Owner' | 'Tenant') {
     return this.item()?.residents?.find(resident => resident.residentType === residentType)?.userName;
+  }
+
+  formatApartmentLabel(apartment: Apartment) {
+    return formatApartmentLabel(apartment);
   }
 
   private loadApartment() {
