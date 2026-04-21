@@ -93,6 +93,8 @@ export interface MaintenanceCharge {
   paidAt?: string | null;
   paymentMethod?: string | null;
   transactionReference?: string | null;
+  receiptUrl?: string | null;
+  notes?: string | null;
   proofs: MaintenancePaymentProof[];
   createdAt: string;
   updatedAt: string;
@@ -125,6 +127,13 @@ export interface MarkMaintenanceChargePaidDto {
   transactionReference?: string | null;
   receiptUrl?: string | null;
   notes?: string | null;
+}
+
+export interface CreateMaintenancePenaltyChargeDto {
+  apartmentId: string;
+  amount: number;
+  dueDate: string;
+  reason: string;
 }
 
 export interface MaintenanceChargeFilters {

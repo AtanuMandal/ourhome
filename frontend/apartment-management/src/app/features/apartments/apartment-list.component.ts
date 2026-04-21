@@ -13,7 +13,7 @@ import { LoadingSpinnerComponent } from '../../shared/components/loading-spinner
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 import { ApartmentService } from '../../core/services/apartment.service';
 import { AuthService } from '../../core/services/auth.service';
-import { Apartment, BulkImportResult } from '../../core/models/apartment.model';
+import { Apartment, BulkImportResult, formatApartmentLabel } from '../../core/models/apartment.model';
 
 @Component({
   selector: 'app-apartment-list',
@@ -90,7 +90,7 @@ import { Apartment, BulkImportResult } from '../../core/models/apartment.model';
         <div class="apt-list">
           @for (a of filtered(); track a.id) {
             <a [routerLink]="[a.id]" class="apt-card">
-              <div class="apt-unit">{{ a.apartmentNumber }}</div>
+              <div class="apt-unit">{{ formatApartmentLabel(a) }}</div>
               <div class="apt-info">
                 <span class="apt-type">{{ a.numberOfRooms }} Rooms &middot; Floor {{ a.floorNumber }}</span>
                 @if (a.blockName) { <span class="apt-block">{{ a.blockName }}</span> }
@@ -126,9 +126,14 @@ export class ApartmentListComponent implements OnInit {
     const q = this.search.toLowerCase();
     return this.items().filter(a =>
       !q || a.apartmentNumber.toLowerCase().includes(q) ||
+      this.formatApartmentLabel(a).toLowerCase().includes(q) ||
       (a.blockName ?? '').toLowerCase().includes(q) ||
       String(a.floorNumber).includes(q)
     );
+  }
+
+  formatApartmentLabel(apartment: Apartment) {
+    return formatApartmentLabel(apartment);
   }
 
   ngOnInit() {

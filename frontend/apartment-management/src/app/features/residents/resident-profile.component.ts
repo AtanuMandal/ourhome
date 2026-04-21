@@ -12,7 +12,7 @@ import { LoadingSpinnerComponent } from '../../shared/components/loading-spinner
 import { UserService, ApartmentService } from '../../core/services/apartment.service';
 import { AuthService } from '../../core/services/auth.service';
 import { User } from '../../core/models/user.model';
-import { Apartment } from '../../core/models/apartment.model';
+import { Apartment, formatApartmentLabel } from '../../core/models/apartment.model';
 
 type ResidentApartmentType = 'Owner' | 'Tenant';
 
@@ -83,7 +83,7 @@ type ResidentApartmentType = 'Owner' | 'Tenant';
                 <select matNativeControl formControlName="apartmentId">
                   <option value="" disabled>Select an apartment</option>
                   @for (apartment of availableApartments(); track apartment.id) {
-                    <option [value]="apartment.id">{{ apartment.apartmentNumber }} - {{ apartment.blockName }}</option>
+                    <option [value]="apartment.id">{{ formatApartmentLabel(apartment) }}</option>
                   }
                 </select>
                 @if (addApartmentForm.controls.apartmentId.invalid && addApartmentForm.controls.apartmentId.touched) {
@@ -204,6 +204,10 @@ export class ResidentProfileComponent implements OnInit {
     const primaryApartment = resident.apartments.find(apartment => apartment.apartmentId === resident.apartmentId)
       ?? resident.apartments[0];
     return primaryApartment.name;
+  }
+
+  formatApartmentLabel(apartment: Apartment) {
+    return formatApartmentLabel(apartment);
   }
 
   addApartment() {

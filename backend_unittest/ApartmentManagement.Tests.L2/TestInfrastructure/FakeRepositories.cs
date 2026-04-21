@@ -315,6 +315,14 @@ public sealed class FakeMaintenanceChargeRepository : FakeRepository<Maintenance
         return Task.FromResult(result);
     }
 
+    public Task<IReadOnlyList<MaintenanceCharge>> GetByScheduleAsync(string societyId, string scheduleId, CancellationToken ct = default)
+    {
+        IReadOnlyList<MaintenanceCharge> result = Store.Values
+            .Where(p => p.SocietyId == societyId && p.ScheduleId == scheduleId)
+            .ToList();
+        return Task.FromResult(result);
+    }
+
     public Task<IReadOnlyList<MaintenanceCharge>> GetByStatusAsync(string societyId, PaymentStatus status, int page, int pageSize, CancellationToken ct = default)
     {
         IReadOnlyList<MaintenanceCharge> result = Store.Values

@@ -1,4 +1,4 @@
-import { Apartment } from '../../core/models/apartment.model';
+import { Apartment, formatApartmentLabel } from '../../core/models/apartment.model';
 import {
   MaintenanceAreaBasis,
   MaintenanceCharge,
@@ -133,7 +133,7 @@ export function buildChargeSections(charges: MaintenanceCharge[]): ChargeSection
 
 export function apartmentLabel(apartments: Apartment[], apartmentId: string) {
   const apartment = apartments.find(item => item.id === apartmentId);
-  return apartment ? `${apartment.blockName}-${apartment.apartmentNumber}` : 'Assigned apartment';
+  return apartment ? formatApartmentLabel(apartment) : 'Assigned apartment';
 }
 
 export function formatAreaBasisLabel(areaBasis: MaintenanceAreaBasis) {

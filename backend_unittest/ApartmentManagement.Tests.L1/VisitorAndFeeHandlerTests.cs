@@ -143,7 +143,7 @@ public class CreateMaintenanceScheduleCommandHandlerTests
         new(_scheduleRepoMock.Object, _chargeRepoMock.Object, _apartmentRepoMock.Object, _currentUserMock.Object, _loggerMock.Object);
 
     [Fact]
-    public async Task Handle_WithValidCommand_CreatesMaintenanceScheduleAndInitialCharge()
+    public async Task Handle_WithValidCommand_CreatesMaintenanceScheduleAndUpcomingCharges()
     {
         // Arrange
         var apartment = Apartment.Create("soc-001", "A-101", "A", 1, 3, [], 500, 600, 700);
@@ -161,6 +161,9 @@ public class CreateMaintenanceScheduleCommandHandlerTests
         _chargeRepoMock
             .Setup(r => r.CreateAsync(It.IsAny<MaintenanceCharge>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((MaintenanceCharge c, CancellationToken _) => c);
+        _chargeRepoMock
+            .Setup(r => r.GetByScheduleAsync("soc-001", It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
 
         var handler = CreateHandler();
         var command = new CreateMaintenanceScheduleCommand(
@@ -181,7 +184,7 @@ public class CreateMaintenanceScheduleCommandHandlerTests
         result.IsSuccess.Should().BeTrue();
         result.Value!.Name.Should().Be("Monthly Maintenance");
         _scheduleRepoMock.Verify(r => r.CreateAsync(It.IsAny<MaintenanceSchedule>(), It.IsAny<CancellationToken>()), Times.Once);
-        _chargeRepoMock.Verify(r => r.CreateAsync(It.IsAny<MaintenanceCharge>(), It.IsAny<CancellationToken>()), Times.Once);
+        _chargeRepoMock.Verify(r => r.CreateAsync(It.IsAny<MaintenanceCharge>(), It.IsAny<CancellationToken>()), Times.Exactly(6));
     }
 }
 

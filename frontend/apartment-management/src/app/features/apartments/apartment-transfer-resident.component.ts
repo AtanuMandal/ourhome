@@ -8,6 +8,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 import { ApartmentService, UserService } from '../../core/services/apartment.service';
 import { AuthService } from '../../core/services/auth.service';
+import { formatApartmentLabel } from '../../core/models/apartment.model';
 
 @Component({
   selector: 'app-apartment-transfer-resident',
@@ -75,7 +76,7 @@ export class ApartmentTransferResidentComponent implements OnInit {
     const id = this.route.snapshot.paramMap.get('id');
     if (!sid || !id) return;
     this.apartmentService.get(sid, id).subscribe({
-      next: apartment => this.apartmentNumber.set(apartment.apartmentNumber),
+      next: apartment => this.apartmentNumber.set(formatApartmentLabel(apartment)),
     });
   }
 

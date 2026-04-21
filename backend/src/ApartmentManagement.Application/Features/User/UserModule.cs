@@ -86,7 +86,7 @@ public sealed class CreateUserCommandHandler(
                 }
 
                 await apartmentRepository.UpdateAsync(apartment, ct);
-                created.LinkApartment(apartment.Id, apartment.ApartmentNumber, created.ResidentType, makePrimary: true);
+                created.LinkApartment(apartment.Id, apartment.ToDisplayLabel(), created.ResidentType, makePrimary: true);
                 userNeedsUpdate = true;
             }
 
@@ -206,7 +206,7 @@ public sealed class AssignUserApartmentCommandHandler(
                 }
             }
 
-            user.LinkApartment(apartment.Id, apartment.ApartmentNumber, request.ResidentType);
+            user.LinkApartment(apartment.Id, apartment.ToDisplayLabel(), request.ResidentType);
             var persistedUser = await userRepository.UpdateAsync(user, ct);
 
             var apartments = await ApartmentManagement.Application.Queries.User.UserQueryMapping.GetResidentApartmentsAsync(persistedUser, apartmentRepository, ct);
@@ -660,7 +660,7 @@ public sealed class TransferApartmentOwnershipCommandHandler(
 
             apartment.AssignOwner(created.Id, created.FullName);
             await apartmentRepository.UpdateAsync(apartment, ct);
-            created.LinkApartment(apartment.Id, apartment.ApartmentNumber, ResidentType.Owner, makePrimary: true);
+            created.LinkApartment(apartment.Id, apartment.ToDisplayLabel(), ResidentType.Owner, makePrimary: true);
             var updatedUser = await userRepository.UpdateAsync(created, ct);
             return Result<UserResponse>.Success(updatedUser.ToResponse(await ApartmentManagement.Application.Queries.User.UserQueryMapping.GetResidentApartmentsAsync(updatedUser, apartmentRepository, ct)));
         }
@@ -723,7 +723,7 @@ public sealed class TransferApartmentTenancyCommandHandler(
 
             apartment.AssignTenant(created.Id, created.FullName);
             await apartmentRepository.UpdateAsync(apartment, ct);
-            created.LinkApartment(apartment.Id, apartment.ApartmentNumber, ResidentType.Tenant, makePrimary: true);
+            created.LinkApartment(apartment.Id, apartment.ToDisplayLabel(), ResidentType.Tenant, makePrimary: true);
             var updatedUser = await userRepository.UpdateAsync(created, ct);
             return Result<UserResponse>.Success(updatedUser.ToResponse(await ApartmentManagement.Application.Queries.User.UserQueryMapping.GetResidentApartmentsAsync(updatedUser, apartmentRepository, ct)));
         }
@@ -783,7 +783,7 @@ public sealed class AddHouseholdMemberCommandHandler(
 
             apartment.AddResident(created.Id, created.FullName, request.ResidentType);
             await apartmentRepository.UpdateAsync(apartment, ct);
-            created.LinkApartment(apartment.Id, apartment.ApartmentNumber, request.ResidentType, makePrimary: true);
+            created.LinkApartment(apartment.Id, apartment.ToDisplayLabel(), request.ResidentType, makePrimary: true);
             var updatedUser = await userRepository.UpdateAsync(created, ct);
             return Result<UserResponse>.Success(updatedUser.ToResponse(await ApartmentManagement.Application.Queries.User.UserQueryMapping.GetResidentApartmentsAsync(updatedUser, apartmentRepository, ct)));
         }
@@ -820,7 +820,7 @@ internal static class UserLoginOptionMapper
                 user.SocietyId,
                 society?.Name ?? user.SocietyId,
                 user.ApartmentId,
-                apartment?.ApartmentNumber,
+                apartment?.ToDisplayLabel(),
                 user.Role.ToString(),
                 user.ResidentType.ToString()));
         }
@@ -877,9 +877,18 @@ internal static class UserQueryMapping
     {
         if (user.Apartments.Count > 0)
         {
-            return user.Apartments
+            var linkedApartments = new List<ResidentApartmentDto>(user.Apartments.Count);
+            foreach (var link in user.Apartments)
+            {
+                var apartment = await apartmentRepository.GetByIdAsync(link.ApartmentId, user.SocietyId, ct);
+                linkedApartments.Add(new ResidentApartmentDto(
+                    link.ApartmentId,
+                    apartment?.ToDisplayLabel() ?? link.Name,
+                    link.ResidentType.ToString()));
+            }
+
+            return linkedApartments
                 .OrderBy(link => link.Name, StringComparer.OrdinalIgnoreCase)
-                .Select(link => new ResidentApartmentDto(link.ApartmentId, link.Name, link.ResidentType.ToString()))
                 .ToList();
         }
 

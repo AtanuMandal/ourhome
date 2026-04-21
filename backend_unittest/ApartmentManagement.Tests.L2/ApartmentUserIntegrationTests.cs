@@ -292,7 +292,7 @@ public class ApartmentUserIntegrationTests : IntegrationTestBase
 
         // Verify user is linked
         user.ApartmentId.Should().Be(apt.Id);
-        user.Apartments.Should().ContainSingle(a => a.ApartmentId == apt.Id && a.Name == apt.ApartmentNumber);
+        user.Apartments.Should().ContainSingle(a => a.ApartmentId == apt.Id && a.Name == "F 6-601");
 
         // Retrieve users by apartment
         var usersResult = await Mediator.Send(new GetUsersByApartmentQuery(SocietyId, apt.Id));

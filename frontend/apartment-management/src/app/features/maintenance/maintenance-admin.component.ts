@@ -98,7 +98,7 @@ import {
                 <mat-label>Apartment</mat-label>
                 <select matNativeControl formControlName="apartmentId">
                   @for (apartment of apartments(); track apartment.id) {
-                    <option [ngValue]="apartment.id">{{ apartment.blockName }}-{{ apartment.apartmentNumber }}</option>
+                    <option [ngValue]="apartment.id">{{ formatApartmentLabel(apartment) }}</option>
                   }
                 </select>
               </mat-form-field>

@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { ApiService } from './api.service';
 import {
+  CreateMaintenancePenaltyChargeDto,
   CreateMaintenanceScheduleDto,
   MaintenanceChargeGrid,
   MaintenanceCharge,
@@ -62,6 +63,10 @@ export class MaintenanceService {
 
   getChargeGrid(societyId: string, year: number) {
     return this.api.get<MaintenanceChargeGrid>(`societies/${societyId}/maintenance/grid`, { year });
+  }
+
+  createPenaltyCharge(societyId: string, dto: CreateMaintenancePenaltyChargeDto) {
+    return this.api.post<MaintenanceCharge>(`societies/${societyId}/maintenance/charges/penalty`, dto);
   }
 
   private toQuery(filters: MaintenanceChargeFilters): Record<string, string | number> {

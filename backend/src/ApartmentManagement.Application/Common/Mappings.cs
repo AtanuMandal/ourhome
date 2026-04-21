@@ -5,6 +5,15 @@ namespace ApartmentManagement.Application.Mappings;
 
 public static class MappingExtensions
 {
+    public static string ToDisplayLabel(this Apartment apartment)
+    {
+        var apartmentNumber = apartment.ApartmentNumber.Trim();
+        var blockName = apartment.BlockName.Trim();
+        return string.IsNullOrWhiteSpace(blockName)
+            ? $"{apartment.FloorNumber}-{apartmentNumber}"
+            : $"{blockName} {apartment.FloorNumber}-{apartmentNumber}";
+    }
+
     public static SocietyResponse ToResponse(this Society society) =>
         new(
             society.Id,
@@ -55,7 +64,7 @@ public static class MappingExtensions
     public static ApartmentResidentHistoryResponse ToResidentHistoryResponse(this Apartment apartment) =>
         new(
             apartment.Id,
-            apartment.ApartmentNumber,
+            apartment.ToDisplayLabel(),
             apartment.GetResidentsForRead().Select(r => new ApartmentResidentDto(r.UserId, r.UserName, r.ResidentType.ToString())).ToList(),
             apartment.OwnershipHistory.Select(h => new ApartmentResidentHistoryDto(h.UserId, h.FullName, h.FromUtc, h.ToUtc)).ToList(),
             apartment.TenantHistory.Select(h => new ApartmentResidentHistoryDto(h.UserId, h.FullName, h.FromUtc, h.ToUtc)).ToList());
@@ -94,7 +103,7 @@ public static class MappingExtensions
     public static ResidentApartmentDto ToResidentApartmentResponse(this Apartment apartment, Domain.Enums.ResidentType residentType) =>
         new(
             apartment.Id,
-            apartment.ApartmentNumber,
+            apartment.ToDisplayLabel(),
             residentType.ToString());
 
     public static AuthUserDto ToAuthUser(this User user) =>
@@ -233,6 +242,8 @@ public static class MappingExtensions
             charge.PaidAt,
             charge.PaymentMethod,
             charge.TransactionReference,
+            charge.ReceiptUrl,
+            charge.Notes,
             charge.Proofs
                 .Select(proof => new MaintenancePaymentProofDto(
                     proof.ProofUrl,
