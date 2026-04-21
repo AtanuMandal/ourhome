@@ -331,6 +331,18 @@ public sealed class MarkMaintenanceChargePaidCommandValidator : AbstractValidato
     }
 }
 
+public sealed class CreateMaintenancePenaltyChargeCommandValidator : AbstractValidator<CreateMaintenancePenaltyChargeCommand>
+{
+    public CreateMaintenancePenaltyChargeCommandValidator()
+    {
+        RuleFor(x => x.SocietyId).NotEmpty();
+        RuleFor(x => x.ApartmentId).NotEmpty();
+        RuleFor(x => x.Amount).GreaterThan(0);
+        RuleFor(x => x.Reason).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.DueDate).NotEqual(default(DateTime));
+    }
+}
+
 // ─── Gamification ─────────────────────────────────────────────────────────────
 
 public sealed class CreateCompetitionCommandValidator : AbstractValidator<CreateCompetitionCommand>

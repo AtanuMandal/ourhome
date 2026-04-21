@@ -182,7 +182,8 @@ public sealed class MaintenanceCharge : BaseEntity
         string scheduleId,
         string scheduleName,
         decimal amount,
-        DateTime dueDate)
+        DateTime dueDate,
+        string? notes = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(societyId, nameof(societyId));
         ArgumentException.ThrowIfNullOrWhiteSpace(apartmentId, nameof(apartmentId));
@@ -201,6 +202,7 @@ public sealed class MaintenanceCharge : BaseEntity
             ChargeMonth = dueDate.Month,
             Amount = amount,
             DueDate = dueDate,
+            Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim(),
             Status = PaymentStatus.Pending
         };
         charge.AddDomainEvent(new MaintenanceChargeDueEvent(scheduleId, societyId, apartmentId, amount, dueDate));
@@ -217,6 +219,28 @@ public sealed class MaintenanceCharge : BaseEntity
         DueDate = dueDate;
         ChargeYear = dueDate.Year;
         ChargeMonth = dueDate.Month;
+        if (Status == PaymentStatus.Cancelled)
+        {
+            Status = PaymentStatus.Pending;
+            PaidAt = null;
+            PaymentMethod = null;
+            TransactionReference = null;
+            ReceiptUrl = null;
+            Proofs = [];
+        }
+        TouchUpdatedAt();
+    }
+
+    public void Cancel(string? notes = null)
+    {
+        if (Status == PaymentStatus.Paid)
+            throw new InvalidOperationException("Paid charges cannot be cancelled.");
+
+        if (Status == PaymentStatus.Cancelled)
+            return;
+
+        Status = PaymentStatus.Cancelled;
+        Notes = string.IsNullOrWhiteSpace(notes) ? Notes : notes.Trim();
         TouchUpdatedAt();
     }
 

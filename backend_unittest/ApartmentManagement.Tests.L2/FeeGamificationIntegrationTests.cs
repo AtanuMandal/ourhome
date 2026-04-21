@@ -77,6 +77,29 @@ public class FeeGamificationIntegrationTests : IntegrationTestBase
     }
 
     [Fact]
+    public async Task CreateMaintenanceSchedule_SeedsUpcomingSixMonthsOfCharges()
+    {
+        var context = await SeedMaintenanceContextAsync();
+
+        var createResult = await Mediator.Send(new CreateMaintenanceScheduleCommand(
+            context.Society.Id,
+            "Monthly Maintenance",
+            "Society maintenance",
+            context.Apartment.Id,
+            1500m,
+            MaintenancePricingType.FixedAmount,
+            null,
+            FeeFrequency.Monthly,
+            5));
+
+        createResult.IsSuccess.Should().BeTrue();
+        MaintenanceChargeRepo.Store.Values
+            .Where(charge => charge.ScheduleId == createResult.Value!.Id && charge.Status == PaymentStatus.Pending)
+            .Should()
+            .HaveCount(6);
+    }
+
+    [Fact]
     public async Task UpdateMaintenanceSchedule_StoresChangeHistory()
     {
         var context = await SeedMaintenanceContextAsync();
@@ -108,6 +131,48 @@ public class FeeGamificationIntegrationTests : IntegrationTestBase
         updateResult.IsSuccess.Should().BeTrue();
         updateResult.Value!.Rate.Should().Be(350m);
         updateResult.Value.ChangeHistory.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task UpdateMaintenanceSchedule_ReconcilesFutureChargesForChangedFrequency()
+    {
+        var context = await SeedMaintenanceContextAsync();
+        var schedule = (await Mediator.Send(new CreateMaintenanceScheduleCommand(
+            context.Society.Id,
+            "Water Bill",
+            null,
+            context.Apartment.Id,
+            300m,
+            MaintenancePricingType.FixedAmount,
+            null,
+            FeeFrequency.Monthly,
+            5))).Value!;
+
+        var updateResult = await Mediator.Send(new UpdateMaintenanceScheduleCommand(
+            context.Society.Id,
+            schedule.Id,
+            "Water Bill",
+            "Quarterly rate",
+            context.Apartment.Id,
+            450m,
+            MaintenancePricingType.FixedAmount,
+            null,
+            FeeFrequency.Quarterly,
+            5,
+            true,
+            "Align with quarterly billing"));
+
+        updateResult.IsSuccess.Should().BeTrue();
+
+        var scheduleCharges = MaintenanceChargeRepo.Store.Values
+            .Where(charge => charge.ScheduleId == schedule.Id)
+            .ToList();
+
+        scheduleCharges.Count(charge => charge.Status == PaymentStatus.Pending).Should().Be(2);
+        scheduleCharges.Count(charge => charge.Status == PaymentStatus.Cancelled).Should().Be(4);
+        scheduleCharges.Where(charge => charge.Status == PaymentStatus.Pending)
+            .Should()
+            .OnlyContain(charge => charge.Amount == 450m);
     }
 
     [Fact]
@@ -218,6 +283,24 @@ public class FeeGamificationIntegrationTests : IntegrationTestBase
         var secondRow = gridResult.Value.Rows.Single(row => row.ApartmentId == secondApartment.Id);
         secondRow.ResidentName.Should().Be("Owner Two");
         secondRow.Months.Single(month => month.Month == 2).Charges.Should().ContainSingle(charge => charge.Id == secondCharge.Id);
+    }
+
+    [Fact]
+    public async Task CreateMaintenancePenaltyCharge_AddsApartmentSpecificCharge()
+    {
+        var context = await SeedMaintenanceContextAsync();
+
+        var penaltyResult = await Mediator.Send(new CreateMaintenancePenaltyChargeCommand(
+            context.Society.Id,
+            context.Apartment.Id,
+            250m,
+            DateTime.UtcNow.Date.AddDays(1),
+            "Late payment for April dues"));
+
+        penaltyResult.IsSuccess.Should().BeTrue();
+        penaltyResult.Value!.ScheduleName.Should().Be("Late payment penalty");
+        penaltyResult.Value.Notes.Should().Be("Late payment for April dues");
+        penaltyResult.Value.Amount.Should().Be(250m);
     }
 
     // ─── Gamification: Award Points → get user points ────────────────────────

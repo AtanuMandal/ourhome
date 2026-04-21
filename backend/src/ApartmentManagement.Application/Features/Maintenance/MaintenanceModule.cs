@@ -50,7 +50,7 @@ public sealed class CreateMaintenanceScheduleCommandHandler(
                 request.DueDay);
 
             var created = await scheduleRepository.CreateAsync(schedule, ct);
-            await MaintenanceChargeGenerator.UpsertChargesForDueDateAsync(created, created.NextDueDate, apartmentRepository, chargeRepository, ct);
+            await MaintenanceChargeGenerator.EnsureUpcomingChargesAsync(created, DateTime.UtcNow.Date.AddMonths(6), apartmentRepository, chargeRepository, ct);
 
             return Result<MaintenanceScheduleDto>.Success(created.ToResponse());
         }
@@ -117,7 +117,7 @@ public sealed class UpdateMaintenanceScheduleCommandHandler(
                 request.ChangeReason);
 
             var updated = await scheduleRepository.UpdateAsync(schedule, ct);
-            await MaintenanceChargeGenerator.UpsertChargesForDueDateAsync(updated, updated.NextDueDate, apartmentRepository, chargeRepository, ct);
+            await MaintenanceChargeGenerator.EnsureUpcomingChargesAsync(updated, DateTime.UtcNow.Date.AddMonths(6), apartmentRepository, chargeRepository, ct);
 
             return Result<MaintenanceScheduleDto>.Success(updated.ToResponse());
         }
@@ -311,6 +311,67 @@ public sealed class ApproveMaintenancePaymentProofCommandHandler(
     }
 }
 
+public record CreateMaintenancePenaltyChargeCommand(
+    string SocietyId,
+    string ApartmentId,
+    decimal Amount,
+    DateTime DueDate,
+    string Reason)
+    : IRequest<Result<MaintenanceChargeDto>>;
+
+public sealed class CreateMaintenancePenaltyChargeCommandHandler(
+    IMaintenanceChargeRepository chargeRepository,
+    IApartmentRepository apartmentRepository,
+    ISocietyRepository societyRepository,
+    ICurrentUserService currentUserService,
+    ILogger<CreateMaintenancePenaltyChargeCommandHandler> logger)
+    : IRequestHandler<CreateMaintenancePenaltyChargeCommand, Result<MaintenanceChargeDto>>
+{
+    public async Task<Result<MaintenanceChargeDto>> Handle(CreateMaintenancePenaltyChargeCommand request, CancellationToken ct)
+    {
+        try
+        {
+            MaintenanceAuthorization.EnsureAdmin(currentUserService);
+
+            var society = await societyRepository.GetByIdAsync(request.SocietyId, request.SocietyId, ct)
+                ?? throw new NotFoundException("Society", request.SocietyId);
+            var apartment = await apartmentRepository.GetByIdAsync(request.ApartmentId, request.SocietyId, ct)
+                ?? throw new NotFoundException("Apartment", request.ApartmentId);
+
+            var charge = MaintenanceCharge.Create(
+                request.SocietyId,
+                apartment.Id,
+                $"penalty-{Guid.NewGuid():N}",
+                "Late payment penalty",
+                request.Amount,
+                NormalizeDueDate(request.DueDate),
+                request.Reason);
+
+            var created = await chargeRepository.CreateAsync(charge, ct);
+            return Result<MaintenanceChargeDto>.Success(created.ToResponse(apartment.ApartmentNumber, society.MaintenanceOverdueThresholdDays));
+        }
+        catch (ForbiddenException ex)
+        {
+            return Result<MaintenanceChargeDto>.Failure(ErrorCodes.Forbidden, ex.Message);
+        }
+        catch (NotFoundException ex)
+        {
+            return Result<MaintenanceChargeDto>.Failure(ErrorCodes.PaymentNotFound, ex.Message);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to create maintenance penalty for apartment {ApartmentId}", request.ApartmentId);
+            return Result<MaintenanceChargeDto>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+
+    private static DateTime NormalizeDueDate(DateTime dueDate)
+    {
+        var date = dueDate.Date;
+        return DateTime.SpecifyKind(date, DateTimeKind.Utc);
+    }
+}
+
 public record GenerateDueMaintenanceChargesCommand(DateTime? AsOfUtc = null) : IRequest<Result<int>>;
 
 public sealed class GenerateDueMaintenanceChargesCommandHandler(
@@ -350,6 +411,42 @@ public sealed class GenerateDueMaintenanceChargesCommandHandler(
 
 internal static class MaintenanceChargeGenerator
 {
+    public static async Task<int> EnsureUpcomingChargesAsync(
+        MaintenanceSchedule schedule,
+        DateTime horizonUtc,
+        IApartmentRepository apartmentRepository,
+        IMaintenanceChargeRepository chargeRepository,
+        CancellationToken ct)
+    {
+        var apartments = await ResolveTargetApartmentsAsync(schedule, apartmentRepository, ct);
+        var desiredChargeKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var createdOrUpdated = 0;
+
+        foreach (var dueDate in EnumerateDueDates(schedule, horizonUtc))
+        {
+            foreach (var apartment in apartments)
+                desiredChargeKeys.Add(ChargeKey(apartment.Id, dueDate.Year, dueDate.Month));
+
+            createdOrUpdated += await UpsertChargesForDueDateAsync(schedule, dueDate, apartments, chargeRepository, ct);
+        }
+
+        var existingCharges = await chargeRepository.GetByScheduleAsync(schedule.SocietyId, schedule.Id, ct);
+        var cancellationNote = schedule.IsActive
+            ? "Cancelled after maintenance schedule update."
+            : "Cancelled after maintenance schedule deactivation.";
+
+        foreach (var charge in existingCharges.Where(charge =>
+                     charge.DueDate.Date >= DateTime.UtcNow.Date &&
+                     !desiredChargeKeys.Contains(ChargeKey(charge.ApartmentId, charge.ChargeYear, charge.ChargeMonth)) &&
+                     charge.Status is not PaymentStatus.Paid and not PaymentStatus.Cancelled))
+        {
+            charge.Cancel(cancellationNote);
+            await chargeRepository.UpdateAsync(charge, ct);
+        }
+
+        return createdOrUpdated;
+    }
+
     public static async Task<int> UpsertChargesForDueDateAsync(
         MaintenanceSchedule schedule,
         DateTime dueDate,
@@ -358,8 +455,17 @@ internal static class MaintenanceChargeGenerator
         CancellationToken ct)
     {
         var apartments = await ResolveTargetApartmentsAsync(schedule, apartmentRepository, ct);
-        var count = 0;
+        return await UpsertChargesForDueDateAsync(schedule, dueDate, apartments, chargeRepository, ct);
+    }
 
+    private static async Task<int> UpsertChargesForDueDateAsync(
+        MaintenanceSchedule schedule,
+        DateTime dueDate,
+        IReadOnlyList<Domain.Entities.Apartment> apartments,
+        IMaintenanceChargeRepository chargeRepository,
+        CancellationToken ct)
+    {
+        var count = 0;
         foreach (var apartment in apartments)
         {
             var amount = CalculateAmount(schedule, apartment);
@@ -380,7 +486,7 @@ internal static class MaintenanceChargeGenerator
                 continue;
             }
 
-            if (existing.Status is PaymentStatus.Paid or PaymentStatus.Cancelled)
+            if (existing.Status == PaymentStatus.Paid)
                 continue;
 
             existing.RefreshAmount(amount, schedule.Name, dueDate);
@@ -419,6 +525,30 @@ internal static class MaintenanceChargeGenerator
 
         return decimal.Round(schedule.Rate * (decimal)area, 2, MidpointRounding.AwayFromZero);
     }
+
+    private static IEnumerable<DateTime> EnumerateDueDates(MaintenanceSchedule schedule, DateTime horizonUtc)
+    {
+        if (!schedule.IsActive)
+            yield break;
+
+        var dueDate = schedule.NextDueDate;
+        while (dueDate.Date <= horizonUtc.Date)
+        {
+            yield return dueDate;
+            dueDate = AdvanceDueDate(schedule.Frequency, dueDate);
+        }
+    }
+
+    private static DateTime AdvanceDueDate(FeeFrequency frequency, DateTime dueDate) =>
+        frequency switch
+        {
+            FeeFrequency.Monthly => dueDate.AddMonths(1),
+            FeeFrequency.Quarterly => dueDate.AddMonths(3),
+            FeeFrequency.Annual => dueDate.AddYears(1),
+            _ => dueDate.AddMonths(1)
+        };
+
+    private static string ChargeKey(string apartmentId, int year, int month) => $"{apartmentId}:{year}:{month}";
 }
 
 file static class MaintenanceAuthorization

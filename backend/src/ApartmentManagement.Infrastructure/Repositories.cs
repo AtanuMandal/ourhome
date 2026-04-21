@@ -339,6 +339,14 @@ public class MaintenanceChargeRepository(CosmosClient client, string dbName, ILo
         return await ExecuteQueryAsync(q, societyId, ct);
     }
 
+    public async Task<IReadOnlyList<MaintenanceCharge>> GetByScheduleAsync(string societyId, string scheduleId, CancellationToken ct = default)
+    {
+        var q = new QueryDefinition("SELECT * FROM c WHERE c.societyId = @sid AND c.scheduleId = @scheduleId")
+            .WithParameter("@sid", societyId)
+            .WithParameter("@scheduleId", scheduleId);
+        return await ExecuteQueryAsync(q, societyId, ct);
+    }
+
     public async Task<IReadOnlyList<MaintenanceCharge>> GetByStatusAsync(string societyId, PaymentStatus status, int page, int pageSize, CancellationToken ct = default)
     {
         var q = new QueryDefinition("SELECT * FROM c WHERE c.societyId = @sid AND c.status = @status OFFSET @offset LIMIT @limit")

@@ -256,6 +256,8 @@ public sealed record MaintenanceChargeDto(
     DateTime? PaidAt,
     string? PaymentMethod,
     string? TransactionReference,
+    string? ReceiptUrl,
+    string? Notes,
     IReadOnlyList<MaintenancePaymentProofDto> Proofs,
     DateTime CreatedAt,
     DateTime UpdatedAt);
@@ -325,6 +327,12 @@ public sealed record MarkMaintenanceChargePaidRequest(
     string? TransactionReference,
     string? ReceiptUrl = null,
     string? Notes = null);
+
+public sealed record CreateMaintenancePenaltyChargeRequest(
+    string ApartmentId,
+    decimal Amount,
+    DateTime DueDate,
+    string Reason);
 
 // ─── Gamification ─────────────────────────────────────────────────────────────
 

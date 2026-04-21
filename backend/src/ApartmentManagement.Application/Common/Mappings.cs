@@ -233,6 +233,8 @@ public static class MappingExtensions
             charge.PaidAt,
             charge.PaymentMethod,
             charge.TransactionReference,
+            charge.ReceiptUrl,
+            charge.Notes,
             charge.Proofs
                 .Select(proof => new MaintenancePaymentProofDto(
                     proof.ProofUrl,

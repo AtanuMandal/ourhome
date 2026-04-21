@@ -169,4 +169,18 @@ public class MaintenanceFunctions(ISender mediator)
             ct);
         return result.ToActionResult();
     }
+
+    [Function("CreateMaintenancePenaltyCharge")]
+    public async Task<IActionResult> CreateMaintenancePenaltyCharge(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "societies/{societyId}/maintenance/charges/penalty")] HttpRequest req,
+        string societyId, CancellationToken ct)
+    {
+        var body = await req.DeserializeAsync<CreateMaintenancePenaltyChargeRequest>(ct);
+        if (body is null) return new BadRequestObjectResult("Invalid request body");
+
+        var result = await mediator.Send(
+            new CreateMaintenancePenaltyChargeCommand(societyId, body.ApartmentId, body.Amount, body.DueDate, body.Reason),
+            ct);
+        return result.ToActionResult(201);
+    }
 }
