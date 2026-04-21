@@ -21,7 +21,9 @@ public record CreateMaintenanceScheduleCommand(
     MaintenancePricingType PricingType,
     MaintenanceAreaBasis? AreaBasis,
     FeeFrequency Frequency,
-    int DueDay)
+    int DueDay,
+    int StartMonth,
+    int StartYear)
     : IRequest<Result<MaintenanceScheduleDto>>;
 
 public sealed class CreateMaintenanceScheduleCommandHandler(
@@ -38,6 +40,11 @@ public sealed class CreateMaintenanceScheduleCommandHandler(
         {
             MaintenanceAuthorization.EnsureAdmin(currentUserService);
 
+            var newActiveFromDate = new DateTime(request.StartYear, request.StartMonth, request.DueDay, 0, 0, 0, DateTimeKind.Utc);
+            var allSchedules = await scheduleRepository.GetAllAsync(request.SocietyId, ct);
+            if (allSchedules.Any(schedule => MaintenanceScheduleWindowHelper.ScheduleWindowsOverlap(schedule.ActiveFromDate, schedule.InactiveFromDate, newActiveFromDate, null)))
+                return Result<MaintenanceScheduleDto>.Failure(ErrorCodes.Conflict, "Another maintenance schedule is already active during the selected period.");
+
             var schedule = MaintenanceSchedule.Create(
                 request.SocietyId,
                 request.ApartmentId,
@@ -47,10 +54,12 @@ public sealed class CreateMaintenanceScheduleCommandHandler(
                 request.PricingType,
                 request.AreaBasis,
                 request.Frequency,
-                request.DueDay);
+                request.DueDay,
+                request.StartMonth,
+                request.StartYear);
 
             var created = await scheduleRepository.CreateAsync(schedule, ct);
-            await MaintenanceChargeGenerator.EnsureUpcomingChargesAsync(created, DateTime.UtcNow.Date.AddMonths(6), apartmentRepository, chargeRepository, ct);
+            await MaintenanceChargeGenerator.EnsureUpcomingChargesAsync(created, created.ActiveFromDate.Date.AddMonths(5), apartmentRepository, chargeRepository, ct);
 
             return Result<MaintenanceScheduleDto>.Success(created.ToResponse());
         }
@@ -69,15 +78,9 @@ public sealed class CreateMaintenanceScheduleCommandHandler(
 public record UpdateMaintenanceScheduleCommand(
     string SocietyId,
     string ScheduleId,
-    string Name,
-    string? Description,
-    string? ApartmentId,
-    decimal Rate,
-    MaintenancePricingType PricingType,
-    MaintenanceAreaBasis? AreaBasis,
-    FeeFrequency Frequency,
-    int DueDay,
     bool IsActive,
+    int EffectiveMonth,
+    int EffectiveYear,
     string ChangeReason)
     : IRequest<Result<MaintenanceScheduleDto>>;
 
@@ -101,23 +104,30 @@ public sealed class UpdateMaintenanceScheduleCommandHandler(
 
             var actor = await userRepository.GetByIdAsync(currentUserService.UserId, request.SocietyId, ct);
             var actorName = actor?.FullName ?? currentUserService.UserId;
+            var effectiveDueDate = new DateTime(request.EffectiveYear, request.EffectiveMonth, schedule.DueDay, 0, 0, 0, DateTimeKind.Utc);
 
-            schedule.Update(
-                request.ApartmentId,
-                request.Name,
-                request.Description,
-                request.Rate,
-                request.PricingType,
-                request.AreaBasis,
-                request.Frequency,
-                request.DueDay,
+            if (request.IsActive)
+            {
+                var allSchedules = await scheduleRepository.GetAllAsync(request.SocietyId, ct);
+                if (allSchedules.Any(existingSchedule =>
+                        !string.Equals(existingSchedule.Id, schedule.Id, StringComparison.OrdinalIgnoreCase) &&
+                        MaintenanceScheduleWindowHelper.ScheduleWindowsOverlap(existingSchedule.ActiveFromDate, existingSchedule.InactiveFromDate, effectiveDueDate, null)))
+                {
+                    return Result<MaintenanceScheduleDto>.Failure(ErrorCodes.Conflict, "Another maintenance schedule is already active during the selected period.");
+                }
+            }
+
+            schedule.UpdateStatus(
                 request.IsActive,
+                request.EffectiveMonth,
+                request.EffectiveYear,
                 currentUserService.UserId,
                 actorName,
                 request.ChangeReason);
 
             var updated = await scheduleRepository.UpdateAsync(schedule, ct);
-            await MaintenanceChargeGenerator.EnsureUpcomingChargesAsync(updated, DateTime.UtcNow.Date.AddMonths(6), apartmentRepository, chargeRepository, ct);
+            var horizon = updated.NextDueDate.Date.AddMonths(5);
+            await MaintenanceChargeGenerator.EnsureUpcomingChargesAsync(updated, horizon, apartmentRepository, chargeRepository, ct);
 
             return Result<MaintenanceScheduleDto>.Success(updated.ToResponse());
         }
@@ -133,6 +143,68 @@ public sealed class UpdateMaintenanceScheduleCommandHandler(
         {
             logger.LogError(ex, "Failed to update maintenance schedule {ScheduleId}", request.ScheduleId);
             return Result<MaintenanceScheduleDto>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
+public record DeleteMaintenanceScheduleCommand(
+    string SocietyId,
+    string ScheduleId,
+    string ChangeReason)
+    : IRequest<Result<bool>>;
+
+public sealed class DeleteMaintenanceScheduleCommandHandler(
+    IMaintenanceScheduleRepository scheduleRepository,
+    IMaintenanceChargeRepository chargeRepository,
+    ICurrentUserService currentUserService,
+    ILogger<DeleteMaintenanceScheduleCommandHandler> logger)
+    : IRequestHandler<DeleteMaintenanceScheduleCommand, Result<bool>>
+{
+    public async Task<Result<bool>> Handle(DeleteMaintenanceScheduleCommand request, CancellationToken ct)
+    {
+        try
+        {
+            MaintenanceAuthorization.EnsureAdmin(currentUserService);
+
+            var schedule = await scheduleRepository.GetByIdAsync(request.ScheduleId, request.SocietyId, ct)
+                ?? throw new NotFoundException("MaintenanceSchedule", request.ScheduleId);
+
+            if (schedule.IsActive)
+                return Result<bool>.Failure(ErrorCodes.Conflict, "Only inactive maintenance schedules can be deleted.");
+
+            var now = DateTime.UtcNow.Date;
+            var allSchedules = await scheduleRepository.GetAllAsync(request.SocietyId, ct);
+            if (!allSchedules.Any(otherSchedule =>
+                    !string.Equals(otherSchedule.Id, schedule.Id, StringComparison.OrdinalIgnoreCase) &&
+                    (otherSchedule.IsActive || otherSchedule.IsEffectiveOn(now))))
+            {
+                return Result<bool>.Failure(ErrorCodes.Conflict, "An inactive schedule can be deleted only when another active schedule exists for the society.");
+            }
+
+            var charges = await chargeRepository.GetByScheduleAsync(request.SocietyId, request.ScheduleId, ct);
+            var cutoffDate = DateTime.UtcNow.Date;
+            foreach (var charge in charges.Where(charge =>
+                         charge.DueDate.Date >= cutoffDate &&
+                         charge.Status != PaymentStatus.Paid))
+            {
+                await chargeRepository.DeleteAsync(charge.Id, charge.SocietyId, ct);
+            }
+
+            await scheduleRepository.DeleteAsync(schedule.Id, request.SocietyId, ct);
+            return Result<bool>.Success(true);
+        }
+        catch (ForbiddenException ex)
+        {
+            return Result<bool>.Failure(ErrorCodes.Forbidden, ex.Message);
+        }
+        catch (NotFoundException ex)
+        {
+            return Result<bool>.Failure(ErrorCodes.FeeScheduleNotFound, ex.Message);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to delete maintenance schedule {ScheduleId}", request.ScheduleId);
+            return Result<bool>.Failure(ErrorCodes.InternalError, ex.Message);
         }
     }
 }
@@ -391,7 +463,7 @@ public sealed class GenerateDueMaintenanceChargesCommandHandler(
 
             foreach (var schedule in dueSchedules)
             {
-                while (schedule.IsActive && schedule.NextDueDate.Date <= asOf)
+                while (schedule.AppliesToDueDate(schedule.NextDueDate) && schedule.NextDueDate.Date <= asOf)
                 {
                     count += await MaintenanceChargeGenerator.UpsertChargesForDueDateAsync(schedule, schedule.NextDueDate, apartmentRepository, chargeRepository, ct);
                     schedule.AdvanceNextDueDate();
@@ -431,17 +503,16 @@ internal static class MaintenanceChargeGenerator
         }
 
         var existingCharges = await chargeRepository.GetByScheduleAsync(schedule.SocietyId, schedule.Id, ct);
-        var cancellationNote = schedule.IsActive
-            ? "Cancelled after maintenance schedule update."
-            : "Cancelled after maintenance schedule deactivation.";
+        var cancellationStartDate = schedule.IsActive
+            ? schedule.NextDueDate.Date
+            : (schedule.InactiveFromDate?.Date ?? schedule.NextDueDate.Date);
 
         foreach (var charge in existingCharges.Where(charge =>
-                     charge.DueDate.Date >= DateTime.UtcNow.Date &&
+                     charge.DueDate.Date >= cancellationStartDate &&
                      !desiredChargeKeys.Contains(ChargeKey(charge.ApartmentId, charge.ChargeYear, charge.ChargeMonth)) &&
-                     charge.Status is not PaymentStatus.Paid and not PaymentStatus.Cancelled))
+                     charge.Status != PaymentStatus.Paid))
         {
-            charge.Cancel(cancellationNote);
-            await chargeRepository.UpdateAsync(charge, ct);
+            await chargeRepository.DeleteAsync(charge.Id, charge.SocietyId, ct);
         }
 
         return createdOrUpdated;
@@ -528,12 +599,15 @@ internal static class MaintenanceChargeGenerator
 
     private static IEnumerable<DateTime> EnumerateDueDates(MaintenanceSchedule schedule, DateTime horizonUtc)
     {
-        if (!schedule.IsActive)
+        if (!schedule.IsActive && schedule.InactiveFromDate is null)
             yield break;
 
         var dueDate = schedule.NextDueDate;
         while (dueDate.Date <= horizonUtc.Date)
         {
+            if (!schedule.AppliesToDueDate(dueDate))
+                yield break;
+
             yield return dueDate;
             dueDate = AdvanceDueDate(schedule.Frequency, dueDate);
         }
@@ -549,6 +623,7 @@ internal static class MaintenanceChargeGenerator
         };
 
     private static string ChargeKey(string apartmentId, int year, int month) => $"{apartmentId}:{year}:{month}";
+
 }
 
 file static class MaintenanceAuthorization
@@ -557,5 +632,15 @@ file static class MaintenanceAuthorization
     {
         if (!currentUserService.IsInRoles("SUAdmin", "HQAdmin"))
             throw new ForbiddenException("Only society admins can perform this action.");
+    }
+}
+
+file static class MaintenanceScheduleWindowHelper
+{
+    public static bool ScheduleWindowsOverlap(DateTime firstStart, DateTime? firstEndExclusive, DateTime secondStart, DateTime? secondEndExclusive)
+    {
+        var firstEnd = firstEndExclusive ?? DateTime.MaxValue;
+        var secondEnd = secondEndExclusive ?? DateTime.MaxValue;
+        return firstStart < secondEnd && secondStart < firstEnd;
     }
 }

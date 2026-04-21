@@ -13,7 +13,7 @@ const STATUS_MAP: Record<string, ChipVariant> = {
   // Payment
   Paid: 'success', Overdue: 'error', Waived: 'info', ProofSubmitted: 'info', Failed: 'error',
   // Maintenance schedule
-  Active: 'success', Inactive: 'default',
+  Active: 'success', Inactive: 'default', Upcoming: 'info',
   // Visitor
   Expected: 'info', CheckedIn: 'success', CheckedOut: 'default',
   // Service Request

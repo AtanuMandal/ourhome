@@ -210,6 +210,10 @@ public static class MappingExtensions
             schedule.AreaBasis?.ToString(),
             schedule.Frequency.ToString(),
             schedule.DueDay,
+            schedule.StartMonth,
+            schedule.StartYear,
+            schedule.ActiveFromDate,
+            schedule.InactiveFromDate,
             schedule.NextDueDate,
             schedule.IsActive,
             schedule.ChangeHistory

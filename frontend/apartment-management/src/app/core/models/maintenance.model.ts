@@ -26,6 +26,10 @@ export interface MaintenanceSchedule {
   areaBasis?: MaintenanceAreaBasis | null;
   frequency: MaintenanceFrequency;
   dueDay: number;
+  startMonth: number;
+  startYear: number;
+  activeFromDate: string;
+  inactiveFromDate?: string | null;
   nextDueDate: string;
   isActive: boolean;
   changeHistory: MaintenanceScheduleChange[];
@@ -109,10 +113,18 @@ export interface CreateMaintenanceScheduleDto {
   areaBasis?: MaintenanceAreaBasis | null;
   frequency: MaintenanceFrequency;
   dueDay: number;
+  startMonth: number;
+  startYear: number;
 }
 
-export interface UpdateMaintenanceScheduleDto extends CreateMaintenanceScheduleDto {
+export interface UpdateMaintenanceScheduleDto {
   isActive: boolean;
+  effectiveMonth: number;
+  effectiveYear: number;
+  changeReason: string;
+}
+
+export interface DeleteMaintenanceScheduleDto {
   changeReason: string;
 }
 

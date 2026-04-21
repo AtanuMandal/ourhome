@@ -152,6 +152,9 @@ public class CreateMaintenanceScheduleCommandHandlerTests
         _scheduleRepoMock
             .Setup(r => r.CreateAsync(It.IsAny<MaintenanceSchedule>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((MaintenanceSchedule s, CancellationToken _) => s);
+        _scheduleRepoMock
+            .Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
         _apartmentRepoMock
             .Setup(r => r.GetByIdAsync(apartment.Id, "soc-001", It.IsAny<CancellationToken>()))
             .ReturnsAsync(apartment);
@@ -175,7 +178,9 @@ public class CreateMaintenanceScheduleCommandHandlerTests
             MaintenancePricingType.FixedAmount,
             null,
             FeeFrequency.Monthly,
-            5);
+            5,
+            4,
+            2026);
 
         // Act
         var result = await handler.Handle(command, CancellationToken.None);

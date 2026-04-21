@@ -269,8 +269,17 @@ public class MaintenanceScheduleRepository(CosmosClient client, string dbName, I
 {
     public async Task<IReadOnlyList<MaintenanceSchedule>> GetActiveAsync(string societyId, CancellationToken ct = default)
     {
-        var q = new QueryDefinition("SELECT * FROM c WHERE c.societyId = @sid AND c.isActive = true")
-            .WithParameter("@sid", societyId);
+        var now = DateTime.UtcNow.ToString("o");
+        var q = new QueryDefinition(@"
+SELECT * FROM c
+WHERE c.societyId = @sid
+  AND c.activeFromDate <= @now
+  AND (
+    c.isActive = true
+    OR (IS_DEFINED(c.inactiveFromDate) AND NOT IS_NULL(c.inactiveFromDate) AND c.inactiveFromDate > @now)
+  )")
+            .WithParameter("@sid", societyId)
+            .WithParameter("@now", now);
         return await ExecuteQueryAsync(q, societyId, ct);
     }
 
@@ -283,8 +292,16 @@ public class MaintenanceScheduleRepository(CosmosClient client, string dbName, I
 
     public async Task<IReadOnlyList<MaintenanceSchedule>> GetActiveDueOnAsync(DateTime dueOnUtc, CancellationToken ct = default)
     {
-        var q = new QueryDefinition("SELECT * FROM c WHERE c.isActive = true AND c.nextDueDate <= @dueOn")
-            .WithParameter("@dueOn", dueOnUtc.ToString("o"));
+        var dueOn = dueOnUtc.ToString("o");
+        var q = new QueryDefinition(@"
+SELECT * FROM c
+WHERE c.activeFromDate <= @dueOn
+  AND c.nextDueDate <= @dueOn
+  AND (
+    c.isActive = true
+    OR (IS_DEFINED(c.inactiveFromDate) AND NOT IS_NULL(c.inactiveFromDate) AND c.inactiveFromDate > @dueOn)
+  )")
+            .WithParameter("@dueOn", dueOn);
         return await ExecuteCrossPartitionQueryAsync(q, ct);
     }
 }

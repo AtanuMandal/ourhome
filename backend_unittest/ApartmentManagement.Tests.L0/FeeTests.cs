@@ -23,7 +23,9 @@ public class MaintenanceScheduleTests
             MaintenancePricingType.PerSquareFoot,
             MaintenanceAreaBasis.SuperBuildUpArea,
             FeeFrequency.Monthly,
-            5);
+            5,
+            4,
+            2026);
 
         // Assert
         schedule.Id.Should().NotBeNullOrEmpty();
@@ -32,6 +34,7 @@ public class MaintenanceScheduleTests
         schedule.DueDay.Should().Be(5);
         schedule.Frequency.Should().Be(FeeFrequency.Monthly);
         schedule.AreaBasis.Should().Be(MaintenanceAreaBasis.SuperBuildUpArea);
+        schedule.ActiveFromDate.Should().Be(new DateTime(2026, 4, 5, 0, 0, 0, DateTimeKind.Utc));
     }
 
     [Fact]
@@ -47,7 +50,9 @@ public class MaintenanceScheduleTests
             MaintenancePricingType.FixedAmount,
             null,
             FeeFrequency.Monthly,
-            5);
+            5,
+            4,
+            2026);
 
         // Assert
         act.Should().Throw<ArgumentOutOfRangeException>();
@@ -65,7 +70,9 @@ public class MaintenanceScheduleTests
             MaintenancePricingType.PerSquareFoot,
             null,
             FeeFrequency.Monthly,
-            5);
+            5,
+            4,
+            2026);
 
         act.Should().Throw<ArgumentException>();
     }
@@ -86,14 +93,16 @@ public class MaintenanceScheduleTests
             MaintenancePricingType.FixedAmount,
             null,
             FeeFrequency.Monthly,
-            dueDay);
+            dueDay,
+            4,
+            2026);
 
         // Assert
         act.Should().Throw<ArgumentOutOfRangeException>();
     }
 
     [Fact]
-    public void Update_RecordsChangeHistory()
+    public void UpdateStatus_RecordsChangeHistoryAndEffectiveDate()
     {
         // Arrange
         var schedule = MaintenanceSchedule.Create(
@@ -105,28 +114,24 @@ public class MaintenanceScheduleTests
             MaintenancePricingType.FixedAmount,
             null,
             FeeFrequency.Monthly,
-            5);
+            5,
+            4,
+            2026);
 
         // Act
-        schedule.Update(
-            ApartmentId,
-            "Updated Maintenance",
-            "Revised amount",
-            1250m,
-            MaintenancePricingType.FixedAmount,
-            null,
-            FeeFrequency.Monthly,
-            7,
+        schedule.UpdateStatus(
             true,
+            7,
+            2026,
             "admin-001",
             "Admin User",
-            "Annual revision");
+            "Reactivated for July 2026");
 
         // Assert
-        schedule.Rate.Should().Be(1250m);
         schedule.ChangeHistory.Should().ContainSingle();
         schedule.ChangeHistory[0].PreviousRate.Should().Be(1000m);
-        schedule.ChangeHistory[0].NewRate.Should().Be(1250m);
+        schedule.ChangeHistory[0].NewRate.Should().Be(1000m);
+        schedule.NextDueDate.Should().Be(new DateTime(2026, 7, 5, 0, 0, 0, DateTimeKind.Utc));
     }
 
     [Fact]
@@ -142,7 +147,9 @@ public class MaintenanceScheduleTests
             MaintenancePricingType.FixedAmount,
             null,
             FeeFrequency.Monthly,
-            15);
+            15,
+            1,
+            2024);
         var from = new DateTime(2024, 1, 20, 0, 0, 0, DateTimeKind.Utc);
 
         // Act
@@ -167,7 +174,9 @@ public class MaintenanceScheduleTests
             MaintenancePricingType.FixedAmount,
             null,
             FeeFrequency.Monthly,
-            5);
+            5,
+            1,
+            2024);
         var original = schedule.NextDueDate;
 
         // Act

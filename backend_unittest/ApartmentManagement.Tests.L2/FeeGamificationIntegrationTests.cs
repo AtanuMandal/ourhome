@@ -60,7 +60,9 @@ public class FeeGamificationIntegrationTests : IntegrationTestBase
             MaintenancePricingType.FixedAmount,
             null,
             FeeFrequency.Monthly,
-            5);
+            5,
+            4,
+            2026);
 
         var createResult = await Mediator.Send(cmd);
 
@@ -69,6 +71,7 @@ public class FeeGamificationIntegrationTests : IntegrationTestBase
         schedule.Name.Should().Be("Monthly Maintenance");
         schedule.Rate.Should().Be(1500m);
         schedule.IsActive.Should().BeTrue();
+        schedule.ActiveFromDate.Should().Be(new DateTime(2026, 4, 5, 0, 0, 0, DateTimeKind.Utc));
 
         var getResult = await Mediator.Send(new GetMaintenanceSchedulesQuery(context.Society.Id, context.Apartment.Id));
 
@@ -90,7 +93,9 @@ public class FeeGamificationIntegrationTests : IntegrationTestBase
             MaintenancePricingType.FixedAmount,
             null,
             FeeFrequency.Monthly,
-            5));
+            5,
+            4,
+            2026));
 
         createResult.IsSuccess.Should().BeTrue();
         MaintenanceChargeRepo.Store.Values
@@ -100,7 +105,7 @@ public class FeeGamificationIntegrationTests : IntegrationTestBase
     }
 
     [Fact]
-    public async Task UpdateMaintenanceSchedule_StoresChangeHistory()
+    public async Task UpdateMaintenanceSchedule_InactivatesFromSelectedMonthAndStoresHistory()
     {
         var context = await SeedMaintenanceContextAsync();
         var schedule = (await Mediator.Send(new CreateMaintenanceScheduleCommand(
@@ -109,32 +114,29 @@ public class FeeGamificationIntegrationTests : IntegrationTestBase
             null,
             context.Apartment.Id,
             300m,
-            MaintenancePricingType.FixedAmount,
-            null,
-            FeeFrequency.Monthly,
-            10))).Value!;
-
-        var updateResult = await Mediator.Send(new UpdateMaintenanceScheduleCommand(
-            context.Society.Id,
-            schedule.Id,
-            "Water Bill",
-            "Updated amount",
-            context.Apartment.Id,
-            350m,
             MaintenancePricingType.FixedAmount,
             null,
             FeeFrequency.Monthly,
             10,
-            true,
-            "Yearly revision"));
+            4,
+            2026))).Value!;
+
+        var updateResult = await Mediator.Send(new UpdateMaintenanceScheduleCommand(
+            context.Society.Id,
+            schedule.Id,
+            false,
+            7,
+            2026,
+            "Replaced by revised schedule"));
 
         updateResult.IsSuccess.Should().BeTrue();
-        updateResult.Value!.Rate.Should().Be(350m);
+        updateResult.Value!.IsActive.Should().BeFalse();
+        updateResult.Value.InactiveFromDate.Should().Be(new DateTime(2026, 7, 10, 0, 0, 0, DateTimeKind.Utc));
         updateResult.Value.ChangeHistory.Should().ContainSingle();
     }
 
     [Fact]
-    public async Task UpdateMaintenanceSchedule_ReconcilesFutureChargesForChangedFrequency()
+    public async Task UpdateMaintenanceSchedule_DeletesFutureChargesFromSelectedInactiveMonth()
     {
         var context = await SeedMaintenanceContextAsync();
         var schedule = (await Mediator.Send(new CreateMaintenanceScheduleCommand(
@@ -146,21 +148,17 @@ public class FeeGamificationIntegrationTests : IntegrationTestBase
             MaintenancePricingType.FixedAmount,
             null,
             FeeFrequency.Monthly,
-            5))).Value!;
+            5,
+            4,
+            2026))).Value!;
 
         var updateResult = await Mediator.Send(new UpdateMaintenanceScheduleCommand(
             context.Society.Id,
             schedule.Id,
-            "Water Bill",
-            "Quarterly rate",
-            context.Apartment.Id,
-            450m,
-            MaintenancePricingType.FixedAmount,
-            null,
-            FeeFrequency.Quarterly,
-            5,
-            true,
-            "Align with quarterly billing"));
+            false,
+            6,
+            2026,
+            "Stop after May 2026"));
 
         updateResult.IsSuccess.Should().BeTrue();
 
@@ -168,11 +166,182 @@ public class FeeGamificationIntegrationTests : IntegrationTestBase
             .Where(charge => charge.ScheduleId == schedule.Id)
             .ToList();
 
-        scheduleCharges.Count(charge => charge.Status == PaymentStatus.Pending).Should().Be(2);
-        scheduleCharges.Count(charge => charge.Status == PaymentStatus.Cancelled).Should().Be(4);
-        scheduleCharges.Where(charge => charge.Status == PaymentStatus.Pending)
+        scheduleCharges.Should().HaveCount(2);
+        scheduleCharges
+            .Select(charge => charge.DueDate)
             .Should()
-            .OnlyContain(charge => charge.Amount == 450m);
+            .OnlyContain(dueDate => dueDate < new DateTime(2026, 6, 5, 0, 0, 0, DateTimeKind.Utc));
+    }
+
+    [Fact]
+    public async Task CreateMaintenanceSchedule_WhenAnotherActiveScheduleExists_ReturnsConflict()
+    {
+        var context = await SeedMaintenanceContextAsync();
+
+        var firstResult = await Mediator.Send(new CreateMaintenanceScheduleCommand(
+            context.Society.Id,
+            "Primary schedule",
+            null,
+            null,
+            1200m,
+            MaintenancePricingType.FixedAmount,
+            null,
+            FeeFrequency.Monthly,
+            5,
+            4,
+            2026));
+
+        var secondResult = await Mediator.Send(new CreateMaintenanceScheduleCommand(
+            context.Society.Id,
+            "Second schedule",
+            null,
+            context.Apartment.Id,
+            900m,
+            MaintenancePricingType.FixedAmount,
+            null,
+            FeeFrequency.Monthly,
+            5,
+            5,
+            2026));
+
+        firstResult.IsSuccess.Should().BeTrue();
+        secondResult.IsFailure.Should().BeTrue();
+        secondResult.ErrorCode.Should().Be(ApartmentManagement.Shared.Constants.ErrorCodes.Conflict);
+    }
+
+    [Fact]
+    public async Task DeleteMaintenanceSchedule_WhenInactiveAndReplacementExists_RemovesSchedule()
+    {
+        var context = await SeedMaintenanceContextAsync();
+        var originalSchedule = (await Mediator.Send(new CreateMaintenanceScheduleCommand(
+            context.Society.Id,
+            "Original schedule",
+            null,
+            context.Apartment.Id,
+            300m,
+            MaintenancePricingType.FixedAmount,
+            null,
+            FeeFrequency.Monthly,
+            5,
+            4,
+            2026))).Value!;
+
+        var deactivateResult = await Mediator.Send(new UpdateMaintenanceScheduleCommand(
+            context.Society.Id,
+            originalSchedule.Id,
+            false,
+            6,
+            2026,
+            "Superseded by new schedule"));
+        deactivateResult.IsSuccess.Should().BeTrue();
+
+        var replacementResult = await Mediator.Send(new CreateMaintenanceScheduleCommand(
+            context.Society.Id,
+            "Replacement schedule",
+            null,
+            null,
+            450m,
+            MaintenancePricingType.FixedAmount,
+            null,
+            FeeFrequency.Monthly,
+            5,
+            6,
+            2026));
+        replacementResult.IsSuccess.Should().BeTrue();
+
+        var deleteResult = await Mediator.Send(new DeleteMaintenanceScheduleCommand(
+            context.Society.Id,
+            originalSchedule.Id,
+            "Removing inactive schedule"));
+
+        deleteResult.IsSuccess.Should().BeTrue();
+        (await MaintenanceScheduleRepo.GetByIdAsync(originalSchedule.Id, context.Society.Id)).Should().BeNull();
+        MaintenanceChargeRepo.Store.Values
+            .Where(charge => charge.ScheduleId == originalSchedule.Id && charge.DueDate.Date >= DateTime.UtcNow.Date)
+            .Should()
+            .BeEmpty();
+    }
+
+    [Fact]
+    public async Task GenerateDueMaintenanceCharges_WhenScheduleIsInactiveOnlyInFuture_StillPostsDueCharges()
+    {
+        var context = await SeedMaintenanceContextAsync();
+        var currentYear = DateTime.UtcNow.Year;
+        var schedule = (await Mediator.Send(new CreateMaintenanceScheduleCommand(
+            context.Society.Id,
+            "Long-running schedule",
+            null,
+            context.Apartment.Id,
+            300m,
+            MaintenancePricingType.FixedAmount,
+            null,
+            FeeFrequency.Monthly,
+            5,
+            1,
+            currentYear))).Value!;
+
+        var deactivateResult = await Mediator.Send(new UpdateMaintenanceScheduleCommand(
+            context.Society.Id,
+            schedule.Id,
+            false,
+            12,
+            currentYear,
+            "Stop at year end"));
+        deactivateResult.IsSuccess.Should().BeTrue();
+
+        var generationResult = await Mediator.Send(new GenerateDueMaintenanceChargesCommand(
+            new DateTime(currentYear, 8, 5, 0, 0, 0, DateTimeKind.Utc)));
+
+        generationResult.IsSuccess.Should().BeTrue();
+        MaintenanceChargeRepo.Store.Values
+            .Where(charge => charge.ScheduleId == schedule.Id)
+            .Select(charge => charge.DueDate)
+            .Should()
+            .Contain(dueDate => dueDate == new DateTime(currentYear, 7, 5, 0, 0, 0, DateTimeKind.Utc))
+            .And.Contain(dueDate => dueDate == new DateTime(currentYear, 8, 5, 0, 0, 0, DateTimeKind.Utc));
+    }
+
+    [Fact]
+    public async Task CreateMaintenanceSchedule_WhenExistingScheduleRemainsEffectiveUntilFutureDate_RejectsOverlap()
+    {
+        var context = await SeedMaintenanceContextAsync();
+        var originalSchedule = (await Mediator.Send(new CreateMaintenanceScheduleCommand(
+            context.Society.Id,
+            "Original schedule",
+            null,
+            null,
+            1200m,
+            MaintenancePricingType.FixedAmount,
+            null,
+            FeeFrequency.Monthly,
+            5,
+            4,
+            2026))).Value!;
+
+        var deactivateResult = await Mediator.Send(new UpdateMaintenanceScheduleCommand(
+            context.Society.Id,
+            originalSchedule.Id,
+            false,
+            7,
+            2026,
+            "Replace later"));
+        deactivateResult.IsSuccess.Should().BeTrue();
+
+        var overlappingResult = await Mediator.Send(new CreateMaintenanceScheduleCommand(
+            context.Society.Id,
+            "Overlapping replacement",
+            null,
+            null,
+            1300m,
+            MaintenancePricingType.FixedAmount,
+            null,
+            FeeFrequency.Monthly,
+            5,
+            6,
+            2026));
+
+        overlappingResult.IsFailure.Should().BeTrue();
+        overlappingResult.ErrorCode.Should().Be(ApartmentManagement.Shared.Constants.ErrorCodes.Conflict);
     }
 
     [Fact]

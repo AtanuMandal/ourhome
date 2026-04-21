@@ -22,6 +22,10 @@ public sealed class MaintenanceSchedule : BaseEntity
     public MaintenanceAreaBasis? AreaBasis { get; private set; }
     public FeeFrequency Frequency { get; private set; }
     public int DueDay { get; private set; }
+    public int StartMonth => ActiveFromDate.Month;
+    public int StartYear => ActiveFromDate.Year;
+    public DateTime ActiveFromDate { get; private set; }
+    public DateTime? InactiveFromDate { get; private set; }
     public DateTime NextDueDate { get; private set; }
     public bool IsActive { get; private set; }
     public IReadOnlyList<ScheduleChange> ChangeHistory { get; private set; } = [];
@@ -37,12 +41,18 @@ public sealed class MaintenanceSchedule : BaseEntity
         MaintenancePricingType pricingType,
         MaintenanceAreaBasis? areaBasis,
         FeeFrequency frequency,
-        int dueDay)
+        int dueDay,
+        int startMonth,
+        int startYear)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(societyId, nameof(societyId));
         ArgumentException.ThrowIfNullOrWhiteSpace(name, nameof(name));
         ValidatePricing(rate, pricingType, areaBasis);
         ValidateDueDay(dueDay);
+        ValidateScheduleMonth(startMonth, nameof(startMonth));
+        ValidateScheduleYear(startYear, nameof(startYear));
+
+        var activeFromDate = BuildDueDate(startYear, startMonth, dueDay);
 
         var schedule = new MaintenanceSchedule
         {
@@ -55,54 +65,53 @@ public sealed class MaintenanceSchedule : BaseEntity
             AreaBasis = areaBasis,
             Frequency = frequency,
             DueDay = dueDay,
+            ActiveFromDate = activeFromDate,
             IsActive = true
         };
-        schedule.NextDueDate = schedule.CalculateNextDueDate(DateTime.UtcNow);
+        schedule.NextDueDate = activeFromDate;
         return schedule;
     }
 
-    public void Update(
-        string? apartmentId,
-        string name,
-        string? description,
-        decimal rate,
-        MaintenancePricingType pricingType,
-        MaintenanceAreaBasis? areaBasis,
-        FeeFrequency frequency,
-        int dueDay,
+    public void UpdateStatus(
         bool isActive,
+        int effectiveMonth,
+        int effectiveYear,
         string changedByUserId,
         string changedByUserName,
         string reason)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(name, nameof(name));
         ArgumentException.ThrowIfNullOrWhiteSpace(changedByUserId, nameof(changedByUserId));
         ArgumentException.ThrowIfNullOrWhiteSpace(changedByUserName, nameof(changedByUserName));
         ArgumentException.ThrowIfNullOrWhiteSpace(reason, nameof(reason));
-        ValidatePricing(rate, pricingType, areaBasis);
-        ValidateDueDay(dueDay);
+        ValidateScheduleMonth(effectiveMonth, nameof(effectiveMonth));
+        ValidateScheduleYear(effectiveYear, nameof(effectiveYear));
+
+        var effectiveDueDate = BuildDueDate(effectiveYear, effectiveMonth, DueDay);
 
         var history = ChangeHistory.ToList();
         history.Add(new ScheduleChange(
             Rate,
-            rate,
-            areaBasis,
+            Rate,
+            AreaBasis,
             changedByUserId.Trim(),
             changedByUserName.Trim(),
             reason.Trim(),
             DateTime.UtcNow));
 
-        ApartmentId = string.IsNullOrWhiteSpace(apartmentId) ? null : apartmentId.Trim();
-        Name = name.Trim();
-        Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
-        Rate = rate;
-        PricingType = pricingType;
-        AreaBasis = areaBasis;
-        Frequency = frequency;
-        DueDay = dueDay;
         IsActive = isActive;
+        if (isActive)
+        {
+            ActiveFromDate = effectiveDueDate;
+            InactiveFromDate = null;
+            NextDueDate = effectiveDueDate;
+        }
+        else
+        {
+            InactiveFromDate = effectiveDueDate;
+            if (NextDueDate.Date >= effectiveDueDate.Date)
+                NextDueDate = effectiveDueDate;
+        }
         ChangeHistory = history;
-        RecalculateNextDueDate(DateTime.UtcNow);
         TouchUpdatedAt();
     }
 
@@ -126,6 +135,16 @@ public sealed class MaintenanceSchedule : BaseEntity
         NextDueDate = CalculateNextDueDate(from);
         TouchUpdatedAt();
     }
+
+    public bool AppliesToDueDate(DateTime dueDateUtc)
+    {
+        if (dueDateUtc.Date < ActiveFromDate.Date)
+            return false;
+
+        return InactiveFromDate is null || dueDateUtc.Date < InactiveFromDate.Value.Date;
+    }
+
+    public bool IsEffectiveOn(DateTime asOfUtc) => AppliesToDueDate(asOfUtc.Date);
 
     private DateTime AdvanceDate(DateTime current) =>
         Frequency switch
@@ -153,6 +172,21 @@ public sealed class MaintenanceSchedule : BaseEntity
         if (dueDay < 1 || dueDay > 28)
             throw new ArgumentOutOfRangeException(nameof(dueDay), "Due day must be between 1 and 28.");
     }
+
+    private static void ValidateScheduleMonth(int month, string paramName)
+    {
+        if (month < 1 || month > 12)
+            throw new ArgumentOutOfRangeException(paramName, "Month must be between 1 and 12.");
+    }
+
+    private static void ValidateScheduleYear(int year, string paramName)
+    {
+        if (year < 2000 || year > 2100)
+            throw new ArgumentOutOfRangeException(paramName, "Year must be between 2000 and 2100.");
+    }
+
+    private static DateTime BuildDueDate(int year, int month, int dueDay)
+        => new(year, month, dueDay, 0, 0, 0, DateTimeKind.Utc);
 }
 
 public sealed class MaintenanceCharge : BaseEntity

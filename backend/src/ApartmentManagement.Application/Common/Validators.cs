@@ -285,6 +285,8 @@ public sealed class CreateMaintenanceScheduleCommandValidator : AbstractValidato
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
         RuleFor(x => x.Rate).GreaterThan(0);
         RuleFor(x => x.DueDay).InclusiveBetween(1, 28);
+        RuleFor(x => x.StartMonth).InclusiveBetween(1, 12);
+        RuleFor(x => x.StartYear).InclusiveBetween(2000, 2100);
         RuleFor(x => x.Frequency).IsInEnum();
         RuleFor(x => x.SocietyId).NotEmpty();
         RuleFor(x => x)
@@ -298,15 +300,20 @@ public sealed class UpdateMaintenanceScheduleCommandValidator : AbstractValidato
     public UpdateMaintenanceScheduleCommandValidator()
     {
         RuleFor(x => x.ScheduleId).NotEmpty();
-        RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
-        RuleFor(x => x.Rate).GreaterThan(0);
-        RuleFor(x => x.DueDay).InclusiveBetween(1, 28);
-        RuleFor(x => x.Frequency).IsInEnum();
+        RuleFor(x => x.EffectiveMonth).InclusiveBetween(1, 12);
+        RuleFor(x => x.EffectiveYear).InclusiveBetween(2000, 2100);
         RuleFor(x => x.ChangeReason).NotEmpty().MaximumLength(500);
         RuleFor(x => x.SocietyId).NotEmpty();
-        RuleFor(x => x)
-            .Must(x => x.PricingType == MaintenancePricingType.FixedAmount ? x.AreaBasis is null : x.AreaBasis is not null)
-            .WithMessage("Area basis is required only for per-square-foot maintenance schedules.");
+    }
+}
+
+public sealed class DeleteMaintenanceScheduleCommandValidator : AbstractValidator<DeleteMaintenanceScheduleCommand>
+{
+    public DeleteMaintenanceScheduleCommandValidator()
+    {
+        RuleFor(x => x.SocietyId).NotEmpty();
+        RuleFor(x => x.ScheduleId).NotEmpty();
+        RuleFor(x => x.ChangeReason).NotEmpty().MaximumLength(500);
     }
 }
 
