@@ -49,6 +49,7 @@ export class AppComponent {
     { path: '/maintenance', icon: 'receipt_long',            label: 'Maintenance' },
     { path: '/rewards',    icon: 'emoji_events',            label: 'Rewards' },
     { path: '/services',   icon: 'build',                   label: 'Services' },
+    { path: '/vendor-payments', icon: 'payments',           label: 'Vendor Payments', adminOnly: true },
     { path: '/society',    icon: 'location_city',           label: 'Society', adminOnly: true },
   ];
 

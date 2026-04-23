@@ -5,6 +5,8 @@ public sealed class InfrastructureSettings
     public string CosmosDbConnectionString { get; set; } = string.Empty;
     public string CosmosDbDatabaseName { get; set; } = "ApartmentManagement";
     public string AzureCommunicationConnectionString { get; set; } = string.Empty;
+    public string BlobStorageConnectionString { get; set; } = string.Empty;
+    public string BlobStorageContainerPrefix { get; set; } = "apartment-management";
     public string EmailSenderAddress { get; set; } = "no-reply@apartmentmgmt.io";
     public string SmsSenderNumber { get; set; } = string.Empty;
     public string EventGridTopicEndpoint { get; set; } = string.Empty;

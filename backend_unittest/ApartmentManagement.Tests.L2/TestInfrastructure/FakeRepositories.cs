@@ -356,6 +356,123 @@ public sealed class FakeMaintenanceChargeRepository : FakeRepository<Maintenance
     }
 }
 
+// ─── Vendor Payments ────────────────────────────────────────────────────────────
+
+public sealed class FakeVendorRepository : FakeRepository<Vendor>, IVendorRepository
+{
+    public Task<IReadOnlyList<Vendor>> SearchAsync(string societyId, string? searchText, CancellationToken ct = default)
+    {
+        var query = Store.Values.Where(v => v.SocietyId == societyId);
+        if (!string.IsNullOrWhiteSpace(searchText))
+        {
+            var normalizedSearch = searchText.Trim();
+            query = query.Where(v =>
+                v.Name.Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase)
+                || (v.BusinessType?.Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase) ?? false)
+                || (v.GeographicServiceArea?.Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase) ?? false)
+                || v.ContactFirstName.Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase)
+                || v.ContactLastName.Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase)
+                || v.ContactEmail.Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase));
+        }
+
+        return Task.FromResult<IReadOnlyList<Vendor>>(query.ToList());
+    }
+}
+
+public sealed class FakeVendorRecurringScheduleRepository : FakeRepository<VendorRecurringSchedule>, IVendorRecurringScheduleRepository
+{
+    public Task<IReadOnlyList<VendorRecurringSchedule>> GetByVendorAsync(string societyId, string vendorId, CancellationToken ct = default)
+    {
+        IReadOnlyList<VendorRecurringSchedule> result = Store.Values
+            .Where(schedule => schedule.SocietyId == societyId && schedule.VendorId == vendorId)
+            .ToList();
+        return Task.FromResult(result);
+    }
+
+    public Task<IReadOnlyList<VendorRecurringSchedule>> GetActiveDueOnAsync(DateTime asOfUtc, CancellationToken ct = default)
+    {
+        IReadOnlyList<VendorRecurringSchedule> result = Store.Values
+            .Where(schedule => schedule.NextChargeDate.Date <= asOfUtc.Date && schedule.AppliesTo(schedule.NextChargeDate))
+            .ToList();
+        return Task.FromResult(result);
+    }
+}
+
+public sealed class FakeVendorChargeRepository : FakeRepository<VendorCharge>, IVendorChargeRepository
+{
+    public Task<IReadOnlyList<VendorCharge>> GetByVendorAsync(string societyId, string vendorId, int page, int pageSize, int? year, int? month, PaymentStatus? status, CancellationToken ct = default)
+    {
+        var query = Store.Values
+            .Where(charge => charge.SocietyId == societyId && charge.VendorId == vendorId && !charge.IsDeleted)
+            .AsEnumerable();
+
+        if (year.HasValue)
+            query = query.Where(charge => charge.ChargeYear == year.Value);
+        if (month.HasValue)
+            query = query.Where(charge => charge.ChargeMonth == month.Value);
+        if (status.HasValue)
+            query = query.Where(charge => charge.Status == status.Value);
+
+        return Task.FromResult<IReadOnlyList<VendorCharge>>(query.Skip((page - 1) * pageSize).Take(pageSize).ToList());
+    }
+
+    public Task<IReadOnlyList<VendorCharge>> GetBySocietyAsync(string societyId, int page, int pageSize, string? vendorId, PaymentStatus? status, int? year, int? month, CancellationToken ct = default)
+    {
+        var query = Store.Values
+            .Where(charge => charge.SocietyId == societyId && !charge.IsDeleted)
+            .AsEnumerable();
+
+        if (!string.IsNullOrWhiteSpace(vendorId))
+            query = query.Where(charge => charge.VendorId == vendorId);
+        if (status.HasValue)
+            query = query.Where(charge => charge.Status == status.Value);
+        if (year.HasValue)
+            query = query.Where(charge => charge.ChargeYear == year.Value);
+        if (month.HasValue)
+            query = query.Where(charge => charge.ChargeMonth == month.Value);
+
+        return Task.FromResult<IReadOnlyList<VendorCharge>>(query.Skip((page - 1) * pageSize).Take(pageSize).ToList());
+    }
+
+    public Task<IReadOnlyList<VendorCharge>> GetByScheduleAsync(string societyId, string scheduleId, CancellationToken ct = default)
+    {
+        IReadOnlyList<VendorCharge> result = Store.Values
+            .Where(charge => charge.SocietyId == societyId && charge.ScheduleId == scheduleId)
+            .ToList();
+        return Task.FromResult(result);
+    }
+
+    public Task<VendorCharge?> GetByScheduleAndEffectiveDateAsync(string societyId, string scheduleId, DateTime effectiveDate, CancellationToken ct = default)
+    {
+        var found = Store.Values.FirstOrDefault(charge =>
+            charge.SocietyId == societyId &&
+            charge.ScheduleId == scheduleId &&
+            charge.EffectiveDate.Date == effectiveDate.Date);
+        return Task.FromResult<VendorCharge?>(found);
+    }
+
+    public Task<IReadOnlyList<VendorCharge>> GetByYearAsync(string societyId, int year, CancellationToken ct = default)
+    {
+        IReadOnlyList<VendorCharge> result = Store.Values
+            .Where(charge => charge.SocietyId == societyId && charge.ChargeYear == year && !charge.IsDeleted)
+            .ToList();
+        return Task.FromResult(result);
+    }
+
+    public Task<IReadOnlyList<VendorCharge>> GetOverduePendingAcrossSocietiesAsync(DateTime asOfUtc, CancellationToken ct = default)
+    {
+        IReadOnlyList<VendorCharge> result = Store.Values
+            .Where(charge =>
+                !charge.IsDeleted &&
+                charge.IsActive &&
+                charge.Status != PaymentStatus.Paid &&
+                charge.DueDate.Date < asOfUtc.Date &&
+                charge.OverdueNotificationSentAt is null)
+            .ToList();
+        return Task.FromResult(result);
+    }
+}
+
 // ─── Competition ──────────────────────────────────────────────────────────────
 
 public sealed class FakeCompetitionRepository : FakeRepository<Competition>, ICompetitionRepository

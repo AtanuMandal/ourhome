@@ -9,6 +9,8 @@ scale in  scale out should built in
 
 for database use cosmos. index the database properly for low cost
 
+for file storage use Blob storage.
+
 backend in .NET
 
 front end in Angular

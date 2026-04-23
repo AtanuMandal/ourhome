@@ -4,7 +4,7 @@
 
 Full-stack Azure-native application:
 
-- **Backend**: Azure Functions v4 (.NET 8 isolated worker) + Azure Cosmos DB + Azure Event Grid
+- **Backend**: Azure Functions v4 (.NET 8 isolated worker) + Azure Cosmos DB + Azure Event Grid + Azure Blob Storage (`backend/`)
 - **Frontend**: Angular 17+ PWA (`frontend/apartment-management/`)
 - **Infrastructure**: Bicep templates (`infra/`)
 - **Solution file**: `apartment_management.sln`
