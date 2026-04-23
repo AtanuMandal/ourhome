@@ -42,6 +42,9 @@ public static class ErrorCodes
 
     public const string FeeScheduleNotFound = "FEE_SCHEDULE_NOT_FOUND";
     public const string PaymentNotFound = "PAYMENT_NOT_FOUND";
+    public const string VendorNotFound = "VENDOR_NOT_FOUND";
+    public const string VendorScheduleNotFound = "VENDOR_SCHEDULE_NOT_FOUND";
+    public const string VendorChargeNotFound = "VENDOR_CHARGE_NOT_FOUND";
 
     public const string CompetitionNotFound = "COMPETITION_NOT_FOUND";
     public const string CompetitionNotActive = "COMPETITION_NOT_ACTIVE";

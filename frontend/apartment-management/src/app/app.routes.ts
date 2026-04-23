@@ -76,5 +76,11 @@ export const routes: Routes = [
     loadChildren: () => import('./features/services/services.routes').then(m => m.SERVICE_ROUTES),
   },
 
+  {
+    path: 'vendor-payments',
+    canActivate: [authGuard],
+    loadChildren: () => import('./features/vendor-payments/vendor-payments.routes').then(m => m.VENDOR_PAYMENT_ROUTES),
+  },
+
   { path: '**', redirectTo: '/dashboard' },
 ];

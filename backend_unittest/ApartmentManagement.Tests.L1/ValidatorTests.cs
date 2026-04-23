@@ -3,6 +3,8 @@ using ApartmentManagement.Application.Commands.Complaint;
 using ApartmentManagement.Application.Commands.Maintenance;
 using ApartmentManagement.Application.Commands.Society;
 using ApartmentManagement.Application.Commands.User;
+using ApartmentManagement.Application.Commands.VendorPayments;
+using ApartmentManagement.Application.Common;
 using ApartmentManagement.Application.Validators;
 using ApartmentManagement.Domain.Enums;
 using FluentAssertions;
@@ -99,6 +101,36 @@ public class CreateSocietyCommandValidatorTests
         // Assert
         result.IsValid.Should().BeFalse();
         result.Errors.Should().Contain(e => e.PropertyName == "Street");
+    }
+}
+
+public class UpdateVendorRecurringScheduleCommandValidatorTests
+{
+    private readonly UpdateVendorRecurringScheduleCommandValidator _validator = new();
+
+    [Fact]
+    public void Validate_WhenEndDateAndInactiveFromDateMissing_FailsValidation()
+    {
+        var command = new UpdateVendorRecurringScheduleCommand("soc-001", "schedule-001", null, null);
+
+        var result = _validator.Validate(command);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(error => error.ErrorMessage.Contains("Either schedule end date or inactive-from date is required."));
+    }
+
+    [Fact]
+    public void Validate_WhenInactiveFromDateProvided_PassesValidation()
+    {
+        var command = new UpdateVendorRecurringScheduleCommand(
+            "soc-001",
+            "schedule-001",
+            null,
+            new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc));
+
+        var result = _validator.Validate(command);
+
+        result.IsValid.Should().BeTrue();
     }
 }
 
@@ -408,5 +440,40 @@ public class MaintenanceScheduleCommandValidatorTests
 
         result.IsValid.Should().BeFalse();
         result.Errors.Should().Contain(error => error.PropertyName == "ChangeReason");
+    }
+}
+
+public class VendorPaymentCommandValidatorTests
+{
+    private readonly UpdateVendorRecurringScheduleCommandValidator _updateScheduleValidator = new();
+    private readonly MarkVendorChargePaidCommandValidator _markPaidValidator = new();
+
+    [Fact]
+    public void UpdateSchedule_WithoutWindowValues_FailsValidation()
+    {
+        var command = new UpdateVendorRecurringScheduleCommand("soc-001", "schedule-001", null, null);
+
+        var result = _updateScheduleValidator.Validate(command);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(error => error.ErrorMessage.Contains("Either schedule end date or inactive-from date is required."));
+    }
+
+    [Fact]
+    public void MarkPaid_WithoutReceipt_FailsValidation()
+    {
+        var command = new MarkVendorChargePaidCommand(
+            "soc-001",
+            "charge-001",
+            DateTime.UtcNow.Date,
+            "Bank Transfer",
+            "TXN-001",
+            null,
+            null);
+
+        var result = _markPaidValidator.Validate(command);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(error => error.PropertyName == "ReceiptUrl");
     }
 }

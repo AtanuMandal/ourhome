@@ -103,6 +103,21 @@ public static class InfrastructureDependencyInjection
             sp.GetRequiredService<IOptions<InfrastructureSettings>>().Value.CosmosDbDatabaseName,
             sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<ServiceProviderRequestRepository>>()));
 
+        services.AddScoped<IVendorRepository>(sp => new VendorRepository(
+            sp.GetRequiredService<CosmosClient>(),
+            sp.GetRequiredService<IOptions<InfrastructureSettings>>().Value.CosmosDbDatabaseName,
+            sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<VendorRepository>>()));
+
+        services.AddScoped<IVendorRecurringScheduleRepository>(sp => new VendorRecurringScheduleRepository(
+            sp.GetRequiredService<CosmosClient>(),
+            sp.GetRequiredService<IOptions<InfrastructureSettings>>().Value.CosmosDbDatabaseName,
+            sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<VendorRecurringScheduleRepository>>()));
+
+        services.AddScoped<IVendorChargeRepository>(sp => new VendorChargeRepository(
+            sp.GetRequiredService<CosmosClient>(),
+            sp.GetRequiredService<IOptions<InfrastructureSettings>>().Value.CosmosDbDatabaseName,
+            sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<VendorChargeRepository>>()));
+
         services.AddScoped<IOutboxRepository>(sp => new OutboxRepository(
             sp.GetRequiredService<CosmosClient>(),
             sp.GetRequiredService<IOptions<InfrastructureSettings>>().Value.CosmosDbDatabaseName,
@@ -112,6 +127,7 @@ public static class InfrastructureDependencyInjection
         services.AddScoped<IAuthService, JwtAuthService>();
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<IEventPublisher, OutboxEventPublisher>();
+        services.AddScoped<IFileStorageService, BlobFileStorageService>();
         services.AddSingleton<IQrCodeService, QrCodeService>();
         services.AddSingleton<IRateLimitService, InMemoryRateLimitService>();
         services.AddSingleton<ICacheService, InMemoryCacheService>();
