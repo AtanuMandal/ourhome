@@ -94,6 +94,11 @@ Open the Emulator Explorer at `https://localhost:8081/_explorer/index.html` and 
 | `service-requests` | `/societyId` |
 | `outbox` | `/societyId` |
 | `outbox-leases` | `/id` |
+| `maintenance_charges` | `/societyId` |
+| `maintenance_schedules` | `/societyId` |
+| `vendor_charges` | `/societyId` |
+| `vendor_recurring_schedules` | `/societyId` |
+| `vendors` | `/societyId` |
 
 ### Step 4 — Review `local.settings.json`
 
