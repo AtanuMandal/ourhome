@@ -122,11 +122,15 @@ File: `backend/src/ApartmentManagement.Functions/local.settings.json`
     "Infrastructure:EventGridTopicEndpoint": "",
     "Infrastructure:EventGridTopicKey": "",
 
-    // Azure Communication Services — leave blank to skip email/SMS sending
-    "Infrastructure:AzureCommunicationConnectionString": "",
+     // Azure Communication Services — leave blank to skip email/SMS sending
+     "Infrastructure:AzureCommunicationConnectionString": "",
 
-    // Azure AD B2C — leave blank to skip JWT validation during local dev
-    "AzureAdB2C:Authority": "",
+     // Blob storage — local file uploads use Azurite
+     "Infrastructure:BlobStorageConnectionString": "UseDevelopmentStorage=true",
+     "Infrastructure:BlobStorageContainerPrefix": "apartment-management",
+
+     // Azure AD B2C — leave blank to skip JWT validation during local dev
+     "AzureAdB2C:Authority": "",
     "AzureAdB2C:ClientId": ""
   },
   "Host": {
@@ -138,6 +142,8 @@ File: `backend/src/ApartmentManagement.Functions/local.settings.json`
 ```
 
 > ⚠️ `local.settings.json` is in `.gitignore`. Never commit real connection strings.
+
+The backend blob upload paths (vendor documents, maintenance proofs, and any other file-backed flows) read `Infrastructure:BlobStorageConnectionString`. When this value is not set, the application falls back to `AzureWebJobsStorage`, so Azurite remains the default local storage target.
 
 ### Step 5 — Build and run
 
@@ -152,6 +158,8 @@ func start
 ```
 
 The API is now running at **`http://localhost:7071/api/`**
+
+> If file uploads fail locally, first confirm Azurite is running and that `UseDevelopmentStorage=true` is present in both `AzureWebJobsStorage` and `Infrastructure:BlobStorageConnectionString`.
 
 ### Step 6 — Test with Postman
 
