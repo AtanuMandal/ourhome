@@ -167,6 +167,7 @@ public abstract class IntegrationTestBase : IDisposable
     protected FakeVisitorLogRepository VisitorRepo { get; }
     protected FakeMaintenanceScheduleRepository MaintenanceScheduleRepo { get; }
     protected FakeMaintenanceChargeRepository MaintenanceChargeRepo { get; }
+    protected FakeMaintenanceChargeGridViewRepository MaintenanceChargeGridViewRepo { get; }
     protected FakeVendorRepository VendorRepo { get; }
     protected FakeVendorRecurringScheduleRepository VendorRecurringScheduleRepo { get; }
     protected FakeVendorChargeRepository VendorChargeRepo { get; }
@@ -192,6 +193,7 @@ public abstract class IntegrationTestBase : IDisposable
         VisitorRepo = new FakeVisitorLogRepository();
         MaintenanceScheduleRepo = new FakeMaintenanceScheduleRepository();
         MaintenanceChargeRepo = new FakeMaintenanceChargeRepository();
+        MaintenanceChargeGridViewRepo = new FakeMaintenanceChargeGridViewRepository();
         VendorRepo = new FakeVendorRepository();
         VendorRecurringScheduleRepo = new FakeVendorRecurringScheduleRepository();
         VendorChargeRepo = new FakeVendorChargeRepository();
@@ -233,6 +235,7 @@ public abstract class IntegrationTestBase : IDisposable
         services.AddSingleton<IVisitorLogRepository>(VisitorRepo);
         services.AddSingleton<IMaintenanceScheduleRepository>(MaintenanceScheduleRepo);
         services.AddSingleton<IMaintenanceChargeRepository>(MaintenanceChargeRepo);
+        services.AddSingleton<IMaintenanceChargeGridViewRepository>(MaintenanceChargeGridViewRepo);
         services.AddSingleton<IVendorRepository>(VendorRepo);
         services.AddSingleton<IVendorRecurringScheduleRepository>(VendorRecurringScheduleRepo);
         services.AddSingleton<IVendorChargeRepository>(VendorChargeRepo);

@@ -135,12 +135,13 @@ public class CreateMaintenanceScheduleCommandHandlerTests
 {
     private readonly Mock<IMaintenanceScheduleRepository> _scheduleRepoMock = new();
     private readonly Mock<IMaintenanceChargeRepository> _chargeRepoMock = new();
+    private readonly Mock<IMaintenanceChargeGridViewRepository> _gridViewRepoMock = new();
     private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
     private readonly Mock<ICurrentUserService> _currentUserMock = new();
     private readonly Mock<ILogger<CreateMaintenanceScheduleCommandHandler>> _loggerMock = new();
 
     private CreateMaintenanceScheduleCommandHandler CreateHandler() =>
-        new(_scheduleRepoMock.Object, _chargeRepoMock.Object, _apartmentRepoMock.Object, _currentUserMock.Object, _loggerMock.Object);
+        new(_scheduleRepoMock.Object, _chargeRepoMock.Object, _gridViewRepoMock.Object, _apartmentRepoMock.Object, _currentUserMock.Object, _loggerMock.Object);
 
     [Fact]
     public async Task Handle_WithValidCommand_CreatesMaintenanceScheduleAndUpcomingCharges()
@@ -158,6 +159,9 @@ public class CreateMaintenanceScheduleCommandHandlerTests
         _apartmentRepoMock
             .Setup(r => r.GetByIdAsync(apartment.Id, "soc-001", It.IsAny<CancellationToken>()))
             .ReturnsAsync(apartment);
+        _apartmentRepoMock
+            .Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync([apartment]);
         _chargeRepoMock
             .Setup(r => r.GetByScheduleAndPeriodAsync("soc-001", It.IsAny<string>(), apartment.Id, It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((MaintenanceCharge?)null);
@@ -167,6 +171,15 @@ public class CreateMaintenanceScheduleCommandHandlerTests
         _chargeRepoMock
             .Setup(r => r.GetByScheduleAsync("soc-001", It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
+        _chargeRepoMock
+            .Setup(r => r.GetByDueDateRangeAsync("soc-001", It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string _, DateTime __, DateTime ___, CancellationToken ____) => new List<MaintenanceCharge>());
+        _gridViewRepoMock
+            .Setup(r => r.GetByFinancialYearAsync("soc-001", It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MaintenanceChargeGridView?)null);
+        _gridViewRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<MaintenanceChargeGridView>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MaintenanceChargeGridView view, CancellationToken _) => view);
 
         var handler = CreateHandler();
         var command = new CreateMaintenanceScheduleCommand(
@@ -180,6 +193,8 @@ public class CreateMaintenanceScheduleCommandHandlerTests
             FeeFrequency.Monthly,
             5,
             4,
+            2026,
+            9,
             2026);
 
         // Act
@@ -196,6 +211,7 @@ public class CreateMaintenanceScheduleCommandHandlerTests
 public class SubmitMaintenancePaymentProofCommandHandlerTests
 {
     private readonly Mock<IMaintenanceChargeRepository> _chargeRepoMock = new();
+    private readonly Mock<IMaintenanceChargeGridViewRepository> _gridViewRepoMock = new();
     private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
     private readonly Mock<ISocietyRepository> _societyRepoMock = new();
     private readonly Mock<IUserRepository> _userRepoMock = new();
@@ -204,7 +220,7 @@ public class SubmitMaintenancePaymentProofCommandHandlerTests
     private readonly Mock<ILogger<SubmitMaintenancePaymentProofCommandHandler>> _loggerMock = new();
 
     private SubmitMaintenancePaymentProofCommandHandler CreateHandler() =>
-        new(_chargeRepoMock.Object, _apartmentRepoMock.Object, _societyRepoMock.Object, _userRepoMock.Object, _notificationMock.Object, _currentUserMock.Object, _loggerMock.Object);
+        new(_chargeRepoMock.Object, _gridViewRepoMock.Object, _apartmentRepoMock.Object, _societyRepoMock.Object, _userRepoMock.Object, _notificationMock.Object, _currentUserMock.Object, _loggerMock.Object);
 
     [Fact]
     public async Task Handle_WhenResidentOwnsCharge_SubmitsProofAndNotifiesAdmins()
@@ -231,9 +247,21 @@ public class SubmitMaintenancePaymentProofCommandHandlerTests
         _chargeRepoMock
             .Setup(r => r.UpdateAsync(It.IsAny<MaintenanceCharge>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((MaintenanceCharge p, CancellationToken _) => p);
+        _chargeRepoMock
+            .Setup(r => r.GetByDueDateRangeAsync("soc-001", It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string _, DateTime __, DateTime ___, CancellationToken ____) => new List<MaintenanceCharge> { payment });
         _apartmentRepoMock
             .Setup(r => r.GetByIdAsync(apartment.Id, "soc-001", It.IsAny<CancellationToken>()))
             .ReturnsAsync(apartment);
+        _apartmentRepoMock
+            .Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync([apartment]);
+        _gridViewRepoMock
+            .Setup(r => r.GetByFinancialYearAsync("soc-001", It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MaintenanceChargeGridView?)null);
+        _gridViewRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<MaintenanceChargeGridView>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MaintenanceChargeGridView view, CancellationToken _) => view);
 
         var handler = CreateHandler();
         var command = new SubmitMaintenancePaymentProofCommand("soc-001", [paymentId], "https://proofs.example.com/1", "UPI receipt");
@@ -252,6 +280,7 @@ public class SubmitMaintenancePaymentProofCommandHandlerTests
 public class MarkMaintenanceChargePaidCommandHandlerTests
 {
     private readonly Mock<IMaintenanceChargeRepository> _chargeRepoMock = new();
+    private readonly Mock<IMaintenanceChargeGridViewRepository> _gridViewRepoMock = new();
     private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
     private readonly Mock<ISocietyRepository> _societyRepoMock = new();
     private readonly Mock<IEventPublisher> _eventPublisherMock = new();
@@ -259,7 +288,7 @@ public class MarkMaintenanceChargePaidCommandHandlerTests
     private readonly Mock<ILogger<MarkMaintenanceChargePaidCommandHandler>> _loggerMock = new();
 
     private MarkMaintenanceChargePaidCommandHandler CreateHandler() =>
-        new(_chargeRepoMock.Object, _apartmentRepoMock.Object, _societyRepoMock.Object, _eventPublisherMock.Object, _currentUserMock.Object, _loggerMock.Object);
+        new(_chargeRepoMock.Object, _gridViewRepoMock.Object, _apartmentRepoMock.Object, _societyRepoMock.Object, _eventPublisherMock.Object, _currentUserMock.Object, _loggerMock.Object);
 
     [Fact]
     public async Task Handle_WhenChargeExists_MarksAsPaidAndPublishesEvent()
@@ -275,12 +304,24 @@ public class MarkMaintenanceChargePaidCommandHandlerTests
         _chargeRepoMock
             .Setup(r => r.UpdateAsync(It.IsAny<MaintenanceCharge>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((MaintenanceCharge c, CancellationToken _) => c);
+        _chargeRepoMock
+            .Setup(r => r.GetByDueDateRangeAsync("soc-001", It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string _, DateTime __, DateTime ___, CancellationToken ____) => new List<MaintenanceCharge> { charge });
         _apartmentRepoMock
             .Setup(r => r.GetByIdAsync(apartment.Id, "soc-001", It.IsAny<CancellationToken>()))
             .ReturnsAsync(apartment);
+        _apartmentRepoMock
+            .Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync([apartment]);
         _societyRepoMock
             .Setup(r => r.GetByIdAsync("soc-001", "soc-001", It.IsAny<CancellationToken>()))
             .ReturnsAsync(society);
+        _gridViewRepoMock
+            .Setup(r => r.GetByFinancialYearAsync("soc-001", It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MaintenanceChargeGridView?)null);
+        _gridViewRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<MaintenanceChargeGridView>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MaintenanceChargeGridView view, CancellationToken _) => view);
 
         var handler = CreateHandler();
         var command = new MarkMaintenanceChargePaidCommand("soc-001", charge.Id, "UPI", "TXN123", null, null);

@@ -39,6 +39,10 @@ export const AREA_BASIS_OPTIONS: SelectOption<MaintenanceAreaBasis>[] = [
 
 export const FREQUENCY_OPTIONS: MaintenanceFrequency[] = ['Monthly', 'Quarterly', 'Annual'];
 
+export function formatFrequencyLabel(frequency: MaintenanceFrequency) {
+  return frequency === 'Annual' ? 'Yearly' : frequency;
+}
+
 export const CHARGE_STATUS_OPTIONS: MaintenanceChargeStatus[] = ['Pending', 'ProofSubmitted', 'Rejected', 'Overdue', 'Paid', 'Failed', 'Cancelled'];
 
 export const MONTH_OPTIONS = [

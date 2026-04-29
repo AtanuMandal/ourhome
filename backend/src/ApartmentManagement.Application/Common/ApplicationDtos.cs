@@ -230,7 +230,10 @@ public sealed record MaintenanceScheduleDto(
     int DueDay,
     int StartMonth,
     int StartYear,
+    int EndMonth,
+    int EndYear,
     DateTime ActiveFromDate,
+    DateTime ActiveUntilDate,
     DateTime? InactiveFromDate,
     DateTime NextDueDate,
     bool IsActive,
@@ -297,7 +300,16 @@ public sealed record MaintenanceChargeGridDto(
     string SocietyId,
     int Year,
     IReadOnlyList<int> Months,
+    MaintenanceChargeGridSummaryDto Summary,
     IReadOnlyList<MaintenanceChargeGridRowDto> Rows);
+
+public sealed record MaintenanceChargeGridSummaryDto(
+    decimal PendingAmount,
+    decimal SubmittedAmount,
+    decimal PaidAmount,
+    int PendingCount,
+    int SubmittedCount,
+    int PaidCount);
 
 public sealed record CreateMaintenanceScheduleRequest(
     string Name,
@@ -309,7 +321,9 @@ public sealed record CreateMaintenanceScheduleRequest(
     [property: JsonConverter(typeof(JsonStringEnumConverter))] FeeFrequency Frequency,
     int DueDay,
     int StartMonth,
-    int StartYear);
+    int StartYear,
+    int EndMonth,
+    int EndYear);
 
 public sealed record UpdateMaintenanceScheduleRequest(
     bool IsActive,
@@ -336,6 +350,10 @@ public sealed record CreateMaintenancePenaltyChargeRequest(
     decimal Amount,
     DateTime DueDate,
     string Reason);
+
+public sealed record MaintenanceProofUploadResponse(
+    string FileName,
+    string FileUrl);
 
 // ─── Gamification ─────────────────────────────────────────────────────────────
 

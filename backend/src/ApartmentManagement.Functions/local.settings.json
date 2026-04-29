@@ -9,6 +9,8 @@
     "Infrastructure:EventGridTopicEndpoint": "",
     "Infrastructure:EventGridTopicKey": "",
     "Infrastructure:AzureCommunicationConnectionString": "",
+    "Infrastructure:BlobStorageConnectionString": "UseDevelopmentStorage=true",
+    "Infrastructure:BlobStorageContainerPrefix": "apartment-management",
     "Infrastructure:EmailSenderAddress": "dev@localhost",
     "Infrastructure:SmsSenderNumber": "",
     "Infrastructure:JwtSecret": "dev-super-secret-jwt-key-32chars!!",

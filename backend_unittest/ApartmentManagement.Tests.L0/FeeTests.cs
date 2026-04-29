@@ -25,7 +25,9 @@ public class MaintenanceScheduleTests
             FeeFrequency.Monthly,
             5,
             4,
-            2026);
+            2026,
+            3,
+            2027);
 
         // Assert
         schedule.Id.Should().NotBeNullOrEmpty();
@@ -35,6 +37,7 @@ public class MaintenanceScheduleTests
         schedule.Frequency.Should().Be(FeeFrequency.Monthly);
         schedule.AreaBasis.Should().Be(MaintenanceAreaBasis.SuperBuildUpArea);
         schedule.ActiveFromDate.Should().Be(new DateTime(2026, 4, 5, 0, 0, 0, DateTimeKind.Utc));
+        schedule.ActiveUntilDate.Should().Be(new DateTime(2027, 3, 5, 0, 0, 0, DateTimeKind.Utc));
     }
 
     [Fact]
@@ -52,7 +55,9 @@ public class MaintenanceScheduleTests
             FeeFrequency.Monthly,
             5,
             4,
-            2026);
+            2026,
+            3,
+            2027);
 
         // Assert
         act.Should().Throw<ArgumentOutOfRangeException>();
@@ -72,7 +77,9 @@ public class MaintenanceScheduleTests
             FeeFrequency.Monthly,
             5,
             4,
-            2026);
+            2026,
+            3,
+            2027);
 
         act.Should().Throw<ArgumentException>();
     }
@@ -95,7 +102,9 @@ public class MaintenanceScheduleTests
             FeeFrequency.Monthly,
             dueDay,
             4,
-            2026);
+            2026,
+            3,
+            2027);
 
         // Assert
         act.Should().Throw<ArgumentOutOfRangeException>();
@@ -116,7 +125,9 @@ public class MaintenanceScheduleTests
             FeeFrequency.Monthly,
             5,
             4,
-            2026);
+            2026,
+            3,
+            2027);
 
         // Act
         schedule.UpdateStatus(
@@ -149,6 +160,8 @@ public class MaintenanceScheduleTests
             FeeFrequency.Monthly,
             15,
             1,
+            2024,
+            12,
             2024);
         var from = new DateTime(2024, 1, 20, 0, 0, 0, DateTimeKind.Utc);
 
@@ -176,6 +189,8 @@ public class MaintenanceScheduleTests
             FeeFrequency.Monthly,
             5,
             1,
+            2024,
+            12,
             2024);
         var original = schedule.NextDueDate;
 

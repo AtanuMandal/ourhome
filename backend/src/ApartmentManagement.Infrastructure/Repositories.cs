@@ -392,6 +392,26 @@ public class MaintenanceChargeRepository(CosmosClient client, string dbName, ILo
             .WithParameter("@month", month);
         return (await ExecuteQueryAsync(q, societyId, ct)).FirstOrDefault();
     }
+
+    public async Task<IReadOnlyList<MaintenanceCharge>> GetByDueDateRangeAsync(string societyId, DateTime fromInclusiveUtc, DateTime toInclusiveUtc, CancellationToken ct = default)
+    {
+        var q = new QueryDefinition(@"
+SELECT * FROM c
+WHERE c.societyId = @sid
+  AND c.dueDate >= @fromInclusive
+  AND c.dueDate <= @toInclusive")
+            .WithParameter("@sid", societyId)
+            .WithParameter("@fromInclusive", fromInclusiveUtc.ToString("o"))
+            .WithParameter("@toInclusive", toInclusiveUtc.ToString("o"));
+        return await ExecuteQueryAsync(q, societyId, ct);
+    }
+}
+
+public class MaintenanceChargeGridViewRepository(CosmosClient client, string dbName, ILogger<MaintenanceChargeGridViewRepository> logger)
+    : CosmosDbRepository<MaintenanceChargeGridView>(client, dbName, "maintenance_charge_grid_views", logger), IMaintenanceChargeGridViewRepository
+{
+    public Task<MaintenanceChargeGridView?> GetByFinancialYearAsync(string societyId, int financialYearStart, CancellationToken ct = default) =>
+        GetByIdAsync(MaintenanceChargeGridView.BuildId(financialYearStart), societyId, ct);
 }
 
 public class CompetitionRepository(CosmosClient client, string dbName, ILogger<CompetitionRepository> logger)

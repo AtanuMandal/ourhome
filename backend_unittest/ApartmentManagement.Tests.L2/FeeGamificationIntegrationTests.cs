@@ -62,7 +62,9 @@ public class FeeGamificationIntegrationTests : IntegrationTestBase
             FeeFrequency.Monthly,
             5,
             4,
-            2026);
+            2026,
+            3,
+            2027);
 
         var createResult = await Mediator.Send(cmd);
 
@@ -80,7 +82,7 @@ public class FeeGamificationIntegrationTests : IntegrationTestBase
     }
 
     [Fact]
-    public async Task CreateMaintenanceSchedule_SeedsUpcomingSixMonthsOfCharges()
+    public async Task CreateMaintenanceSchedule_SeedsChargesForEntireScheduleWindow()
     {
         var context = await SeedMaintenanceContextAsync();
 
@@ -95,13 +97,15 @@ public class FeeGamificationIntegrationTests : IntegrationTestBase
             FeeFrequency.Monthly,
             5,
             4,
-            2026));
+            2026,
+            3,
+            2027));
 
         createResult.IsSuccess.Should().BeTrue();
         MaintenanceChargeRepo.Store.Values
             .Where(charge => charge.ScheduleId == createResult.Value!.Id && charge.Status == PaymentStatus.Pending)
             .Should()
-            .HaveCount(6);
+            .HaveCount(12);
     }
 
     [Fact]
@@ -119,7 +123,9 @@ public class FeeGamificationIntegrationTests : IntegrationTestBase
             FeeFrequency.Monthly,
             10,
             4,
-            2026))).Value!;
+            2026,
+            3,
+            2027))).Value!;
 
         var updateResult = await Mediator.Send(new UpdateMaintenanceScheduleCommand(
             context.Society.Id,
@@ -150,7 +156,9 @@ public class FeeGamificationIntegrationTests : IntegrationTestBase
             FeeFrequency.Monthly,
             5,
             4,
-            2026))).Value!;
+            2026,
+            3,
+            2027))).Value!;
 
         var updateResult = await Mediator.Send(new UpdateMaintenanceScheduleCommand(
             context.Society.Id,
@@ -189,6 +197,8 @@ public class FeeGamificationIntegrationTests : IntegrationTestBase
             FeeFrequency.Monthly,
             5,
             4,
+            2026,
+            12,
             2026));
 
         var secondResult = await Mediator.Send(new CreateMaintenanceScheduleCommand(
@@ -202,7 +212,9 @@ public class FeeGamificationIntegrationTests : IntegrationTestBase
             FeeFrequency.Monthly,
             5,
             5,
-            2026));
+            2026,
+            3,
+            2027));
 
         firstResult.IsSuccess.Should().BeTrue();
         secondResult.IsFailure.Should().BeTrue();
@@ -210,9 +222,28 @@ public class FeeGamificationIntegrationTests : IntegrationTestBase
     }
 
     [Fact]
-    public async Task DeleteMaintenanceSchedule_WhenInactiveAndReplacementExists_RemovesSchedule()
+    public async Task DeleteMaintenanceSchedule_WhenFutureInactive_RemovesSchedule()
     {
         var context = await SeedMaintenanceContextAsync();
+        var currentYear = DateTime.UtcNow.Year;
+        var currentMonth = DateTime.UtcNow.Month;
+        var futureYear = DateTime.UtcNow.Year + 1;
+        var activeSchedule = await Mediator.Send(new CreateMaintenanceScheduleCommand(
+            context.Society.Id,
+            "Current active schedule",
+            null,
+            null,
+            350m,
+            MaintenancePricingType.FixedAmount,
+            null,
+            FeeFrequency.Monthly,
+            5,
+            currentMonth,
+            currentYear,
+            12,
+            currentYear));
+        activeSchedule.IsSuccess.Should().BeTrue();
+
         var originalSchedule = (await Mediator.Send(new CreateMaintenanceScheduleCommand(
             context.Society.Id,
             "Original schedule",
@@ -224,30 +255,18 @@ public class FeeGamificationIntegrationTests : IntegrationTestBase
             FeeFrequency.Monthly,
             5,
             4,
-            2026))).Value!;
+            futureYear,
+            12,
+            futureYear))).Value!;
 
         var deactivateResult = await Mediator.Send(new UpdateMaintenanceScheduleCommand(
             context.Society.Id,
             originalSchedule.Id,
             false,
             6,
-            2026,
-            "Superseded by new schedule"));
+            futureYear,
+            "Cancelled before activation"));
         deactivateResult.IsSuccess.Should().BeTrue();
-
-        var replacementResult = await Mediator.Send(new CreateMaintenanceScheduleCommand(
-            context.Society.Id,
-            "Replacement schedule",
-            null,
-            null,
-            450m,
-            MaintenancePricingType.FixedAmount,
-            null,
-            FeeFrequency.Monthly,
-            5,
-            6,
-            2026));
-        replacementResult.IsSuccess.Should().BeTrue();
 
         var deleteResult = await Mediator.Send(new DeleteMaintenanceScheduleCommand(
             context.Society.Id,
@@ -278,6 +297,8 @@ public class FeeGamificationIntegrationTests : IntegrationTestBase
             FeeFrequency.Monthly,
             5,
             1,
+            currentYear,
+            12,
             currentYear))).Value!;
 
         var deactivateResult = await Mediator.Send(new UpdateMaintenanceScheduleCommand(
@@ -316,6 +337,8 @@ public class FeeGamificationIntegrationTests : IntegrationTestBase
             FeeFrequency.Monthly,
             5,
             4,
+            2026,
+            12,
             2026))).Value!;
 
         var deactivateResult = await Mediator.Send(new UpdateMaintenanceScheduleCommand(
@@ -338,7 +361,9 @@ public class FeeGamificationIntegrationTests : IntegrationTestBase
             FeeFrequency.Monthly,
             5,
             6,
-            2026));
+            2026,
+            3,
+            2027));
 
         overlappingResult.IsFailure.Should().BeTrue();
         overlappingResult.ErrorCode.Should().Be(ApartmentManagement.Shared.Constants.ErrorCodes.Conflict);
@@ -424,38 +449,115 @@ public class FeeGamificationIntegrationTests : IntegrationTestBase
         secondApartment.AssignOwner("owner-002", "Owner Two");
         await ApartmentRepo.CreateAsync(secondApartment);
 
+        var financialYearStart = DateTime.UtcNow.Month >= 4 ? DateTime.UtcNow.Year : DateTime.UtcNow.Year - 1;
+        var firstDueDate = new DateTime(financialYearStart, 4, 5, 0, 0, 0, DateTimeKind.Utc);
+        var secondDueDate = new DateTime(financialYearStart, 5, 10, 0, 0, 0, DateTimeKind.Utc);
+
         var firstCharge = MaintenanceCharge.Create(
             context.Society.Id,
             context.Apartment.Id,
             "schedule-jan",
             "General Maintenance",
             1000m,
-            new DateTime(DateTime.UtcNow.Year, 1, 5, 0, 0, 0, DateTimeKind.Utc));
+            firstDueDate);
         var secondCharge = MaintenanceCharge.Create(
             context.Society.Id,
             secondApartment.Id,
             "schedule-feb",
             "General Maintenance",
             1500m,
-            new DateTime(DateTime.UtcNow.Year, 2, 10, 0, 0, 0, DateTimeKind.Utc));
+            secondDueDate);
 
         await MaintenanceChargeRepo.CreateAsync(firstCharge);
         await MaintenanceChargeRepo.CreateAsync(secondCharge);
+        await MaintenanceChargeGridViewRepo.CreateAsync(MaintenanceChargeGridView.Create(
+            context.Society.Id,
+            financialYearStart,
+            new DateTime(financialYearStart, 4, 1, 0, 0, 0, DateTimeKind.Utc),
+            new DateTime(financialYearStart + 1, 3, 31, 0, 0, 0, DateTimeKind.Utc),
+            [4, 5, 6, 7, 8, 9, 10, 11, 12, 1, 2, 3],
+            [
+                new MaintenanceChargeGridView.GridRow(
+                    context.Apartment.Id,
+                    "A 1-A-101",
+                    context.Apartment.BlockName,
+                    context.Apartment.FloorNumber,
+                    context.Resident.FullName,
+                    (new[]
+                    {
+                        new MaintenanceChargeGridView.GridCell(4, financialYearStart, [
+                            new MaintenanceChargeGridView.GridCharge(
+                                firstCharge.Id,
+                                firstCharge.ScheduleId,
+                                firstCharge.ScheduleName,
+                                firstCharge.Amount,
+                                firstCharge.Status.ToString(),
+                                firstCharge.DueDate,
+                                firstCharge.PaidAt,
+                                firstCharge.PaymentMethod,
+                                firstCharge.TransactionReference,
+                                firstCharge.ReceiptUrl,
+                                firstCharge.Notes,
+                                [])
+                        ])
+                    }).Concat(Enumerable.Range(1, 11).Select(offset =>
+                    {
+                        var date = new DateTime(financialYearStart, 4, 1, 0, 0, 0, DateTimeKind.Utc).AddMonths(offset);
+                        return new MaintenanceChargeGridView.GridCell(date.Month, date.Year, []);
+                    })).ToList()),
+                new MaintenanceChargeGridView.GridRow(
+                    secondApartment.Id,
+                    "B 2-B-202",
+                    secondApartment.BlockName,
+                    secondApartment.FloorNumber,
+                    "Owner Two",
+                    Enumerable.Range(0, 12).Select(offset =>
+                    {
+                        var date = new DateTime(financialYearStart, 4, 1, 0, 0, 0, DateTimeKind.Utc).AddMonths(offset);
+                        var charges = offset == 1
+                            ? new[]
+                            {
+                                new MaintenanceChargeGridView.GridCharge(
+                                    secondCharge.Id,
+                                    secondCharge.ScheduleId,
+                                    secondCharge.ScheduleName,
+                                    secondCharge.Amount,
+                                    secondCharge.Status.ToString(),
+                                    secondCharge.DueDate,
+                                    secondCharge.PaidAt,
+                                    secondCharge.PaymentMethod,
+                                    secondCharge.TransactionReference,
+                                    secondCharge.ReceiptUrl,
+                                    secondCharge.Notes,
+                                    [])
+                            }
+                            : [];
+                        return new MaintenanceChargeGridView.GridCell(date.Month, date.Year, charges);
+                    }).ToList())
+            ]));
 
-        var gridResult = await Mediator.Send(new GetMaintenanceChargeGridQuery(context.Society.Id, DateTime.UtcNow.Year));
+        var gridResult = await Mediator.Send(new GetMaintenanceChargeGridQuery(
+            context.Society.Id,
+            financialYearStart,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null));
 
         gridResult.IsSuccess.Should().BeTrue();
         gridResult.Value!.Rows.Should().HaveCount(2);
+        gridResult.Value.Summary.PendingAmount.Should().Be(2500m);
         var firstRow = gridResult.Value.Rows.Single(row => row.ApartmentId == context.Apartment.Id);
         firstRow.ApartmentNumber.Should().Be("A 1-A-101");
         firstRow.ResidentName.Should().Be(context.Resident.FullName);
         firstRow.Months.Should().HaveCount(12);
-        firstRow.Months.Single(month => month.Month == 1).Charges.Should().ContainSingle(charge => charge.Id == firstCharge.Id);
-        firstRow.Months.Single(month => month.Month == 1).HasOverdue.Should().BeTrue();
+        firstRow.Months.Single(month => month.Month == 4).Charges.Should().ContainSingle(charge => charge.Id == firstCharge.Id);
 
         var secondRow = gridResult.Value.Rows.Single(row => row.ApartmentId == secondApartment.Id);
         secondRow.ResidentName.Should().Be("Owner Two");
-        secondRow.Months.Single(month => month.Month == 2).Charges.Should().ContainSingle(charge => charge.Id == secondCharge.Id);
+        secondRow.Months.Single(month => month.Month == 5).Charges.Should().ContainSingle(charge => charge.Id == secondCharge.Id);
     }
 
     [Fact]

@@ -107,6 +107,12 @@ public interface IMaintenanceChargeRepository : IRepository<MaintenanceCharge>
     Task<IReadOnlyList<MaintenanceCharge>> GetByStatusAsync(string societyId, PaymentStatus status, int page, int pageSize, CancellationToken ct = default);
     Task<IReadOnlyList<MaintenanceCharge>> GetDueSoonAsync(string societyId, int withinDays, CancellationToken ct = default);
     Task<MaintenanceCharge?> GetByScheduleAndPeriodAsync(string societyId, string scheduleId, string apartmentId, int year, int month, CancellationToken ct = default);
+    Task<IReadOnlyList<MaintenanceCharge>> GetByDueDateRangeAsync(string societyId, DateTime fromInclusiveUtc, DateTime toInclusiveUtc, CancellationToken ct = default);
+}
+
+public interface IMaintenanceChargeGridViewRepository : IRepository<MaintenanceChargeGridView>
+{
+    Task<MaintenanceChargeGridView?> GetByFinancialYearAsync(string societyId, int financialYearStart, CancellationToken ct = default);
 }
 
 // ─── Competition ──────────────────────────────────────────────────────────────

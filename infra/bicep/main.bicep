@@ -6,7 +6,7 @@
   Deploys (in dependency order):
     1. Storage Account
     2. Application Insights + Log Analytics
-    3. Cosmos DB (serverless, 17 containers incl. outbox + outbox-leases)
+    3. Cosmos DB (serverless, domain containers incl. outbox + outbox-leases)
     4. Event Grid Custom Topic (replaces Service Bus – saves ~$10/month)
     5. Azure Communication Services
     6. Key Vault  (stores secrets from 3-5)

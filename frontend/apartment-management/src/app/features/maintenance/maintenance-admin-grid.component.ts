@@ -7,14 +7,14 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { RouterLink } from '@angular/router';
 import { Observable } from 'rxjs';
-import { MaintenanceChargeGrid, MaintenanceGridCharge } from '../../core/models/maintenance.model';
+import { MaintenanceChargeGrid, MaintenanceChargeStatus, MaintenanceGridCharge } from '../../core/models/maintenance.model';
 import { AuthService } from '../../core/services/auth.service';
 import { MaintenanceService } from '../../core/services/maintenance.service';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 import { LoadingSpinnerComponent } from '../../shared/components/loading-spinner/loading-spinner.component';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 import { StatusChipComponent } from '../../shared/components/status-chip/status-chip.component';
-import { MAINTENANCE_PAGE_STYLES, MONTH_OPTIONS } from './maintenance-shared';
+import { CHARGE_STATUS_OPTIONS, MAINTENANCE_PAGE_STYLES, MONTH_OPTIONS } from './maintenance-shared';
 
 @Component({
   selector: 'app-maintenance-admin-grid',
@@ -40,37 +40,7 @@ import { MAINTENANCE_PAGE_STYLES, MONTH_OPTIONS } from './maintenance-shared';
     </app-page-header>
 
     <div class="page-content">
-      <section class="card card--spaced">
-        <div class="section-header">
-          <div>
-            <h2 class="section-title">Filters</h2>
-            <p class="section-copy">Review apartment-wise maintenance charges by month, quarter, or year and process payments from the same view.</p>
-          </div>
-          <button mat-stroked-button color="primary" routerLink="/maintenance/admin" type="button">
-            Back to schedule list
-          </button>
-        </div>
-
-        <form [formGroup]="filterForm" class="filters">
-          <mat-form-field appearance="fill">
-            <mat-label>Year</mat-label>
-            <select matNativeControl formControlName="year" (change)="loadGrid()">
-              @for (year of yearOptions(); track year) {
-                <option [ngValue]="year">{{ year }}</option>
-              }
-            </select>
-          </mat-form-field>
-
-          <mat-form-field appearance="fill">
-            <mat-label>View</mat-label>
-            <select matNativeControl formControlName="periodView">
-              @for (view of periodViewOptions; track view.value) {
-                <option [ngValue]="view.value">{{ view.label }}</option>
-              }
-            </select>
-          </mat-form-field>
-        </form>
-      </section>
+      
 
       <section class="card card--spaced">
         <div class="section-header">
@@ -150,21 +120,115 @@ import { MAINTENANCE_PAGE_STYLES, MONTH_OPTIONS } from './maintenance-shared';
           </div>
         </form>
       </section>
+<section class="card card--spaced">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Filters</h2>
+            <p class="section-copy">Review apartment-wise maintenance charges by month, quarter, or year and process payments from the same view.</p>
+          </div>
+          <button mat-stroked-button color="primary" routerLink="/maintenance/admin" type="button">
+            Back to schedule list
+          </button>
+        </div>
 
+        <form [formGroup]="filterForm" class="filters">
+          <mat-form-field appearance="fill">
+            <mat-label>Financial year</mat-label>
+            <select matNativeControl formControlName="financialYearStart" (change)="loadGrid()">
+              @for (year of financialYearOptions(); track year) {
+                <option [ngValue]="year">{{ financialYearLabel(year) }}</option>
+              }
+            </select>
+          </mat-form-field>
+
+          <mat-form-field appearance="fill">
+            <mat-label>View</mat-label>
+            <select matNativeControl formControlName="periodView">
+              @for (view of periodViewOptions; track view.value) {
+                <option [ngValue]="view.value">{{ view.label }}</option>
+              }
+            </select>
+          </mat-form-field>
+
+          <mat-form-field appearance="fill">
+            <mat-label>Status</mat-label>
+            <select matNativeControl formControlName="status" (change)="loadGrid()">
+              <option [ngValue]="null">All statuses</option>
+              @for (status of chargeStatusOptions; track status) {
+                <option [ngValue]="status">{{ status }}</option>
+              }
+            </select>
+          </mat-form-field>
+
+          <mat-form-field appearance="fill">
+            <mat-label>Apartment</mat-label>
+            <select matNativeControl formControlName="apartmentId" (change)="loadGrid()">
+              <option [ngValue]="null">All apartments</option>
+              @for (apartment of apartmentOptions(); track apartment.id) {
+                <option [ngValue]="apartment.id">{{ apartment.label }}</option>
+              }
+            </select>
+          </mat-form-field>
+
+          <mat-form-field appearance="fill">
+            <mat-label>Block</mat-label>
+            <select matNativeControl formControlName="block" (change)="loadGrid()">
+              <option [ngValue]="null">All blocks</option>
+              @for (block of blockOptions(); track block) {
+                <option [ngValue]="block">{{ block }}</option>
+              }
+            </select>
+          </mat-form-field>
+
+          <mat-form-field appearance="fill">
+            <mat-label>Floor</mat-label>
+            <select matNativeControl formControlName="floor" (change)="loadGrid()">
+              <option [ngValue]="null">All floors</option>
+              @for (floor of floorOptions(); track floor) {
+                <option [ngValue]="floor">{{ floor }}</option>
+              }
+            </select>
+          </mat-form-field>
+
+          <mat-form-field appearance="fill">
+            <mat-label>From date</mat-label>
+            <input matInput type="date" formControlName="fromDate" (change)="loadGrid()">
+          </mat-form-field>
+
+          <mat-form-field appearance="fill">
+            <mat-label>To date</mat-label>
+            <input matInput type="date" formControlName="toDate" (change)="loadGrid()">
+          </mat-form-field>
+        </form>
+      </section>
       @if (loading()) {
         <app-loading-spinner></app-loading-spinner>
       } @else if (grid()?.rows?.length) {
+        
         <section class="card card--spaced">
           <div class="section-header">
             <div>
               <h2 class="section-title">Apartment payment grid</h2>
-              <p class="section-copy">Apartments are listed on the Y axis and {{ viewDescriptor() }} for {{ filterForm.controls.year.value }}.</p>
+               <p class="section-copy">Apartments are listed on the Y axis and {{ viewDescriptor() }} for FY {{ financialYearLabel(filterForm.controls.financialYearStart.value ?? currentFinancialYearStart()) }}.</p>
             </div>
           </div>
 
           <div class="grid-shell">
             <table class="payment-grid">
               <thead>
+                @if (periodSummaries().length) {
+                  <tr class="summary-row">
+                    <th class="summary-row__label">Period summaries</th>
+                    @for (summary of periodSummaries(); track summary.key) {
+                      <th class="summary-cell">
+                        <div class="summary-cell__title">{{ summary.label }}</div>
+                        <div class="section-copy">Pending: {{ summary.pendingAmount | currency:'INR':'symbol':'1.2-2' }}</div>
+                        <div class="section-copy">Submitted: {{ summary.submittedAmount | currency:'INR':'symbol':'1.2-2' }}</div>
+                        <div class="section-copy">Paid: {{ summary.paidAmount | currency:'INR':'symbol':'1.2-2' }}</div>
+                      </th>
+                    }
+                  </tr>
+                }
                 <tr>
                   <th>Apartment / Resident</th>
                   @for (period of displayPeriods(); track period.key) {
@@ -297,12 +361,17 @@ import { MAINTENANCE_PAGE_STYLES, MONTH_OPTIONS } from './maintenance-shared';
     .grid-shell {
       overflow-x: auto;
       overflow-y: scroll;
-      max-height: calc(100vh - 260px);
+      max-height: calc(150vh - 260px);
       scrollbar-gutter: stable;
     }
     .payment-grid { width: 100%; min-width: 1280px; border-collapse: separate; border-spacing: 0; }
     .payment-grid th, .payment-grid td { border: 1px solid var(--border); vertical-align: top; padding: 12px; background: white; }
     .payment-grid th { position: sticky; top: 0; background: #f8fafc; z-index: 1; text-align: left; }
+    .summary-row th { top: 0; z-index: 3; background: #eef6ff; }
+    .summary-row + tr th { top: 107px; z-index: 2; }
+    .summary-row__label { min-width: 180px; }
+    .summary-cell { min-width: 240px; }
+    .summary-cell__title { font-weight: 600; margin-bottom: 6px; }
     .row-header { min-width: 180px; background: #f8fafc; }
     .row-title { font-weight: 600; }
     .month-cell { min-width: 240px; background: #fcfcfd; }
@@ -345,10 +414,17 @@ export class MaintenanceAdminGridComponent {
   readonly creatingPenalty = signal(false);
   readonly grid = signal<MaintenanceChargeGrid | null>(null);
   readonly proofCharge = signal<MaintenanceGridCharge | null>(null);
+  readonly chargeStatusOptions = CHARGE_STATUS_OPTIONS;
 
   readonly filterForm = this.fb.group({
-    year: [new Date().getFullYear(), [Validators.required, Validators.min(2000)]],
+    financialYearStart: [this.currentFinancialYearStart(), [Validators.required, Validators.min(2000)]],
     periodView: ['Month' as GridPeriodView, Validators.required],
+    apartmentId: [null as string | null],
+    block: [null as string | null],
+    floor: [null as number | null],
+    status: [null as MaintenanceChargeStatus | null],
+    fromDate: [''],
+    toDate: [''],
   });
 
   readonly settlementForm = this.fb.group({
@@ -371,8 +447,8 @@ export class MaintenanceAdminGridComponent {
     { value: 'Year' as GridPeriodView, label: 'Year' },
   ];
 
-  readonly yearOptions = computed(() => {
-    const currentYear = new Date().getFullYear();
+  readonly financialYearOptions = computed(() => {
+    const currentYear = this.currentFinancialYearStart();
     return [currentYear - 1, currentYear, currentYear + 1];
   });
 
@@ -385,16 +461,33 @@ export class MaintenanceAdminGridComponent {
       .sort((left, right) => left.label.localeCompare(right.label))
   );
 
+  readonly blockOptions = computed(() =>
+    Array.from(new Set((this.grid()?.rows ?? [])
+      .map(row => row.apartmentNumber.split(' ')[0])
+      .filter(Boolean)))
+      .sort((left, right) => left.localeCompare(right))
+  );
+
+  readonly floorOptions = computed(() =>
+    Array.from(new Set((this.grid()?.rows ?? [])
+      .map(row => {
+        const match = row.apartmentNumber.match(/\s(\d+)-/);
+        return match ? Number(match[1]) : null;
+      })
+      .filter((value): value is number => value !== null)))
+      .sort((left, right) => left - right)
+  );
+
   readonly displayPeriods = computed<GridDisplayPeriod[]>(() => {
     const months = this.grid()?.months ?? [];
     const periodView = this.filterForm.controls.periodView.value ?? 'Month';
 
     if (periodView === 'Quarter') {
       return [
-        { key: 'Q1', label: 'Q1', months: [1, 2, 3] },
-        { key: 'Q2', label: 'Q2', months: [4, 5, 6] },
-        { key: 'Q3', label: 'Q3', months: [7, 8, 9] },
-        { key: 'Q4', label: 'Q4', months: [10, 11, 12] },
+        { key: 'Q1', label: 'Q1', months: [4, 5, 6] },
+        { key: 'Q2', label: 'Q2', months: [7, 8, 9] },
+        { key: 'Q3', label: 'Q3', months: [10, 11, 12] },
+        { key: 'Q4', label: 'Q4', months: [1, 2, 3] },
       ].filter(period => period.months.some(month => months.includes(month)));
     }
 
@@ -426,6 +519,25 @@ export class MaintenanceAdminGridComponent {
     }))
   );
 
+  readonly periodSummaries = computed(() =>
+    this.displayPeriods().map(period => {
+      const charges = (this.grid()?.rows ?? [])
+        .flatMap(row => row.months.filter(cell => period.months.includes(cell.month)))
+        .flatMap(cell => cell.charges);
+
+      return {
+        key: period.key,
+        label: period.label,
+        pendingAmount: charges.filter(charge => charge.status === 'Pending').reduce((sum, charge) => sum + charge.amount, 0),
+        submittedAmount: charges.filter(charge => charge.status === 'ProofSubmitted').reduce((sum, charge) => sum + charge.amount, 0),
+        paidAmount: charges.filter(charge => charge.status === 'Paid').reduce((sum, charge) => sum + charge.amount, 0),
+        pendingCount: charges.filter(charge => charge.status === 'Pending').length,
+        submittedCount: charges.filter(charge => charge.status === 'ProofSubmitted').length,
+        paidCount: charges.filter(charge => charge.status === 'Paid').length,
+      };
+    })
+  );
+
   readonly viewDescriptor = computed(() => {
     switch (this.filterForm.controls.periodView.value) {
       case 'Quarter':
@@ -433,7 +545,7 @@ export class MaintenanceAdminGridComponent {
       case 'Year':
         return 'the year summary on the X axis';
       default:
-        return 'months on the X axis';
+      return 'months on the X axis';
     }
   });
 
@@ -449,7 +561,15 @@ export class MaintenanceAdminGridComponent {
     }
 
     this.loading.set(true);
-    this.maintenance.getChargeGrid(societyId, this.filterForm.controls.year.value ?? new Date().getFullYear()).subscribe({
+    this.maintenance.getChargeGrid(societyId, {
+      financialYearStart: this.filterForm.controls.financialYearStart.value ?? this.currentFinancialYearStart(),
+      apartmentId: this.filterForm.controls.apartmentId.value ?? undefined,
+      block: this.filterForm.controls.block.value ?? undefined,
+      floor: this.filterForm.controls.floor.value ?? undefined,
+      status: this.filterForm.controls.status.value ?? undefined,
+      fromDate: this.filterForm.controls.fromDate.value || undefined,
+      toDate: this.filterForm.controls.toDate.value || undefined,
+    }).subscribe({
       next: grid => {
         this.grid.set(grid);
         this.loading.set(false);
@@ -535,6 +655,15 @@ export class MaintenanceAdminGridComponent {
 
   private toDateInputValue(value: Date) {
     return value.toISOString().slice(0, 10);
+  }
+
+  currentFinancialYearStart() {
+    const now = new Date();
+    return now.getMonth() + 1 >= 4 ? now.getFullYear() : now.getFullYear() - 1;
+  }
+
+  financialYearLabel(year: number) {
+    return `${year}-${String((year + 1) % 100).padStart(2, '0')}`;
   }
 }
 

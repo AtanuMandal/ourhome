@@ -14,7 +14,12 @@ public static class InfrastructureDependencyInjection
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
         services.Configure<InfrastructureSettings>(configuration.GetSection("Infrastructure"));
-       // services.ConfigureFunctionsWebApplication(ChainedBuilderExtensions=>)
+        services.PostConfigure<InfrastructureSettings>(settings =>
+        {
+            if (string.IsNullOrWhiteSpace(settings.BlobStorageConnectionString))
+                settings.BlobStorageConnectionString = configuration["AzureWebJobsStorage"] ?? string.Empty;
+        });
+        // services.ConfigureFunctionsWebApplication(ChainedBuilderExtensions=>)
         services.AddHttpContextAccessor();
         services.AddSingleton<CosmosClient>(sp =>
         {
@@ -77,6 +82,11 @@ public static class InfrastructureDependencyInjection
             sp.GetRequiredService<CosmosClient>(),
             sp.GetRequiredService<IOptions<InfrastructureSettings>>().Value.CosmosDbDatabaseName,
             sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<MaintenanceChargeRepository>>()));
+
+        services.AddScoped<IMaintenanceChargeGridViewRepository>(sp => new MaintenanceChargeGridViewRepository(
+            sp.GetRequiredService<CosmosClient>(),
+            sp.GetRequiredService<IOptions<InfrastructureSettings>>().Value.CosmosDbDatabaseName,
+            sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<MaintenanceChargeGridViewRepository>>()));
 
         services.AddScoped<ICompetitionRepository>(sp => new CompetitionRepository(
             sp.GetRequiredService<CosmosClient>(),

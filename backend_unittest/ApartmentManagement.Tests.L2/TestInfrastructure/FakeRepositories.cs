@@ -354,6 +354,25 @@ public sealed class FakeMaintenanceChargeRepository : FakeRepository<Maintenance
             p.ChargeMonth == month);
         return Task.FromResult<MaintenanceCharge?>(found);
     }
+
+    public Task<IReadOnlyList<MaintenanceCharge>> GetByDueDateRangeAsync(string societyId, DateTime fromInclusiveUtc, DateTime toInclusiveUtc, CancellationToken ct = default)
+    {
+        IReadOnlyList<MaintenanceCharge> result = Store.Values
+            .Where(p => p.SocietyId == societyId && p.DueDate >= fromInclusiveUtc && p.DueDate <= toInclusiveUtc)
+            .ToList();
+        return Task.FromResult(result);
+    }
+}
+
+public sealed class FakeMaintenanceChargeGridViewRepository : FakeRepository<MaintenanceChargeGridView>, IMaintenanceChargeGridViewRepository
+{
+    public Task<MaintenanceChargeGridView?> GetByFinancialYearAsync(string societyId, int financialYearStart, CancellationToken ct = default)
+    {
+        var found = Store.Values.FirstOrDefault(view =>
+            view.SocietyId == societyId &&
+            view.FinancialYearStart == financialYearStart);
+        return Task.FromResult<MaintenanceChargeGridView?>(found);
+    }
 }
 
 // ─── Vendor Payments ────────────────────────────────────────────────────────────

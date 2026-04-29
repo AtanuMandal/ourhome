@@ -2,7 +2,7 @@ import { PagedResult } from './user.model';
 
 export type MaintenancePricingType = 'FixedAmount' | 'PerSquareFoot';
 export type MaintenanceAreaBasis = 'CarpetArea' | 'BuildUpArea' | 'SuperBuildUpArea';
-export type MaintenanceFrequency = 'Monthly' | 'Quarterly' | 'Annual' | 'OneTime';
+export type MaintenanceFrequency = 'Monthly' | 'Quarterly' | 'Annual';
 export type MaintenanceChargeStatus = 'Pending' | 'ProofSubmitted' | 'Paid' | 'Failed' | 'Rejected' | 'Overdue' | 'Cancelled';
 
 export interface MaintenanceScheduleChange {
@@ -28,7 +28,10 @@ export interface MaintenanceSchedule {
   dueDay: number;
   startMonth: number;
   startYear: number;
+  endMonth: number;
+  endYear: number;
   activeFromDate: string;
+  activeUntilDate: string;
   inactiveFromDate?: string | null;
   nextDueDate: string;
   isActive: boolean;
@@ -78,7 +81,17 @@ export interface MaintenanceChargeGrid {
   societyId: string;
   year: number;
   months: number[];
+  summary: MaintenanceChargeGridSummary;
   rows: MaintenanceGridRow[];
+}
+
+export interface MaintenanceChargeGridSummary {
+  pendingAmount: number;
+  submittedAmount: number;
+  paidAmount: number;
+  pendingCount: number;
+  submittedCount: number;
+  paidCount: number;
 }
 
 export interface MaintenanceCharge {
@@ -115,6 +128,8 @@ export interface CreateMaintenanceScheduleDto {
   dueDay: number;
   startMonth: number;
   startYear: number;
+  endMonth: number;
+  endYear: number;
 }
 
 export interface UpdateMaintenanceScheduleDto {
@@ -132,6 +147,11 @@ export interface SubmitMaintenancePaymentProofDto {
   chargeIds: string[];
   proofUrl: string;
   notes?: string | null;
+}
+
+export interface MaintenanceProofUploadResponse {
+  fileName: string;
+  fileUrl: string;
 }
 
 export interface MarkMaintenanceChargePaidDto {
@@ -155,6 +175,16 @@ export interface MaintenanceChargeFilters {
   status?: MaintenanceChargeStatus;
   page?: number;
   pageSize?: number;
+}
+
+export interface MaintenanceGridFilters {
+  financialYearStart: number;
+  apartmentId?: string;
+  block?: string;
+  floor?: number;
+  status?: MaintenanceChargeStatus;
+  fromDate?: string;
+  toDate?: string;
 }
 
 export type MaintenanceChargeResult = PagedResult<MaintenanceCharge>;

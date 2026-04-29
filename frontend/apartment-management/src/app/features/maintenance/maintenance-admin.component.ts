@@ -17,8 +17,9 @@ import { MaintenancePageBase } from './maintenance-page-base';
 import {
   AREA_BASIS_OPTIONS,
   FREQUENCY_OPTIONS,
-  MAINTENANCE_PAGE_STYLES,
-  PRICING_TYPE_OPTIONS,
+    MAINTENANCE_PAGE_STYLES,
+    formatFrequencyLabel,
+    PRICING_TYPE_OPTIONS,
   ScheduleScope,
   SCOPE_OPTIONS,
 } from './maintenance-shared';
@@ -116,6 +117,26 @@ import {
                 <mat-form-field appearance="fill">
                   <mat-label>Start year</mat-label>
                   <select matNativeControl formControlName="startYear">
+                    @for (year of scheduleYearOptions; track year) {
+                      <option [ngValue]="year">{{ year }}</option>
+                    }
+                  </select>
+                </mat-form-field>
+              </div>
+
+              <div class="two-col">
+                <mat-form-field appearance="fill">
+                  <mat-label>End month</mat-label>
+                  <select matNativeControl formControlName="endMonth">
+                    @for (month of monthOptions; track month.value) {
+                      <option [ngValue]="month.value">{{ month.label }}</option>
+                    }
+                  </select>
+                </mat-form-field>
+
+                <mat-form-field appearance="fill">
+                  <mat-label>End year</mat-label>
+                  <select matNativeControl formControlName="endYear">
                     @for (year of scheduleYearOptions; track year) {
                       <option [ngValue]="year">{{ year }}</option>
                     }
@@ -428,8 +449,8 @@ import {
                         <div class="section-title">{{ schedule.name }}</div>
                         <div class="section-copy">
                           {{ schedule.apartmentId ? apartmentLabel(schedule.apartmentId) : 'Entire society' }} ·
-                          {{ schedule.frequency }} ·
-                          Due on day {{ schedule.dueDay }}
+                           {{ formatFrequency(schedule.frequency) }} ·
+                           Due on day {{ schedule.dueDay }}
                         </div>
                       </div>
                       <div class="section-header__actions">
@@ -448,6 +469,7 @@ import {
                           <span>{{ formatAreaBasis(schedule.areaBasis) }}</span>
                         }
                         <span>Active from: {{ schedule.activeFromDate | date:'MMM yyyy' }}</span>
+                        <span>Active until: {{ schedule.activeUntilDate | date:'MMM yyyy' }}</span>
                         @if (schedule.inactiveFromDate) {
                           <span>Inactive from: {{ schedule.inactiveFromDate | date:'MMM yyyy' }}</span>
                         }
@@ -525,6 +547,8 @@ export class MaintenanceAdminComponent extends MaintenancePageBase {
     dueDay: [5, [Validators.required, Validators.min(1), Validators.max(28)]],
     startMonth: [new Date().getMonth() + 1, [Validators.required, Validators.min(1), Validators.max(12)]],
     startYear: [new Date().getFullYear(), [Validators.required, Validators.min(2000)]],
+    endMonth: [3, [Validators.required, Validators.min(1), Validators.max(12)]],
+    endYear: [new Date().getFullYear() + 1, [Validators.required, Validators.min(2000)]],
     isActive: [true],
     effectiveMonth: [new Date().getMonth() + 1, [Validators.required, Validators.min(1), Validators.max(12)]],
     effectiveYear: [new Date().getFullYear(), [Validators.required, Validators.min(2000)]],
@@ -576,6 +600,8 @@ export class MaintenanceAdminComponent extends MaintenancePageBase {
           dueDay: Number(formValue.dueDay ?? 1),
           startMonth: Number(formValue.startMonth ?? new Date().getMonth() + 1),
           startYear: Number(formValue.startYear ?? new Date().getFullYear()),
+          endMonth: Number(formValue.endMonth ?? 12),
+          endYear: Number(formValue.endYear ?? new Date().getFullYear()),
         });
 
     request.subscribe({
@@ -608,6 +634,8 @@ export class MaintenanceAdminComponent extends MaintenancePageBase {
       dueDay: schedule.dueDay,
       startMonth: schedule.startMonth,
       startYear: schedule.startYear,
+      endMonth: schedule.endMonth,
+      endYear: schedule.endYear,
       isActive: schedule.isActive,
       effectiveMonth: effectiveDate.getUTCMonth() + 1,
       effectiveYear: effectiveDate.getUTCFullYear(),
@@ -638,6 +666,8 @@ export class MaintenanceAdminComponent extends MaintenancePageBase {
       dueDay: 5,
       startMonth: new Date().getMonth() + 1,
       startYear: new Date().getFullYear(),
+      endMonth: 3,
+      endYear: new Date().getFullYear() + 1,
       isActive: true,
       effectiveMonth: new Date().getMonth() + 1,
       effectiveYear: new Date().getFullYear(),
@@ -734,11 +764,17 @@ export class MaintenanceAdminComponent extends MaintenancePageBase {
       this.scheduleForm.controls.dueDay,
       this.scheduleForm.controls.startMonth,
       this.scheduleForm.controls.startYear,
+      this.scheduleForm.controls.endMonth,
+      this.scheduleForm.controls.endYear,
     ];
 
     detailControls.forEach(control =>
       isEditable ? control.enable({ emitEvent: false }) : control.disable({ emitEvent: false })
     );
+  }
+
+  formatFrequency(frequency: MaintenanceFrequency) {
+    return formatFrequencyLabel(frequency);
   }
 
   approveProof(chargeId: { id: string }) {

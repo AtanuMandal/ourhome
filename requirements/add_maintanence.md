@@ -20,11 +20,11 @@ Apartment society SUAdmin must be able to configure and manage maintenance fees 
   - Built-up area
   - Super built-up area
 - Fees may optionally be specific to a single apartment or apply at the society level.
-- SUAdmin cant update schedule apart from making it inactive from a certain month and year.
+- Schedule should have valid end month and year . Once added all charges will be added against all apartments.
+- SUAdmin cant update schedule apart from making it inactive from a certain month and year. Once made inactive all charges after the inactive period will be void.
 - There should be only one active schedule for a given socity at any time consider an inactive schdule as active before its efective from date.
 - SUAdmin can delete an future existing schedule when its in inacive status and a active schedule already present for the socity. 
-### Recurring Fee Posting
-- The system must generate maintenance charges automatically according to the selected frequency for upcoming six month.
+### Fee Posting
 - Generated charges should be visible in the resident payment history view.
 - When a fee is created , the correct apartment charge should be calculated using the  selected frequency schedules from which date it is active.
 - When a schedule is inactivated/Deleted then any fees against the schdule will be deleted from the time it is made inacive or deleted 
@@ -42,7 +42,13 @@ Apartment society SUAdmin must be able to configure and manage maintenance fees 
 
 ### Administrator Controls
 - SUAdmin can create and modify fee schedules from the fee schedule list page.
-- SUAdmin can see society-wide fee payments for all apartment and overdue status for all apartments in a grid view month/quarter/year wise , where month will be in X axis and apartments with owner name will be in Y axis . Make a separate page for this .
+- SUAdmin can see society-wide fee payments for all apartment and overdue status for all apartments in a grid view month/quarter/year wise , where month will be in X axis and apartments with owner name will be in Y axis . Make a separate page for this . In the Grid lot section should have filter to 
+  - to see pending 
+  - to see paid
+  - to see submitted .
+  - Filter apartment , block , floor 
+  - month and year from and montha nd year to 
+- In grid header top it should show a summery how much is paid, submitted and pending for individual month .
 - SUAdmin can mark apartment maintenance payments as paid by viewing the uploaded file and other parameters from the same grid view of maintenance. There should be option to view the payment supported documents (should be in a popup).
 - The society configuration must include an overdue threshold in days for late fee identification.SUAdmin should be able to control this.
 - Overdue threshold should be between 1 to 90 days . 
@@ -56,3 +62,4 @@ Apartment society SUAdmin must be able to configure and manage maintenance fees 
 - Residents can see their payment history with overdue highlighting.
 - SUAdmin can manage fee schedules and mark payments as paid.
 - Society settings expose a maintenance overdue threshold.
+- All charges agains one socity for a each financial year should be added in a separte container(db view) so that the admin view should be able to read from that grid . So when any action happens on schedule and charges that should update in both palces(actual table and the grid view table )
