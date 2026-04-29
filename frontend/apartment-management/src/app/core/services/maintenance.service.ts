@@ -1,15 +1,17 @@
 import { Injectable, inject } from '@angular/core';
 import { ApiService } from './api.service';
 import {
-  CreateMaintenancePenaltyChargeDto,
-  CreateMaintenanceScheduleDto,
-  DeleteMaintenanceScheduleDto,
-  MaintenanceChargeGrid,
-  MaintenanceCharge,
-  MaintenanceChargeFilters,
-  MaintenanceSchedule,
-  MarkMaintenanceChargePaidDto,
-  SubmitMaintenancePaymentProofDto,
+    CreateMaintenancePenaltyChargeDto,
+    CreateMaintenanceScheduleDto,
+    DeleteMaintenanceScheduleDto,
+    MaintenanceChargeGrid,
+    MaintenanceCharge,
+    MaintenanceChargeFilters,
+    MaintenanceGridFilters,
+    MaintenanceProofUploadResponse,
+    MaintenanceSchedule,
+    MarkMaintenanceChargePaidDto,
+    SubmitMaintenancePaymentProofDto,
   UpdateMaintenanceScheduleDto,
 } from '../models/maintenance.model';
 
@@ -58,6 +60,12 @@ export class MaintenanceService {
     return this.api.post<boolean>(`societies/${societyId}/maintenance/payments/proof`, dto);
   }
 
+  uploadProof(societyId: string, file: File) {
+    const formData = new FormData();
+    formData.append('file', file, file.name);
+    return this.api.postForm<MaintenanceProofUploadResponse>(`societies/${societyId}/maintenance/payments/proof/upload`, formData);
+  }
+
   approveProof(societyId: string, chargeId: string, dto: MarkMaintenanceChargePaidDto) {
     return this.api.post<boolean>(`societies/${societyId}/maintenance/charges/${chargeId}/approve`, dto);
   }
@@ -66,8 +74,8 @@ export class MaintenanceService {
     return this.api.post<boolean>(`societies/${societyId}/maintenance/charges/${chargeId}/mark-paid`, dto);
   }
 
-  getChargeGrid(societyId: string, year: number) {
-    return this.api.get<MaintenanceChargeGrid>(`societies/${societyId}/maintenance/grid`, { year });
+  getChargeGrid(societyId: string, filters: MaintenanceGridFilters) {
+    return this.api.get<MaintenanceChargeGrid>(`societies/${societyId}/maintenance/grid`, this.toGridQuery(filters));
   }
 
   createPenaltyCharge(societyId: string, dto: CreateMaintenancePenaltyChargeDto) {
@@ -81,6 +89,20 @@ export class MaintenanceService {
         year: filters.year,
         month: filters.month,
         status: filters.status,
+      }).filter(([, value]) => value !== undefined && value !== null && value !== '')
+    ) as Record<string, string | number>;
+  }
+
+  private toGridQuery(filters: MaintenanceGridFilters): Record<string, string | number> {
+    return Object.fromEntries(
+      Object.entries({
+        financialYearStart: filters.financialYearStart,
+        apartmentId: filters.apartmentId,
+        block: filters.block,
+        floor: filters.floor,
+        status: filters.status,
+        fromDate: filters.fromDate,
+        toDate: filters.toDate,
       }).filter(([, value]) => value !== undefined && value !== null && value !== '')
     ) as Record<string, string | number>;
   }

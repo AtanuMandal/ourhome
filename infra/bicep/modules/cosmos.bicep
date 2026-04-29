@@ -2,7 +2,7 @@
   Cosmos DB Module
   ================
   Deploys an Azure Cosmos DB account in serverless capacity mode with the
-  apartment-management database and all 15 domain containers.
+  apartment-management database and all domain containers.
 
   Design decisions:
     - Serverless mode: pay per RU consumed, no provisioned throughput needed.
@@ -42,6 +42,7 @@ var containers = [
   { name: 'reward-points',       partitionKey: '/societyId' }
   { name: 'service-providers',   partitionKey: '/societyId' }
   { name: 'service-requests',    partitionKey: '/societyId' }
+  { name: 'maintenance_charge_grid_views', partitionKey: '/societyId' }
   // Outbox: written atomically with business data; Change Feed publishes to Event Grid
   { name: 'outbox',              partitionKey: '/societyId' }
   // Lease container for the Cosmos DB Change Feed trigger in Azure Functions
@@ -92,7 +93,7 @@ resource cosmosDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2023
   }
 }
 
-// Deploy all 15 containers via a loop – no throughput settings needed for serverless
+// Deploy all containers via a loop – no throughput settings needed for serverless
 resource cosmosContainers 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2023-11-15' = [
   for container in containers: {
     parent: cosmosDatabase

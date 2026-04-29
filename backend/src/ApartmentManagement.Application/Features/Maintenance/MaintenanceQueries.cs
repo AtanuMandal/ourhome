@@ -140,11 +140,19 @@ public sealed class GetApartmentMaintenanceHistoryQueryHandler(
     }
 }
 
-public record GetMaintenanceChargeGridQuery(string SocietyId, int Year)
+public record GetMaintenanceChargeGridQuery(
+    string SocietyId,
+    int FinancialYearStart,
+    string? ApartmentId,
+    string? Block,
+    int? Floor,
+    PaymentStatus? Status,
+    DateTime? FromDate,
+    DateTime? ToDate)
     : IRequest<Result<MaintenanceChargeGridDto>>;
 
 public sealed class GetMaintenanceChargeGridQueryHandler(
-    IMaintenanceChargeRepository chargeRepository,
+    IMaintenanceChargeGridViewRepository gridViewRepository,
     IApartmentRepository apartmentRepository,
     ISocietyRepository societyRepository,
     ICurrentUserService currentUserService)
@@ -160,54 +168,67 @@ public sealed class GetMaintenanceChargeGridQueryHandler(
             var society = await societyRepository.GetByIdAsync(request.SocietyId, request.SocietyId, ct)
                 ?? throw new NotFoundException("Society", request.SocietyId);
 
+            var gridView = await gridViewRepository.GetByFinancialYearAsync(request.SocietyId, request.FinancialYearStart, ct);
+            if (gridView is null)
+                return Result<MaintenanceChargeGridDto>.Success(new MaintenanceChargeGridDto(
+                    request.SocietyId,
+                    request.FinancialYearStart,
+                    Enumerable.Range(0, 12).Select(offset => new DateTime(request.FinancialYearStart, 4, 1).AddMonths(offset).Month).ToList(),
+                    new MaintenanceChargeGridSummaryDto(0, 0, 0, 0, 0, 0),
+                    []));
+
             var apartments = await apartmentRepository.GetAllAsync(request.SocietyId, ct);
-            var charges = await chargeRepository.GetBySocietyAsync(request.SocietyId, 1, 10000, null, null, request.Year, null, ct);
-            var monthNumbers = Enumerable.Range(1, 12).ToList();
-
-            var rows = apartments
-                .OrderBy(apartment => apartment.BlockName, StringComparer.OrdinalIgnoreCase)
-                .ThenBy(apartment => apartment.FloorNumber)
-                .ThenBy(apartment => apartment.ApartmentNumber, StringComparer.OrdinalIgnoreCase)
-                .Select(apartment =>
+            var apartmentLookup = apartments.ToDictionary(apartment => apartment.Id, StringComparer.OrdinalIgnoreCase);
+            var filteredRows = gridView.Rows
+                .Where(row => string.IsNullOrWhiteSpace(request.ApartmentId) || string.Equals(row.ApartmentId, request.ApartmentId, StringComparison.OrdinalIgnoreCase))
+                .Where(row => string.IsNullOrWhiteSpace(request.Block) || string.Equals(row.BlockName, request.Block, StringComparison.OrdinalIgnoreCase))
+                .Where(row => !request.Floor.HasValue || row.FloorNumber == request.Floor.Value)
+                .Select(row =>
                 {
-                    var apartmentCharges = charges
-                        .Where(charge => string.Equals(charge.ApartmentId, apartment.Id, StringComparison.OrdinalIgnoreCase))
-                        .ToList();
-
-                    var months = monthNumbers
-                        .Select(month =>
+                    var apartment = apartmentLookup.GetValueOrDefault(row.ApartmentId);
+                    var filteredCells = row.Cells
+                        .Select(cell =>
                         {
-                            var monthCharges = apartmentCharges
-                                .Where(charge => charge.ChargeMonth == month)
-                                .OrderBy(charge => charge.DueDate)
+                            var charges = cell.Charges
+                                .Where(charge => !request.Status.HasValue || string.Equals(charge.Status, request.Status.Value.ToString(), StringComparison.OrdinalIgnoreCase))
+                                .Where(charge => !request.FromDate.HasValue || charge.DueDate.Date >= request.FromDate.Value.Date)
+                                .Where(charge => !request.ToDate.HasValue || charge.DueDate.Date <= request.ToDate.Value.Date)
                                 .Select(charge => ToGridChargeDto(charge, society.MaintenanceOverdueThresholdDays))
                                 .ToList();
 
                             return new MaintenanceChargeGridCellDto(
-                                month,
-                                monthCharges.Sum(charge => charge.Amount),
-                                monthCharges.Any(charge => charge.IsOverdue),
-                                monthCharges);
+                                cell.Month,
+                                charges.Sum(charge => charge.Amount),
+                                charges.Any(charge => charge.IsOverdue),
+                                charges);
                         })
                         .ToList();
 
-                    var residentName = apartment.GetResident(ResidentType.Owner)?.UserName
-                        ?? apartment.GetResident(ResidentType.Tenant)?.UserName
-                        ?? apartment.GetResidentsForRead().FirstOrDefault()?.UserName;
-
                     return new MaintenanceChargeGridRowDto(
-                        apartment.Id,
-                        apartment.ToDisplayLabel(),
-                        residentName,
-                        months);
+                        row.ApartmentId,
+                        apartment?.ToDisplayLabel() ?? row.ApartmentNumber,
+                        row.ResidentName,
+                        filteredCells);
                 })
+                .Where(row => row.Months.Any(month => month.Charges.Count > 0)
+                    || (!request.Status.HasValue && !request.FromDate.HasValue && !request.ToDate.HasValue))
                 .ToList();
+
+            var allCharges = filteredRows.SelectMany(row => row.Months).SelectMany(month => month.Charges).ToList();
+            var summary = new MaintenanceChargeGridSummaryDto(
+                allCharges.Where(charge => charge.Status == PaymentStatus.Pending.ToString()).Sum(charge => charge.Amount),
+                allCharges.Where(charge => charge.Status == PaymentStatus.ProofSubmitted.ToString()).Sum(charge => charge.Amount),
+                allCharges.Where(charge => charge.Status == PaymentStatus.Paid.ToString()).Sum(charge => charge.Amount),
+                allCharges.Count(charge => charge.Status == PaymentStatus.Pending.ToString()),
+                allCharges.Count(charge => charge.Status == PaymentStatus.ProofSubmitted.ToString()),
+                allCharges.Count(charge => charge.Status == PaymentStatus.Paid.ToString()));
 
             return Result<MaintenanceChargeGridDto>.Success(new MaintenanceChargeGridDto(
                 request.SocietyId,
-                request.Year,
-                monthNumbers,
-                rows));
+                request.FinancialYearStart,
+                gridView.Months,
+                summary,
+                filteredRows));
         }
         catch (ForbiddenException ex)
         {
@@ -223,15 +244,16 @@ public sealed class GetMaintenanceChargeGridQueryHandler(
         }
     }
 
-    private static MaintenanceChargeGridChargeDto ToGridChargeDto(MaintenanceCharge charge, int overdueThresholdDays) =>
+    private static MaintenanceChargeGridChargeDto ToGridChargeDto(MaintenanceChargeGridView.GridCharge charge, int overdueThresholdDays) =>
         new(
-            charge.Id,
+            charge.ChargeId,
             charge.ScheduleId,
             charge.ScheduleName,
             charge.Amount,
-            charge.Status.ToString(),
+            charge.Status,
             charge.DueDate,
-            charge.Status != PaymentStatus.Paid && charge.DueDate.Date.AddDays(overdueThresholdDays) < DateTime.UtcNow.Date,
+            !string.Equals(charge.Status, PaymentStatus.Paid.ToString(), StringComparison.OrdinalIgnoreCase) &&
+            charge.DueDate.Date.AddDays(overdueThresholdDays) < DateTime.UtcNow.Date,
             charge.PaidAt,
             charge.PaymentMethod,
             charge.TransactionReference,

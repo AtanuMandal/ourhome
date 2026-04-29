@@ -24,7 +24,10 @@ public sealed class MaintenanceSchedule : BaseEntity
     public int DueDay { get; private set; }
     public int StartMonth => ActiveFromDate.Month;
     public int StartYear => ActiveFromDate.Year;
+    public int EndMonth => ActiveUntilDate.Month;
+    public int EndYear => ActiveUntilDate.Year;
     public DateTime ActiveFromDate { get; private set; }
+    public DateTime ActiveUntilDate { get; private set; }
     public DateTime? InactiveFromDate { get; private set; }
     public DateTime NextDueDate { get; private set; }
     public bool IsActive { get; private set; }
@@ -43,7 +46,9 @@ public sealed class MaintenanceSchedule : BaseEntity
         FeeFrequency frequency,
         int dueDay,
         int startMonth,
-        int startYear)
+        int startYear,
+        int endMonth,
+        int endYear)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(societyId, nameof(societyId));
         ArgumentException.ThrowIfNullOrWhiteSpace(name, nameof(name));
@@ -51,8 +56,13 @@ public sealed class MaintenanceSchedule : BaseEntity
         ValidateDueDay(dueDay);
         ValidateScheduleMonth(startMonth, nameof(startMonth));
         ValidateScheduleYear(startYear, nameof(startYear));
+        ValidateScheduleMonth(endMonth, nameof(endMonth));
+        ValidateScheduleYear(endYear, nameof(endYear));
 
         var activeFromDate = BuildDueDate(startYear, startMonth, dueDay);
+        var activeUntilDate = BuildDueDate(endYear, endMonth, dueDay);
+        if (activeUntilDate < activeFromDate)
+            throw new ArgumentOutOfRangeException(nameof(endYear), "End month and year must be on or after the start month and year.");
 
         var schedule = new MaintenanceSchedule
         {
@@ -66,6 +76,7 @@ public sealed class MaintenanceSchedule : BaseEntity
             Frequency = frequency,
             DueDay = dueDay,
             ActiveFromDate = activeFromDate,
+            ActiveUntilDate = activeUntilDate,
             IsActive = true
         };
         schedule.NextDueDate = activeFromDate;
@@ -87,6 +98,10 @@ public sealed class MaintenanceSchedule : BaseEntity
         ValidateScheduleYear(effectiveYear, nameof(effectiveYear));
 
         var effectiveDueDate = BuildDueDate(effectiveYear, effectiveMonth, DueDay);
+        if (effectiveDueDate < ActiveFromDate)
+            throw new ArgumentOutOfRangeException(nameof(effectiveYear), "Effective month and year must be on or after the schedule start month and year.");
+        if (effectiveDueDate > NextCycleAfterEndDate())
+            throw new ArgumentOutOfRangeException(nameof(effectiveYear), "Effective month and year must be within the schedule window.");
 
         var history = ChangeHistory.ToList();
         history.Add(new ScheduleChange(
@@ -140,11 +155,21 @@ public sealed class MaintenanceSchedule : BaseEntity
     {
         if (dueDateUtc.Date < ActiveFromDate.Date)
             return false;
+        if (dueDateUtc.Date > ActiveUntilDate.Date)
+            return false;
 
         return InactiveFromDate is null || dueDateUtc.Date < InactiveFromDate.Value.Date;
     }
 
     public bool IsEffectiveOn(DateTime asOfUtc) => AppliesToDueDate(asOfUtc.Date);
+
+    public DateTime ScheduleWindowEndDate()
+    {
+        var inactiveEnd = InactiveFromDate?.Date.AddDays(-1);
+        return inactiveEnd.HasValue && inactiveEnd.Value < ActiveUntilDate.Date
+            ? inactiveEnd.Value
+            : ActiveUntilDate.Date;
+    }
 
     private DateTime AdvanceDate(DateTime current) =>
         Frequency switch
@@ -154,6 +179,8 @@ public sealed class MaintenanceSchedule : BaseEntity
             FeeFrequency.Annual => current.AddYears(1),
             _ => current.AddMonths(1)
         };
+
+    public DateTime NextCycleAfterEndDate() => AdvanceDate(ActiveUntilDate);
 
     private static void ValidatePricing(decimal rate, MaintenancePricingType pricingType, MaintenanceAreaBasis? areaBasis)
     {
@@ -312,4 +339,71 @@ public sealed class MaintenanceCharge : BaseEntity
         TouchUpdatedAt();
         AddDomainEvent(new FeePaymentReceivedEvent(Id, SocietyId, ApartmentId, Amount));
     }
+}
+
+public sealed class MaintenanceChargeGridView : BaseEntity
+{
+    public sealed record GridProof(string ProofUrl, string? Notes, string SubmittedByUserId, DateTime SubmittedAt);
+    public sealed record GridCharge(
+        string ChargeId,
+        string ScheduleId,
+        string ScheduleName,
+        decimal Amount,
+        string Status,
+        DateTime DueDate,
+        DateTime? PaidAt,
+        string? PaymentMethod,
+        string? TransactionReference,
+        string? ReceiptUrl,
+        string? Notes,
+        IReadOnlyList<GridProof> Proofs);
+    public sealed record GridCell(int Month, int Year, IReadOnlyList<GridCharge> Charges);
+    public sealed record GridRow(
+        string ApartmentId,
+        string ApartmentNumber,
+        string BlockName,
+        int FloorNumber,
+        string? ResidentName,
+        IReadOnlyList<GridCell> Cells);
+
+    public int FinancialYearStart { get; private set; }
+    public DateTime PeriodStartUtc { get; private set; }
+    public DateTime PeriodEndUtc { get; private set; }
+    public IReadOnlyList<int> Months { get; private set; } = [];
+    public IReadOnlyList<GridRow> Rows { get; private set; } = [];
+
+    private MaintenanceChargeGridView() { }
+
+    public static MaintenanceChargeGridView Create(
+        string societyId,
+        int financialYearStart,
+        DateTime periodStartUtc,
+        DateTime periodEndUtc,
+        IReadOnlyList<int> months,
+        IReadOnlyList<GridRow> rows)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(societyId, nameof(societyId));
+
+        return new MaintenanceChargeGridView
+        {
+            Id = BuildId(financialYearStart),
+            SocietyId = societyId,
+            FinancialYearStart = financialYearStart,
+            PeriodStartUtc = periodStartUtc,
+            PeriodEndUtc = periodEndUtc,
+            Months = months.ToList(),
+            Rows = rows.ToList()
+        };
+    }
+
+    public void Refresh(DateTime periodStartUtc, DateTime periodEndUtc, IReadOnlyList<int> months, IReadOnlyList<GridRow> rows)
+    {
+        PeriodStartUtc = periodStartUtc;
+        PeriodEndUtc = periodEndUtc;
+        Months = months.ToList();
+        Rows = rows.ToList();
+        TouchUpdatedAt();
+    }
+
+    public static string BuildId(int financialYearStart) => $"maintenance-grid-{financialYearStart}";
 }

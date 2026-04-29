@@ -78,6 +78,11 @@ public static class InfrastructureDependencyInjection
             sp.GetRequiredService<IOptions<InfrastructureSettings>>().Value.CosmosDbDatabaseName,
             sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<MaintenanceChargeRepository>>()));
 
+        services.AddScoped<IMaintenanceChargeGridViewRepository>(sp => new MaintenanceChargeGridViewRepository(
+            sp.GetRequiredService<CosmosClient>(),
+            sp.GetRequiredService<IOptions<InfrastructureSettings>>().Value.CosmosDbDatabaseName,
+            sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<MaintenanceChargeGridViewRepository>>()));
+
         services.AddScoped<ICompetitionRepository>(sp => new CompetitionRepository(
             sp.GetRequiredService<CosmosClient>(),
             sp.GetRequiredService<IOptions<InfrastructureSettings>>().Value.CosmosDbDatabaseName,

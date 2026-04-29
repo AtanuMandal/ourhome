@@ -23,12 +23,15 @@ public record CreateMaintenanceScheduleCommand(
     FeeFrequency Frequency,
     int DueDay,
     int StartMonth,
-    int StartYear)
+    int StartYear,
+    int EndMonth,
+    int EndYear)
     : IRequest<Result<MaintenanceScheduleDto>>;
 
 public sealed class CreateMaintenanceScheduleCommandHandler(
     IMaintenanceScheduleRepository scheduleRepository,
     IMaintenanceChargeRepository chargeRepository,
+    IMaintenanceChargeGridViewRepository gridViewRepository,
     IApartmentRepository apartmentRepository,
     ICurrentUserService currentUserService,
     ILogger<CreateMaintenanceScheduleCommandHandler> logger)
@@ -41,8 +44,9 @@ public sealed class CreateMaintenanceScheduleCommandHandler(
             MaintenanceAuthorization.EnsureAdmin(currentUserService);
 
             var newActiveFromDate = new DateTime(request.StartYear, request.StartMonth, request.DueDay, 0, 0, 0, DateTimeKind.Utc);
+            var newActiveUntilDate = new DateTime(request.EndYear, request.EndMonth, request.DueDay, 0, 0, 0, DateTimeKind.Utc);
             var allSchedules = await scheduleRepository.GetAllAsync(request.SocietyId, ct);
-            if (allSchedules.Any(schedule => MaintenanceScheduleWindowHelper.ScheduleWindowsOverlap(schedule.ActiveFromDate, schedule.InactiveFromDate, newActiveFromDate, null)))
+            if (allSchedules.Any(schedule => MaintenanceScheduleWindowHelper.ScheduleWindowsOverlap(schedule.ActiveFromDate, schedule.ScheduleWindowEndDate(), newActiveFromDate, newActiveUntilDate)))
                 return Result<MaintenanceScheduleDto>.Failure(ErrorCodes.Conflict, "Another maintenance schedule is already active during the selected period.");
 
             var schedule = MaintenanceSchedule.Create(
@@ -56,10 +60,13 @@ public sealed class CreateMaintenanceScheduleCommandHandler(
                 request.Frequency,
                 request.DueDay,
                 request.StartMonth,
-                request.StartYear);
+                request.StartYear,
+                request.EndMonth,
+                request.EndYear);
 
             var created = await scheduleRepository.CreateAsync(schedule, ct);
-            await MaintenanceChargeGenerator.EnsureUpcomingChargesAsync(created, created.ActiveFromDate.Date.AddMonths(5), apartmentRepository, chargeRepository, ct);
+            await MaintenanceChargeGenerator.EnsureUpcomingChargesAsync(created, created.ActiveUntilDate.Date, apartmentRepository, chargeRepository, ct);
+            await MaintenanceGridProjectionHelper.RebuildForScheduleAsync(created, chargeRepository, apartmentRepository, gridViewRepository, ct);
 
             return Result<MaintenanceScheduleDto>.Success(created.ToResponse());
         }
@@ -87,6 +94,7 @@ public record UpdateMaintenanceScheduleCommand(
 public sealed class UpdateMaintenanceScheduleCommandHandler(
     IMaintenanceScheduleRepository scheduleRepository,
     IMaintenanceChargeRepository chargeRepository,
+    IMaintenanceChargeGridViewRepository gridViewRepository,
     IApartmentRepository apartmentRepository,
     IUserRepository userRepository,
     ICurrentUserService currentUserService,
@@ -111,7 +119,7 @@ public sealed class UpdateMaintenanceScheduleCommandHandler(
                 var allSchedules = await scheduleRepository.GetAllAsync(request.SocietyId, ct);
                 if (allSchedules.Any(existingSchedule =>
                         !string.Equals(existingSchedule.Id, schedule.Id, StringComparison.OrdinalIgnoreCase) &&
-                        MaintenanceScheduleWindowHelper.ScheduleWindowsOverlap(existingSchedule.ActiveFromDate, existingSchedule.InactiveFromDate, effectiveDueDate, null)))
+                        MaintenanceScheduleWindowHelper.ScheduleWindowsOverlap(existingSchedule.ActiveFromDate, existingSchedule.ScheduleWindowEndDate(), effectiveDueDate, schedule.ScheduleWindowEndDate())))
                 {
                     return Result<MaintenanceScheduleDto>.Failure(ErrorCodes.Conflict, "Another maintenance schedule is already active during the selected period.");
                 }
@@ -126,8 +134,8 @@ public sealed class UpdateMaintenanceScheduleCommandHandler(
                 request.ChangeReason);
 
             var updated = await scheduleRepository.UpdateAsync(schedule, ct);
-            var horizon = updated.NextDueDate.Date.AddMonths(5);
-            await MaintenanceChargeGenerator.EnsureUpcomingChargesAsync(updated, horizon, apartmentRepository, chargeRepository, ct);
+            await MaintenanceChargeGenerator.EnsureUpcomingChargesAsync(updated, updated.ActiveUntilDate.Date, apartmentRepository, chargeRepository, ct);
+            await MaintenanceGridProjectionHelper.RebuildForScheduleAsync(updated, chargeRepository, apartmentRepository, gridViewRepository, ct);
 
             return Result<MaintenanceScheduleDto>.Success(updated.ToResponse());
         }
@@ -156,6 +164,8 @@ public record DeleteMaintenanceScheduleCommand(
 public sealed class DeleteMaintenanceScheduleCommandHandler(
     IMaintenanceScheduleRepository scheduleRepository,
     IMaintenanceChargeRepository chargeRepository,
+    IMaintenanceChargeGridViewRepository gridViewRepository,
+    IApartmentRepository apartmentRepository,
     ICurrentUserService currentUserService,
     ILogger<DeleteMaintenanceScheduleCommandHandler> logger)
     : IRequestHandler<DeleteMaintenanceScheduleCommand, Result<bool>>
@@ -173,12 +183,15 @@ public sealed class DeleteMaintenanceScheduleCommandHandler(
                 return Result<bool>.Failure(ErrorCodes.Conflict, "Only inactive maintenance schedules can be deleted.");
 
             var now = DateTime.UtcNow.Date;
+            if ((schedule.InactiveFromDate ?? schedule.ActiveFromDate).Date <= now)
+                return Result<bool>.Failure(ErrorCodes.Conflict, "Only future inactive maintenance schedules can be deleted.");
+
             var allSchedules = await scheduleRepository.GetAllAsync(request.SocietyId, ct);
             if (!allSchedules.Any(otherSchedule =>
                     !string.Equals(otherSchedule.Id, schedule.Id, StringComparison.OrdinalIgnoreCase) &&
                     (otherSchedule.IsActive || otherSchedule.IsEffectiveOn(now))))
             {
-                return Result<bool>.Failure(ErrorCodes.Conflict, "An inactive schedule can be deleted only when another active schedule exists for the society.");
+                return Result<bool>.Failure(ErrorCodes.Conflict, "A future inactive schedule can be deleted only when another active schedule exists for the society.");
             }
 
             var charges = await chargeRepository.GetByScheduleAsync(request.SocietyId, request.ScheduleId, ct);
@@ -191,6 +204,13 @@ public sealed class DeleteMaintenanceScheduleCommandHandler(
             }
 
             await scheduleRepository.DeleteAsync(schedule.Id, request.SocietyId, ct);
+            await MaintenanceGridProjectionHelper.RebuildForFinancialYearsAsync(
+                request.SocietyId,
+                MaintenanceGridProjectionHelper.GetFinancialYearsCovered(schedule),
+                chargeRepository,
+                apartmentRepository,
+                gridViewRepository,
+                ct);
             return Result<bool>.Success(true);
         }
         catch (ForbiddenException ex)
@@ -218,6 +238,7 @@ public record SubmitMaintenancePaymentProofCommand(
 
 public sealed class SubmitMaintenancePaymentProofCommandHandler(
     IMaintenanceChargeRepository chargeRepository,
+    IMaintenanceChargeGridViewRepository gridViewRepository,
     IApartmentRepository apartmentRepository,
     ISocietyRepository societyRepository,
     IUserRepository userRepository,
@@ -238,6 +259,7 @@ public sealed class SubmitMaintenancePaymentProofCommandHandler(
                 ?? throw new NotFoundException("Society", request.SocietyId);
 
             var updated = new List<MaintenanceChargeDto>(request.ChargeIds.Count);
+            var impactedFinancialYears = new HashSet<int>();
             foreach (var chargeId in request.ChargeIds.Distinct(StringComparer.OrdinalIgnoreCase))
             {
                 var charge = await chargeRepository.GetByIdAsync(chargeId, request.SocietyId, ct)
@@ -248,9 +270,18 @@ public sealed class SubmitMaintenancePaymentProofCommandHandler(
 
                 charge.SubmitProof(request.ProofUrl, request.Notes, actor.Id);
                 var saved = await chargeRepository.UpdateAsync(charge, ct);
+                impactedFinancialYears.Add(MaintenanceGridProjectionHelper.GetFinancialYearStart(saved.DueDate));
                 var apartment = await apartmentRepository.GetByIdAsync(saved.ApartmentId, request.SocietyId, ct);
                 updated.Add(saved.ToResponse(apartment?.ToDisplayLabel() ?? saved.ApartmentId, society.MaintenanceOverdueThresholdDays));
             }
+
+            await MaintenanceGridProjectionHelper.RebuildForFinancialYearsAsync(
+                request.SocietyId,
+                impactedFinancialYears,
+                chargeRepository,
+                apartmentRepository,
+                gridViewRepository,
+                ct);
 
             foreach (var adminUserId in society.AdminUserIds.Distinct(StringComparer.OrdinalIgnoreCase))
                 await notificationService.SendPushNotificationAsync(adminUserId, "Maintenance payment proof submitted", "A resident uploaded maintenance payment proof for approval.", ct);
@@ -273,6 +304,49 @@ public sealed class SubmitMaintenancePaymentProofCommandHandler(
     }
 }
 
+public record UploadMaintenanceProofCommand(
+    string SocietyId,
+    string FileName,
+    string ContentType,
+    byte[] Content)
+    : IRequest<Result<MaintenanceProofUploadResponse>>;
+
+public sealed class UploadMaintenanceProofCommandHandler(
+    IFileStorageService fileStorageService,
+    IUserRepository userRepository,
+    ICurrentUserService currentUserService,
+    ILogger<UploadMaintenanceProofCommandHandler> logger)
+    : IRequestHandler<UploadMaintenanceProofCommand, Result<MaintenanceProofUploadResponse>>
+{
+    private const string ContainerName = "maintenance-proofs";
+
+    public async Task<Result<MaintenanceProofUploadResponse>> Handle(UploadMaintenanceProofCommand request, CancellationToken ct)
+    {
+        try
+        {
+            var actor = await userRepository.GetByIdAsync(currentUserService.UserId, request.SocietyId, ct)
+                ?? throw new ForbiddenException("Only residents or admins can upload maintenance payment proof.");
+
+            var extension = Path.GetExtension(request.FileName);
+            var blobName = $"{request.SocietyId}/{actor.Id}/{Guid.NewGuid():N}{extension}";
+
+            await using var stream = new MemoryStream(request.Content, writable: false);
+            var fileUrl = await fileStorageService.UploadAsync(stream, blobName, request.ContentType, ContainerName, ct);
+
+            return Result<MaintenanceProofUploadResponse>.Success(new MaintenanceProofUploadResponse(request.FileName, fileUrl));
+        }
+        catch (ForbiddenException ex)
+        {
+            return Result<MaintenanceProofUploadResponse>.Failure(ErrorCodes.Forbidden, ex.Message);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to upload maintenance proof {FileName}", request.FileName);
+            return Result<MaintenanceProofUploadResponse>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
 public record MarkMaintenanceChargePaidCommand(
     string SocietyId,
     string ChargeId,
@@ -284,6 +358,7 @@ public record MarkMaintenanceChargePaidCommand(
 
 public sealed class MarkMaintenanceChargePaidCommandHandler(
     IMaintenanceChargeRepository chargeRepository,
+    IMaintenanceChargeGridViewRepository gridViewRepository,
     IApartmentRepository apartmentRepository,
     ISocietyRepository societyRepository,
     IEventPublisher eventPublisher,
@@ -304,6 +379,7 @@ public sealed class MarkMaintenanceChargePaidCommandHandler(
 
             charge.MarkPaid(request.PaymentMethod, request.TransactionReference, request.ReceiptUrl, request.Notes);
             var updated = await chargeRepository.UpdateAsync(charge, ct);
+            await MaintenanceGridProjectionHelper.RebuildForChargeAsync(updated, chargeRepository, apartmentRepository, gridViewRepository, ct);
 
             foreach (var evt in updated.DomainEvents)
                 await eventPublisher.PublishAsync(evt, ct);
@@ -339,6 +415,7 @@ public record ApproveMaintenancePaymentProofCommand(
 
 public sealed class ApproveMaintenancePaymentProofCommandHandler(
     IMaintenanceChargeRepository chargeRepository,
+    IMaintenanceChargeGridViewRepository gridViewRepository,
     IApartmentRepository apartmentRepository,
     ISocietyRepository societyRepository,
     IEventPublisher eventPublisher,
@@ -359,6 +436,7 @@ public sealed class ApproveMaintenancePaymentProofCommandHandler(
 
             charge.ApprovePayment(request.PaymentMethod, request.TransactionReference, request.ReceiptUrl, request.Notes);
             var updated = await chargeRepository.UpdateAsync(charge, ct);
+            await MaintenanceGridProjectionHelper.RebuildForChargeAsync(updated, chargeRepository, apartmentRepository, gridViewRepository, ct);
 
             foreach (var evt in updated.DomainEvents)
                 await eventPublisher.PublishAsync(evt, ct);
@@ -393,6 +471,7 @@ public record CreateMaintenancePenaltyChargeCommand(
 
 public sealed class CreateMaintenancePenaltyChargeCommandHandler(
     IMaintenanceChargeRepository chargeRepository,
+    IMaintenanceChargeGridViewRepository gridViewRepository,
     IApartmentRepository apartmentRepository,
     ISocietyRepository societyRepository,
     ICurrentUserService currentUserService,
@@ -420,6 +499,7 @@ public sealed class CreateMaintenancePenaltyChargeCommandHandler(
                 request.Reason);
 
             var created = await chargeRepository.CreateAsync(charge, ct);
+            await MaintenanceGridProjectionHelper.RebuildForChargeAsync(created, chargeRepository, apartmentRepository, gridViewRepository, ct);
             return Result<MaintenanceChargeDto>.Success(created.ToResponse(apartment.ToDisplayLabel(), society.MaintenanceOverdueThresholdDays));
         }
         catch (ForbiddenException ex)
@@ -449,6 +529,7 @@ public record GenerateDueMaintenanceChargesCommand(DateTime? AsOfUtc = null) : I
 public sealed class GenerateDueMaintenanceChargesCommandHandler(
     IMaintenanceScheduleRepository scheduleRepository,
     IMaintenanceChargeRepository chargeRepository,
+    IMaintenanceChargeGridViewRepository gridViewRepository,
     IApartmentRepository apartmentRepository,
     ILogger<GenerateDueMaintenanceChargesCommandHandler> logger)
     : IRequestHandler<GenerateDueMaintenanceChargesCommand, Result<int>>
@@ -460,14 +541,31 @@ public sealed class GenerateDueMaintenanceChargesCommandHandler(
             var asOf = (request.AsOfUtc ?? DateTime.UtcNow).Date;
             var dueSchedules = await scheduleRepository.GetActiveDueOnAsync(asOf, ct);
             var count = 0;
+            var impactedFinancialYears = new HashSet<int>();
 
             foreach (var schedule in dueSchedules)
             {
                 while (schedule.AppliesToDueDate(schedule.NextDueDate) && schedule.NextDueDate.Date <= asOf)
                 {
+                    impactedFinancialYears.Add(MaintenanceGridProjectionHelper.GetFinancialYearStart(schedule.NextDueDate));
                     count += await MaintenanceChargeGenerator.UpsertChargesForDueDateAsync(schedule, schedule.NextDueDate, apartmentRepository, chargeRepository, ct);
                     schedule.AdvanceNextDueDate();
                     await scheduleRepository.UpdateAsync(schedule, ct);
+                }
+            }
+
+            if (impactedFinancialYears.Count > 0)
+            {
+                var societyIds = dueSchedules.Select(schedule => schedule.SocietyId).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+                foreach (var societyId in societyIds)
+                {
+                    await MaintenanceGridProjectionHelper.RebuildForFinancialYearsAsync(
+                        societyId,
+                        impactedFinancialYears,
+                        chargeRepository,
+                        apartmentRepository,
+                        gridViewRepository,
+                        ct);
                 }
             }
 
@@ -635,12 +733,123 @@ file static class MaintenanceAuthorization
     }
 }
 
+internal static class MaintenanceGridProjectionHelper
+{
+    public static int GetFinancialYearStart(DateTime dateUtc) => dateUtc.Month >= 4 ? dateUtc.Year : dateUtc.Year - 1;
+
+    public static IReadOnlyList<int> GetFinancialYearsCovered(MaintenanceSchedule schedule)
+    {
+        var start = GetFinancialYearStart(schedule.ActiveFromDate);
+        var end = GetFinancialYearStart(schedule.ActiveUntilDate);
+        return Enumerable.Range(start, end - start + 1).ToList();
+    }
+
+    public static Task RebuildForScheduleAsync(
+        MaintenanceSchedule schedule,
+        IMaintenanceChargeRepository chargeRepository,
+        IApartmentRepository apartmentRepository,
+        IMaintenanceChargeGridViewRepository gridViewRepository,
+        CancellationToken ct) =>
+        RebuildForFinancialYearsAsync(schedule.SocietyId, GetFinancialYearsCovered(schedule), chargeRepository, apartmentRepository, gridViewRepository, ct);
+
+    public static Task RebuildForChargeAsync(
+        MaintenanceCharge charge,
+        IMaintenanceChargeRepository chargeRepository,
+        IApartmentRepository apartmentRepository,
+        IMaintenanceChargeGridViewRepository gridViewRepository,
+        CancellationToken ct) =>
+        RebuildForFinancialYearsAsync(charge.SocietyId, [GetFinancialYearStart(charge.DueDate)], chargeRepository, apartmentRepository, gridViewRepository, ct);
+
+    public static async Task RebuildForFinancialYearsAsync(
+        string societyId,
+        IEnumerable<int> financialYearStarts,
+        IMaintenanceChargeRepository chargeRepository,
+        IApartmentRepository apartmentRepository,
+        IMaintenanceChargeGridViewRepository gridViewRepository,
+        CancellationToken ct)
+    {
+        foreach (var financialYearStart in financialYearStarts.Distinct().OrderBy(value => value))
+        {
+            var periodStart = new DateTime(financialYearStart, 4, 1, 0, 0, 0, DateTimeKind.Utc);
+            var periodEnd = new DateTime(financialYearStart + 1, 3, 31, 0, 0, 0, DateTimeKind.Utc);
+            var months = Enumerable.Range(0, 12)
+                .Select(offset => periodStart.AddMonths(offset))
+                .Select(date => date.Month)
+                .ToList();
+
+            var apartments = await apartmentRepository.GetAllAsync(societyId, ct);
+            var charges = await chargeRepository.GetByDueDateRangeAsync(societyId, periodStart, periodEnd, ct);
+            var rows = apartments
+                .OrderBy(apartment => apartment.BlockName, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(apartment => apartment.FloorNumber)
+                .ThenBy(apartment => apartment.ApartmentNumber, StringComparer.OrdinalIgnoreCase)
+                .Select(apartment =>
+                {
+                    var residentName = apartment.GetResident(ResidentType.Owner)?.UserName
+                        ?? apartment.GetResident(ResidentType.Tenant)?.UserName
+                        ?? apartment.GetResidentsForRead().FirstOrDefault()?.UserName;
+
+                    var cells = Enumerable.Range(0, 12)
+                        .Select(offset => periodStart.AddMonths(offset))
+                        .Select(periodMonth =>
+                        {
+                            var periodCharges = charges
+                                .Where(charge => string.Equals(charge.ApartmentId, apartment.Id, StringComparison.OrdinalIgnoreCase)
+                                                 && charge.ChargeYear == periodMonth.Year
+                                                 && charge.ChargeMonth == periodMonth.Month)
+                                .OrderBy(charge => charge.DueDate)
+                                .Select(charge => new MaintenanceChargeGridView.GridCharge(
+                                    charge.Id,
+                                    charge.ScheduleId,
+                                    charge.ScheduleName,
+                                    charge.Amount,
+                                    charge.Status.ToString(),
+                                    charge.DueDate,
+                                    charge.PaidAt,
+                                    charge.PaymentMethod,
+                                    charge.TransactionReference,
+                                    charge.ReceiptUrl,
+                                    charge.Notes,
+                                    charge.Proofs.Select(proof => new MaintenanceChargeGridView.GridProof(
+                                        proof.ProofUrl,
+                                        proof.Notes,
+                                        proof.SubmittedByUserId,
+                                        proof.SubmittedAt)).ToList()))
+                                .ToList();
+
+                            return new MaintenanceChargeGridView.GridCell(periodMonth.Month, periodMonth.Year, periodCharges);
+                        })
+                        .ToList();
+
+                    return new MaintenanceChargeGridView.GridRow(
+                        apartment.Id,
+                        apartment.ToDisplayLabel(),
+                        apartment.BlockName,
+                        apartment.FloorNumber,
+                        residentName,
+                        cells);
+                })
+                .ToList();
+
+            var existing = await gridViewRepository.GetByFinancialYearAsync(societyId, financialYearStart, ct);
+            if (existing is null)
+            {
+                await gridViewRepository.CreateAsync(
+                    MaintenanceChargeGridView.Create(societyId, financialYearStart, periodStart, periodEnd, months, rows),
+                    ct);
+                continue;
+            }
+
+            existing.Refresh(periodStart, periodEnd, months, rows);
+            await gridViewRepository.UpdateAsync(existing, ct);
+        }
+    }
+}
+
 file static class MaintenanceScheduleWindowHelper
 {
-    public static bool ScheduleWindowsOverlap(DateTime firstStart, DateTime? firstEndExclusive, DateTime secondStart, DateTime? secondEndExclusive)
+    public static bool ScheduleWindowsOverlap(DateTime firstStart, DateTime firstEndInclusive, DateTime secondStart, DateTime secondEndInclusive)
     {
-        var firstEnd = firstEndExclusive ?? DateTime.MaxValue;
-        var secondEnd = secondEndExclusive ?? DateTime.MaxValue;
-        return firstStart < secondEnd && secondStart < firstEnd;
+        return firstStart <= secondEndInclusive && secondStart <= firstEndInclusive;
     }
 }

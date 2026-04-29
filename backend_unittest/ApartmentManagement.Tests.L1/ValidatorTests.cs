@@ -385,7 +385,9 @@ public class MaintenanceScheduleCommandValidatorTests
             FeeFrequency.Monthly,
             5,
             4,
-            2026);
+            2026,
+            3,
+            2027);
 
         var result = _createValidator.Validate(command);
 
@@ -406,12 +408,38 @@ public class MaintenanceScheduleCommandValidatorTests
             FeeFrequency.Monthly,
             5,
             13,
-            2026);
+            2026,
+            3,
+            2027);
 
         var result = _createValidator.Validate(command);
 
         result.IsValid.Should().BeFalse();
         result.Errors.Should().Contain(error => error.PropertyName == "StartMonth");
+    }
+
+    [Fact]
+    public void CreateSchedule_WithEndBeforeStart_FailsValidation()
+    {
+        var command = new CreateMaintenanceScheduleCommand(
+            "soc-001",
+            "Monthly Maintenance",
+            null,
+            null,
+            1200m,
+            MaintenancePricingType.FixedAmount,
+            null,
+            FeeFrequency.Monthly,
+            5,
+            4,
+            2026,
+            3,
+            2026);
+
+        var result = _createValidator.Validate(command);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(error => error.ErrorMessage.Contains("End month and year"));
     }
 
     [Fact]

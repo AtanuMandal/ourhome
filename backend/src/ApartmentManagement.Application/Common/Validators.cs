@@ -287,11 +287,22 @@ public sealed class CreateMaintenanceScheduleCommandValidator : AbstractValidato
         RuleFor(x => x.DueDay).InclusiveBetween(1, 28);
         RuleFor(x => x.StartMonth).InclusiveBetween(1, 12);
         RuleFor(x => x.StartYear).InclusiveBetween(2000, 2100);
+        RuleFor(x => x.EndMonth).InclusiveBetween(1, 12);
+        RuleFor(x => x.EndYear).InclusiveBetween(2000, 2100);
         RuleFor(x => x.Frequency).IsInEnum();
         RuleFor(x => x.SocietyId).NotEmpty();
         RuleFor(x => x)
             .Must(x => x.PricingType == MaintenancePricingType.FixedAmount ? x.AreaBasis is null : x.AreaBasis is not null)
             .WithMessage("Area basis is required only for per-square-foot maintenance schedules.");
+        RuleFor(x => x)
+            .Must(x =>
+            {
+                if (x.StartMonth is < 1 or > 12 || x.EndMonth is < 1 or > 12)
+                    return true;
+
+                return new DateOnly(x.EndYear, x.EndMonth, 1) >= new DateOnly(x.StartYear, x.StartMonth, 1);
+            })
+            .WithMessage("End month and year must be on or after the start month and year.");
     }
 }
 
@@ -325,6 +336,17 @@ public sealed class SubmitMaintenancePaymentProofCommandValidator : AbstractVali
         RuleFor(x => x.ChargeIds).NotEmpty();
         RuleForEach(x => x.ChargeIds).NotEmpty();
         RuleFor(x => x.ProofUrl).NotEmpty().MaximumLength(1000);
+    }
+}
+
+public sealed class UploadMaintenanceProofCommandValidator : AbstractValidator<UploadMaintenanceProofCommand>
+{
+    public UploadMaintenanceProofCommandValidator()
+    {
+        RuleFor(x => x.SocietyId).NotEmpty();
+        RuleFor(x => x.FileName).NotEmpty().MaximumLength(255);
+        RuleFor(x => x.ContentType).NotEmpty().MaximumLength(120);
+        RuleFor(x => x.Content).NotEmpty();
     }
 }
 

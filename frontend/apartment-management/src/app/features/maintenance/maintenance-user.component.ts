@@ -6,12 +6,13 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MaintenanceFrequency } from '../../core/models/maintenance.model';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 import { LoadingSpinnerComponent } from '../../shared/components/loading-spinner/loading-spinner.component';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 import { StatusChipComponent } from '../../shared/components/status-chip/status-chip.component';
 import { MaintenancePageBase } from './maintenance-page-base';
-import { MAINTENANCE_PAGE_STYLES } from './maintenance-shared';
+import { formatFrequencyLabel, MAINTENANCE_PAGE_STYLES } from './maintenance-shared';
 
 @Component({
   selector: 'app-maintenance-user',
@@ -74,14 +75,20 @@ import { MAINTENANCE_PAGE_STYLES } from './maintenance-shared';
             <div class="sub-card stack">
               <div>
                 <div class="section-title">Submit payment proof</div>
-                <div class="section-copy">Select one or more unpaid charges and share the proof URL for admin approval.</div>
+                <div class="section-copy">Select one or more unpaid charges and upload a payment proof for admin approval.</div>
               </div>
 
               <form [formGroup]="proofForm" (ngSubmit)="submitProof()" class="stack">
-                <mat-form-field appearance="fill" class="full-width">
-                  <mat-label>Proof URL</mat-label>
-                  <input matInput formControlName="proofUrl" placeholder="https://...">
-                </mat-form-field>
+                <div class="stack">
+                  <label class="section-copy" for="maintenance-proof-file">Proof file</label>
+                  <input id="maintenance-proof-file" type="file" (change)="onProofFileSelected($event)">
+                  @if (uploadedProof(); as uploadedProof) {
+                    <div class="proof-item">
+                      <span class="proof-list__title">{{ uploadedProof.fileName }}</span>
+                      <a [href]="uploadedProof.fileUrl" target="_blank" rel="noreferrer">{{ uploadedProof.fileUrl }}</a>
+                    </div>
+                  }
+                </div>
 
                 <mat-form-field appearance="fill" class="full-width">
                   <mat-label>Notes</mat-label>
@@ -89,7 +96,7 @@ import { MAINTENANCE_PAGE_STYLES } from './maintenance-shared';
                 </mat-form-field>
 
                 <div class="action-row">
-                  <button mat-raised-button color="primary" type="submit" [disabled]="selectedChargeIds().length === 0 || proofForm.invalid || submittingProof()">
+                  <button mat-raised-button color="primary" type="submit" [disabled]="selectedChargeIds().length === 0 || !uploadedProof() || proofForm.invalid || submittingProof() || uploadingProof()">
                     Submit proof for {{ selectedChargeIds().length }} charge{{ selectedChargeIds().length === 1 ? '' : 's' }}
                   </button>
                 </div>
@@ -190,7 +197,7 @@ import { MAINTENANCE_PAGE_STYLES } from './maintenance-shared';
                       <div class="section-title">{{ schedule.name }}</div>
                       <div class="section-copy">
                         {{ schedule.apartmentId ? 'Specific apartment' : 'Entire society' }} ·
-                        {{ schedule.frequency }} ·
+                        {{ formatFrequency(schedule.frequency) }} ·
                         Due on day {{ schedule.dueDay }}
                       </div>
                     </div>
@@ -203,6 +210,7 @@ import { MAINTENANCE_PAGE_STYLES } from './maintenance-shared';
                     @if (schedule.areaBasis) {
                       <span>{{ formatAreaBasis(schedule.areaBasis) }}</span>
                     }
+                    <span>Active until: {{ schedule.activeUntilDate | date:'MMM yyyy' }}</span>
                     <span>Next due: {{ schedule.nextDueDate | date:'mediumDate' }}</span>
                   </div>
 
@@ -227,10 +235,11 @@ import { MAINTENANCE_PAGE_STYLES } from './maintenance-shared';
 })
 export class MaintenanceUserComponent extends MaintenancePageBase {
   readonly submittingProof = signal(false);
+  readonly uploadingProof = signal(false);
   readonly selectedChargeIds = signal<string[]>([]);
+  readonly uploadedProof = signal<{ fileName: string; fileUrl: string } | null>(null);
 
   readonly proofForm = this.fb.group({
-    proofUrl: ['', [Validators.required, Validators.pattern(/^https?:\/\//i)]],
     notes: [''],
   });
 
@@ -245,8 +254,13 @@ export class MaintenanceUserComponent extends MaintenancePageBase {
     this.initializePage(false);
   }
 
+  formatFrequency(frequency: MaintenanceFrequency) {
+    return formatFrequencyLabel(frequency);
+  }
+
   override refreshCharges() {
     this.selectedChargeIds.set([]);
+    this.uploadedProof.set(null);
     super.refreshCharges();
   }
 
@@ -257,20 +271,40 @@ export class MaintenanceUserComponent extends MaintenancePageBase {
     this.selectedChargeIds.set(Array.from(current));
   }
 
+  onProofFileSelected(event: Event) {
+    const societyId = this.auth.societyId();
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!societyId || !file) return;
+
+    this.uploadingProof.set(true);
+    this.maintenance.uploadProof(societyId, file).subscribe({
+      next: result => {
+        this.uploadingProof.set(false);
+        this.uploadedProof.set(result);
+      },
+      error: () => {
+        this.uploadingProof.set(false);
+        input.value = '';
+      },
+    });
+  }
+
   submitProof() {
     const societyId = this.auth.societyId();
-    if (!societyId || this.proofForm.invalid || this.selectedChargeIds().length === 0) return;
+    if (!societyId || this.proofForm.invalid || this.selectedChargeIds().length === 0 || !this.uploadedProof()) return;
 
     this.submittingProof.set(true);
     this.maintenance.submitProof(societyId, {
       chargeIds: this.selectedChargeIds(),
-      proofUrl: this.proofForm.controls.proofUrl.value ?? '',
+      proofUrl: this.uploadedProof()!.fileUrl,
       notes: this.proofForm.controls.notes.value?.trim() || null,
     }).subscribe({
       next: () => {
         this.submittingProof.set(false);
         this.selectedChargeIds.set([]);
-        this.proofForm.reset({ proofUrl: '', notes: '' });
+        this.uploadedProof.set(null);
+        this.proofForm.reset({ notes: '' });
         super.refreshCharges();
         this.snackBar.open('Payment proof submitted for review.', 'Dismiss', { duration: 4000 });
       },

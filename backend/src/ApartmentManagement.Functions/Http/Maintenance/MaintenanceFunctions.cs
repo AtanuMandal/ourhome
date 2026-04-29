@@ -33,7 +33,9 @@ public class MaintenanceFunctions(ISender mediator)
                 body.Frequency,
                 body.DueDay,
                 body.StartMonth,
-                body.StartYear),
+                body.StartYear,
+                body.EndMonth,
+                body.EndYear),
             ct);
         return result.ToActionResult(201);
     }
@@ -132,10 +134,53 @@ public class MaintenanceFunctions(ISender mediator)
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "societies/{societyId}/maintenance/grid")] HttpRequest req,
         string societyId, CancellationToken ct)
     {
-        int.TryParse(req.Query["year"], out var year);
-        var effectiveYear = year > 0 ? year : DateTime.UtcNow.Year;
-        var result = await mediator.Send(new GetMaintenanceChargeGridQuery(societyId, effectiveYear), ct);
+        int.TryParse(req.Query["financialYearStart"], out var financialYearStart);
+        int.TryParse(req.Query["floor"], out var floor);
+        var apartmentId = req.Query["apartmentId"].FirstOrDefault();
+        var block = req.Query["block"].FirstOrDefault();
+        PaymentStatus? status = Enum.TryParse<PaymentStatus>(req.Query["status"], true, out var parsedStatus) ? parsedStatus : null;
+        DateTime? fromDate = DateTime.TryParse(req.Query["fromDate"], out var parsedFromDate) ? DateTime.SpecifyKind(parsedFromDate.Date, DateTimeKind.Utc) : null;
+        DateTime? toDate = DateTime.TryParse(req.Query["toDate"], out var parsedToDate) ? DateTime.SpecifyKind(parsedToDate.Date, DateTimeKind.Utc) : null;
+
+        var effectiveFinancialYearStart = financialYearStart > 0
+            ? financialYearStart
+            : DateTime.UtcNow.Month >= 4 ? DateTime.UtcNow.Year : DateTime.UtcNow.Year - 1;
+
+        var result = await mediator.Send(
+            new GetMaintenanceChargeGridQuery(
+                societyId,
+                effectiveFinancialYearStart,
+                apartmentId,
+                block,
+                floor > 0 ? floor : null,
+                status,
+                fromDate,
+                toDate),
+            ct);
         return result.ToActionResult();
+    }
+
+    [Function("UploadMaintenanceProof")]
+    public async Task<IActionResult> UploadMaintenanceProof(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "societies/{societyId}/maintenance/payments/proof/upload")] HttpRequest req,
+        string societyId, CancellationToken ct)
+    {
+        if (!req.HasFormContentType)
+            return new BadRequestObjectResult("Request must be multipart/form-data");
+
+        var form = await req.ReadFormAsync(ct);
+        var file = form.Files["file"];
+        if (file is null || file.Length == 0)
+            return new BadRequestObjectResult("A proof file is required.");
+
+        await using var stream = file.OpenReadStream();
+        using var memory = new MemoryStream();
+        await stream.CopyToAsync(memory, ct);
+
+        var result = await mediator.Send(
+            new UploadMaintenanceProofCommand(societyId, file.FileName, file.ContentType, memory.ToArray()),
+            ct);
+        return result.ToActionResult(201);
     }
 
     [Function("SubmitMaintenancePaymentProof")]
