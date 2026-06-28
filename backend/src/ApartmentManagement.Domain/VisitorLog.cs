@@ -9,9 +9,16 @@ public sealed class VisitorLog : BaseEntity
     public string VisitorName { get; private set; } = string.Empty;
     public string VisitorPhone { get; private set; } = string.Empty;
     public string? VisitorEmail { get; private set; }
+    public string? CompanyName { get; private set; }
     public string Purpose { get; private set; } = string.Empty;
     public string HostApartmentId { get; private set; } = string.Empty;
     public string HostUserId { get; private set; } = string.Empty;
+    public string HostResidentName { get; private set; } = string.Empty;
+    public string HostBlockName { get; private set; } = string.Empty;
+    public int HostFloorNumber { get; private set; }
+    public string HostFlatNumber { get; private set; } = string.Empty;
+    public bool IsPreApproved { get; private set; }
+    public DateTime? ApprovedAt { get; private set; }
     public DateTime? CheckInTime { get; private set; }
     public DateTime? CheckOutTime { get; private set; }
     public VisitorStatus Status { get; private set; }
@@ -29,8 +36,20 @@ public sealed class VisitorLog : BaseEntity
     private VisitorLog() { }
 
     /// <summary>Registers a new visitor with a generated pass code.</summary>
-    public static VisitorLog Create(string societyId, string visitorName, string visitorPhone,
-        string? visitorEmail, string purpose, string hostApartmentId, string hostUserId,
+    public static VisitorLog Create(
+        string societyId,
+        string visitorName,
+        string visitorPhone,
+        string? visitorEmail,
+        string? companyName,
+        string purpose,
+        string hostApartmentId,
+        string hostUserId,
+        string hostResidentName,
+        string hostBlockName,
+        int hostFloorNumber,
+        string hostFlatNumber,
+        bool isPreApproved,
         string? vehicleNumber = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(societyId, nameof(societyId));
@@ -38,6 +57,9 @@ public sealed class VisitorLog : BaseEntity
         ArgumentException.ThrowIfNullOrWhiteSpace(visitorPhone, nameof(visitorPhone));
         ArgumentException.ThrowIfNullOrWhiteSpace(purpose, nameof(purpose));
         ArgumentException.ThrowIfNullOrWhiteSpace(hostApartmentId, nameof(hostApartmentId));
+        ArgumentException.ThrowIfNullOrWhiteSpace(hostResidentName, nameof(hostResidentName));
+        ArgumentException.ThrowIfNullOrWhiteSpace(hostBlockName, nameof(hostBlockName));
+        ArgumentException.ThrowIfNullOrWhiteSpace(hostFlatNumber, nameof(hostFlatNumber));
 
         var log = new VisitorLog
         {
@@ -45,11 +67,18 @@ public sealed class VisitorLog : BaseEntity
             VisitorName = visitorName.Trim(),
             VisitorPhone = visitorPhone.Trim(),
             VisitorEmail = visitorEmail?.Trim(),
+            CompanyName = string.IsNullOrWhiteSpace(companyName) ? null : companyName.Trim(),
             Purpose = purpose.Trim(),
             HostApartmentId = hostApartmentId,
             HostUserId = hostUserId,
+            HostResidentName = hostResidentName.Trim(),
+            HostBlockName = hostBlockName.Trim().ToUpperInvariant(),
+            HostFloorNumber = hostFloorNumber,
+            HostFlatNumber = hostFlatNumber.Trim().ToUpperInvariant(),
+            IsPreApproved = isPreApproved,
+            ApprovedAt = isPreApproved ? DateTime.UtcNow : null,
             VehicleNumber = vehicleNumber?.Trim().ToUpperInvariant(),
-            Status = VisitorStatus.Pending,
+            Status = isPreApproved ? VisitorStatus.Approved : VisitorStatus.Pending,
             PassCode = GeneratePassCode(),
             QrCode = $"VIS-{Guid.NewGuid():N}" // Will be replaced by QR code service
         };
@@ -60,7 +89,12 @@ public sealed class VisitorLog : BaseEntity
     private static string GeneratePassCode() =>
         _rng.Next(100_000, 999_999).ToString();
 
-    public void Approve() { Status = VisitorStatus.Approved; TouchUpdatedAt(); }
+    public void Approve()
+    {
+        Status = VisitorStatus.Approved;
+        ApprovedAt ??= DateTime.UtcNow;
+        TouchUpdatedAt();
+    }
     public void Deny() { Status = VisitorStatus.Denied; TouchUpdatedAt(); }
 
     public void CheckIn()

@@ -145,7 +145,8 @@ public class VisitorLogTests
 
     private static VisitorLog CreateVisitorLog() =>
         VisitorLog.Create(SocietyId, "John Visitor", "+91-9876543210",
-            "john@example.com", "Personal visit", HostApartmentId, HostUserId);
+            "john@example.com", "Amazon", "Personal visit", HostApartmentId, HostUserId,
+            "Resident User", "A", 1, "A-101", false);
 
     [Fact]
     public void Create_WithValidParameters_ReturnsPendingVisitorLog()
@@ -182,6 +183,33 @@ public class VisitorLogTests
 
         // Assert
         log.Status.Should().Be(VisitorStatus.Approved);
+    }
+
+    [Fact]
+    public void Create_WithPreApproval_StartsApprovedAndCapturesHostDetails()
+    {
+        var log = VisitorLog.Create(
+            SocietyId,
+            "Delivery Partner",
+            "+91-9000000000",
+            null,
+            "Swiggy",
+            "Food delivery",
+            HostApartmentId,
+            HostUserId,
+            "Resident User",
+            "B",
+            8,
+            "B-804",
+            true,
+            "WB01AA1111");
+
+        log.Status.Should().Be(VisitorStatus.Approved);
+        log.IsPreApproved.Should().BeTrue();
+        log.ApprovedAt.Should().NotBeNull();
+        log.HostResidentName.Should().Be("Resident User");
+        log.HostFlatNumber.Should().Be("B-804");
+        log.CompanyName.Should().Be("Swiggy");
     }
 
     [Fact]

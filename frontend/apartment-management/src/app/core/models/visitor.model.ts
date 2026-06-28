@@ -1,17 +1,24 @@
-// Matches backend VisitorResponse / VisitorLogDto
+export type VisitorStatus = 'Pending' | 'Approved' | 'Denied' | 'CheckedIn' | 'CheckedOut';
+
 export interface Visitor {
   id: string;
   societyId: string;
   visitorName: string;
   visitorPhone: string;
   visitorEmail?: string;
+  companyName?: string;
   purpose: string;
   hostApartmentId: string;
-  hostUserId: string;
-  status: 'Expected' | 'CheckedIn' | 'CheckedOut';
+  hostResidentName: string;
+  hostBlockName: string;
+  hostFloorNumber: number;
+  hostFlatNumber: string;
+  isPreApproved: boolean;
+  status: VisitorStatus;
   qrCode?: string;
   passCode: string;
   vehicleNumber?: string;
+  approvedAt?: string;
   checkInTime?: string;
   checkOutTime?: string;
   duration?: number;
@@ -23,7 +30,17 @@ export interface RegisterVisitorDto {
   visitorPhone: string;
   visitorEmail?: string;
   purpose: string;
-  hostApartmentId: string;
-  hostUserId: string;
+  apartmentId: string;
+  companyName?: string;
   vehicleNumber?: string;
+  isPreApproved: boolean;
+}
+
+export interface VisitorListFilters {
+  apartmentId?: string;
+  search?: string;
+  residentName?: string;
+  status?: VisitorStatus | '';
+  fromDate?: string;
+  toDate?: string;
 }

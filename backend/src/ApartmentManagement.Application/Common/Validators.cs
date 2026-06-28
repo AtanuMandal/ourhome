@@ -268,11 +268,14 @@ public sealed class RegisterVisitorCommandValidator : AbstractValidator<Register
 {
     public RegisterVisitorCommandValidator()
     {
-        RuleFor(x => x.VisitorName).NotEmpty();
-        RuleFor(x => x.Phone).NotEmpty();
-        RuleFor(x => x.Purpose).NotEmpty();
-        //RuleFor(x => x.HostApartmentId).NotEmpty(); -> TBD
+        RuleFor(x => x.VisitorName).NotEmpty().MaximumLength(150);
+        RuleFor(x => x.Phone).NotEmpty().MaximumLength(30);
+        RuleFor(x => x.Purpose).NotEmpty().MaximumLength(150);
+        RuleFor(x => x.ApartmentId).NotEmpty();
         RuleFor(x => x.SocietyId).NotEmpty();
+        RuleFor(x => x.Email).EmailAddress().When(x => !string.IsNullOrWhiteSpace(x.Email));
+        RuleFor(x => x.CompanyName).MaximumLength(150);
+        RuleFor(x => x.VehicleNumber).MaximumLength(50);
     }
 }
 

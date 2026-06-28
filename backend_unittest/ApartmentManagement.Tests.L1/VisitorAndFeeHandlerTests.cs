@@ -15,22 +15,30 @@ namespace ApartmentManagement.Tests.L1.Handlers;
 public class RegisterVisitorCommandHandlerTests
 {
     private readonly Mock<IVisitorLogRepository> _visitorRepoMock = new();
+    private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
     private readonly Mock<IEventPublisher> _eventPublisherMock = new();
     private readonly Mock<INotificationService> _notificationMock = new();
+    private readonly Mock<ICurrentUserService> _currentUserMock = new();
     private readonly Mock<IQrCodeService> _qrCodeMock = new();
     private readonly Mock<ILogger<RegisterVisitorCommandHandler>> _loggerMock = new();
 
     private RegisterVisitorCommandHandler CreateHandler() =>
-        new(_visitorRepoMock.Object, _notificationMock.Object, _qrCodeMock.Object,
+        new(_visitorRepoMock.Object, _apartmentRepoMock.Object, _notificationMock.Object, _currentUserMock.Object, _qrCodeMock.Object,
             _eventPublisherMock.Object, _loggerMock.Object);
 
     [Fact]
     public async Task Handle_WithValidCommand_CreatesVisitorLogAndReturnsSuccess()
     {
         // Arrange
+        var apartment = Apartment.Create("soc-001", "A-101", "A", 1, 3, [], 500, 600, 700);
+        apartment.AssignOwner("user-001", "Resident One");
+
         _qrCodeMock
             .Setup(q => q.GenerateQrCodeBase64Async(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync("base64qrdata");
+        _apartmentRepoMock
+            .Setup(r => r.GetByIdAsync(apartment.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(apartment);
         _visitorRepoMock
             .Setup(r => r.CreateAsync(It.IsAny<VisitorLog>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((VisitorLog l, CancellationToken _) => l);
@@ -38,7 +46,7 @@ public class RegisterVisitorCommandHandlerTests
         var handler = CreateHandler();
         var command = new RegisterVisitorCommand(
             "soc-001", "John Visitor", "+91-9876543210", null,
-            "Personal visit", "apt-001", "user-001", null);
+            "Personal visit", apartment.Id, "Amazon", null, false);
 
         // Act
         var result = await handler.Handle(command, CancellationToken.None);
@@ -47,8 +55,39 @@ public class RegisterVisitorCommandHandlerTests
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().NotBeNull();
         result.Value!.PassCode.Should().NotBeNullOrEmpty();
+        result.Value.HostResidentName.Should().Be("Resident One");
+        result.Value.CompanyName.Should().Be("Amazon");
         _visitorRepoMock.Verify(r => r.CreateAsync(It.IsAny<VisitorLog>(), It.IsAny<CancellationToken>()), Times.Once);
         _notificationMock.Verify(n => n.SendPushNotificationAsync("user-001", It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_WithResidentPreApproval_CreatesApprovedPassWithoutNotification()
+    {
+        var apartment = Apartment.Create("soc-001", "A-101", "A", 1, 3, [], 500, 600, 700);
+        apartment.AssignOwner("resident-001", "Resident User");
+
+        _currentUserMock.SetupGet(x => x.UserId).Returns("resident-001");
+        _apartmentRepoMock
+            .Setup(r => r.GetByIdAsync(apartment.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(apartment);
+        _qrCodeMock
+            .Setup(q => q.GenerateQrCodeBase64Async(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("base64qrdata");
+        _visitorRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<VisitorLog>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((VisitorLog l, CancellationToken _) => l);
+
+        var result = await CreateHandler().Handle(new RegisterVisitorCommand(
+            "soc-001", "Pre Approved Visitor", "+91-9999999999", null,
+            "Guest", apartment.Id, null, "WB12AA1111", true), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Status.Should().Be("Approved");
+        result.Value.IsPreApproved.Should().BeTrue();
+        _notificationMock.Verify(
+            n => n.SendPushNotificationAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 }
 
@@ -64,19 +103,19 @@ public class CheckInVisitorCommandHandlerTests
     public async Task Handle_WithApprovedVisitorPassCode_ChecksInAndReturnsSuccess()
     {
         // Arrange
-        var log = VisitorLog.Create("soc-001", "John", "+91-9876543210", null, "Visit", "apt-001", "host-001", null);
+        var log = VisitorLog.Create("soc-001", "John", "+91-9876543210", null, null, "Visit", "apt-001", "host-001", "Host User", "A", 1, "A-101", false, null);
         log.Approve();
         var passCode = log.PassCode;
 
         _visitorRepoMock
-            .Setup(r => r.GetByIdAsync(log.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByPassCodeAsync(passCode, It.IsAny<CancellationToken>()))
             .ReturnsAsync(log);
         _visitorRepoMock
             .Setup(r => r.UpdateAsync(It.IsAny<VisitorLog>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((VisitorLog l, CancellationToken _) => l);
 
         var handler = CreateHandler();
-        var command = new CheckInVisitorCommand("soc-001", log.Id, passCode);
+        var command = new CheckInVisitorCommand("soc-001", passCode);
 
         // Act
         var result = await handler.Handle(command, CancellationToken.None);
@@ -90,15 +129,15 @@ public class CheckInVisitorCommandHandlerTests
     public async Task Handle_WithInvalidPassCode_ReturnsFailure()
     {
         // Arrange: log exists but command uses a wrong passCode
-        var log = VisitorLog.Create("soc-001", "John", "+91-9876543210", null, "Visit", "apt-001", "host-001", null);
+        var log = VisitorLog.Create("soc-001", "John", "+91-9876543210", null, null, "Visit", "apt-001", "host-001", "Host User", "A", 1, "A-101", false, null);
         log.Approve();
 
         _visitorRepoMock
-            .Setup(r => r.GetByIdAsync(log.Id, "soc-001", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(log);
+            .Setup(r => r.GetByPassCodeAsync("WRONG-PASS", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((VisitorLog?)null);
 
         var handler = CreateHandler();
-        var command = new CheckInVisitorCommand("soc-001", log.Id, "WRONG-PASS");
+        var command = new CheckInVisitorCommand("soc-001", "WRONG-PASS");
 
         // Act
         var result = await handler.Handle(command, CancellationToken.None);
@@ -112,15 +151,15 @@ public class CheckInVisitorCommandHandlerTests
     public async Task Handle_WithPendingVisitor_ReturnsFailure()
     {
         // Arrange: log exists with correct passCode but is NOT approved
-        var log = VisitorLog.Create("soc-001", "John", "+91-9876543210", null, "Visit", "apt-001", "host-001", null);
+        var log = VisitorLog.Create("soc-001", "John", "+91-9876543210", null, null, "Visit", "apt-001", "host-001", "Host User", "A", 1, "A-101", false, null);
         var passCode = log.PassCode;
 
         _visitorRepoMock
-            .Setup(r => r.GetByIdAsync(log.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByPassCodeAsync(passCode, It.IsAny<CancellationToken>()))
             .ReturnsAsync(log);
 
         var handler = CreateHandler();
-        var command = new CheckInVisitorCommand("soc-001", log.Id, passCode);
+        var command = new CheckInVisitorCommand("soc-001", passCode);
 
         // Act
         var result = await handler.Handle(command, CancellationToken.None);

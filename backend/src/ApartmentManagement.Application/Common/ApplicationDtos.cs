@@ -203,8 +203,14 @@ public sealed record VisitorLogDto(
     DateTime? CheckInTime, DateTime? CheckOutTime, TimeSpan? Duration, DateTime CreatedAt);
 
 public sealed record RegisterVisitorRequest(
-    string VisitorName, string VisitorPhone, string? VisitorEmail,
-    string Purpose, string ApartmentId, string HostUserId, string? VehicleNumber = null);
+    string VisitorName,
+    string VisitorPhone,
+    string? VisitorEmail,
+    string Purpose,
+    string ApartmentId,
+    string? CompanyName = null,
+    string? VehicleNumber = null,
+    bool IsPreApproved = false);
 
 // ─── Maintenance ─────────────────────────────────────────────────────────────
 
@@ -426,9 +432,32 @@ public record NoticeResponse(
     bool IsActive, DateTime CreatedAt, IReadOnlyList<string> TargetApartmentIds);
 
 public record VisitorResponse(
-    string Id, string SocietyId, string VisitorName, string VisitorPhone, string Purpose,
-    string HostApartmentId, string Status, string? QrCode, string PassCode,
-    DateTime? CheckInTime, DateTime? CheckOutTime, double? Duration, DateTime CreatedAt);
+    string Id,
+    string SocietyId,
+    string VisitorName,
+    string VisitorPhone,
+    string? VisitorEmail,
+    string? CompanyName,
+    string Purpose,
+    string HostApartmentId,
+    string HostResidentName,
+    string HostBlockName,
+    int HostFloorNumber,
+    string HostFlatNumber,
+    bool IsPreApproved,
+    string Status,
+    string? QrCode,
+    string PassCode,
+    string? VehicleNumber,
+    DateTime? ApprovedAt,
+    DateTime? CheckInTime,
+    DateTime? CheckOutTime,
+    double? Duration,
+    DateTime CreatedAt);
+
+public sealed record CheckInVisitorRequest(string PassCode);
+
+public sealed record VisitorExportResponse(string FileName, string ContentType, byte[] Content);
 
 public record FeeScheduleResponse(
     string Id, string SocietyId, string ApartmentId, string Description,

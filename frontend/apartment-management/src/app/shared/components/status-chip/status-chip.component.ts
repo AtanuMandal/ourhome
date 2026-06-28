@@ -15,7 +15,7 @@ const STATUS_MAP: Record<string, ChipVariant> = {
   // Maintenance schedule
   Active: 'success', Inactive: 'default', Upcoming: 'info',
   // Visitor
-  Expected: 'info', CheckedIn: 'success', CheckedOut: 'default',
+  Expected: 'info', Denied: 'error', CheckedIn: 'success', CheckedOut: 'default',
   // Service Request
   Accepted: 'info', Completed: 'success',
 };
