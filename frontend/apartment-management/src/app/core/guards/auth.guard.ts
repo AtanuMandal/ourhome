@@ -31,3 +31,14 @@ export const guestGuard: CanActivateFn = () => {
   router.navigate(['/dashboard']);
   return false;
 };
+
+/** Allows SUAdmin + SUSecurity. Redirects others to dashboard. */
+export const visitorGuard: CanActivateFn = () => {
+  const auth   = inject(AuthService);
+  const router = inject(Router);
+
+  if (auth.isLoggedIn() && auth.canManageVisitors()) return true;
+
+  router.navigate(['/dashboard']);
+  return false;
+};

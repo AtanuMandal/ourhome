@@ -334,6 +334,44 @@ public class ResidentCommandValidatorTests
         result.IsValid.Should().BeFalse();
         result.Errors.Should().Contain(e => e.PropertyName == "ResidentType");
     }
+
+    [Fact]
+    public void CreateUserValidator_SUSecurityWithoutApartment_PassesValidation()
+    {
+        var validator = new CreateUserCommandValidator();
+        var command = new CreateUserCommand("soc-001", "Guard", "guard@test.com", "9876543210",
+            UserRole.SUSecurity, ResidentType.SocietyAdmin, null);
+
+        var result = validator.Validate(command);
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void CreateUserValidator_SUSecurityWithApartment_FailsValidation()
+    {
+        var validator = new CreateUserCommandValidator();
+        var command = new CreateUserCommand("soc-001", "Guard", "guard@test.com", "9876543210",
+            UserRole.SUSecurity, ResidentType.SocietyAdmin, "apt-1");
+
+        var result = validator.Validate(command);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.PropertyName == "ApartmentId");
+    }
+
+    [Fact]
+    public void CreateUserValidator_SUSecurityWithWrongResidentType_FailsValidation()
+    {
+        var validator = new CreateUserCommandValidator();
+        var command = new CreateUserCommand("soc-001", "Guard", "guard@test.com", "9876543210",
+            UserRole.SUSecurity, ResidentType.Owner, null);
+
+        var result = validator.Validate(command);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.PropertyName == "ResidentType");
+    }
 }
 
 public class UpdateSocietyCommandValidatorTests

@@ -415,6 +415,21 @@ public class ApproveVisitorCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_BySecurityRole_ApprovesSuccessfully()
+    {
+        var log = VisitorLog.Create("soc-001", "Jane", "+91-9288888888", null, null, "Guest", "apt-001", "host-001", "Host", "A", 1, "A-101", false);
+
+        _visitorRepoMock.Setup(r => r.GetByIdAsync(log.Id, "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync(log);
+        _visitorRepoMock.Setup(r => r.UpdateAsync(It.IsAny<VisitorLog>(), It.IsAny<CancellationToken>())).ReturnsAsync((VisitorLog l, CancellationToken _) => l);
+        _currentUserMock.Setup(x => x.IsInRoles("SUAdmin", "HQAdmin", "SUSecurity")).Returns(true);
+
+        var result = await CreateHandler().Handle(new ApproveVisitorCommand("soc-001", log.Id, "security-001"), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        log.Status.Should().Be(VisitorStatus.Approved);
+    }
+
+    [Fact]
     public async Task Handle_ByNonHostNonAdmin_ReturnsForbidden()
     {
         var log = VisitorLog.Create("soc-001", "Jane", "+91-9333333333", null, null, "Guest", "apt-001", "host-001", "Host", "A", 1, "A-101", false);
@@ -460,6 +475,21 @@ public class DenyVisitorCommandHandlerTests
         _currentUserMock.Setup(x => x.IsInRoles(It.IsAny<string[]>())).Returns(false);
 
         var result = await CreateHandler().Handle(new DenyVisitorCommand("soc-001", log.Id, "host-001"), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        log.Status.Should().Be(VisitorStatus.Denied);
+    }
+
+    [Fact]
+    public async Task Handle_BySecurityRole_DeniesSuccessfully()
+    {
+        var log = VisitorLog.Create("soc-001", "Jake", "+91-9488888888", null, null, "Salesman", "apt-001", "host-001", "Host", "A", 1, "A-101", false);
+
+        _visitorRepoMock.Setup(r => r.GetByIdAsync(log.Id, "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync(log);
+        _visitorRepoMock.Setup(r => r.UpdateAsync(It.IsAny<VisitorLog>(), It.IsAny<CancellationToken>())).ReturnsAsync((VisitorLog l, CancellationToken _) => l);
+        _currentUserMock.Setup(x => x.IsInRoles("SUAdmin", "HQAdmin", "SUSecurity")).Returns(true);
+
+        var result = await CreateHandler().Handle(new DenyVisitorCommand("soc-001", log.Id, "security-001"), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         log.Status.Should().Be(VisitorStatus.Denied);

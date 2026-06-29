@@ -5,6 +5,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatDividerModule } from '@angular/material/divider';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { forkJoin } from 'rxjs';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
@@ -13,6 +14,8 @@ import { UserService, ApartmentService } from '../../core/services/apartment.ser
 import { AuthService } from '../../core/services/auth.service';
 import { User } from '../../core/models/user.model';
 import { Apartment, formatApartmentLabel } from '../../core/models/apartment.model';
+
+const PHONE_PATTERN = /^\d{10}$/;
 
 type ResidentApartmentType = 'Owner' | 'Tenant';
 
@@ -25,6 +28,7 @@ type ResidentApartmentType = 'Owner' | 'Tenant';
     MatFormFieldModule,
     MatInputModule,
     MatProgressBarModule,
+    MatDividerModule,
     PageHeaderComponent,
     LoadingSpinnerComponent,
   ],
@@ -116,8 +120,46 @@ type ResidentApartmentType = 'Owner' | 'Tenant';
             <div class="empty-copy">Additional apartments are currently supported for owner and tenant residents only.</div>
           </div>
         }
+
+        @if (isAdmin()) {
+          <div class="card" style="margin-top:16px">
+            <div class="section-title">Admin Actions</div>
+
+            <form [formGroup]="editInfoForm" (ngSubmit)="saveInfo()" novalidate>
+              <mat-form-field appearance="fill" class="full-width">
+                <mat-label>Full Name</mat-label>
+                <input matInput formControlName="fullName">
+              </mat-form-field>
+              <mat-form-field appearance="fill" class="full-width">
+                <mat-label>Phone</mat-label>
+                <input matInput type="tel" formControlName="phone">
+              </mat-form-field>
+              <button mat-stroked-button color="primary" type="submit"
+                      [disabled]="actioning() || editInfoForm.invalid || editInfoForm.pristine">
+                Save Info
+              </button>
+            </form>
+
+            <mat-divider style="margin:16px 0"></mat-divider>
+
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button mat-stroked-button (click)="resendOtp()" [disabled]="actioning()">
+                Resend OTP
+              </button>
+              @if (user()?.isActive) {
+                <button mat-stroked-button color="warn" (click)="deactivate()" [disabled]="actioning()">
+                  Deactivate
+                </button>
+              } @else {
+                <button mat-stroked-button color="primary" (click)="activate()" [disabled]="actioning()">
+                  Activate
+                </button>
+              }
+            </div>
+          </div>
+        }
       }
-      @if (addingApartment()) { <mat-progress-bar mode="indeterminate"></mat-progress-bar> }
+      @if (addingApartment() || actioning()) { <mat-progress-bar mode="indeterminate"></mat-progress-bar> }
     </div>
   `,
   styles: [`
@@ -152,6 +194,7 @@ export class ResidentProfileComponent implements OnInit {
 
   readonly loading = signal(true);
   readonly addingApartment = signal(false);
+  readonly actioning = signal(false);
   readonly removingApartmentId = signal<string | null>(null);
   readonly user = signal<User | null>(null);
   readonly apartments = signal<Apartment[]>([]);
@@ -160,6 +203,11 @@ export class ResidentProfileComponent implements OnInit {
   readonly addApartmentForm = this.fb.group({
     apartmentId: ['', Validators.required],
     residentType: ['Owner' as ResidentApartmentType, Validators.required],
+  });
+
+  readonly editInfoForm = this.fb.group({
+    fullName: ['', Validators.required],
+    phone: ['', [Validators.required, Validators.pattern(PHONE_PATTERN)]],
   });
 
   initials = () => (this.user()?.fullName ?? this.user()?.name ?? '')
@@ -249,6 +297,73 @@ export class ResidentProfileComponent implements OnInit {
     });
   }
 
+  saveInfo() {
+    if (this.editInfoForm.invalid) return;
+    const sid = this.auth.societyId();
+    const uid = this.user()?.id;
+    if (!sid || !uid) return;
+
+    this.actioning.set(true);
+    const { fullName, phone } = this.editInfoForm.getRawValue();
+    this.userSvc.update(sid, uid, { fullName, phone }).subscribe({
+      next: updated => {
+        this.user.set(updated);
+        this.editInfoForm.markAsPristine();
+        this.actioning.set(false);
+        this.snackBar.open('Resident info updated.', 'Dismiss', { duration: 3000 });
+      },
+      error: () => this.actioning.set(false),
+    });
+  }
+
+  resendOtp() {
+    const sid = this.auth.societyId();
+    const uid = this.user()?.id;
+    if (!sid || !uid) return;
+
+    this.actioning.set(true);
+    this.userSvc.sendOtp(sid, uid).subscribe({
+      next: () => {
+        this.actioning.set(false);
+        this.snackBar.open('OTP sent to resident.', 'Dismiss', { duration: 3000 });
+      },
+      error: () => this.actioning.set(false),
+    });
+  }
+
+  deactivate() {
+    const sid = this.auth.societyId();
+    const uid = this.user()?.id;
+    if (!sid || !uid) return;
+    if (!window.confirm('Deactivate this user? They will not be able to log in.')) return;
+
+    this.actioning.set(true);
+    this.userSvc.deactivate(sid, uid).subscribe({
+      next: () => {
+        this.user.update(u => u ? { ...u, isActive: false } : u);
+        this.actioning.set(false);
+        this.snackBar.open('User deactivated.', 'Dismiss', { duration: 3000 });
+      },
+      error: () => this.actioning.set(false),
+    });
+  }
+
+  activate() {
+    const sid = this.auth.societyId();
+    const uid = this.user()?.id;
+    if (!sid || !uid) return;
+
+    this.actioning.set(true);
+    this.userSvc.activate(sid, uid).subscribe({
+      next: () => {
+        this.user.update(u => u ? { ...u, isActive: true } : u);
+        this.actioning.set(false);
+        this.snackBar.open('User activated.', 'Dismiss', { duration: 3000 });
+      },
+      error: () => this.actioning.set(false),
+    });
+  }
+
   private loadProfile() {
     const sid = this.auth.societyId()!;
     const id = this.route.snapshot.paramMap.get('id')!;
@@ -262,6 +377,10 @@ export class ResidentProfileComponent implements OnInit {
         if (user.residentType === 'Owner' || user.residentType === 'Tenant') {
           this.addApartmentForm.patchValue({ residentType: user.residentType });
         }
+        this.editInfoForm.patchValue({
+          fullName: user.fullName ?? user.name ?? '',
+          phone: user.phone ?? '',
+        });
         this.loading.set(false);
 
         if (this.route.snapshot.queryParamMap.get('addApartment') === '1' && this.canAddApartment()) {

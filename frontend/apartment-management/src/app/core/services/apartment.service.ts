@@ -104,4 +104,24 @@ export class UserService {
   }) {
     return this.api.post<User>(`societies/${societyId}/apartments/${apartmentId}/household-members`, dto);
   }
+
+  update(societyId: string, id: string, dto: { fullName: string; phone: string }) {
+    return this.api.put<User>(`societies/${societyId}/users/${id}`, dto);
+  }
+
+  deactivate(societyId: string, id: string) {
+    return this.api.post<void>(`societies/${societyId}/users/${id}/deactivate`, {});
+  }
+
+  activate(societyId: string, id: string) {
+    return this.api.post<void>(`societies/${societyId}/users/${id}/activate`, {});
+  }
+
+  sendOtp(societyId: string, id: string) {
+    return this.api.post<void>(`societies/${societyId}/users/${id}/send-otp`, {});
+  }
+
+  changePassword(societyId: string, id: string, dto: { currentPassword: string; newPassword: string }) {
+    return this.api.put<void>(`societies/${societyId}/users/${id}/password`, dto);
+  }
 }

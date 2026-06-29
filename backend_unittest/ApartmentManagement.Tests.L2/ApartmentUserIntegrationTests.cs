@@ -527,4 +527,113 @@ public class ApartmentUserIntegrationTests : IntegrationTestBase
         tenantAddsCoOccupant.IsSuccess.Should().BeTrue();
         tenantAddsFamily.IsFailure.Should().BeTrue();
     }
+
+    // ─── SUSecurity role ─────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task CreateUser_WithSUSecurityRole_Succeeds()
+    {
+        // SUAdmin can create a security guard (no apartment, SocietyAdmin resident type)
+        var admin = await Mediator.Send(new CreateUserCommand(SocietyId, "Admin", "admin-sec@test.com", "9876540001", UserRole.SUAdmin, ResidentType.SocietyAdmin, null));
+        CurrentUserService.UserId = admin.Value!.Id;
+
+        var result = await Mediator.Send(new CreateUserCommand(SocietyId, "Guard One", "guard-one@test.com", "9876540002",
+            UserRole.SUSecurity, ResidentType.SocietyAdmin, null));
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Role.Should().Be("SUSecurity");
+        result.Value!.ApartmentId.Should().BeNullOrEmpty();
+    }
+
+    [Fact]
+    public async Task CreateUser_SUSecurity_HasManageVisitorsAndViewResidentsPermissions()
+    {
+        var admin = await Mediator.Send(new CreateUserCommand(SocietyId, "Admin", "admin-sec2@test.com", "9876540003", UserRole.SUAdmin, ResidentType.SocietyAdmin, null));
+        CurrentUserService.UserId = admin.Value!.Id;
+
+        var result = await Mediator.Send(new CreateUserCommand(SocietyId, "Guard Two", "guard-two@test.com", "9876540004",
+            UserRole.SUSecurity, ResidentType.SocietyAdmin, null));
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Permissions.Should().Contain("manage_visitors");
+        result.Value!.Permissions.Should().Contain("view_residents");
+        result.Value!.Permissions.Should().NotContain("manage_society");
+    }
+
+    [Fact]
+    public async Task CreateUser_SUSecurityByNonAdmin_ReturnsForbidden()
+    {
+        // An apartment owner cannot create a security user
+        var apartment = await Mediator.Send(AptCmd("F", "F-001"));
+        var owner = await Mediator.Send(new CreateUserCommand(SocietyId, "Owner", "owner-sec@test.com", "9876540005", UserRole.SUUser, ResidentType.Owner, apartment.Value!.Id));
+        CurrentUserService.UserId = owner.Value!.Id;
+
+        var result = await Mediator.Send(new CreateUserCommand(SocietyId, "Guard", "guard-three@test.com", "9876540006",
+            UserRole.SUSecurity, ResidentType.SocietyAdmin, null));
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.Forbidden);
+    }
+
+    [Fact]
+    public async Task AssignRole_ToSUSecurity_UpdatesRoleAndPermissions()
+    {
+        // Create as SUUser then promote to SUSecurity
+        var apartment = await Mediator.Send(AptCmd("G", "G-001"));
+        var user = await Mediator.Send(new CreateUserCommand(SocietyId, "Future Guard", "future-guard@test.com", "9876540007",
+            UserRole.SUUser, ResidentType.Owner, apartment.Value!.Id));
+
+        CurrentUserService.UserId = user.Value!.Id;
+        var assign = await Mediator.Send(new AssignRoleCommand(SocietyId, user.Value!.Id, UserRole.SUSecurity));
+
+        assign.IsSuccess.Should().BeTrue();
+
+        var updated = await Mediator.Send(new GetUserQuery(SocietyId, user.Value!.Id));
+        updated.Value!.Role.Should().Be("SUSecurity");
+        updated.Value!.Permissions.Should().Contain("manage_visitors");
+        updated.Value!.Permissions.Should().Contain("view_residents");
+    }
+
+    [Fact]
+    public async Task UpdateUser_ChangesNameAndPhone()
+    {
+        var apartment = await Mediator.Send(AptCmd("H", "H-001"));
+        var user = await Mediator.Send(new CreateUserCommand(SocietyId, "Old Name", "update-test@test.com", "9876540010",
+            UserRole.SUUser, ResidentType.Owner, apartment.Value!.Id));
+
+        var result = await Mediator.Send(new UpdateUserCommand(SocietyId, user.Value!.Id, "New Name", "9876540099"));
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.FullName.Should().Be("New Name");
+        result.Value!.Phone.Should().Be("9876540099");
+    }
+
+    [Fact]
+    public async Task DeactivateUser_SetsUserInactive()
+    {
+        var apartment = await Mediator.Send(AptCmd("I", "I-001"));
+        var user = await Mediator.Send(new CreateUserCommand(SocietyId, "Active User", "deactivate-test@test.com", "9876540011",
+            UserRole.SUUser, ResidentType.Owner, apartment.Value!.Id));
+
+        var result = await Mediator.Send(new DeactivateUserCommand(SocietyId, user.Value!.Id));
+
+        result.IsSuccess.Should().BeTrue();
+        var fetched = await Mediator.Send(new GetUserQuery(SocietyId, user.Value!.Id));
+        fetched.Value!.IsActive.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ActivateUser_AfterDeactivate_SetsUserActive()
+    {
+        var apartment = await Mediator.Send(AptCmd("J", "J-001"));
+        var user = await Mediator.Send(new CreateUserCommand(SocietyId, "Inactive User", "activate-test@test.com", "9876540012",
+            UserRole.SUUser, ResidentType.Owner, apartment.Value!.Id));
+
+        await Mediator.Send(new DeactivateUserCommand(SocietyId, user.Value!.Id));
+        var result = await Mediator.Send(new ActivateUserCommand(SocietyId, user.Value!.Id));
+
+        result.IsSuccess.Should().BeTrue();
+        var fetched = await Mediator.Send(new GetUserQuery(SocietyId, user.Value!.Id));
+        fetched.Value!.IsActive.Should().BeTrue();
+    }
 }

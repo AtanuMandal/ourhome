@@ -156,6 +156,12 @@ public sealed class CreateUserCommandValidator : AbstractValidator<CreateUserCom
                 .NotEmpty()
                 .When(x => x.ResidentType is ResidentType.Owner or ResidentType.Tenant or ResidentType.FamilyMember or ResidentType.CoOccupant);
         });
+        When(x => x.Role == UserRole.SUSecurity, () =>
+        {
+            RuleFor(x => x.ApartmentId).Empty().WithMessage("Security personnel are not linked to an apartment.");
+            RuleFor(x => x.ResidentType).Equal(ResidentType.SocietyAdmin)
+                .WithMessage("Security personnel must have ResidentType = SocietyAdmin.");
+        });
     }
 }
 

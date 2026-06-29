@@ -203,6 +203,52 @@ public class NoticeVisitorServiceProviderIntegrationTests : IntegrationTestBase
     }
 
     [Fact]
+    public async Task ApproveVisitor_BySUSecurity_Succeeds()
+    {
+        var (apartmentId, _, _) = await SeedVisitorContextAsync();
+
+        CurrentUserService.Role = "SUAdmin";
+        var visitor = (await Mediator.Send(new RegisterVisitorCommand(
+            SocietyId,
+            "Security Test Visitor",
+            "+91-9800011111",
+            null,
+            "Delivery",
+            apartmentId,
+            null,
+            null,
+            false))).Value!;
+
+        CurrentUserService.Role = "SUSecurity";
+        var approve = await Mediator.Send(new ApproveVisitorCommand(SocietyId, visitor.Id, "security-guard-001"));
+
+        approve.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task DenyVisitor_BySUSecurity_Succeeds()
+    {
+        var (apartmentId, _, _) = await SeedVisitorContextAsync();
+
+        CurrentUserService.Role = "SUAdmin";
+        var visitor = (await Mediator.Send(new RegisterVisitorCommand(
+            SocietyId,
+            "Security Deny Visitor",
+            "+91-9800022222",
+            null,
+            "Suspicious",
+            apartmentId,
+            null,
+            null,
+            false))).Value!;
+
+        CurrentUserService.Role = "SUSecurity";
+        var deny = await Mediator.Send(new DenyVisitorCommand(SocietyId, visitor.Id, "security-guard-001"));
+
+        deny.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task VisitorQueries_PreApprovedFilterVerifyAndExport_Work()
     {
         var (apartmentId, residentUserId, _) = await SeedVisitorContextAsync();

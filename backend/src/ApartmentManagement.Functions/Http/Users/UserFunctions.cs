@@ -1,5 +1,6 @@
 using ApartmentManagement.Application.Commands.User;
 using ApartmentManagement.Application.DTOs;
+using ApartmentManagement.Application.Interfaces;
 using ApartmentManagement.Application.Queries.User;
 using ApartmentManagement.Functions.Helpers;
 using ApartmentManagement.Shared.Models;
@@ -10,7 +11,7 @@ using Microsoft.Azure.Functions.Worker;
 
 namespace ApartmentManagement.Functions.Http;
 
-public class UserFunctions(ISender mediator)
+public class UserFunctions(ISender mediator, ICurrentUserService currentUser)
 {
     [Function("RegisterUser")]
     public async Task<IActionResult> RegisterUser(
@@ -192,5 +193,51 @@ public class UserFunctions(ISender mediator)
         var result = await mediator.Send(
             new AddHouseholdMemberCommand(societyId, apartmentId, body.FullName, body.Email, body.Phone, body.ResidentType), ct);
         return result.ToActionResult(201);
+    }
+
+    [Function("UpdateUser")]
+    public async Task<IActionResult> UpdateUser(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "put", Route = "societies/{societyId}/users/{id}")] HttpRequest req,
+        string societyId, string id, CancellationToken ct)
+    {
+        if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
+        var body = await req.DeserializeAsync<UpdateUserRequest>(ct);
+        if (body is null) return new BadRequestObjectResult("Invalid request body");
+        var result = await mediator.Send(new UpdateUserCommand(societyId, id, body.FullName, body.Phone), ct);
+        return result.ToActionResult();
+    }
+
+    [Function("DeactivateUser")]
+    public async Task<IActionResult> DeactivateUser(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "societies/{societyId}/users/{id}/deactivate")] HttpRequest req,
+        string societyId, string id, CancellationToken ct)
+    {
+        if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
+        if (!currentUser.IsInRoles("SUAdmin", "HQAdmin")) return new ForbidResult();
+        var result = await mediator.Send(new DeactivateUserCommand(societyId, id), ct);
+        return result.ToActionResult();
+    }
+
+    [Function("ActivateUser")]
+    public async Task<IActionResult> ActivateUser(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "societies/{societyId}/users/{id}/activate")] HttpRequest req,
+        string societyId, string id, CancellationToken ct)
+    {
+        if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
+        if (!currentUser.IsInRoles("SUAdmin", "HQAdmin")) return new ForbidResult();
+        var result = await mediator.Send(new ActivateUserCommand(societyId, id), ct);
+        return result.ToActionResult();
+    }
+
+    [Function("ChangePassword")]
+    public async Task<IActionResult> ChangePassword(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "put", Route = "societies/{societyId}/users/{id}/password")] HttpRequest req,
+        string societyId, string id, CancellationToken ct)
+    {
+        if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
+        var body = await req.DeserializeAsync<ChangePasswordRequest>(ct);
+        if (body is null) return new BadRequestObjectResult("Invalid request body");
+        var result = await mediator.Send(new ChangePasswordCommand(societyId, id, body.CurrentPassword, body.NewPassword), ct);
+        return result.ToActionResult();
     }
 }

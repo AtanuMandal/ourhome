@@ -54,7 +54,7 @@ import { StatusChipComponent } from '../../shared/components/status-chip/status-
         </div>
 
         <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
-          @if (isAdmin()) {
+          @if (canManageVisitors()) {
             <mat-form-field appearance="fill" class="full-width">
               <mat-label>Apartment</mat-label>
               <mat-select formControlName="apartmentId" [disabled]="apartmentsLoading()">
@@ -82,7 +82,7 @@ import { StatusChipComponent } from '../../shared/components/status-chip/status-
             </div>
           }
 
-          @if (!isAdmin()) {
+          @if (!canManageVisitors()) {
             <mat-form-field appearance="fill" class="full-width">
               <mat-label>Valid for (hours)</mat-label>
               <mat-select formControlName="validityHours">
@@ -159,7 +159,7 @@ import { StatusChipComponent } from '../../shared/components/status-chip/status-
             color="primary"
             type="submit"
             class="full-width submit-btn"
-            [disabled]="loading() || form.invalid || (!isAdmin() && !resolvedApartmentId())">
+            [disabled]="loading() || form.invalid || (!canManageVisitors() && !resolvedApartmentId())">
             {{ submitLabel() }}
           </button>
         </form>
@@ -229,6 +229,7 @@ export class VisitorRegisterComponent implements OnInit {
   readonly createdVisitor = signal<Visitor | null>(null);
   readonly errorMessage = signal('');
   readonly isAdmin = this.auth.isAdmin;
+  readonly canManageVisitors = this.auth.canManageVisitors;
   readonly visitorImagePreview = signal<string | null>(null);
   readonly validityOptions = [1, 2, 4, 8, 12, 24, 48, 72, 168];
 
@@ -240,7 +241,7 @@ export class VisitorRegisterComponent implements OnInit {
   });
 
   readonly resolvedApartmentId = computed(() => {
-    if (this.isAdmin()) {
+    if (this.canManageVisitors()) {
       return this.form.controls.apartmentId.value?.trim() ?? '';
     }
 
@@ -260,7 +261,7 @@ export class VisitorRegisterComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    if (!this.isAdmin()) {
+    if (!this.canManageVisitors()) {
       this.form.controls.apartmentId.clearValidators();
       this.form.controls.apartmentId.updateValueAndValidity({ emitEvent: false });
       return;
@@ -288,21 +289,21 @@ export class VisitorRegisterComponent implements OnInit {
   }
 
   pageTitle() {
-    return this.isAdmin() ? 'Register Visitor' : 'Pre-approve Visitor';
+    return this.canManageVisitors() ? 'Register Visitor' : 'Pre-approve Visitor';
   }
 
   formTitle() {
-    return this.isAdmin() ? 'Gate registration' : 'Resident pass generation';
+    return this.canManageVisitors() ? 'Gate registration' : 'Resident pass generation';
   }
 
   formDescription() {
-    return this.isAdmin()
+    return this.canManageVisitors()
       ? 'Register the visitor at the gate and send the request to the resident for approval.'
       : 'Pre-enter visitor details to generate an approved pass before arrival.';
   }
 
   submitLabel() {
-    return this.isAdmin() ? 'Register visitor request' : 'Pre-approve & generate pass';
+    return this.canManageVisitors() ? 'Register visitor request' : 'Pre-approve & generate pass';
   }
 
   apartmentLabel(apartment: Apartment) {
@@ -353,7 +354,7 @@ export class VisitorRegisterComponent implements OnInit {
     this.errorMessage.set('');
 
     const doRegister = (imageUrl?: string) => {
-      const isPreApproved = !this.isAdmin();
+      const isPreApproved = !this.canManageVisitors();
       const validityHours = this.form.controls.validityHours.value ?? undefined;
       this.visitorService.register(societyId, {
         visitorName: this.form.controls.visitorName.value?.trim() ?? '',

@@ -19,6 +19,8 @@ public class VisitorFunctions(ISender mediator, ICurrentUserService currentUser)
         [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "societies/{societyId}/visitors")] HttpRequest req,
         string societyId, CancellationToken ct)
     {
+        if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
+        if (!currentUser.IsInRoles("SUAdmin", "SUSecurity")) return new ForbidResult();
         var request = await req.DeserializeAsync<RegisterVisitorRequest>(ct);
         if (request is null) return new BadRequestObjectResult("Invalid request body");
 
@@ -43,6 +45,7 @@ public class VisitorFunctions(ISender mediator, ICurrentUserService currentUser)
         [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "societies/{societyId}/visitors/{id}/approve")] HttpRequest req,
         string societyId, string id, CancellationToken ct)
     {
+        if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
         var result = await mediator.Send(new ApproveVisitorCommand(societyId, id, currentUser.UserId), ct);
         return result.ToActionResult();
     }
@@ -52,6 +55,7 @@ public class VisitorFunctions(ISender mediator, ICurrentUserService currentUser)
         [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "societies/{societyId}/visitors/{id}/deny")] HttpRequest req,
         string societyId, string id, CancellationToken ct)
     {
+        if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
         var result = await mediator.Send(new DenyVisitorCommand(societyId, id, currentUser.UserId), ct);
         return result.ToActionResult();
     }
@@ -61,6 +65,8 @@ public class VisitorFunctions(ISender mediator, ICurrentUserService currentUser)
         [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "societies/{societyId}/visitors/checkin")] HttpRequest req,
         string societyId, CancellationToken ct)
     {
+        if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
+        if (!currentUser.IsInRoles("SUAdmin", "SUSecurity")) return new ForbidResult();
         var request = await req.DeserializeAsync<CheckInVisitorRequest>(ct);
         if (request is null) return new BadRequestObjectResult("Invalid request body");
 
@@ -73,6 +79,8 @@ public class VisitorFunctions(ISender mediator, ICurrentUserService currentUser)
         [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "societies/{societyId}/visitors/{id}/checkout")] HttpRequest req,
         string societyId, string id, CancellationToken ct)
     {
+        if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
+        if (!currentUser.IsInRoles("SUAdmin", "SUSecurity")) return new ForbidResult();
         var result = await mediator.Send(new CheckOutVisitorCommand(societyId, id), ct);
         return result.ToActionResult();
     }

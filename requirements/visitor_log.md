@@ -6,8 +6,10 @@ The visitor log module will maintain a record of all visitors entering and exiti
 ## Features
 
 1. **Visitor Registration**
-   - Security personnel can register visitors at the gate.
-   - Record visitor details (e.g., name, contact, purpose of visit,company(amazon, swiggy,zomato,personal),car/bike no,block , floor and flat no, Image which can be directly added from the field by using device camera  ).
+   - Security user can register visitors at the gate.
+   - Security user Record visitor details (e.g., name, contact, purpose of visit,company(amazon, swiggy,zomato,personal),car/bike no,block , floor and flat no, Image which can be directly added from the field by using device camera  ).
+   - SUSecurity should be able to add visitor like SUAdmin does , currently it has option just to pre approve visitor .
+  Pre approve option only be availble for SUUser
 
 2. **Visitor Pass**
    - Generate a digital or physical visitor pass when resident pre enters the data for the visitor .

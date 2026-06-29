@@ -75,6 +75,174 @@ public class CreateUserCommandHandlerTests
         result.ErrorCode.Should().Be(ErrorCodes.UserAlreadyExists);
         _userRepoMock.Verify(r => r.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()), Times.Never);
     }
+
+    [Fact]
+    public async Task Handle_SUAdminCreatingSUSecurity_Succeeds()
+    {
+        // Arrange
+        var admin = User.Create("soc-001", "Admin", "admin@soc.com", "+91-9000000001", UserRole.SUAdmin, ResidentType.SocietyAdmin);
+        _currentUserServiceMock.Setup(s => s.UserId).Returns(admin.Id);
+        _userRepoMock
+            .Setup(r => r.GetByIdAsync(admin.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(admin);
+        _userRepoMock
+            .Setup(r => r.GetByEmailAsync("soc-001", "guard@soc.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
+        _userRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User u, CancellationToken _) => u);
+        _userRepoMock
+            .Setup(r => r.UpdateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User u, CancellationToken _) => u);
+
+        var handler = CreateHandler();
+        var command = new CreateUserCommand("soc-001", "Guard One", "guard@soc.com", "+91-9000000002",
+            UserRole.SUSecurity, ResidentType.SocietyAdmin, null);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Role.Should().Be("SUSecurity");
+        _userRepoMock.Verify(r => r.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_SUUserCreatingSUSecurity_ReturnsForbidden()
+    {
+        // Arrange
+        var resident = User.Create("soc-001", "Resident", "resident@soc.com", "+91-9000000003",
+            UserRole.SUUser, ResidentType.Owner);
+        _currentUserServiceMock.Setup(s => s.UserId).Returns(resident.Id);
+        _userRepoMock
+            .Setup(r => r.GetByIdAsync(resident.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(resident);
+        _userRepoMock
+            .Setup(r => r.GetByEmailAsync("soc-001", "guard@soc.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
+
+        var handler = CreateHandler();
+        var command = new CreateUserCommand("soc-001", "Guard", "guard@soc.com", "+91-9000000004",
+            UserRole.SUSecurity, ResidentType.SocietyAdmin, null);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.Forbidden);
+    }
+
+    [Fact]
+    public async Task Handle_SUSecurityCreated_HasNoApartmentId()
+    {
+        // Arrange
+        var admin = User.Create("soc-001", "Admin", "admin@soc.com", "+91-9000000005", UserRole.SUAdmin, ResidentType.SocietyAdmin);
+        _currentUserServiceMock.Setup(s => s.UserId).Returns(admin.Id);
+        _userRepoMock
+            .Setup(r => r.GetByIdAsync(admin.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(admin);
+        _userRepoMock
+            .Setup(r => r.GetByEmailAsync("soc-001", "guard2@soc.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
+        _userRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User u, CancellationToken _) => u);
+        _userRepoMock
+            .Setup(r => r.UpdateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User u, CancellationToken _) => u);
+
+        var handler = CreateHandler();
+        var command = new CreateUserCommand("soc-001", "Guard Two", "guard2@soc.com", "+91-9000000006",
+            UserRole.SUSecurity, ResidentType.SocietyAdmin, null);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.ApartmentId.Should().BeNullOrEmpty();
+    }
+}
+
+public class ChangePasswordCommandHandlerTests
+{
+    private readonly Mock<IUserRepository> _userRepoMock = new();
+    private readonly Mock<IAuthService> _authServiceMock = new();
+    private readonly Mock<ILogger<ChangePasswordCommandHandler>> _loggerMock = new();
+
+    private ChangePasswordCommandHandler CreateHandler() =>
+        new(_userRepoMock.Object, _authServiceMock.Object, _loggerMock.Object);
+
+    [Fact]
+    public async Task Handle_WithValidCurrentPassword_ChangesPassword()
+    {
+        var user = User.Create("soc-001", "Alice", "alice@soc.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
+        user.SetPasswordHash("hashed-old");
+
+        _userRepoMock
+            .Setup(r => r.GetByIdAsync(user.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _userRepoMock
+            .Setup(r => r.UpdateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User u, CancellationToken _) => u);
+        _authServiceMock
+            .Setup(a => a.VerifyPassword("old-password", "hashed-old"))
+            .Returns(true);
+        _authServiceMock
+            .Setup(a => a.HashPassword("new-password"))
+            .Returns("hashed-new");
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(
+            new ChangePasswordCommand("soc-001", user.Id, "old-password", "new-password"),
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        _userRepoMock.Verify(r => r.UpdateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_WithWrongCurrentPassword_ReturnsInvalidCredentials()
+    {
+        var user = User.Create("soc-001", "Alice", "alice@soc.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
+        user.SetPasswordHash("hashed-old");
+
+        _userRepoMock
+            .Setup(r => r.GetByIdAsync(user.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _authServiceMock
+            .Setup(a => a.VerifyPassword("wrong-password", "hashed-old"))
+            .Returns(false);
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(
+            new ChangePasswordCommand("soc-001", user.Id, "wrong-password", "new-password"),
+            CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.InvalidCredentials);
+        _userRepoMock.Verify(r => r.UpdateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_WhenUserHasNoPassword_ReturnsInvalidCredentials()
+    {
+        var user = User.Create("soc-001", "Alice", "alice@soc.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
+
+        _userRepoMock
+            .Setup(r => r.GetByIdAsync(user.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(
+            new ChangePasswordCommand("soc-001", user.Id, "any-password", "new-password"),
+            CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.InvalidCredentials);
+    }
 }
 
 public class VerifyOtpCommandHandlerTests

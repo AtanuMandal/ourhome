@@ -98,6 +98,8 @@ public record CreateHQUserRequest(string FullName, string Email, string Phone, U
 
 public record UpdateUserRequest(string FullName, string Phone);
 
+public record ChangePasswordRequest(string CurrentPassword, string NewPassword);
+
 public record UserResponse(
     string Id, string SocietyId, string FullName, string Email, string Phone,
     string Role, string ResidentType, string? ApartmentId, string? InvitedByUserId, bool IsActive, bool IsVerified, bool HasPassword,

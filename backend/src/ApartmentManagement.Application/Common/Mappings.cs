@@ -337,6 +337,12 @@ public static class MappingExtensions
             permissions.Add("add_cooccupant");
         }
 
+        if (user.Role == Domain.Enums.UserRole.SUSecurity)
+        {
+            permissions.Add("manage_visitors");
+            permissions.Add("view_residents");
+        }
+
         switch (user.ResidentType)
         {
             case Domain.Enums.ResidentType.Owner:

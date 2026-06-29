@@ -222,4 +222,41 @@ public class UserTests
         // Assert
         result.Should().BeFalse();
     }
+
+    // ── SUSecurity role ───────────────────────────────────────────────────────
+
+    [Fact]
+    public void Create_WithSUSecurity_Role_ReturnsActiveUnverifiedUser()
+    {
+        var user = User.Create(SocietyId, "Guard One", "guard@society.com", "+91-9000000001",
+            UserRole.SUSecurity, ResidentType.SocietyAdmin);
+
+        user.Role.Should().Be(UserRole.SUSecurity);
+        user.ResidentType.Should().Be(ResidentType.SocietyAdmin);
+        user.ApartmentId.Should().BeNull();
+        user.IsActive.Should().BeTrue();
+        user.IsVerified.Should().BeFalse();
+    }
+
+    [Fact]
+    public void AssignRole_FromSUUserToSUSecurity_UpdatesRole()
+    {
+        var user = User.Create(SocietyId, "Guard One", "guard@society.com", "+91-9000000002",
+            UserRole.SUUser, ResidentType.SocietyAdmin);
+
+        user.AssignRole(UserRole.SUSecurity);
+
+        user.Role.Should().Be(UserRole.SUSecurity);
+    }
+
+    [Fact]
+    public void AssignRole_FromSUSecurityToSUAdmin_UpdatesRole()
+    {
+        var user = User.Create(SocietyId, "Guard One", "guard@society.com", "+91-9000000003",
+            UserRole.SUSecurity, ResidentType.SocietyAdmin);
+
+        user.AssignRole(UserRole.SUAdmin);
+
+        user.Role.Should().Be(UserRole.SUAdmin);
+    }
 }

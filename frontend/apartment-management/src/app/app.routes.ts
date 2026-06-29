@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authGuard, guestGuard, adminGuard } from './core/guards/auth.guard';
+import { authGuard, guestGuard, adminGuard, visitorGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
   { path: '', redirectTo: '/dashboard', pathMatch: 'full' },
@@ -30,8 +30,14 @@ export const routes: Routes = [
 
   {
     path: 'residents',
-    canActivate: [authGuard],
+    canActivate: [visitorGuard],
     loadChildren: () => import('./features/residents/residents.routes').then(m => m.RESIDENT_ROUTES),
+  },
+
+  {
+    path: 'profile',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/profile/profile.component').then(m => m.ProfileComponent),
   },
 
   {
@@ -54,7 +60,7 @@ export const routes: Routes = [
 
   {
     path: 'visitors',
-    canActivate: [authGuard],
+    canActivate: [visitorGuard],
     loadChildren: () => import('./features/visitors/visitors.routes').then(m => m.VISITOR_ROUTES),
   },
 
