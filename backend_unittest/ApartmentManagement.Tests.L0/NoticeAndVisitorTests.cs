@@ -137,6 +137,89 @@ public class NoticeTests
     }
 }
 
+public class NoticeReadStatusTests
+{
+    private const string SocietyId = "society-001";
+    private const string UserId = "user-001";
+    private const string AnotherUserId = "user-002";
+
+    private static Notice CreateNotice() =>
+        Notice.Create(SocietyId, UserId, "Test Notice", "Content",
+            NoticeCategory.General, DateTime.UtcNow.AddMinutes(-1));
+
+    [Fact]
+    public void IsReadByUser_BeforeMarkingRead_ReturnsFalse()
+    {
+        var notice = CreateNotice();
+
+        notice.IsReadByUser(UserId).Should().BeFalse();
+    }
+
+    [Fact]
+    public void MarkAsRead_SetsReadStatus()
+    {
+        var notice = CreateNotice();
+
+        notice.MarkAsRead(UserId);
+
+        notice.IsReadByUser(UserId).Should().BeTrue();
+    }
+
+    [Fact]
+    public void MarkAsRead_IsIdempotent()
+    {
+        var notice = CreateNotice();
+
+        notice.MarkAsRead(UserId);
+        notice.MarkAsRead(UserId);
+
+        notice.ReadByUserIds.Count(id => id.Equals(UserId, StringComparison.OrdinalIgnoreCase))
+            .Should().Be(1);
+    }
+
+    [Fact]
+    public void MarkAsUnread_ClearsReadStatus()
+    {
+        var notice = CreateNotice();
+        notice.MarkAsRead(UserId);
+
+        notice.MarkAsUnread(UserId);
+
+        notice.IsReadByUser(UserId).Should().BeFalse();
+    }
+
+    [Fact]
+    public void MarkAsUnread_WhenNotRead_DoesNotThrow()
+    {
+        var notice = CreateNotice();
+
+        var act = () => notice.MarkAsUnread(UserId);
+
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void MarkAsRead_TracksEachUserIndependently()
+    {
+        var notice = CreateNotice();
+
+        notice.MarkAsRead(UserId);
+
+        notice.IsReadByUser(UserId).Should().BeTrue();
+        notice.IsReadByUser(AnotherUserId).Should().BeFalse();
+    }
+
+    [Fact]
+    public void MarkAsRead_WithEmptyUserId_ThrowsArgumentException()
+    {
+        var notice = CreateNotice();
+
+        var act = () => notice.MarkAsRead(string.Empty);
+
+        act.Should().Throw<ArgumentException>();
+    }
+}
+
 public class VisitorLogTests
 {
     private const string SocietyId = "society-001";
@@ -145,7 +228,8 @@ public class VisitorLogTests
 
     private static VisitorLog CreateVisitorLog() =>
         VisitorLog.Create(SocietyId, "John Visitor", "+91-9876543210",
-            "john@example.com", "Personal visit", HostApartmentId, HostUserId);
+            "john@example.com", "Amazon", "Personal visit", HostApartmentId, HostUserId,
+            "Resident User", "A", 1, "A-101", false);
 
     [Fact]
     public void Create_WithValidParameters_ReturnsPendingVisitorLog()
@@ -182,6 +266,33 @@ public class VisitorLogTests
 
         // Assert
         log.Status.Should().Be(VisitorStatus.Approved);
+    }
+
+    [Fact]
+    public void Create_WithPreApproval_StartsApprovedAndCapturesHostDetails()
+    {
+        var log = VisitorLog.Create(
+            SocietyId,
+            "Delivery Partner",
+            "+91-9000000000",
+            null,
+            "Swiggy",
+            "Food delivery",
+            HostApartmentId,
+            HostUserId,
+            "Resident User",
+            "B",
+            8,
+            "B-804",
+            true,
+            "WB01AA1111");
+
+        log.Status.Should().Be(VisitorStatus.Approved);
+        log.IsPreApproved.Should().BeTrue();
+        log.ApprovedAt.Should().NotBeNull();
+        log.HostResidentName.Should().Be("Resident User");
+        log.HostFlatNumber.Should().Be("B-804");
+        log.CompanyName.Should().Be("Swiggy");
     }
 
     [Fact]
@@ -254,5 +365,138 @@ public class VisitorLogTests
 
         // Assert
         log.Status.Should().Be(VisitorStatus.Denied);
+    }
+
+    [Fact]
+    public void CheckIn_WhenDenied_ThrowsInvalidOperationException()
+    {
+        var log = CreateVisitorLog();
+        log.Deny();
+
+        var act = () => log.CheckIn();
+
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void CheckOut_WhenNotCheckedIn_ThrowsInvalidOperationException()
+    {
+        var log = CreateVisitorLog();
+        log.Approve();
+
+        var act = () => log.CheckOut();
+
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void Approve_WhenAlreadyApproved_RemainsApproved()
+    {
+        var log = CreateVisitorLog();
+        log.Approve();
+        var firstApprovedAt = log.ApprovedAt;
+
+        log.Approve(); // idempotent call
+
+        log.Status.Should().Be(VisitorStatus.Approved);
+        log.ApprovedAt.Should().Be(firstApprovedAt);
+    }
+
+    [Fact]
+    public void Duration_BeforeCheckOut_ReturnsNull()
+    {
+        var log = CreateVisitorLog();
+        log.Approve();
+        log.CheckIn();
+
+        log.Duration.Should().BeNull();
+    }
+
+    [Fact]
+    public void Create_WithEmptyVisitorName_ThrowsArgumentException()
+    {
+        var act = () => VisitorLog.Create(SocietyId, "", "+91-9876543210",
+            null, null, "Visit", HostApartmentId, HostUserId, "Resident", "A", 1, "A-101", false);
+
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void Create_WithValidUntil_SetsExpiryCorrectly()
+    {
+        var validUntil = DateTime.UtcNow.AddHours(4);
+        var log = VisitorLog.Create(SocietyId, "Visitor", "+91-9876543210",
+            null, null, "Visit", HostApartmentId, HostUserId, "Resident", "A", 1, "A-101",
+            true, null, validUntil);
+
+        log.ValidUntil.Should().BeCloseTo(validUntil, TimeSpan.FromSeconds(1));
+        log.IsPassExpired.Should().BeFalse();
+    }
+
+    [Fact]
+    public void IsPassExpired_WhenValidUntilInPast_ReturnsTrue()
+    {
+        var log = VisitorLog.Create(SocietyId, "Visitor", "+91-9876543210",
+            null, null, "Visit", HostApartmentId, HostUserId, "Resident", "A", 1, "A-101",
+            true, null, DateTime.UtcNow.AddHours(-1));
+
+        log.IsPassExpired.Should().BeTrue();
+    }
+
+    [Fact]
+    public void CheckIn_WhenPassExpired_ThrowsInvalidOperationException()
+    {
+        var log = VisitorLog.Create(SocietyId, "Visitor", "+91-9876543210",
+            null, null, "Visit", HostApartmentId, HostUserId, "Resident", "A", 1, "A-101",
+            true, null, DateTime.UtcNow.AddHours(-1));
+
+        var act = () => log.CheckIn();
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*expired*");
+    }
+
+    [Fact]
+    public void CheckIn_WhenValidUntilNull_SucceedsWithoutExpiry()
+    {
+        var log = VisitorLog.Create(SocietyId, "Visitor", "+91-9876543210",
+            null, null, "Visit", HostApartmentId, HostUserId, "Resident", "A", 1, "A-101",
+            true, null, validUntil: null);
+
+        var act = () => log.CheckIn();
+
+        act.Should().NotThrow();
+        log.Status.Should().Be(VisitorStatus.CheckedIn);
+    }
+
+    [Fact]
+    public void Create_WithImageUrl_StoresImageUrl()
+    {
+        const string imageUrl = "https://storage.example.com/visitor-images/test.jpg";
+        var log = VisitorLog.Create(SocietyId, "Visitor", "+91-9876543210",
+            null, null, "Visit", HostApartmentId, HostUserId, "Resident", "A", 1, "A-101",
+            false, null, null, imageUrl);
+
+        log.VisitorImageUrl.Should().Be(imageUrl);
+    }
+
+    [Fact]
+    public void UpdateVisitorImageUrl_SetsImageUrl()
+    {
+        var log = CreateVisitorLog();
+        const string imageUrl = "https://storage.example.com/visitor-images/new.jpg";
+
+        log.UpdateVisitorImageUrl(imageUrl);
+
+        log.VisitorImageUrl.Should().Be(imageUrl);
+    }
+
+    [Fact]
+    public void UpdateVisitorImageUrl_WithEmptyString_ThrowsArgumentException()
+    {
+        var log = CreateVisitorLog();
+
+        var act = () => log.UpdateVisitorImageUrl(string.Empty);
+
+        act.Should().Throw<ArgumentException>();
     }
 }

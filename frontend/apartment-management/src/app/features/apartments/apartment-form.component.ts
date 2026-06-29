@@ -6,6 +6,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatSelectModule } from '@angular/material/select';
 import { CreateApartmentDto, UpdateApartmentDto } from '../../core/models/apartment.model';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 import { ApartmentService } from '../../core/services/apartment.service';
@@ -17,7 +18,7 @@ type OccupancyOption = 'Available' | 'Owner' | 'Tenant';
   selector: 'app-apartment-form',
   standalone: true,
   imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule,
-            MatButtonModule, MatProgressBarModule, PageHeaderComponent],
+            MatButtonModule, MatProgressBarModule, MatSelectModule, PageHeaderComponent],
   template: `
     <app-page-header [title]="editId ? 'Edit Apartment' : 'Add Apartment'" [showBack]="true"></app-page-header>
     @if (loading()) { <mat-progress-bar mode="indeterminate"></mat-progress-bar> }
@@ -112,11 +113,11 @@ type OccupancyOption = 'Available' | 'Owner' | 'Tenant';
 
               <mat-form-field appearance="fill" class="full-width">
                 <mat-label>Occupancy</mat-label>
-                <select matNativeControl formControlName="occupancy">
-                  <option value="Available">Available</option>
-                  <option value="Owner">Occupied by Owner</option>
-                  <option value="Tenant">Occupied by Tenant</option>
-                </select>
+                <mat-select formControlName="occupancy">
+                  <mat-option value="Available">Available</mat-option>
+                  <mat-option value="Owner">Occupied by Owner</mat-option>
+                  <mat-option value="Tenant">Occupied by Tenant</mat-option>
+                </mat-select>
               </mat-form-field>
 
               @if (isOccupied()) {

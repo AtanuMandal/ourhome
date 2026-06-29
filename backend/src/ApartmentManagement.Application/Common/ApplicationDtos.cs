@@ -98,6 +98,8 @@ public record CreateHQUserRequest(string FullName, string Email, string Phone, U
 
 public record UpdateUserRequest(string FullName, string Phone);
 
+public record ChangePasswordRequest(string CurrentPassword, string NewPassword);
+
 public record UserResponse(
     string Id, string SocietyId, string FullName, string Email, string Phone,
     string Role, string ResidentType, string? ApartmentId, string? InvitedByUserId, bool IsActive, bool IsVerified, bool HasPassword,
@@ -194,17 +196,21 @@ public sealed record CreateNoticeRequest(
 
 public sealed record UpdateNoticeRequest(string? Title, string? Content, DateTime? ExpiresAt);
 
+public sealed record MarkNoticeReadRequest(bool IsRead);
+
 // ─── Visitor ─────────────────────────────────────────────────────────────────
 
-public sealed record VisitorLogDto(
-    string Id, string SocietyId, string VisitorName, string VisitorPhone,
-    string? VisitorEmail, string Purpose, string HostApartmentId, string HostUserId,
-    VisitorStatus Status, string QrCode, string PassCode, string? VehicleNumber,
-    DateTime? CheckInTime, DateTime? CheckOutTime, TimeSpan? Duration, DateTime CreatedAt);
-
 public sealed record RegisterVisitorRequest(
-    string VisitorName, string VisitorPhone, string? VisitorEmail,
-    string Purpose, string ApartmentId, string HostUserId, string? VehicleNumber = null);
+    string VisitorName,
+    string VisitorPhone,
+    string? VisitorEmail,
+    string Purpose,
+    string ApartmentId,
+    string? CompanyName = null,
+    string? VehicleNumber = null,
+    bool IsPreApproved = false,
+    int? ValidityHours = null,
+    string? VisitorImageUrl = null);
 
 // ─── Maintenance ─────────────────────────────────────────────────────────────
 
@@ -423,12 +429,41 @@ public record AddFeedbackRequest(int Rating, string? Comment);
 public record NoticeResponse(
     string Id, string SocietyId, string Title, string Content, string Category,
     string PostedByUserId, bool IsArchived, DateTime PublishAt, DateTime? ExpiresAt,
-    bool IsActive, DateTime CreatedAt, IReadOnlyList<string> TargetApartmentIds);
+    bool IsActive, DateTime CreatedAt, IReadOnlyList<string> TargetApartmentIds,
+    bool IsReadByCurrentUser = false);
 
 public record VisitorResponse(
-    string Id, string SocietyId, string VisitorName, string VisitorPhone, string Purpose,
-    string HostApartmentId, string Status, string? QrCode, string PassCode,
-    DateTime? CheckInTime, DateTime? CheckOutTime, double? Duration, DateTime CreatedAt);
+    string Id,
+    string SocietyId,
+    string VisitorName,
+    string VisitorPhone,
+    string? VisitorEmail,
+    string? CompanyName,
+    string Purpose,
+    string HostApartmentId,
+    string HostResidentName,
+    string HostBlockName,
+    int HostFloorNumber,
+    string HostFlatNumber,
+    bool IsPreApproved,
+    string Status,
+    string? QrCode,
+    string PassCode,
+    string? VehicleNumber,
+    DateTime? ApprovedAt,
+    DateTime? CheckInTime,
+    DateTime? CheckOutTime,
+    double? Duration,
+    DateTime CreatedAt,
+    DateTime? ValidUntil = null,
+    string? VisitorImageUrl = null,
+    bool IsPassExpired = false);
+
+public sealed record CheckInVisitorRequest(string PassCode);
+
+public sealed record VisitorImageUploadResponse(string FileName, string ImageUrl);
+
+public sealed record VisitorExportResponse(string FileName, string ContentType, byte[] Content);
 
 public record FeeScheduleResponse(
     string Id, string SocietyId, string ApartmentId, string Description,

@@ -239,7 +239,7 @@ public class NoticeRepository(CosmosClient client, string dbName, ILogger<Notice
 }
 
 public class VisitorLogRepository(CosmosClient client, string dbName, ILogger<VisitorLogRepository> logger)
-    : CosmosDbRepository<VisitorLog>(client, dbName, "visitor_logs", logger), IVisitorLogRepository
+    : CosmosDbRepository<VisitorLog>(client, dbName, "visitor-logs", logger), IVisitorLogRepository
 {
     public async Task<IReadOnlyList<VisitorLog>> GetByApartmentAsync(string societyId, string apartmentId, int page, int pageSize, CancellationToken ct = default)
     {

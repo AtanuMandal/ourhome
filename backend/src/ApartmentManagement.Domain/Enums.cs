@@ -8,7 +8,7 @@ public enum ResidentType { SocietyAdmin, Owner, Tenant, FamilyMember, CoOccupant
 /// HQAdmin can create/manage societies. HQUser can view them.
 /// SUAdmin is the Housing Officer managing a society. SUUser is a regular resident.
 /// </summary>
-public enum UserRole { HQAdmin, HQUser, SUAdmin, SUUser }
+public enum UserRole { HQAdmin, HQUser, SUAdmin, SUUser, SUSecurity }
 public enum BookingStatus { Pending, Approved, Rejected, Cancelled, Completed }
 public enum ComplaintCategory { Maintenance, Security, Noise, Cleanliness, Parking, Other }
 public enum ComplaintStatus { Open, InProgress, Resolved, Closed, Rejected }

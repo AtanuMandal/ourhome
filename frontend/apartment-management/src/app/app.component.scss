@@ -4,8 +4,6 @@
 }
 
 .app-container {
-  height: 100vh;
-
   // Desktop: show sidenav
   .side-nav {
     width: 240px;
@@ -18,7 +16,7 @@
 
   .main-content {
     background: var(--background);
-    overflow-y: auto;
+    // No overflow-y: auto here — the window scrolls instead of this div.
     scrollbar-width: none;
     &::-webkit-scrollbar { display: none; }
 
@@ -101,6 +99,20 @@
     border-radius: var(--radius-sm);
     padding: 0 8px;
   }
+}
+
+// Notification permission banner
+.notif-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px;
+  background: #fff8e1;
+  border-bottom: 1px solid #ffe082;
+
+  &__icon { color: #f59e0b; font-size: 20px; height: 20px; width: 20px; flex-shrink: 0; }
+  &__text { flex: 1; font-size: 13px; color: #78350f; }
+  &__btn { flex-shrink: 0; font-size: 13px; }
 }
 
 // Mobile: sidenav-container behaves as plain container

@@ -30,6 +30,13 @@ export class AuthService {
     return role === 'SUAdmin' || role === 'HQAdmin';
   });
 
+  readonly isSecurity = computed(() => this._state().user?.role === 'SUSecurity');
+
+  readonly canManageVisitors = computed(() => {
+    const role = this._state().user?.role;
+    return role === 'SUAdmin' || role === 'SUSecurity';
+  });
+
   // ── Auth flow ──────────────────────────────────────────────────────────────
   login(email: string, password: string, selectedUserId?: string) {
     return this.http.post<LoginResponse>(

@@ -5,6 +5,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 import { ApartmentService, UserService } from '../../core/services/apartment.service';
@@ -13,19 +14,31 @@ import { Apartment, formatApartmentLabel } from '../../core/models/apartment.mod
 import { User } from '../../core/models/user.model';
 
 type ResidentType = 'Owner' | 'Tenant' | 'FamilyMember' | 'CoOccupant';
+type UserType = 'SUUser' | 'SUSecurity';
 const PHONE_PATTERN = /^\d{10}$/;
 
 @Component({
   selector: 'app-resident-form',
   standalone: true,
   imports: [ReactiveFormsModule, RouterLink, MatFormFieldModule, MatInputModule,
-            MatButtonModule, MatProgressBarModule, PageHeaderComponent],
+            MatButtonModule, MatProgressBarModule, MatSelectModule, PageHeaderComponent],
   template: `
-    <app-page-header title="Add Resident" [showBack]="true"></app-page-header>
+    <app-page-header [title]="pageTitle()" [showBack]="true"></app-page-header>
     @if (loading()) { <mat-progress-bar mode="indeterminate"></mat-progress-bar> }
     <div class="page-content">
       <div class="card">
         <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+
+          @if (isAdmin()) {
+            <mat-form-field appearance="fill" class="full-width">
+              <mat-label>User Type</mat-label>
+              <mat-select formControlName="userType">
+                <mat-option value="SUUser">Resident</mat-option>
+                <mat-option value="SUSecurity">Security Personnel</mat-option>
+              </mat-select>
+            </mat-form-field>
+          }
+
           <mat-form-field appearance="fill" class="full-width">
             <mat-label>Full Name</mat-label>
             <input matInput formControlName="fullName">
@@ -62,30 +75,35 @@ const PHONE_PATTERN = /^\d{10}$/;
             }
           </mat-form-field>
 
-          <mat-form-field appearance="fill" class="full-width">
-            <mat-label>Resident Type</mat-label>
-            <select matNativeControl formControlName="residentType">
-              @for (residentType of residentTypes(); track residentType.value) {
-                <option [value]="residentType.value">{{ residentType.label }}</option>
-              }
-            </select>
-          </mat-form-field>
+          @if (!isSecurityPersonnel()) {
+            <mat-form-field appearance="fill" class="full-width">
+              <mat-label>Resident Type</mat-label>
+              <mat-select formControlName="residentType">
+                @for (rt of residentTypes(); track rt.value) {
+                  <mat-option [value]="rt.value">{{ rt.label }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
 
-          <mat-form-field appearance="fill" class="full-width">
-            <mat-label>Apartment</mat-label>
-            <select matNativeControl formControlName="apartmentId">
-              <option value="" disabled>Select an apartment</option>
-              @for (apartment of apartments(); track apartment.id) {
-                <option [value]="apartment.id">{{ apartmentLabel(apartment) }}</option>
+            <mat-form-field appearance="fill" class="full-width">
+              <mat-label>Apartment</mat-label>
+              <mat-select formControlName="apartmentId">
+                @if (apartments().length === 0) {
+                  <mat-option disabled value="">No apartments found</mat-option>
+                } @else {
+                  @for (apartment of apartments(); track apartment.id) {
+                    <mat-option [value]="apartment.id">{{ apartmentLabel(apartment) }}</mat-option>
+                  }
+                }
+              </mat-select>
+              @if (form.controls.apartmentId.invalid && form.controls.apartmentId.touched) {
+                <mat-error>Apartment is required</mat-error>
               }
-            </select>
-            @if (form.controls.apartmentId.invalid && form.controls.apartmentId.touched) {
-              <mat-error>Apartment is required</mat-error>
+            </mat-form-field>
+
+            @if (!loading() && apartments().length === 0) {
+              <p class="mt-8" style="color: var(--warn);">No apartments are available for this society yet.</p>
             }
-          </mat-form-field>
-
-          @if (!loading() && apartments().length === 0) {
-            <p class="mt-8" style="color: var(--warn);">No apartments are available for this society yet.</p>
           }
 
           @if (duplicateResident()) {
@@ -105,8 +123,8 @@ const PHONE_PATTERN = /^\d{10}$/;
 
           <button mat-raised-button color="primary" type="submit"
                   class="full-width" style="height:48px;margin-top:8px"
-                  [disabled]="loading() || form.invalid || apartments().length === 0">
-            Add Resident
+                  [disabled]="loading() || form.invalid || (!isSecurityPersonnel() && apartments().length === 0)">
+            {{ isSecurityPersonnel() ? 'Add Security Personnel' : 'Add Resident' }}
           </button>
         </form>
       </div>
@@ -126,13 +144,24 @@ export class ResidentFormComponent implements OnInit {
   readonly duplicateResident = signal<User | null>(null);
   readonly residentTypes = signal<Array<{ value: ResidentType; label: string }>>([]);
 
+  readonly isAdmin = this.auth.isAdmin;
+
   readonly form = this.fb.group({
+    userType: ['SUUser' as UserType],
     fullName: ['', Validators.required],
     email: ['', [Validators.required, Validators.email]],
     phone: ['', [Validators.required, Validators.pattern(PHONE_PATTERN)]],
     residentType: ['Owner' as ResidentType, Validators.required],
     apartmentId: ['', Validators.required],
   });
+
+  isSecurityPersonnel() {
+    return this.form.controls.userType.value === 'SUSecurity';
+  }
+
+  pageTitle() {
+    return this.isSecurityPersonnel() ? 'Add Security Personnel' : 'Add Resident';
+  }
 
   ngOnInit() {
     this.configureResidentTypes();
@@ -164,6 +193,16 @@ export class ResidentFormComponent implements OnInit {
         this.form.controls.email.setErrors(Object.keys(errors).length ? errors : null);
       }
     });
+
+    this.form.controls.userType.valueChanges.subscribe(type => {
+      if (type === 'SUSecurity') {
+        this.form.controls.apartmentId.clearValidators();
+        this.form.controls.apartmentId.setValue('');
+      } else {
+        this.form.controls.apartmentId.setValidators(Validators.required);
+      }
+      this.form.controls.apartmentId.updateValueAndValidity();
+    });
   }
 
   submit() {
@@ -185,13 +224,14 @@ export class ResidentFormComponent implements OnInit {
           return;
         }
 
+        const isSecurity = value.userType === 'SUSecurity';
         this.svc.register(sid, {
           fullName: value.fullName.trim(),
           email: value.email.trim(),
           phone: value.phone.trim(),
-          role: 'SUUser',
-          residentType: value.residentType,
-          apartmentId: value.apartmentId || undefined,
+          role: isSecurity ? 'SUSecurity' : 'SUUser',
+          residentType: isSecurity ? 'SocietyAdmin' : value.residentType,
+          apartmentId: isSecurity ? undefined : (value.apartmentId || undefined),
         }).subscribe({
           next: () => {
             this.loading.set(false);

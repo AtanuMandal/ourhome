@@ -1,7 +1,6 @@
 # .NET
 *.swp
 *.*~
-project.lock.json
 .DS_Store
 *.pyc
 nupkg/
@@ -241,7 +240,7 @@ Thumbs.db
 /e2e/*.map
 
 # Package managers
-package-lock.json
+
 yarn.lock
 pnpm-lock.yaml
 

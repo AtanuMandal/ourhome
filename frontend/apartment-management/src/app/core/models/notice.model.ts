@@ -14,6 +14,7 @@ export interface Notice {
   expiresAt?: string;
   targetApartmentIds: string[];
   createdAt: string;
+  isReadByCurrentUser: boolean;
 }
 
 export interface PostNoticeDto {

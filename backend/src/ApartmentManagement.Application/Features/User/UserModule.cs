@@ -36,7 +36,7 @@ public sealed class CreateUserCommandHandler(
             if (actor is not null)
             {
                 var canCreate = actor.Role == UserRole.SUAdmin
-                    ? request.ResidentType == ResidentType.Owner
+                    ? request.ResidentType == ResidentType.Owner || request.Role == UserRole.SUSecurity
                     : actor.ResidentType switch
                     {
                         ResidentType.Owner => request.ResidentType is ResidentType.Tenant or ResidentType.FamilyMember,
@@ -330,6 +330,75 @@ public sealed class DeactivateUserCommandHandler(
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to deactivate user {UserId}", request.UserId);
+            return Result<bool>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
+// ─── Activate User ─────────────────────────────────────────────────────────────
+
+public record ActivateUserCommand(string SocietyId, string UserId) : IRequest<Result<bool>>;
+
+public sealed class ActivateUserCommandHandler(
+    IUserRepository userRepository,
+    ILogger<ActivateUserCommandHandler> logger)
+    : IRequestHandler<ActivateUserCommand, Result<bool>>
+{
+    public async Task<Result<bool>> Handle(ActivateUserCommand request, CancellationToken ct)
+    {
+        try
+        {
+            var user = await userRepository.GetByIdAsync(request.UserId, request.SocietyId, ct)
+                ?? throw new NotFoundException("User", request.UserId);
+
+            user.Activate();
+            await userRepository.UpdateAsync(user, ct);
+            return Result<bool>.Success(true);
+        }
+        catch (NotFoundException ex)
+        {
+            return Result<bool>.Failure(ErrorCodes.UserNotFound, ex.Message);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to activate user {UserId}", request.UserId);
+            return Result<bool>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
+// ─── Change Password (self-service) ────────────────────────────────────────────
+
+public record ChangePasswordCommand(string SocietyId, string UserId, string CurrentPassword, string NewPassword)
+    : IRequest<Result<bool>>;
+
+public sealed class ChangePasswordCommandHandler(
+    IUserRepository userRepository,
+    IAuthService authService,
+    ILogger<ChangePasswordCommandHandler> logger)
+    : IRequestHandler<ChangePasswordCommand, Result<bool>>
+{
+    public async Task<Result<bool>> Handle(ChangePasswordCommand request, CancellationToken ct)
+    {
+        try
+        {
+            var user = await userRepository.GetByIdAsync(request.UserId, request.SocietyId, ct)
+                ?? throw new NotFoundException("User", request.UserId);
+
+            if (!user.HasPassword || !authService.VerifyPassword(request.CurrentPassword, user.PasswordHash!))
+                return Result<bool>.Failure(ErrorCodes.InvalidCredentials, "Current password is incorrect.");
+
+            user.SetPasswordHash(authService.HashPassword(request.NewPassword));
+            await userRepository.UpdateAsync(user, ct);
+            return Result<bool>.Success(true);
+        }
+        catch (NotFoundException ex)
+        {
+            return Result<bool>.Failure(ErrorCodes.UserNotFound, ex.Message);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to change password for user {UserId}", request.UserId);
             return Result<bool>.Failure(ErrorCodes.InternalError, ex.Message);
         }
     }

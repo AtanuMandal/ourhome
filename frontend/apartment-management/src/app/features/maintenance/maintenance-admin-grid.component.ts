@@ -4,6 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { RouterLink } from '@angular/router';
 import { Observable } from 'rxjs';
@@ -26,6 +27,7 @@ import { CHARGE_STATUS_OPTIONS, MAINTENANCE_PAGE_STYLES, MONTH_OPTIONS } from '.
     MatButtonModule,
     MatFormFieldModule,
     MatInputModule,
+    MatSelectModule,
     RouterLink,
     PageHeaderComponent,
     LoadingSpinnerComponent,
@@ -87,12 +89,15 @@ import { CHARGE_STATUS_OPTIONS, MAINTENANCE_PAGE_STYLES, MONTH_OPTIONS } from '.
           <div class="two-col">
             <mat-form-field appearance="fill">
               <mat-label>Apartment</mat-label>
-              <select matNativeControl formControlName="apartmentId">
-                <option [ngValue]="''">Select apartment</option>
-                @for (apartment of apartmentOptions(); track apartment.id) {
-                  <option [ngValue]="apartment.id">{{ apartment.label }}</option>
+              <mat-select formControlName="apartmentId">
+                @if (apartmentOptions().length === 0) {
+                  <mat-option disabled value="">No apartments found</mat-option>
+                } @else {
+                  @for (apartment of apartmentOptions(); track apartment.id) {
+                    <mat-option [value]="apartment.id">{{ apartment.label }}</mat-option>
+                  }
                 }
-              </select>
+              </mat-select>
             </mat-form-field>
 
             <mat-form-field appearance="fill">
@@ -134,60 +139,60 @@ import { CHARGE_STATUS_OPTIONS, MAINTENANCE_PAGE_STYLES, MONTH_OPTIONS } from '.
         <form [formGroup]="filterForm" class="filters">
           <mat-form-field appearance="fill">
             <mat-label>Financial year</mat-label>
-            <select matNativeControl formControlName="financialYearStart" (change)="loadGrid()">
+            <mat-select formControlName="financialYearStart" (selectionChange)="loadGrid()">
               @for (year of financialYearOptions(); track year) {
-                <option [ngValue]="year">{{ financialYearLabel(year) }}</option>
+                <mat-option [value]="year">{{ financialYearLabel(year) }}</mat-option>
               }
-            </select>
+            </mat-select>
           </mat-form-field>
 
           <mat-form-field appearance="fill">
             <mat-label>View</mat-label>
-            <select matNativeControl formControlName="periodView">
+            <mat-select formControlName="periodView">
               @for (view of periodViewOptions; track view.value) {
-                <option [ngValue]="view.value">{{ view.label }}</option>
+                <mat-option [value]="view.value">{{ view.label }}</mat-option>
               }
-            </select>
+            </mat-select>
           </mat-form-field>
 
           <mat-form-field appearance="fill">
             <mat-label>Status</mat-label>
-            <select matNativeControl formControlName="status" (change)="loadGrid()">
-              <option [ngValue]="null">All statuses</option>
+            <mat-select formControlName="status" (selectionChange)="loadGrid()">
+              <mat-option [value]="null">All statuses</mat-option>
               @for (status of chargeStatusOptions; track status) {
-                <option [ngValue]="status">{{ status }}</option>
+                <mat-option [value]="status">{{ status }}</mat-option>
               }
-            </select>
+            </mat-select>
           </mat-form-field>
 
           <mat-form-field appearance="fill">
             <mat-label>Apartment</mat-label>
-            <select matNativeControl formControlName="apartmentId" (change)="loadGrid()">
-              <option [ngValue]="null">All apartments</option>
+            <mat-select formControlName="apartmentId" (selectionChange)="loadGrid()">
+              <mat-option [value]="null">All apartments</mat-option>
               @for (apartment of apartmentOptions(); track apartment.id) {
-                <option [ngValue]="apartment.id">{{ apartment.label }}</option>
+                <mat-option [value]="apartment.id">{{ apartment.label }}</mat-option>
               }
-            </select>
+            </mat-select>
           </mat-form-field>
 
           <mat-form-field appearance="fill">
             <mat-label>Block</mat-label>
-            <select matNativeControl formControlName="block" (change)="loadGrid()">
-              <option [ngValue]="null">All blocks</option>
+            <mat-select formControlName="block" (selectionChange)="loadGrid()">
+              <mat-option [value]="null">All blocks</mat-option>
               @for (block of blockOptions(); track block) {
-                <option [ngValue]="block">{{ block }}</option>
+                <mat-option [value]="block">{{ block }}</mat-option>
               }
-            </select>
+            </mat-select>
           </mat-form-field>
 
           <mat-form-field appearance="fill">
             <mat-label>Floor</mat-label>
-            <select matNativeControl formControlName="floor" (change)="loadGrid()">
-              <option [ngValue]="null">All floors</option>
+            <mat-select formControlName="floor" (selectionChange)="loadGrid()">
+              <mat-option [value]="null">All floors</mat-option>
               @for (floor of floorOptions(); track floor) {
-                <option [ngValue]="floor">{{ floor }}</option>
+                <mat-option [value]="floor">{{ floor }}</mat-option>
               }
-            </select>
+            </mat-select>
           </mat-form-field>
 
           <mat-form-field appearance="fill">

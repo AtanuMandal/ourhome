@@ -1,27 +1,38 @@
+using System.Text;
 using ApartmentManagement.Application.DTOs;
 using ApartmentManagement.Application.Interfaces;
 using ApartmentManagement.Application.Mappings;
 using ApartmentManagement.Domain.Entities;
+using ApartmentManagement.Domain.Enums;
 using ApartmentManagement.Domain.Repositories;
 using ApartmentManagement.Shared.Constants;
 using ApartmentManagement.Shared.Exceptions;
 using ApartmentManagement.Shared.Models;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using IO = System.IO;
 
 namespace ApartmentManagement.Application.Commands.Visitor
 {
 
-// ─── Register Visitor ─────────────────────────────────────────────────────────
-
 public record RegisterVisitorCommand(
-    string SocietyId, string VisitorName, string Phone, string? Email,
-    string Purpose, string HostApartmentId, string HostUserId, string? VehicleNumber)
-    : IRequest<Result<VisitorResponse>>;
+    string SocietyId,
+    string VisitorName,
+    string Phone,
+    string? Email,
+    string Purpose,
+    string ApartmentId,
+    string? CompanyName,
+    string? VehicleNumber,
+    bool IsPreApproved,
+    int? ValidityHours = null,
+    string? VisitorImageUrl = null) : IRequest<Result<VisitorResponse>>;
 
 public sealed class RegisterVisitorCommandHandler(
     IVisitorLogRepository visitorRepository,
+    IApartmentRepository apartmentRepository,
     INotificationService notificationService,
+    ICurrentUserService currentUser,
     IQrCodeService qrCodeService,
     IEventPublisher eventPublisher,
     ILogger<RegisterVisitorCommandHandler> logger)
@@ -31,9 +42,41 @@ public sealed class RegisterVisitorCommandHandler(
     {
         try
         {
+            var apartment = await apartmentRepository.GetByIdAsync(request.ApartmentId, request.SocietyId, ct);
+            if (apartment is null)
+                return Result<VisitorResponse>.Failure(ErrorCodes.ApartmentNotFound, "Apartment not found.");
+
+            var residents = apartment.GetResidentsForRead();
+            if (residents.Count == 0)
+                return Result<VisitorResponse>.Failure(ErrorCodes.ValidationFailed, "The selected apartment has no resident assigned.");
+
+            var isResidentHost = residents.Any(resident =>
+                string.Equals(resident.UserId, currentUser.UserId, StringComparison.OrdinalIgnoreCase));
+            if (request.IsPreApproved && !isResidentHost)
+                return Result<VisitorResponse>.Failure(ErrorCodes.Forbidden, "Only a resident of the apartment can pre-approve a visitor.");
+
+            var hostResident = ResolveHostResident(residents, isResidentHost ? currentUser.UserId : null);
+            DateTime? validUntil = (request.IsPreApproved && request.ValidityHours.HasValue && request.ValidityHours.Value > 0)
+                ? DateTime.UtcNow.AddHours(request.ValidityHours.Value)
+                : null;
+
             var log = VisitorLog.Create(
-                request.SocietyId, request.VisitorName, request.Phone, request.Email,
-                request.Purpose, request.HostApartmentId, request.HostUserId, request.VehicleNumber);
+                request.SocietyId,
+                request.VisitorName,
+                request.Phone,
+                request.Email,
+                request.CompanyName,
+                request.Purpose,
+                apartment.Id,
+                hostResident.UserId,
+                hostResident.UserName,
+                apartment.BlockName,
+                apartment.FloorNumber,
+                apartment.ApartmentNumber,
+                request.IsPreApproved,
+                request.VehicleNumber,
+                validUntil,
+                request.VisitorImageUrl);
 
             var qrData = await qrCodeService.GenerateQrCodeBase64Async(log.PassCode, ct);
             log.UpdateQrCode(qrData);
@@ -44,9 +87,33 @@ public sealed class RegisterVisitorCommandHandler(
                 await eventPublisher.PublishAsync(evt, ct);
             created.ClearDomainEvents();
 
-            await notificationService.SendPushNotificationAsync(request.HostUserId,
-                "Visitor Request",
-                $"{request.VisitorName} is requesting entry. Pass code: {created.PassCode}", ct);
+            if (!request.IsPreApproved)
+            {
+                var notificationBody = string.IsNullOrWhiteSpace(request.Phone)
+                    ? $"{request.VisitorName} is at flat {apartment.BlockName} {apartment.ApartmentNumber} and awaiting your approval."
+                    : $"{request.VisitorName} ({request.Phone}) is at flat {apartment.BlockName} {apartment.ApartmentNumber} and awaiting your approval.";
+
+                var notificationData = new Dictionary<string, string>
+                {
+                    ["societyId"]      = request.SocietyId,
+                    ["visitorId"]      = created.Id,
+                    ["action"]         = "visitor-approval",
+                    ["approveUrl"]     = $"/visitors?action=approve&id={created.Id}",
+                    ["denyUrl"]        = $"/visitors?action=deny&id={created.Id}",
+                    ["visitorPhone"]   = request.Phone ?? string.Empty,
+                    ["visitorImageUrl"]= request.VisitorImageUrl ?? string.Empty
+                };
+
+                foreach (var resident in residents)
+                {
+                    await notificationService.SendPushNotificationAsync(
+                        resident.UserId,
+                        "Visitor Request",
+                        notificationBody,
+                        ct,
+                        notificationData);
+                }
+            }
 
             return Result<VisitorResponse>.Success(created.ToResponse());
         }
@@ -56,9 +123,24 @@ public sealed class RegisterVisitorCommandHandler(
             return Result<VisitorResponse>.Failure(ErrorCodes.InternalError, ex.Message);
         }
     }
-}
 
-// ─── Approve Visitor ──────────────────────────────────────────────────────────
+    private static global::ApartmentManagement.Domain.Entities.Apartment.ResidentSummary ResolveHostResident(
+        IReadOnlyList<global::ApartmentManagement.Domain.Entities.Apartment.ResidentSummary> residents,
+        string? preferredUserId)
+    {
+        if (!string.IsNullOrWhiteSpace(preferredUserId))
+        {
+            var exactResident = residents.FirstOrDefault(resident =>
+                string.Equals(resident.UserId, preferredUserId, StringComparison.OrdinalIgnoreCase));
+            if (exactResident is not null)
+                return exactResident;
+        }
+
+        return residents.FirstOrDefault(resident => resident.ResidentType == ResidentType.Owner)
+            ?? residents.FirstOrDefault(resident => resident.ResidentType == ResidentType.Tenant)
+            ?? residents[0];
+    }
+}
 
 public record ApproveVisitorCommand(string SocietyId, string VisitorLogId, string UserId) : IRequest<Result<bool>>;
 
@@ -76,7 +158,7 @@ public sealed class ApproveVisitorCommandHandler(
                 ?? throw new NotFoundException("VisitorLog", request.VisitorLogId);
 
             bool isHost = log.HostUserId == request.UserId;
-            bool isAdmin = currentUser.IsInRoles("SUAdmin", "HQAdmin");
+            bool isAdmin = currentUser.IsInRoles("SUAdmin", "HQAdmin", "SUSecurity");
             if (!isHost && !isAdmin)
                 throw new ForbiddenException("Only the host or an admin can approve a visitor.");
 
@@ -100,8 +182,6 @@ public sealed class ApproveVisitorCommandHandler(
     }
 }
 
-// ─── Deny Visitor ─────────────────────────────────────────────────────────────
-
 public record DenyVisitorCommand(string SocietyId, string VisitorLogId, string UserId) : IRequest<Result<bool>>;
 
 public sealed class DenyVisitorCommandHandler(
@@ -118,7 +198,7 @@ public sealed class DenyVisitorCommandHandler(
                 ?? throw new NotFoundException("VisitorLog", request.VisitorLogId);
 
             bool isHost = log.HostUserId == request.UserId;
-            bool isAdmin = currentUser.IsInRoles("SUAdmin", "HQAdmin");
+            bool isAdmin = currentUser.IsInRoles("SUAdmin", "HQAdmin", "SUSecurity");
             if (!isHost && !isAdmin)
                 throw new ForbiddenException("Only the host or an admin can deny a visitor.");
 
@@ -142,47 +222,44 @@ public sealed class DenyVisitorCommandHandler(
     }
 }
 
-// ─── Check In Visitor ─────────────────────────────────────────────────────────
-
-public record CheckInVisitorCommand(string SocietyId, string VisitorLogId, string PassCode) : IRequest<Result<bool>>;
+public record CheckInVisitorCommand(string SocietyId, string PassCode) : IRequest<Result<VisitorResponse>>;
 
 public sealed class CheckInVisitorCommandHandler(
     IVisitorLogRepository visitorRepository,
     ILogger<CheckInVisitorCommandHandler> logger)
-    : IRequestHandler<CheckInVisitorCommand, Result<bool>>
+    : IRequestHandler<CheckInVisitorCommand, Result<VisitorResponse>>
 {
-    public async Task<Result<bool>> Handle(CheckInVisitorCommand request, CancellationToken ct)
+    public async Task<Result<VisitorResponse>> Handle(CheckInVisitorCommand request, CancellationToken ct)
     {
         try
         {
-            var log = await visitorRepository.GetByIdAsync(request.VisitorLogId, request.SocietyId, ct)
-                ?? throw new NotFoundException("VisitorLog", request.VisitorLogId);
+            var normalizedPassCode = request.PassCode.Trim();
+            var log = await visitorRepository.GetByPassCodeAsync(normalizedPassCode, ct);
+            if (log is null || !string.Equals(log.SocietyId, request.SocietyId, StringComparison.OrdinalIgnoreCase))
+                return Result<VisitorResponse>.Failure(ErrorCodes.InvalidPassCode, "Invalid pass code.");
 
-            if (log.PassCode != request.PassCode)
-                return Result<bool>.Failure(ErrorCodes.InvalidPassCode, "Invalid pass code.");
-
-            if (log.Status != Domain.Enums.VisitorStatus.Approved)
-                return Result<bool>.Failure(ErrorCodes.VisitorNotApproved, "Visitor must be approved before check-in.");
+            if (log.Status != VisitorStatus.Approved)
+                return Result<VisitorResponse>.Failure(ErrorCodes.VisitorNotApproved, "Visitor must be approved before check-in.");
 
             log.CheckIn();
             await visitorRepository.UpdateAsync(log, ct);
-            return Result<bool>.Success(true);
-        }
-        catch (NotFoundException ex)
-        {
-            return Result<bool>.Failure(ErrorCodes.VisitorNotFound, ex.Message);
+            return Result<VisitorResponse>.Success(log.ToResponse());
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to check in visitor {VisitorLogId}", request.VisitorLogId);
-            return Result<bool>.Failure(ErrorCodes.InternalError, ex.Message);
+            logger.LogError(ex, "Failed to check in visitor using pass code.");
+            return Result<VisitorResponse>.Failure(ErrorCodes.InternalError, ex.Message);
         }
     }
 }
 
-// ─── Check Out Visitor ────────────────────────────────────────────────────────
-
 public record CheckOutVisitorCommand(string SocietyId, string VisitorLogId) : IRequest<Result<bool>>;
+
+public record UploadVisitorImageCommand(
+    string SocietyId,
+    string FileName,
+    string ContentType,
+    byte[] Content) : IRequest<Result<VisitorImageUploadResponse>>;
 
 public sealed class CheckOutVisitorCommandHandler(
     IVisitorLogRepository visitorRepository,
@@ -212,7 +289,32 @@ public sealed class CheckOutVisitorCommandHandler(
     }
 }
 
-// ─── Queries ──────────────────────────────────────────────────────────────────
+public sealed class UploadVisitorImageCommandHandler(
+    IFileStorageService fileStorageService,
+    ILogger<UploadVisitorImageCommandHandler> logger)
+    : IRequestHandler<UploadVisitorImageCommand, Result<VisitorImageUploadResponse>>
+{
+    private const string ContainerName = "visitor-images";
+
+    public async Task<Result<VisitorImageUploadResponse>> Handle(UploadVisitorImageCommand request, CancellationToken ct)
+    {
+        try
+        {
+            var extension = IO.Path.GetExtension(request.FileName);
+            var blobName = $"{request.SocietyId}/{Guid.NewGuid():N}{extension}";
+
+            await using var stream = new IO.MemoryStream(request.Content, writable: false);
+            var fileUrl = await fileStorageService.UploadAsync(stream, blobName, request.ContentType, ContainerName, ct);
+
+            return Result<VisitorImageUploadResponse>.Success(new VisitorImageUploadResponse(request.FileName, fileUrl));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to upload visitor image {FileName}", request.FileName);
+            return Result<VisitorImageUploadResponse>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
 
 }
 
@@ -243,7 +345,37 @@ public sealed class GetVisitorLogQueryHandler(IVisitorLogRepository visitorRepos
     }
 }
 
-public record GetVisitorsBySocietyQuery(string SocietyId, DateOnly? Date, PaginationParams Pagination)
+public record GetVisitorByPassCodeQuery(string SocietyId, string PassCode) : IRequest<Result<VisitorResponse>>;
+
+public sealed class GetVisitorByPassCodeQueryHandler(IVisitorLogRepository visitorRepository)
+    : IRequestHandler<GetVisitorByPassCodeQuery, Result<VisitorResponse>>
+{
+    public async Task<Result<VisitorResponse>> Handle(GetVisitorByPassCodeQuery request, CancellationToken ct)
+    {
+        try
+        {
+            var log = await visitorRepository.GetByPassCodeAsync(request.PassCode.Trim(), ct);
+            if (log is null || !string.Equals(log.SocietyId, request.SocietyId, StringComparison.OrdinalIgnoreCase))
+                return Result<VisitorResponse>.Failure(ErrorCodes.InvalidPassCode, "Invalid pass code.");
+
+            return Result<VisitorResponse>.Success(log.ToResponse());
+        }
+        catch (Exception ex)
+        {
+            return Result<VisitorResponse>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
+public record GetVisitorsBySocietyQuery(
+    string SocietyId,
+    string? ApartmentId,
+    string? Search,
+    string? ResidentName,
+    string? Status,
+    DateOnly? FromDate,
+    DateOnly? ToDate,
+    PaginationParams Pagination)
     : IRequest<Result<PagedResult<VisitorResponse>>>;
 
 public sealed class GetVisitorsBySocietyQueryHandler(IVisitorLogRepository visitorRepository)
@@ -253,13 +385,20 @@ public sealed class GetVisitorsBySocietyQueryHandler(IVisitorLogRepository visit
     {
         try
         {
-            var all = await visitorRepository.GetAllAsync(request.SocietyId, ct);
-            var filtered = request.Date.HasValue
-                ? all.Where(v => DateOnly.FromDateTime(v.CreatedAt) == request.Date.Value).ToList()
-                : all.ToList();
-            var items = filtered.Select(v => v.ToResponse()).ToList();
+            var filtered = VisitorQueryFiltering.FilterVisitors(await visitorRepository.GetAllAsync(request.SocietyId, ct), request)
+                .OrderByDescending(visitor => visitor.CreatedAt)
+                .ToList();
+
+            var page = request.Pagination.Page < 1 ? 1 : request.Pagination.Page;
+            var pageSize = request.Pagination.PageSize < 1 ? 20 : request.Pagination.PageSize;
+            var pagedItems = filtered
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(visitor => visitor.ToResponse())
+                .ToList();
+
             return Result<PagedResult<VisitorResponse>>.Success(
-                new PagedResult<VisitorResponse>(items, items.Count, request.Pagination.Page, request.Pagination.PageSize));
+                new PagedResult<VisitorResponse>(pagedItems, filtered.Count, page, pageSize));
         }
         catch (Exception ex)
         {
@@ -268,7 +407,15 @@ public sealed class GetVisitorsBySocietyQueryHandler(IVisitorLogRepository visit
     }
 }
 
-public record GetVisitorsByApartmentQuery(string SocietyId, string ApartmentId, PaginationParams Pagination)
+public record GetVisitorsByApartmentQuery(
+    string SocietyId,
+    string ApartmentId,
+    string? Search,
+    string? ResidentName,
+    string? Status,
+    DateOnly? FromDate,
+    DateOnly? ToDate,
+    PaginationParams Pagination)
     : IRequest<Result<PagedResult<VisitorResponse>>>;
 
 public sealed class GetVisitorsByApartmentQueryHandler(IVisitorLogRepository visitorRepository)
@@ -276,19 +423,17 @@ public sealed class GetVisitorsByApartmentQueryHandler(IVisitorLogRepository vis
 {
     public async Task<Result<PagedResult<VisitorResponse>>> Handle(GetVisitorsByApartmentQuery request, CancellationToken ct)
     {
-        try
-        {
-            var logs = await visitorRepository.GetByApartmentAsync(
-                request.SocietyId, request.ApartmentId,
-                request.Pagination.Page, request.Pagination.PageSize, ct);
-            var items = logs.Select(v => v.ToResponse()).ToList();
-            return Result<PagedResult<VisitorResponse>>.Success(
-                new PagedResult<VisitorResponse>(items, items.Count, request.Pagination.Page, request.Pagination.PageSize));
-        }
-        catch (Exception ex)
-        {
-            return Result<PagedResult<VisitorResponse>>.Failure(ErrorCodes.InternalError, ex.Message);
-        }
+        return await new GetVisitorsBySocietyQueryHandler(visitorRepository).Handle(
+            new GetVisitorsBySocietyQuery(
+                request.SocietyId,
+                request.ApartmentId,
+                request.Search,
+                request.ResidentName,
+                request.Status,
+                request.FromDate,
+                request.ToDate,
+                request.Pagination),
+            ct);
     }
 }
 
@@ -302,7 +447,10 @@ public sealed class GetActiveVisitorsQueryHandler(IVisitorLogRepository visitorR
         try
         {
             var active = await visitorRepository.GetActiveVisitorsAsync(request.SocietyId, ct);
-            var items = active.Select(v => v.ToResponse()).ToList();
+            var items = active
+                .OrderByDescending(visitor => visitor.CheckInTime ?? visitor.CreatedAt)
+                .Select(visitor => visitor.ToResponse())
+                .ToList();
             return Result<IReadOnlyList<VisitorResponse>>.Success(items);
         }
         catch (Exception ex)
@@ -311,4 +459,134 @@ public sealed class GetActiveVisitorsQueryHandler(IVisitorLogRepository visitorR
         }
     }
 }
+
+public record ExportVisitorsQuery(
+    string SocietyId,
+    string? ApartmentId,
+    string? Search,
+    string? ResidentName,
+    string? Status,
+    DateOnly? FromDate,
+    DateOnly? ToDate) : IRequest<Result<VisitorExportResponse>>;
+
+public sealed class ExportVisitorsQueryHandler(IVisitorLogRepository visitorRepository)
+    : IRequestHandler<ExportVisitorsQuery, Result<VisitorExportResponse>>
+{
+    public async Task<Result<VisitorExportResponse>> Handle(ExportVisitorsQuery request, CancellationToken ct)
+    {
+        try
+        {
+            var rows = VisitorQueryFiltering.FilterVisitors(
+                    await visitorRepository.GetAllAsync(request.SocietyId, ct),
+                    new GetVisitorsBySocietyQuery(
+                        request.SocietyId,
+                        request.ApartmentId,
+                        request.Search,
+                        request.ResidentName,
+                        request.Status,
+                        request.FromDate,
+                        request.ToDate,
+                        new PaginationParams { Page = 1, PageSize = int.MaxValue }))
+                .OrderByDescending(visitor => visitor.CreatedAt)
+                .ToList();
+
+            var csv = new StringBuilder();
+            csv.AppendLine("VisitorName,Phone,Email,CompanyName,Purpose,ResidentName,Block,Floor,Flat,PreApproved,Status,VehicleNumber,PassCode,CreatedAt,ApprovedAt,CheckInTime,CheckOutTime");
+            foreach (var visitor in rows)
+            {
+                csv.AppendLine(string.Join(",",
+                    EscapeCsv(visitor.VisitorName),
+                    EscapeCsv(visitor.VisitorPhone),
+                    EscapeCsv(visitor.VisitorEmail),
+                    EscapeCsv(visitor.CompanyName),
+                    EscapeCsv(visitor.Purpose),
+                    EscapeCsv(visitor.HostResidentName),
+                    EscapeCsv(visitor.HostBlockName),
+                    visitor.HostFloorNumber.ToString(),
+                    EscapeCsv(visitor.HostFlatNumber),
+                    visitor.IsPreApproved ? "Yes" : "No",
+                    visitor.Status.ToString(),
+                    EscapeCsv(visitor.VehicleNumber),
+                    EscapeCsv(visitor.PassCode),
+                    visitor.CreatedAt.ToString("O"),
+                    visitor.ApprovedAt?.ToString("O") ?? string.Empty,
+                    visitor.CheckInTime?.ToString("O") ?? string.Empty,
+                    visitor.CheckOutTime?.ToString("O") ?? string.Empty));
+            }
+
+            var fileName = $"visitor-log-{request.SocietyId}-{DateTime.UtcNow:yyyyMMddHHmmss}.csv";
+            return Result<VisitorExportResponse>.Success(
+                new VisitorExportResponse(fileName, "text/csv", Encoding.UTF8.GetBytes(csv.ToString())));
+        }
+        catch (Exception ex)
+        {
+            return Result<VisitorExportResponse>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+
+    private static string EscapeCsv(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return string.Empty;
+
+        var escaped = value.Replace("\"", "\"\"");
+        return $"\"{escaped}\"";
+    }
+}
+
+internal static class VisitorQueryFiltering
+{
+    public static IEnumerable<VisitorLog> FilterVisitors(
+        IReadOnlyList<VisitorLog> visitors,
+        GetVisitorsBySocietyQuery query)
+    {
+        IEnumerable<VisitorLog> filtered = visitors;
+
+        if (!string.IsNullOrWhiteSpace(query.ApartmentId))
+        {
+            filtered = filtered.Where(visitor =>
+                string.Equals(visitor.HostApartmentId, query.ApartmentId, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.Status) &&
+            Enum.TryParse<VisitorStatus>(query.Status, true, out var visitorStatus))
+        {
+            filtered = filtered.Where(visitor => visitor.Status == visitorStatus);
+        }
+
+        if (query.FromDate.HasValue)
+        {
+            var fromUtc = query.FromDate.Value.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+            filtered = filtered.Where(visitor => visitor.CreatedAt >= fromUtc);
+        }
+
+        if (query.ToDate.HasValue)
+        {
+            var toUtc = query.ToDate.Value.ToDateTime(TimeOnly.MaxValue, DateTimeKind.Utc);
+            filtered = filtered.Where(visitor => visitor.CreatedAt <= toUtc);
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.ResidentName))
+        {
+            filtered = filtered.Where(visitor =>
+                visitor.HostResidentName.Contains(query.ResidentName.Trim(), StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            var search = query.Search.Trim();
+            filtered = filtered.Where(visitor =>
+                visitor.VisitorName.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                visitor.VisitorPhone.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                (!string.IsNullOrWhiteSpace(visitor.CompanyName) && visitor.CompanyName.Contains(search, StringComparison.OrdinalIgnoreCase)) ||
+                visitor.Purpose.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                visitor.HostResidentName.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                visitor.HostFlatNumber.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                (!string.IsNullOrWhiteSpace(visitor.VehicleNumber) && visitor.VehicleNumber.Contains(search, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        return filtered;
+    }
+}
+
 }

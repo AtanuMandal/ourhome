@@ -11,6 +11,7 @@ using ApartmentManagement.Application.Commands.ServiceProvider;
 using ApartmentManagement.Domain.Enums;
 using FluentValidation;
 
+
 namespace ApartmentManagement.Application.Validators;
 
 internal static class ValidationPatterns
@@ -155,6 +156,12 @@ public sealed class CreateUserCommandValidator : AbstractValidator<CreateUserCom
                 .NotEmpty()
                 .When(x => x.ResidentType is ResidentType.Owner or ResidentType.Tenant or ResidentType.FamilyMember or ResidentType.CoOccupant);
         });
+        When(x => x.Role == UserRole.SUSecurity, () =>
+        {
+            RuleFor(x => x.ApartmentId).Empty().WithMessage("Security personnel are not linked to an apartment.");
+            RuleFor(x => x.ResidentType).Equal(ResidentType.SocietyAdmin)
+                .WithMessage("Security personnel must have ResidentType = SocietyAdmin.");
+        });
     }
 }
 
@@ -259,7 +266,16 @@ public sealed class CreateNoticeCommandValidator : AbstractValidator<CreateNotic
             .WithMessage("Publish date cannot be in the past.");
         RuleFor(x => x.SocietyId).NotEmpty();
     }
-    //{CreateNoticeCommand { SocietyId = , UserId = 577df16c-19ca-4a30-b3ae-f439c9495bce, Title = ssgsgg, Content = sgsgsg, Category = General, PublishAt = 08-04-2026 11:53:00, ExpiresAt = , TargetApartmentIds =  }}
+}
+
+public sealed class MarkNoticeReadCommandValidator : AbstractValidator<MarkNoticeReadCommand>
+{
+    public MarkNoticeReadCommandValidator()
+    {
+        RuleFor(x => x.SocietyId).NotEmpty();
+        RuleFor(x => x.NoticeId).NotEmpty();
+        RuleFor(x => x.UserId).NotEmpty();
+    }
 }
 
 // ─── Visitor ──────────────────────────────────────────────────────────────────
@@ -268,11 +284,18 @@ public sealed class RegisterVisitorCommandValidator : AbstractValidator<Register
 {
     public RegisterVisitorCommandValidator()
     {
-        RuleFor(x => x.VisitorName).NotEmpty();
-        RuleFor(x => x.Phone).NotEmpty();
-        RuleFor(x => x.Purpose).NotEmpty();
-        //RuleFor(x => x.HostApartmentId).NotEmpty(); -> TBD
+        RuleFor(x => x.VisitorName).NotEmpty().MaximumLength(150);
+        RuleFor(x => x.Phone).NotEmpty().MaximumLength(30);
+        RuleFor(x => x.Purpose).NotEmpty().MaximumLength(150);
+        RuleFor(x => x.ApartmentId).NotEmpty();
         RuleFor(x => x.SocietyId).NotEmpty();
+        RuleFor(x => x.Email).EmailAddress().When(x => !string.IsNullOrWhiteSpace(x.Email));
+        RuleFor(x => x.CompanyName).MaximumLength(150);
+        RuleFor(x => x.VehicleNumber).MaximumLength(50);
+        RuleFor(x => x.ValidityHours)
+            .InclusiveBetween(1, 168)
+            .When(x => x.ValidityHours.HasValue)
+            .WithMessage("Validity hours must be between 1 and 168 (1 week).");
     }
 }
 

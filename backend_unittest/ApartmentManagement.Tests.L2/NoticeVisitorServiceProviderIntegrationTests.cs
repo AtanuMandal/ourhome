@@ -4,6 +4,7 @@ using ApartmentManagement.Application.Commands.Visitor;
 using ApartmentManagement.Application.Queries.Notice;
 using ApartmentManagement.Application.Queries.ServiceProvider;
 using ApartmentManagement.Application.Queries.Visitor;
+using ApartmentManagement.Domain.Entities;
 using ApartmentManagement.Domain.Enums;
 using ApartmentManagement.Shared.Constants;
 using ApartmentManagement.Shared.Models;
@@ -107,26 +108,30 @@ public class NoticeVisitorServiceProviderIntegrationTests : IntegrationTestBase
     [Fact]
     public async Task VisitorLifecycle_RegisterApproveCheckInCheckOut_UpdatesStatusAndQueries()
     {
+        var (apartmentId, residentUserId, residentName) = await SeedVisitorContextAsync();
+
         var register = await Mediator.Send(new RegisterVisitorCommand(
             SocietyId,
             "Alex Visitor",
             "+91-9900011111",
             "alex@test.com",
             "Delivery",
-            ApartmentId,
-            UserId,
-            "WB12AB1234"));
+            apartmentId,
+            "Amazon",
+            "WB12AB1234",
+            false));
 
         register.IsSuccess.Should().BeTrue();
         register.Value!.Status.Should().Be("Pending");
         register.Value.QrCode.Should().StartWith("fake-qr-");
-        NotificationService.SentPushNotifications.Should().Contain(n => n.UserId == UserId && n.Title == "Visitor Request");
+        register.Value.HostResidentName.Should().Be(residentName);
+        NotificationService.SentPushNotifications.Should().Contain(n => n.UserId == residentUserId && n.Title == "Visitor Request");
 
         var visitor = register.Value;
-        var approve = await Mediator.Send(new ApproveVisitorCommand(SocietyId, visitor.Id, UserId));
+        var approve = await Mediator.Send(new ApproveVisitorCommand(SocietyId, visitor.Id, residentUserId));
         approve.IsSuccess.Should().BeTrue();
 
-        var checkIn = await Mediator.Send(new CheckInVisitorCommand(SocietyId, visitor.Id, visitor.PassCode));
+        var checkIn = await Mediator.Send(new CheckInVisitorCommand(SocietyId, visitor.PassCode));
         checkIn.IsSuccess.Should().BeTrue();
 
         var active = await Mediator.Send(new GetActiveVisitorsQuery(SocietyId));
@@ -138,7 +143,12 @@ public class NoticeVisitorServiceProviderIntegrationTests : IntegrationTestBase
 
         var byApartment = await Mediator.Send(new GetVisitorsByApartmentQuery(
             SocietyId,
-            ApartmentId,
+            apartmentId,
+            null,
+            null,
+            null,
+            null,
+            null,
             new PaginationParams { Page = 1, PageSize = 20 }));
         byApartment.IsSuccess.Should().BeTrue();
         byApartment.Value!.Items.Should().ContainSingle(v => v.Id == visitor.Id && v.Status == "CheckedOut");
@@ -149,19 +159,22 @@ public class NoticeVisitorServiceProviderIntegrationTests : IntegrationTestBase
     [Fact]
     public async Task CheckInVisitor_WithInvalidPassCode_ReturnsFailure()
     {
+        var (apartmentId, residentUserId, _) = await SeedVisitorContextAsync();
+
         var visitor = (await Mediator.Send(new RegisterVisitorCommand(
             SocietyId,
             "Jordan Visitor",
             "+91-9900022222",
             null,
             "Guest",
-            ApartmentId,
-            UserId,
-            null))).Value!;
+            apartmentId,
+            null,
+            null,
+            false))).Value!;
 
-        await Mediator.Send(new ApproveVisitorCommand(SocietyId, visitor.Id, UserId));
+        await Mediator.Send(new ApproveVisitorCommand(SocietyId, visitor.Id, residentUserId));
 
-        var invalid = await Mediator.Send(new CheckInVisitorCommand(SocietyId, visitor.Id, "000000"));
+        var invalid = await Mediator.Send(new CheckInVisitorCommand(SocietyId, "000000"));
         invalid.IsFailure.Should().BeTrue();
         invalid.ErrorCode.Should().Be(ErrorCodes.InvalidPassCode);
     }
@@ -169,21 +182,146 @@ public class NoticeVisitorServiceProviderIntegrationTests : IntegrationTestBase
     [Fact]
     public async Task ApproveVisitor_WhenNotHostOrAdmin_ReturnsForbidden()
     {
+        var (apartmentId, _, _) = await SeedVisitorContextAsync();
+
         var visitor = (await Mediator.Send(new RegisterVisitorCommand(
             SocietyId,
             "Casey Visitor",
             "+91-9900033333",
             null,
             "Friend visit",
-            ApartmentId,
-            UserId,
-            null))).Value!;
+            apartmentId,
+            null,
+            null,
+            false))).Value!;
 
         CurrentUserService.Role = "SUUser";
         var forbidden = await Mediator.Send(new ApproveVisitorCommand(SocietyId, visitor.Id, "another-user"));
 
         forbidden.IsFailure.Should().BeTrue();
         forbidden.ErrorCode.Should().Be(ErrorCodes.Forbidden);
+    }
+
+    [Fact]
+    public async Task ApproveVisitor_BySUSecurity_Succeeds()
+    {
+        var (apartmentId, _, _) = await SeedVisitorContextAsync();
+
+        CurrentUserService.Role = "SUAdmin";
+        var visitor = (await Mediator.Send(new RegisterVisitorCommand(
+            SocietyId,
+            "Security Test Visitor",
+            "+91-9800011111",
+            null,
+            "Delivery",
+            apartmentId,
+            null,
+            null,
+            false))).Value!;
+
+        CurrentUserService.Role = "SUSecurity";
+        var approve = await Mediator.Send(new ApproveVisitorCommand(SocietyId, visitor.Id, "security-guard-001"));
+
+        approve.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task DenyVisitor_BySUSecurity_Succeeds()
+    {
+        var (apartmentId, _, _) = await SeedVisitorContextAsync();
+
+        CurrentUserService.Role = "SUAdmin";
+        var visitor = (await Mediator.Send(new RegisterVisitorCommand(
+            SocietyId,
+            "Security Deny Visitor",
+            "+91-9800022222",
+            null,
+            "Suspicious",
+            apartmentId,
+            null,
+            null,
+            false))).Value!;
+
+        CurrentUserService.Role = "SUSecurity";
+        var deny = await Mediator.Send(new DenyVisitorCommand(SocietyId, visitor.Id, "security-guard-001"));
+
+        deny.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task VisitorQueries_PreApprovedFilterVerifyAndExport_Work()
+    {
+        var (apartmentId, residentUserId, _) = await SeedVisitorContextAsync();
+        CurrentUserService.Role = "SUUser";
+        CurrentUserService.UserId = residentUserId;
+
+        var preApproved = await Mediator.Send(new RegisterVisitorCommand(
+            SocietyId,
+            "Sam Delivery",
+            "+91-9012345678",
+            null,
+            "Groceries",
+            apartmentId,
+            "Swiggy",
+            "WB11AA1111",
+            true));
+
+        preApproved.IsSuccess.Should().BeTrue();
+        preApproved.Value!.Status.Should().Be("Approved");
+        preApproved.Value.IsPreApproved.Should().BeTrue();
+
+        var verified = await Mediator.Send(new GetVisitorByPassCodeQuery(SocietyId, preApproved.Value.PassCode));
+        verified.IsSuccess.Should().BeTrue();
+        verified.Value!.VisitorName.Should().Be("Sam Delivery");
+
+        var filtered = await Mediator.Send(new GetVisitorsBySocietyQuery(
+            SocietyId,
+            apartmentId,
+            "Sam",
+            null,
+            "Approved",
+            null,
+            null,
+            new PaginationParams { Page = 1, PageSize = 20 }));
+
+        filtered.IsSuccess.Should().BeTrue();
+        filtered.Value!.Items.Should().ContainSingle(v => v.Id == preApproved.Value.Id);
+
+        var exported = await Mediator.Send(new ExportVisitorsQuery(
+            SocietyId,
+            apartmentId,
+            "Sam",
+            null,
+            null,
+            null,
+            null));
+
+        exported.IsSuccess.Should().BeTrue();
+        exported.Value!.ContentType.Should().Be("text/csv");
+        System.Text.Encoding.UTF8.GetString(exported.Value.Content).Should().Contain("Sam Delivery");
+    }
+
+    private async Task<(string ApartmentId, string ResidentUserId, string ResidentName)> SeedVisitorContextAsync()
+    {
+        var apartment = ApartmentRepo.Store.Values.FirstOrDefault(existing => existing.SocietyId == SocietyId)
+            ?? Apartment.Create(SocietyId, "A-101", "A", 1, 3, [], 500, 600, 700);
+
+        if (!ApartmentRepo.Store.ContainsKey(apartment.Id))
+            await ApartmentRepo.CreateAsync(apartment, CancellationToken.None);
+
+        var resident = UserRepo.Store.Values.FirstOrDefault(existing => existing.SocietyId == SocietyId && existing.ApartmentId == apartment.Id)
+            ?? User.Create(SocietyId, "Resident User", "resident@example.com", "+91-9999999999", UserRole.SUUser, ResidentType.Owner, apartment.Id);
+
+        if (!UserRepo.Store.ContainsKey(resident.Id))
+            await UserRepo.CreateAsync(resident, CancellationToken.None);
+
+        if (!apartment.GetResidentsForRead().Any(existing => existing.UserId == resident.Id))
+        {
+            apartment.AssignOwner(resident.Id, resident.FullName);
+            await ApartmentRepo.UpdateAsync(apartment, CancellationToken.None);
+        }
+
+        return (apartment.Id, resident.Id, resident.FullName);
     }
 
     [Fact]

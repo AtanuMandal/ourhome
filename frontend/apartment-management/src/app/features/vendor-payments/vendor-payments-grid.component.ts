@@ -4,6 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { RouterLink } from '@angular/router';
 import { Observable } from 'rxjs';
@@ -26,6 +27,7 @@ import { VENDOR_PAGE_STYLES, monthLabel } from './vendor-payments-shared';
     MatButtonModule,
     MatFormFieldModule,
     MatInputModule,
+    MatSelectModule,
     RouterLink,
     PageHeaderComponent,
     LoadingSpinnerComponent,
@@ -52,11 +54,11 @@ import { VENDOR_PAGE_STYLES, monthLabel } from './vendor-payments-shared';
         <form [formGroup]="filterForm" class="filters">
           <mat-form-field appearance="fill">
             <mat-label>Year</mat-label>
-            <select matNativeControl formControlName="year" (change)="loadGrid()">
+            <mat-select formControlName="year" (selectionChange)="loadGrid()">
               @for (year of yearOptions(); track year) {
-                <option [ngValue]="year">{{ year }}</option>
+                <mat-option [value]="year">{{ year }}</mat-option>
               }
-            </select>
+            </mat-select>
           </mat-form-field>
         </form>
       </section>

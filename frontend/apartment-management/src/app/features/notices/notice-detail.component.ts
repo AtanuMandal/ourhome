@@ -58,7 +58,13 @@ export class NoticeDetailComponent implements OnInit {
     const sid = this.auth.societyId()!;
     const id  = this.route.snapshot.paramMap.get('id')!;
     this.svc.get(sid, id).subscribe({
-      next: n => { this.item.set(n); this.loading.set(false); },
+      next: n => {
+        this.item.set(n);
+        this.loading.set(false);
+        if (!n.isReadByCurrentUser) {
+          this.svc.markRead(sid, id, true).subscribe();
+        }
+      },
       error: () => this.loading.set(false),
     });
   }

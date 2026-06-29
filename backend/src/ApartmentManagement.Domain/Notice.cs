@@ -16,6 +16,7 @@ public sealed class Notice : BaseEntity
     public DateTime PublishAt { get; private set; }
     public DateTime? ExpiresAt { get; private set; }
     public List<string> TargetApartmentIds { get; private set; } = [];
+    public List<string> ReadByUserIds { get; private set; } = [];
 
     /// <summary>True when the notice is published and not archived or expired.</summary>
     public bool IsActive =>
@@ -24,6 +25,26 @@ public sealed class Notice : BaseEntity
         (ExpiresAt is null || DateTime.UtcNow < ExpiresAt);
 
     private Notice() { }
+
+    public bool IsReadByUser(string userId) =>
+        ReadByUserIds.Contains(userId, StringComparer.OrdinalIgnoreCase);
+
+    public void MarkAsRead(string userId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(userId, nameof(userId));
+        if (!IsReadByUser(userId))
+        {
+            ReadByUserIds.Add(userId);
+            TouchUpdatedAt();
+        }
+    }
+
+    public void MarkAsUnread(string userId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(userId, nameof(userId));
+        if (ReadByUserIds.Remove(userId))
+            TouchUpdatedAt();
+    }
 
     public static Notice Create(string societyId, string postedByUserId, string title, string content,
         NoticeCategory category, DateTime publishAt, DateTime? expiresAt = null,

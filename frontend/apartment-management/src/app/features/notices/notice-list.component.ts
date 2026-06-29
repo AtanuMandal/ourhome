@@ -26,12 +26,26 @@ import { Notice } from '../../core/models/notice.model';
       } @else {
         <div class="notice-list">
           @for (n of items(); track n.id) {
-            <a [routerLink]="[n.id]" class="notice-card">
-              <div class="nc-category">{{ n.category }}</div>
-              <h3 class="nc-title">{{ n.title }}</h3>
-              <p class="nc-body">{{ n.content }}</p>
-              <span class="nc-date">{{ n.publishAt | date:'mediumDate' }}</span>
-            </a>
+            <div class="notice-card" [class.notice-card--unread]="!n.isReadByCurrentUser">
+              <a [routerLink]="[n.id]" class="notice-card__link">
+                <div class="nc-category">{{ n.category }}</div>
+                <h3 class="nc-title">
+                  @if (!n.isReadByCurrentUser) {
+                    <span class="nc-unread-dot" title="Unread"></span>
+                  }
+                  {{ n.title }}
+                </h3>
+                <p class="nc-body">{{ n.content }}</p>
+                <span class="nc-date">{{ n.publishAt | date:'mediumDate' }}</span>
+              </a>
+              <button
+                mat-icon-button
+                class="nc-read-toggle"
+                [title]="n.isReadByCurrentUser ? 'Mark as unread' : 'Mark as read'"
+                (click)="toggleRead(n, $event)">
+                <mat-icon>{{ n.isReadByCurrentUser ? 'mark_email_read' : 'mark_email_unread' }}</mat-icon>
+              </button>
+            </div>
           }
         </div>
       }
@@ -58,6 +72,22 @@ export class NoticeListComponent implements OnInit {
     this.svc.list(sid).subscribe({
       next: r => { this.items.set(r.items ?? []); this.loading.set(false); },
       error: () => this.loading.set(false),
+    });
+  }
+
+  toggleRead(notice: Notice, event: Event) {
+    event.preventDefault();
+    event.stopPropagation();
+    const sid = this.auth.societyId();
+    if (!sid) return;
+
+    const newState = !notice.isReadByCurrentUser;
+    this.svc.markRead(sid, notice.id, newState).subscribe({
+      next: () => {
+        this.items.update(list =>
+          list.map(n => n.id === notice.id ? { ...n, isReadByCurrentUser: newState } : n)
+        );
+      }
     });
   }
 }

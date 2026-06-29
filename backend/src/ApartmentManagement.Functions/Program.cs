@@ -10,6 +10,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using WebPush;
 
 var host = new HostBuilder()
     .ConfigureFunctionsWebApplication(builder =>
@@ -52,5 +53,28 @@ var host = new HostBuilder()
         services.AddAuthorization();
     })
     .Build();
+
+// If VAPID keys are missing or both are the same value (misconfigured), generate and print valid ones.
+var config = host.Services.GetRequiredService<IConfiguration>();
+var pubKey  = config["Infrastructure:VapidPublicKey"]  ?? string.Empty;
+var privKey = config["Infrastructure:VapidPrivateKey"] ?? string.Empty;
+if (string.IsNullOrWhiteSpace(pubKey) || string.IsNullOrWhiteSpace(privKey) || pubKey == privKey)
+{
+    var keys = VapidHelper.GenerateVapidKeys();
+    Console.ForegroundColor = ConsoleColor.Yellow;
+    Console.WriteLine();
+    Console.WriteLine("╔══════════════════════════════════════════════════════════════════╗");
+    Console.WriteLine("║   VAPID keys are not configured or invalid. Generated new keys:  ║");
+    Console.WriteLine("╠══════════════════════════════════════════════════════════════════╣");
+    Console.WriteLine($"║  VapidPublicKey : {keys.PublicKey,-49}║");
+    Console.WriteLine($"║  VapidPrivateKey: {keys.PrivateKey,-49}║");
+    Console.WriteLine("╠══════════════════════════════════════════════════════════════════╣");
+    Console.WriteLine("║  Paste both values into local.settings.json under the           ║");
+    Console.WriteLine("║  Infrastructure:VapidPublicKey / VapidPrivateKey keys.          ║");
+    Console.WriteLine("║  Also copy VapidPublicKey to the Angular environment files.     ║");
+    Console.WriteLine("╚══════════════════════════════════════════════════════════════════╝");
+    Console.WriteLine();
+    Console.ResetColor();
+}
 
 host.Run();

@@ -24,10 +24,12 @@ export interface User {
   name?: string;
   email: string;
   phone?: string;
-  role: 'HQAdmin' | 'HQUser' | 'SUAdmin' | 'SUUser';
+  role: 'HQAdmin' | 'HQUser' | 'SUAdmin' | 'SUUser' | 'SUSecurity';
   residentType: 'SocietyAdmin' | 'Owner' | 'Tenant' | 'FamilyMember' | 'CoOccupant';
   apartmentId?: string;
+  isActive?: boolean;
   isVerified: boolean;
+  hasPassword?: boolean;
   permissions: string[];
   fullName?: string;
   avatarUrl?: string;

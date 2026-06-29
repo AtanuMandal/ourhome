@@ -119,6 +119,42 @@ public sealed class ArchiveNoticeCommandHandler(
     }
 }
 
+// ─── Mark Notice Read/Unread ─────────────────────────────────────────────────
+
+public record MarkNoticeReadCommand(string SocietyId, string NoticeId, string UserId, bool IsRead) : IRequest<Result<bool>>;
+
+public sealed class MarkNoticeReadCommandHandler(
+    INoticeRepository noticeRepository,
+    ILogger<MarkNoticeReadCommandHandler> logger)
+    : IRequestHandler<MarkNoticeReadCommand, Result<bool>>
+{
+    public async Task<Result<bool>> Handle(MarkNoticeReadCommand request, CancellationToken ct)
+    {
+        try
+        {
+            var notice = await noticeRepository.GetByIdAsync(request.NoticeId, request.SocietyId, ct)
+                ?? throw new NotFoundException("Notice", request.NoticeId);
+
+            if (request.IsRead)
+                notice.MarkAsRead(request.UserId);
+            else
+                notice.MarkAsUnread(request.UserId);
+
+            await noticeRepository.UpdateAsync(notice, ct);
+            return Result<bool>.Success(true);
+        }
+        catch (NotFoundException ex)
+        {
+            return Result<bool>.Failure(ErrorCodes.NoticeNotFound, ex.Message);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to mark notice {NoticeId} read status for user {UserId}", request.NoticeId, request.UserId);
+            return Result<bool>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
 // ─── Delete Notice ────────────────────────────────────────────────────────────
 
 public record DeleteNoticeCommand(string SocietyId, string NoticeId) : IRequest<Result<bool>>;
@@ -158,7 +194,7 @@ public sealed class DeleteNoticeCommandHandler(
 namespace ApartmentManagement.Application.Queries.Notice
 {
 
-public record GetNoticeQuery(string SocietyId, string NoticeId) : IRequest<Result<NoticeResponse>>;
+public record GetNoticeQuery(string SocietyId, string NoticeId, string? CurrentUserId = null) : IRequest<Result<NoticeResponse>>;
 
 public sealed class GetNoticeQueryHandler(INoticeRepository noticeRepository)
     : IRequestHandler<GetNoticeQuery, Result<NoticeResponse>>
@@ -169,7 +205,7 @@ public sealed class GetNoticeQueryHandler(INoticeRepository noticeRepository)
         {
             var notice = await noticeRepository.GetByIdAsync(request.NoticeId, request.SocietyId, ct)
                 ?? throw new NotFoundException("Notice", request.NoticeId);
-            return Result<NoticeResponse>.Success(notice.ToResponse());
+            return Result<NoticeResponse>.Success(notice.ToResponse(request.CurrentUserId));
         }
         catch (NotFoundException ex)
         {
@@ -182,7 +218,7 @@ public sealed class GetNoticeQueryHandler(INoticeRepository noticeRepository)
     }
 }
 
-public record GetActiveNoticesQuery(string SocietyId, NoticeCategory? Category, PaginationParams Pagination)
+public record GetActiveNoticesQuery(string SocietyId, NoticeCategory? Category, PaginationParams Pagination, string? CurrentUserId = null)
     : IRequest<Result<PagedResult<NoticeResponse>>>;
 
 public sealed class GetActiveNoticesQueryHandler(INoticeRepository noticeRepository)
@@ -196,10 +232,10 @@ public sealed class GetActiveNoticesQueryHandler(INoticeRepository noticeReposit
                 request.SocietyId, request.Pagination.Page, request.Pagination.PageSize, ct);
 
             var filtered = request.Category.HasValue
-                ? active.Where(n => n.Category == request.Category.Value).ToList()  
+                ? active.Where(n => n.Category == request.Category.Value).ToList()
                 : active.ToList();
 
-            var items = filtered.Select(n => n.ToResponse()).ToList();
+            var items = filtered.Select(n => n.ToResponse(request.CurrentUserId)).ToList();
             return Result<PagedResult<NoticeResponse>>.Success(
                 new PagedResult<NoticeResponse>(items, items.Count, request.Pagination.Page, request.Pagination.PageSize));
         }
@@ -210,7 +246,7 @@ public sealed class GetActiveNoticesQueryHandler(INoticeRepository noticeReposit
     }
 }
 
-public record GetArchivedNoticesQuery(string SocietyId, PaginationParams Pagination)
+public record GetArchivedNoticesQuery(string SocietyId, PaginationParams Pagination, string? CurrentUserId = null)
     : IRequest<Result<PagedResult<NoticeResponse>>>;
 
 public sealed class GetArchivedNoticesQueryHandler(INoticeRepository noticeRepository)
@@ -222,7 +258,7 @@ public sealed class GetArchivedNoticesQueryHandler(INoticeRepository noticeRepos
         {
             var all = await noticeRepository.GetAllAsync(request.SocietyId, ct);
             var archived = all.Where(n => n.IsArchived).ToList();
-            var items = archived.Select(n => n.ToResponse()).ToList();
+            var items = archived.Select(n => n.ToResponse(request.CurrentUserId)).ToList();
             return Result<PagedResult<NoticeResponse>>.Success(
                 new PagedResult<NoticeResponse>(items, items.Count, request.Pagination.Page, request.Pagination.PageSize));
         }

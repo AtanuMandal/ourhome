@@ -133,6 +133,12 @@ public static class InfrastructureDependencyInjection
             sp.GetRequiredService<IOptions<InfrastructureSettings>>().Value.CosmosDbDatabaseName,
             sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<OutboxRepository>>()));
 
+        // Push subscriptions (Cosmos container: push-subscriptions)
+        services.AddScoped<IPushSubscriptionStore>(sp => new PushSubscriptionRepository(
+            sp.GetRequiredService<CosmosClient>(),
+            sp.GetRequiredService<IOptions<InfrastructureSettings>>().Value.CosmosDbDatabaseName,
+            sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<PushSubscriptionRepository>>()));
+
         // Services
         services.AddScoped<IAuthService, JwtAuthService>();
         services.AddScoped<INotificationService, NotificationService>();

@@ -6,6 +6,7 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatSelectModule } from '@angular/material/select';
 import { RouterLink } from '@angular/router';
 import { Observable } from 'rxjs';
 import { MaintenanceAreaBasis, MaintenanceFrequency, MaintenancePricingType, MaintenanceSchedule } from '../../core/models/maintenance.model';
@@ -36,6 +37,7 @@ import {
     MatFormFieldModule,
     MatInputModule,
     MatProgressBarModule,
+    MatSelectModule,
     RouterLink,
     PageHeaderComponent,
     LoadingSpinnerComponent,
@@ -87,82 +89,82 @@ import {
               <div class="two-col">
                 <mat-form-field appearance="fill">
                   <mat-label>Scope</mat-label>
-                  <select matNativeControl formControlName="scope" (change)="onScopeChanged()">
+                  <mat-select formControlName="scope" (selectionChange)="onScopeChanged()">
                     @for (scope of scopeOptions; track scope.value) {
-                      <option [ngValue]="scope.value">{{ scope.label }}</option>
+                      <mat-option [value]="scope.value">{{ scope.label }}</mat-option>
                     }
-                  </select>
+                  </mat-select>
                 </mat-form-field>
 
                 <mat-form-field appearance="fill">
                   <mat-label>Frequency</mat-label>
-                  <select matNativeControl formControlName="frequency">
+                  <mat-select formControlName="frequency">
                     @for (frequency of frequencyOptions; track frequency) {
-                      <option [ngValue]="frequency">{{ frequency }}</option>
+                      <mat-option [value]="frequency">{{ frequency }}</mat-option>
                     }
-                  </select>
+                  </mat-select>
                 </mat-form-field>
               </div>
 
               <div class="two-col">
                 <mat-form-field appearance="fill">
                   <mat-label>Start month</mat-label>
-                  <select matNativeControl formControlName="startMonth">
+                  <mat-select formControlName="startMonth">
                     @for (month of monthOptions; track month.value) {
-                      <option [ngValue]="month.value">{{ month.label }}</option>
+                      <mat-option [value]="month.value">{{ month.label }}</mat-option>
                     }
-                  </select>
+                  </mat-select>
                 </mat-form-field>
 
                 <mat-form-field appearance="fill">
                   <mat-label>Start year</mat-label>
-                  <select matNativeControl formControlName="startYear">
+                  <mat-select formControlName="startYear">
                     @for (year of scheduleYearOptions; track year) {
-                      <option [ngValue]="year">{{ year }}</option>
+                      <mat-option [value]="year">{{ year }}</mat-option>
                     }
-                  </select>
+                  </mat-select>
                 </mat-form-field>
               </div>
 
               <div class="two-col">
                 <mat-form-field appearance="fill">
                   <mat-label>End month</mat-label>
-                  <select matNativeControl formControlName="endMonth">
+                  <mat-select formControlName="endMonth">
                     @for (month of monthOptions; track month.value) {
-                      <option [ngValue]="month.value">{{ month.label }}</option>
+                      <mat-option [value]="month.value">{{ month.label }}</mat-option>
                     }
-                  </select>
+                  </mat-select>
                 </mat-form-field>
 
                 <mat-form-field appearance="fill">
                   <mat-label>End year</mat-label>
-                  <select matNativeControl formControlName="endYear">
+                  <mat-select formControlName="endYear">
                     @for (year of scheduleYearOptions; track year) {
-                      <option [ngValue]="year">{{ year }}</option>
+                      <mat-option [value]="year">{{ year }}</mat-option>
                     }
-                  </select>
+                  </mat-select>
                 </mat-form-field>
               </div>
 
               @if (scheduleForm.controls.scope.value === 'Apartment') {
                 <mat-form-field appearance="fill" class="full-width">
                   <mat-label>Apartment</mat-label>
-                  <select matNativeControl formControlName="apartmentId">
+                  <mat-select formControlName="apartmentId">
                     @for (apartment of apartments(); track apartment.id) {
-                      <option [ngValue]="apartment.id">{{ formatApartmentLabel(apartment) }}</option>
+                      <mat-option [value]="apartment.id">{{ formatApartmentLabel(apartment) }}</mat-option>
                     }
-                  </select>
+                  </mat-select>
                 </mat-form-field>
               }
 
               <div class="two-col">
                 <mat-form-field appearance="fill">
                   <mat-label>Pricing type</mat-label>
-                  <select matNativeControl formControlName="pricingType" (change)="onPricingTypeChanged()">
+                  <mat-select formControlName="pricingType" (selectionChange)="onPricingTypeChanged()">
                     @for (type of pricingTypeOptions; track type.value) {
-                      <option [ngValue]="type.value">{{ type.label }}</option>
+                      <mat-option [value]="type.value">{{ type.label }}</mat-option>
                     }
-                  </select>
+                  </mat-select>
                 </mat-form-field>
 
                 <mat-form-field appearance="fill">
@@ -174,11 +176,11 @@ import {
               <div class="two-col">
                 <mat-form-field appearance="fill">
                   <mat-label>Area basis</mat-label>
-                  <select matNativeControl formControlName="areaBasis">
+                  <mat-select formControlName="areaBasis">
                     @for (basis of areaBasisOptions; track basis.value) {
-                      <option [ngValue]="basis.value">{{ basis.label }}</option>
+                      <mat-option [value]="basis.value">{{ basis.label }}</mat-option>
                     }
-                  </select>
+                  </mat-select>
                 </mat-form-field>
 
                 <mat-form-field appearance="fill">
@@ -191,10 +193,10 @@ import {
                 <div class="two-col">
                   <mat-form-field appearance="fill">
                     <mat-label>Status</mat-label>
-                    <select matNativeControl formControlName="isActive">
-                      <option [ngValue]="true">Active</option>
-                      <option [ngValue]="false">Inactive</option>
-                    </select>
+                    <mat-select formControlName="isActive">
+                      <mat-option [value]="true">Active</mat-option>
+                      <mat-option [value]="false">Inactive</mat-option>
+                    </mat-select>
                   </mat-form-field>
 
                   <mat-form-field appearance="fill">
@@ -206,20 +208,20 @@ import {
                 <div class="two-col">
                   <mat-form-field appearance="fill">
                     <mat-label>Effective month</mat-label>
-                    <select matNativeControl formControlName="effectiveMonth">
+                    <mat-select formControlName="effectiveMonth">
                       @for (month of monthOptions; track month.value) {
-                        <option [ngValue]="month.value">{{ month.label }}</option>
+                        <mat-option [value]="month.value">{{ month.label }}</mat-option>
                       }
-                    </select>
+                    </mat-select>
                   </mat-form-field>
 
                   <mat-form-field appearance="fill">
                     <mat-label>Effective year</mat-label>
-                    <select matNativeControl formControlName="effectiveYear">
+                    <mat-select formControlName="effectiveYear">
                       @for (year of scheduleYearOptions; track year) {
-                        <option [ngValue]="year">{{ year }}</option>
+                        <mat-option [value]="year">{{ year }}</mat-option>
                       }
-                    </select>
+                    </mat-select>
                   </mat-form-field>
                 </div>
               }
@@ -263,32 +265,32 @@ import {
             <form [formGroup]="filterForm" class="filters">
               <mat-form-field appearance="fill">
                 <mat-label>Year</mat-label>
-                <select matNativeControl formControlName="year" (change)="refreshCharges()">
-                  <option [ngValue]="null">All years</option>
+                <mat-select formControlName="year" (selectionChange)="refreshCharges()">
+                  <mat-option [value]="null">All years</mat-option>
                   @for (year of yearOptions(); track year) {
-                    <option [ngValue]="year">{{ year }}</option>
+                    <mat-option [value]="year">{{ year }}</mat-option>
                   }
-                </select>
+                </mat-select>
               </mat-form-field>
 
               <mat-form-field appearance="fill">
                 <mat-label>Month</mat-label>
-                <select matNativeControl formControlName="month" (change)="refreshCharges()">
-                  <option [ngValue]="null">All months</option>
+                <mat-select formControlName="month" (selectionChange)="refreshCharges()">
+                  <mat-option [value]="null">All months</mat-option>
                   @for (month of monthOptions; track month.value) {
-                    <option [ngValue]="month.value">{{ month.label }}</option>
+                    <mat-option [value]="month.value">{{ month.label }}</mat-option>
                   }
-                </select>
+                </mat-select>
               </mat-form-field>
 
               <mat-form-field appearance="fill">
                 <mat-label>Status</mat-label>
-                <select matNativeControl formControlName="status" (change)="refreshCharges()">
-                  <option [ngValue]="null">All statuses</option>
+                <mat-select formControlName="status" (selectionChange)="refreshCharges()">
+                  <mat-option [value]="null">All statuses</mat-option>
                   @for (status of chargeStatusOptions; track status) {
-                    <option [ngValue]="status">{{ status }}</option>
+                    <mat-option [value]="status">{{ status }}</mat-option>
                   }
-                </select>
+                </mat-select>
               </mat-form-field>
             </form>
 

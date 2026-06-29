@@ -167,7 +167,7 @@ public static class MappingExtensions
             complaint.FeedbackRating,
             complaint.FeedbackComment);
 
-    public static NoticeResponse ToResponse(this Notice notice) =>
+    public static NoticeResponse ToResponse(this Notice notice, string? currentUserId = null) =>
         new(
             notice.Id,
             notice.SocietyId,
@@ -180,7 +180,8 @@ public static class MappingExtensions
             notice.ExpiresAt,
             notice.IsActive,
             notice.CreatedAt,
-            notice.TargetApartmentIds);
+            notice.TargetApartmentIds,
+            currentUserId is not null && notice.IsReadByUser(currentUserId));
 
     public static VisitorResponse ToResponse(this VisitorLog log) =>
         new(
@@ -188,15 +189,27 @@ public static class MappingExtensions
             log.SocietyId,
             log.VisitorName,
             log.VisitorPhone,
+            log.VisitorEmail,
+            log.CompanyName,
             log.Purpose,
             log.HostApartmentId,
+            log.HostResidentName,
+            log.HostBlockName,
+            log.HostFloorNumber,
+            log.HostFlatNumber,
+            log.IsPreApproved,
             log.Status.ToString(),
             log.QrCode,
             log.PassCode,
+            log.VehicleNumber,
+            log.ApprovedAt,
             log.CheckInTime,
             log.CheckOutTime,
             log.Duration?.TotalMinutes,
-            log.CreatedAt);
+            log.CreatedAt,
+            log.ValidUntil,
+            log.VisitorImageUrl,
+            log.IsPassExpired);
 
     public static MaintenanceScheduleDto ToResponse(this MaintenanceSchedule schedule) =>
         new(
@@ -322,6 +335,12 @@ public static class MappingExtensions
             permissions.Add("transfer_tenancy");
             permissions.Add("add_family_member");
             permissions.Add("add_cooccupant");
+        }
+
+        if (user.Role == Domain.Enums.UserRole.SUSecurity)
+        {
+            permissions.Add("manage_visitors");
+            permissions.Add("view_residents");
         }
 
         switch (user.ResidentType)
