@@ -1,7 +1,9 @@
 import { DatePipe } from '@angular/common';
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ReactiveFormsModule, FormBuilder } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { interval } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -176,6 +178,11 @@ import { StatusChipComponent } from '../../shared/components/status-chip/status-
                     @if (visitor.isPreApproved) {
                       <span class="pass-meta__pill">Pre-approved</span>
                     }
+                    @if (visitor.isPassExpired) {
+                      <span class="pass-meta__pill pass-meta__pill--expired">Expired</span>
+                    } @else if (visitor.validUntil) {
+                      <span class="pass-meta__pill pass-meta__pill--expiry">Until {{ visitor.validUntil | date:'shortTime' }}</span>
+                    }
                   </div>
                 }
               </div>
@@ -210,6 +217,7 @@ export class VisitorListComponent implements OnInit {
   private readonly visitorService = inject(VisitorService);
   private readonly auth = inject(AuthService);
   private readonly fb = inject(FormBuilder);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly loading = signal(true);
   readonly items = signal<Visitor[]>([]);
@@ -233,6 +241,15 @@ export class VisitorListComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadVisitors();
+
+    // Auto-refresh every 30 s so pending approvals update in near-realtime
+    interval(30_000)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        if (!this.loading()) {
+          this.loadVisitors();
+        }
+      });
   }
 
   loadVisitors() {

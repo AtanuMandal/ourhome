@@ -16,6 +16,11 @@ public sealed class InfrastructureSettings
     public string AzureAdB2CClientSecret { get; set; } = string.Empty;
     public string AzureAdB2CUserFlow { get; set; } = string.Empty;
 
+    // VAPID (Web Push) — generate with WebPush.VapidHelper.GenerateVapidKeys()
+    public string VapidPublicKey { get; set; } = string.Empty;
+    public string VapidPrivateKey { get; set; } = string.Empty;
+    public string VapidSubject { get; set; } = "mailto:admin@apartmentmgmt.io";
+
     // JWT
     public string JwtSecret { get; set; } = "uastfdays35667a0s8p9da8sdioasodipo9";
     public string JwtIssuer { get; set; } = "apartment-management";

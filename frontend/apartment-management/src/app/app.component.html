@@ -30,6 +30,13 @@
       </div>
     </mat-sidenav>
     <mat-sidenav-content class="main-content">
+      @if (push.shouldPrompt && push.isBrowserSupported) {
+        <div class="notif-banner">
+          <mat-icon class="notif-banner__icon">notifications</mat-icon>
+          <span class="notif-banner__text">Enable notifications to get real-time visitor approval alerts</span>
+          <button mat-stroked-button class="notif-banner__btn" (click)="enableNotifications()">Enable</button>
+        </div>
+      }
       <router-outlet></router-outlet>
     </mat-sidenav-content>
   </mat-sidenav-container>

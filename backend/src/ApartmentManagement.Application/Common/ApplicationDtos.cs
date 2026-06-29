@@ -206,7 +206,9 @@ public sealed record RegisterVisitorRequest(
     string ApartmentId,
     string? CompanyName = null,
     string? VehicleNumber = null,
-    bool IsPreApproved = false);
+    bool IsPreApproved = false,
+    int? ValidityHours = null,
+    string? VisitorImageUrl = null);
 
 // ─── Maintenance ─────────────────────────────────────────────────────────────
 
@@ -450,9 +452,14 @@ public record VisitorResponse(
     DateTime? CheckInTime,
     DateTime? CheckOutTime,
     double? Duration,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    DateTime? ValidUntil = null,
+    string? VisitorImageUrl = null,
+    bool IsPassExpired = false);
 
 public sealed record CheckInVisitorRequest(string PassCode);
+
+public sealed record VisitorImageUploadResponse(string FileName, string ImageUrl);
 
 public sealed record VisitorExportResponse(string FileName, string ContentType, byte[] Content);
 

@@ -46,7 +46,8 @@ public sealed class FakeNotificationService : INotificationService
         return Task.CompletedTask;
     }
 
-    public Task SendPushNotificationAsync(string userId, string title, string body, CancellationToken ct = default)
+    public Task SendPushNotificationAsync(string userId, string title, string body, CancellationToken ct = default,
+        IReadOnlyDictionary<string, string>? data = null)
     {
         SentPushNotifications.Add((userId, title, body));
         return Task.CompletedTask;
@@ -58,6 +59,14 @@ public sealed class FakeNotificationService : INotificationService
             SentEmails.Add((r, subject, body));
         return Task.CompletedTask;
     }
+
+    public Task SavePushSubscriptionAsync(string userId, string societyId, string endpoint, string p256dh, string auth, CancellationToken ct = default)
+        => Task.CompletedTask;
+
+    public Task DeletePushSubscriptionAsync(string userId, string societyId, string endpoint, CancellationToken ct = default)
+        => Task.CompletedTask;
+
+    public string GetVapidPublicKey() => "test-vapid-public-key";
 }
 
 public sealed class FakeEventPublisher : IEventPublisher

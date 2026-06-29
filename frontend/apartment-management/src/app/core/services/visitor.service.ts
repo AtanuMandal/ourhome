@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { ApiService } from './api.service';
-import { Visitor, RegisterVisitorDto, VisitorListFilters } from '../models/visitor.model';
+import { Visitor, RegisterVisitorDto, VisitorListFilters, VisitorImageUploadResponse } from '../models/visitor.model';
 
 @Injectable({ providedIn: 'root' })
 export class VisitorService {
@@ -40,5 +40,11 @@ export class VisitorService {
 
   export(societyId: string, filters: VisitorListFilters = {}) {
     return this.api.download(`societies/${societyId}/visitors/export`, filters as Record<string, string | number>);
+  }
+
+  uploadImage(societyId: string, file: File) {
+    const formData = new FormData();
+    formData.append('file', file, file.name);
+    return this.api.postForm<VisitorImageUploadResponse>(`societies/${societyId}/visitors/images/upload`, formData);
   }
 }

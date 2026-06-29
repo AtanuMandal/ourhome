@@ -10,6 +10,7 @@ using ApartmentManagement.Shared.Exceptions;
 using ApartmentManagement.Shared.Models;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using IO = System.IO;
 
 namespace ApartmentManagement.Application.Commands.Visitor
 {
@@ -23,7 +24,9 @@ public record RegisterVisitorCommand(
     string ApartmentId,
     string? CompanyName,
     string? VehicleNumber,
-    bool IsPreApproved) : IRequest<Result<VisitorResponse>>;
+    bool IsPreApproved,
+    int? ValidityHours = null,
+    string? VisitorImageUrl = null) : IRequest<Result<VisitorResponse>>;
 
 public sealed class RegisterVisitorCommandHandler(
     IVisitorLogRepository visitorRepository,
@@ -53,6 +56,10 @@ public sealed class RegisterVisitorCommandHandler(
                 return Result<VisitorResponse>.Failure(ErrorCodes.Forbidden, "Only a resident of the apartment can pre-approve a visitor.");
 
             var hostResident = ResolveHostResident(residents, isResidentHost ? currentUser.UserId : null);
+            DateTime? validUntil = (request.IsPreApproved && request.ValidityHours.HasValue && request.ValidityHours.Value > 0)
+                ? DateTime.UtcNow.AddHours(request.ValidityHours.Value)
+                : null;
+
             var log = VisitorLog.Create(
                 request.SocietyId,
                 request.VisitorName,
@@ -67,7 +74,9 @@ public sealed class RegisterVisitorCommandHandler(
                 apartment.FloorNumber,
                 apartment.ApartmentNumber,
                 request.IsPreApproved,
-                request.VehicleNumber);
+                request.VehicleNumber,
+                validUntil,
+                request.VisitorImageUrl);
 
             var qrData = await qrCodeService.GenerateQrCodeBase64Async(log.PassCode, ct);
             log.UpdateQrCode(qrData);
@@ -80,13 +89,29 @@ public sealed class RegisterVisitorCommandHandler(
 
             if (!request.IsPreApproved)
             {
+                var notificationBody = string.IsNullOrWhiteSpace(request.Phone)
+                    ? $"{request.VisitorName} is at flat {apartment.BlockName} {apartment.ApartmentNumber} and awaiting your approval."
+                    : $"{request.VisitorName} ({request.Phone}) is at flat {apartment.BlockName} {apartment.ApartmentNumber} and awaiting your approval.";
+
+                var notificationData = new Dictionary<string, string>
+                {
+                    ["societyId"]      = request.SocietyId,
+                    ["visitorId"]      = created.Id,
+                    ["action"]         = "visitor-approval",
+                    ["approveUrl"]     = $"/visitors?action=approve&id={created.Id}",
+                    ["denyUrl"]        = $"/visitors?action=deny&id={created.Id}",
+                    ["visitorPhone"]   = request.Phone ?? string.Empty,
+                    ["visitorImageUrl"]= request.VisitorImageUrl ?? string.Empty
+                };
+
                 foreach (var resident in residents)
                 {
                     await notificationService.SendPushNotificationAsync(
                         resident.UserId,
                         "Visitor Request",
-                        $"{request.VisitorName} is waiting for approval for flat {apartment.BlockName} {apartment.ApartmentNumber}.",
-                        ct);
+                        notificationBody,
+                        ct,
+                        notificationData);
                 }
             }
 
@@ -230,6 +255,12 @@ public sealed class CheckInVisitorCommandHandler(
 
 public record CheckOutVisitorCommand(string SocietyId, string VisitorLogId) : IRequest<Result<bool>>;
 
+public record UploadVisitorImageCommand(
+    string SocietyId,
+    string FileName,
+    string ContentType,
+    byte[] Content) : IRequest<Result<VisitorImageUploadResponse>>;
+
 public sealed class CheckOutVisitorCommandHandler(
     IVisitorLogRepository visitorRepository,
     ILogger<CheckOutVisitorCommandHandler> logger)
@@ -254,6 +285,33 @@ public sealed class CheckOutVisitorCommandHandler(
         {
             logger.LogError(ex, "Failed to check out visitor {VisitorLogId}", request.VisitorLogId);
             return Result<bool>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
+public sealed class UploadVisitorImageCommandHandler(
+    IFileStorageService fileStorageService,
+    ILogger<UploadVisitorImageCommandHandler> logger)
+    : IRequestHandler<UploadVisitorImageCommand, Result<VisitorImageUploadResponse>>
+{
+    private const string ContainerName = "visitor-images";
+
+    public async Task<Result<VisitorImageUploadResponse>> Handle(UploadVisitorImageCommand request, CancellationToken ct)
+    {
+        try
+        {
+            var extension = IO.Path.GetExtension(request.FileName);
+            var blobName = $"{request.SocietyId}/{Guid.NewGuid():N}{extension}";
+
+            await using var stream = new IO.MemoryStream(request.Content, writable: false);
+            var fileUrl = await fileStorageService.UploadAsync(stream, blobName, request.ContentType, ContainerName, ct);
+
+            return Result<VisitorImageUploadResponse>.Success(new VisitorImageUploadResponse(request.FileName, fileUrl));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to upload visitor image {FileName}", request.FileName);
+            return Result<VisitorImageUploadResponse>.Failure(ErrorCodes.InternalError, ex.Message);
         }
     }
 }

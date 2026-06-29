@@ -286,6 +286,10 @@ public sealed class RegisterVisitorCommandValidator : AbstractValidator<Register
         RuleFor(x => x.Email).EmailAddress().When(x => !string.IsNullOrWhiteSpace(x.Email));
         RuleFor(x => x.CompanyName).MaximumLength(150);
         RuleFor(x => x.VehicleNumber).MaximumLength(50);
+        RuleFor(x => x.ValidityHours)
+            .InclusiveBetween(1, 168)
+            .When(x => x.ValidityHours.HasValue)
+            .WithMessage("Validity hours must be between 1 and 168 (1 week).");
     }
 }
 

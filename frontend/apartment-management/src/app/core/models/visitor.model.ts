@@ -23,6 +23,9 @@ export interface Visitor {
   checkOutTime?: string;
   duration?: number;
   createdAt: string;
+  validUntil?: string;
+  visitorImageUrl?: string;
+  isPassExpired?: boolean;
 }
 
 export interface RegisterVisitorDto {
@@ -34,6 +37,13 @@ export interface RegisterVisitorDto {
   companyName?: string;
   vehicleNumber?: string;
   isPreApproved: boolean;
+  validityHours?: number;
+  visitorImageUrl?: string;
+}
+
+export interface VisitorImageUploadResponse {
+  fileName: string;
+  imageUrl: string;
 }
 
 export interface VisitorListFilters {

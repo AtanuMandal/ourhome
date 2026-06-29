@@ -114,6 +114,26 @@
   margin-top: 8px;
 }
 
+.image-upload-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.hidden-file-input { display: none; }
+
+.image-preview-wrap { display: flex; align-items: center; gap: 4px; }
+
+.image-preview {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 2px solid var(--primary-light);
+}
+
 .pass-card__body {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -207,6 +227,16 @@
     color: #4338ca;
     font-size: 12px;
     font-weight: 600;
+
+    &--expired {
+      background: #fee2e2;
+      color: #b91c1c;
+    }
+
+    &--expiry {
+      background: #fef3c7;
+      color: #92400e;
+    }
   }
 
   .vc-purpose,

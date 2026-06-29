@@ -420,4 +420,83 @@ public class VisitorLogTests
 
         act.Should().Throw<ArgumentException>();
     }
+
+    [Fact]
+    public void Create_WithValidUntil_SetsExpiryCorrectly()
+    {
+        var validUntil = DateTime.UtcNow.AddHours(4);
+        var log = VisitorLog.Create(SocietyId, "Visitor", "+91-9876543210",
+            null, null, "Visit", HostApartmentId, HostUserId, "Resident", "A", 1, "A-101",
+            true, null, validUntil);
+
+        log.ValidUntil.Should().BeCloseTo(validUntil, TimeSpan.FromSeconds(1));
+        log.IsPassExpired.Should().BeFalse();
+    }
+
+    [Fact]
+    public void IsPassExpired_WhenValidUntilInPast_ReturnsTrue()
+    {
+        var log = VisitorLog.Create(SocietyId, "Visitor", "+91-9876543210",
+            null, null, "Visit", HostApartmentId, HostUserId, "Resident", "A", 1, "A-101",
+            true, null, DateTime.UtcNow.AddHours(-1));
+
+        log.IsPassExpired.Should().BeTrue();
+    }
+
+    [Fact]
+    public void CheckIn_WhenPassExpired_ThrowsInvalidOperationException()
+    {
+        var log = VisitorLog.Create(SocietyId, "Visitor", "+91-9876543210",
+            null, null, "Visit", HostApartmentId, HostUserId, "Resident", "A", 1, "A-101",
+            true, null, DateTime.UtcNow.AddHours(-1));
+
+        var act = () => log.CheckIn();
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*expired*");
+    }
+
+    [Fact]
+    public void CheckIn_WhenValidUntilNull_SucceedsWithoutExpiry()
+    {
+        var log = VisitorLog.Create(SocietyId, "Visitor", "+91-9876543210",
+            null, null, "Visit", HostApartmentId, HostUserId, "Resident", "A", 1, "A-101",
+            true, null, validUntil: null);
+
+        var act = () => log.CheckIn();
+
+        act.Should().NotThrow();
+        log.Status.Should().Be(VisitorStatus.CheckedIn);
+    }
+
+    [Fact]
+    public void Create_WithImageUrl_StoresImageUrl()
+    {
+        const string imageUrl = "https://storage.example.com/visitor-images/test.jpg";
+        var log = VisitorLog.Create(SocietyId, "Visitor", "+91-9876543210",
+            null, null, "Visit", HostApartmentId, HostUserId, "Resident", "A", 1, "A-101",
+            false, null, null, imageUrl);
+
+        log.VisitorImageUrl.Should().Be(imageUrl);
+    }
+
+    [Fact]
+    public void UpdateVisitorImageUrl_SetsImageUrl()
+    {
+        var log = CreateVisitorLog();
+        const string imageUrl = "https://storage.example.com/visitor-images/new.jpg";
+
+        log.UpdateVisitorImageUrl(imageUrl);
+
+        log.VisitorImageUrl.Should().Be(imageUrl);
+    }
+
+    [Fact]
+    public void UpdateVisitorImageUrl_WithEmptyString_ThrowsArgumentException()
+    {
+        var log = CreateVisitorLog();
+
+        var act = () => log.UpdateVisitorImageUrl(string.Empty);
+
+        act.Should().Throw<ArgumentException>();
+    }
 }

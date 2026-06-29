@@ -25,11 +25,15 @@ public sealed class VisitorLog : BaseEntity
     public string QrCode { get; private set; } = string.Empty;
     public string PassCode { get; private set; } = string.Empty;
     public string? VehicleNumber { get; private set; }
+    public DateTime? ValidUntil { get; private set; }
+    public string? VisitorImageUrl { get; private set; }
 
     /// <summary>Duration of the visit, available after checkout.</summary>
     public TimeSpan? Duration => CheckOutTime.HasValue && CheckInTime.HasValue
         ? CheckOutTime.Value - CheckInTime.Value
         : null;
+
+    public bool IsPassExpired => ValidUntil.HasValue && DateTime.UtcNow > ValidUntil.Value;
 
     private static readonly Random _rng = new();
 
@@ -50,7 +54,9 @@ public sealed class VisitorLog : BaseEntity
         int hostFloorNumber,
         string hostFlatNumber,
         bool isPreApproved,
-        string? vehicleNumber = null)
+        string? vehicleNumber = null,
+        DateTime? validUntil = null,
+        string? visitorImageUrl = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(societyId, nameof(societyId));
         ArgumentException.ThrowIfNullOrWhiteSpace(visitorName, nameof(visitorName));
@@ -80,7 +86,9 @@ public sealed class VisitorLog : BaseEntity
             VehicleNumber = vehicleNumber?.Trim().ToUpperInvariant(),
             Status = isPreApproved ? VisitorStatus.Approved : VisitorStatus.Pending,
             PassCode = GeneratePassCode(),
-            QrCode = $"VIS-{Guid.NewGuid():N}" // Will be replaced by QR code service
+            QrCode = $"VIS-{Guid.NewGuid():N}", // Will be replaced by QR code service
+            ValidUntil = validUntil,
+            VisitorImageUrl = string.IsNullOrWhiteSpace(visitorImageUrl) ? null : visitorImageUrl.Trim()
         };
         log.AddDomainEvent(new VisitorArrivedEvent(log.Id, societyId, hostApartmentId, visitorName));
         return log;
@@ -101,6 +109,8 @@ public sealed class VisitorLog : BaseEntity
     {
         if (Status != VisitorStatus.Approved)
             throw new InvalidOperationException("Visitor must be approved before check-in.");
+        if (IsPassExpired)
+            throw new InvalidOperationException("Visitor pass has expired and can no longer be used for check-in.");
         Status = VisitorStatus.CheckedIn;
         CheckInTime = DateTime.UtcNow;
         TouchUpdatedAt();
@@ -119,6 +129,13 @@ public sealed class VisitorLog : BaseEntity
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(qrCode, nameof(qrCode));
         QrCode = qrCode;
+        TouchUpdatedAt();
+    }
+
+    public void UpdateVisitorImageUrl(string imageUrl)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(imageUrl, nameof(imageUrl));
+        VisitorImageUrl = imageUrl.Trim();
         TouchUpdatedAt();
     }
 }

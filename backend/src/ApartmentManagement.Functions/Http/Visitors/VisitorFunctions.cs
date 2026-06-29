@@ -8,6 +8,7 @@ using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
+using IO = System.IO;
 
 namespace ApartmentManagement.Functions.Http;
 
@@ -30,7 +31,9 @@ public class VisitorFunctions(ISender mediator, ICurrentUserService currentUser)
             request.ApartmentId,
             request.CompanyName,
             request.VehicleNumber,
-            request.IsPreApproved), ct);
+            request.IsPreApproved,
+            request.ValidityHours,
+            request.VisitorImageUrl), ct);
 
         return result.ToActionResult(201);
     }
@@ -153,6 +156,28 @@ public class VisitorFunctions(ISender mediator, ICurrentUserService currentUser)
         {
             FileDownloadName = result.Value.FileName
         };
+    }
+
+    [Function("UploadVisitorImage")]
+    public async Task<IActionResult> UploadVisitorImage(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "societies/{societyId}/visitors/images/upload")] HttpRequest req,
+        string societyId, CancellationToken ct)
+    {
+        if (!req.HasFormContentType)
+            return new BadRequestObjectResult("Request must be multipart/form-data");
+
+        var form = await req.ReadFormAsync(ct);
+        var file = form.Files["file"];
+        if (file is null || file.Length == 0)
+            return new BadRequestObjectResult("A visitor image file is required.");
+
+        await using var stream = file.OpenReadStream();
+        using var memory = new IO.MemoryStream();
+        await stream.CopyToAsync(memory, ct);
+
+        var result = await mediator.Send(
+            new UploadVisitorImageCommand(societyId, file.FileName, file.ContentType, memory.ToArray()), ct);
+        return result.ToActionResult(201);
     }
 
     private static DateOnly? ParseDate(string? value) =>

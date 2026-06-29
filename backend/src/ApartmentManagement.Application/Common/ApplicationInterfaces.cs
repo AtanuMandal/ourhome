@@ -17,8 +17,14 @@ public interface INotificationService
 {
     Task SendEmailAsync(string to, string subject, string body, CancellationToken ct = default);
     Task SendSmsAsync(string phone, string message, CancellationToken ct = default);
-    Task SendPushNotificationAsync(string userId, string title, string body, CancellationToken ct = default);
+    Task SendPushNotificationAsync(string userId, string title, string body, CancellationToken ct = default,
+        IReadOnlyDictionary<string, string>? data = null);
     Task SendBulkEmailAsync(IEnumerable<string> recipients, string subject, string body, CancellationToken ct = default);
+
+    // Web Push subscription management
+    Task SavePushSubscriptionAsync(string userId, string societyId, string endpoint, string p256dh, string auth, CancellationToken ct = default);
+    Task DeletePushSubscriptionAsync(string userId, string societyId, string endpoint, CancellationToken ct = default);
+    string GetVapidPublicKey();
 }
 
 public interface IEventPublisher

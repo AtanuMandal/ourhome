@@ -206,7 +206,10 @@ public static class MappingExtensions
             log.CheckInTime,
             log.CheckOutTime,
             log.Duration?.TotalMinutes,
-            log.CreatedAt);
+            log.CreatedAt,
+            log.ValidUntil,
+            log.VisitorImageUrl,
+            log.IsPassExpired);
 
     public static MaintenanceScheduleDto ToResponse(this MaintenanceSchedule schedule) =>
         new(

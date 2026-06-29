@@ -1,8 +1,10 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { DatePipe } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
@@ -19,10 +21,12 @@ import { StatusChipComponent } from '../../shared/components/status-chip/status-
   standalone: true,
   imports: [
     RouterLink,
+    DatePipe,
     ReactiveFormsModule,
     MatFormFieldModule,
     MatInputModule,
     MatButtonModule,
+    MatIconModule,
     MatProgressBarModule,
     MatSelectModule,
     PageHeaderComponent,
@@ -53,11 +57,17 @@ import { StatusChipComponent } from '../../shared/components/status-chip/status-
           @if (isAdmin()) {
             <mat-form-field appearance="fill" class="full-width">
               <mat-label>Apartment</mat-label>
-              <mat-select formControlName="apartmentId">
-                @for (apartment of apartments(); track apartment.id) {
-                  <mat-option [value]="apartment.id">
-                    {{ apartmentLabel(apartment) }}
-                  </mat-option>
+              <mat-select formControlName="apartmentId" [disabled]="apartmentsLoading()">
+                @if (apartmentsLoading()) {
+                  <mat-option disabled value="">Loading apartments...</mat-option>
+                } @else if (apartments().length === 0) {
+                  <mat-option disabled value="">No apartments found</mat-option>
+                } @else {
+                  @for (apartment of apartments(); track apartment.id) {
+                    <mat-option [value]="apartment.id">
+                      {{ apartmentLabel(apartment) }}
+                    </mat-option>
+                  }
                 }
               </mat-select>
               @if (form.get('apartmentId')?.invalid && form.get('apartmentId')?.touched) {
@@ -71,6 +81,35 @@ import { StatusChipComponent } from '../../shared/components/status-chip/status-
               <small>This pass will be generated for your apartment only.</small>
             </div>
           }
+
+          @if (!isAdmin()) {
+            <mat-form-field appearance="fill" class="full-width">
+              <mat-label>Valid for (hours)</mat-label>
+              <mat-select formControlName="validityHours">
+                <mat-option [value]="null">No expiry</mat-option>
+                @for (h of validityOptions; track h) {
+                  <mat-option [value]="h">{{ h }} hour{{ h > 1 ? 's' : '' }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          }
+
+          <div class="image-upload-row">
+            <button type="button" mat-stroked-button (click)="imageInput.click()">
+              <mat-icon>photo_camera</mat-icon>
+              {{ visitorImagePreview() ? 'Change photo' : 'Add visitor photo' }}
+            </button>
+            <input #imageInput type="file" accept="image/*" capture="environment"
+                   class="hidden-file-input" (change)="onImageSelected($event)">
+            @if (visitorImagePreview()) {
+              <div class="image-preview-wrap">
+                <img [src]="visitorImagePreview()!" alt="Visitor photo" class="image-preview">
+                <button type="button" mat-icon-button (click)="removeImage()" aria-label="Remove photo">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </div>
+            }
+          </div>
 
           <div class="form-grid">
             <mat-form-field appearance="fill" class="full-width">
@@ -145,6 +184,12 @@ import { StatusChipComponent } from '../../shared/components/status-chip/status-
               <span class="pass-card__label">Resident</span>
               <strong>{{ createdVisitor()!.hostResidentName }}</strong>
             </div>
+            @if (createdVisitor()!.validUntil) {
+              <div>
+                <span class="pass-card__label">Valid until</span>
+                <strong>{{ createdVisitor()!.validUntil | date:'short' }}</strong>
+              </div>
+            }
             @if (qrImageUrl()) {
               <div class="pass-card__qr">
                 <span class="pass-card__label">QR pass</span>
@@ -171,16 +216,23 @@ import { StatusChipComponent } from '../../shared/components/status-chip/status-
   styleUrl: './visitors.scss'
 })
 export class VisitorRegisterComponent implements OnInit {
+  @ViewChild('imageInput') imageInputRef?: ElementRef<HTMLInputElement>;
+
   private readonly fb = inject(FormBuilder);
   private readonly visitorService = inject(VisitorService);
   private readonly apartmentService = inject(ApartmentService);
   private readonly auth = inject(AuthService);
 
   readonly loading = signal(false);
+  readonly apartmentsLoading = signal(false);
   readonly apartments = signal<Apartment[]>([]);
   readonly createdVisitor = signal<Visitor | null>(null);
   readonly errorMessage = signal('');
   readonly isAdmin = this.auth.isAdmin;
+  readonly visitorImagePreview = signal<string | null>(null);
+  readonly validityOptions = [1, 2, 4, 8, 12, 24, 48, 72, 168];
+
+  private _selectedImageFile: File | null = null;
 
   readonly residentApartmentLabel = computed(() => {
     const user = this.auth.user();
@@ -203,7 +255,8 @@ export class VisitorRegisterComponent implements OnInit {
     visitorEmail: ['', Validators.email],
     companyName: [''],
     purpose: ['', Validators.required],
-    vehicleNumber: ['']
+    vehicleNumber: [''],
+    validityHours: [null as number | null]
   });
 
   ngOnInit(): void {
@@ -218,13 +271,20 @@ export class VisitorRegisterComponent implements OnInit {
       return;
     }
 
-    this.apartmentService.list(societyId, 1, 200).subscribe({
-      next: response => this.apartments.set(response.items ?? []),
-      error: () => this.errorMessage.set('Unable to load apartments right now.')
-    });
-
     this.form.controls.apartmentId.setValidators([Validators.required]);
     this.form.controls.apartmentId.updateValueAndValidity({ emitEvent: false });
+
+    this.apartmentsLoading.set(true);
+    this.apartmentService.list(societyId, 1, 200).subscribe({
+      next: response => {
+        this.apartments.set(response.items ?? []);
+        this.apartmentsLoading.set(false);
+      },
+      error: () => {
+        this.errorMessage.set('Unable to load apartments right now.');
+        this.apartmentsLoading.set(false);
+      }
+    });
   }
 
   pageTitle() {
@@ -258,6 +318,24 @@ export class VisitorRegisterComponent implements OnInit {
     return qrCode.startsWith('data:') ? qrCode : `data:image/png;base64,${qrCode}`;
   }
 
+  onImageSelected(event: Event) {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+
+    this._selectedImageFile = file;
+    const reader = new FileReader();
+    reader.onload = () => this.visitorImagePreview.set(reader.result as string);
+    reader.readAsDataURL(file);
+  }
+
+  removeImage() {
+    this._selectedImageFile = null;
+    this.visitorImagePreview.set(null);
+    if (this.imageInputRef) {
+      this.imageInputRef.nativeElement.value = '';
+    }
+  }
+
   submit() {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
@@ -274,24 +352,42 @@ export class VisitorRegisterComponent implements OnInit {
     this.loading.set(true);
     this.errorMessage.set('');
 
-    this.visitorService.register(societyId, {
-      visitorName: this.form.controls.visitorName.value?.trim() ?? '',
-      visitorPhone: this.form.controls.visitorPhone.value?.trim() ?? '',
-      visitorEmail: this.form.controls.visitorEmail.value?.trim() ?? undefined,
-      purpose: this.form.controls.purpose.value?.trim() ?? '',
-      apartmentId,
-      companyName: this.form.controls.companyName.value?.trim() ?? undefined,
-      vehicleNumber: this.form.controls.vehicleNumber.value?.trim() ?? undefined,
-      isPreApproved: !this.isAdmin()
-    }).subscribe({
-      next: visitor => {
-        this.createdVisitor.set(visitor);
-        this.loading.set(false);
-      },
-      error: error => {
-        this.errorMessage.set(error?.error?.message ?? 'Unable to register the visitor right now.');
-        this.loading.set(false);
-      }
-    });
+    const doRegister = (imageUrl?: string) => {
+      const isPreApproved = !this.isAdmin();
+      const validityHours = this.form.controls.validityHours.value ?? undefined;
+      this.visitorService.register(societyId, {
+        visitorName: this.form.controls.visitorName.value?.trim() ?? '',
+        visitorPhone: this.form.controls.visitorPhone.value?.trim() ?? '',
+        visitorEmail: this.form.controls.visitorEmail.value?.trim() ?? undefined,
+        purpose: this.form.controls.purpose.value?.trim() ?? '',
+        apartmentId,
+        companyName: this.form.controls.companyName.value?.trim() ?? undefined,
+        vehicleNumber: this.form.controls.vehicleNumber.value?.trim() ?? undefined,
+        isPreApproved,
+        validityHours: isPreApproved ? (typeof validityHours === 'number' ? validityHours : undefined) : undefined,
+        visitorImageUrl: imageUrl
+      }).subscribe({
+        next: visitor => {
+          this.createdVisitor.set(visitor);
+          this.loading.set(false);
+        },
+        error: error => {
+          this.errorMessage.set(error?.error?.message ?? 'Unable to register the visitor right now.');
+          this.loading.set(false);
+        }
+      });
+    };
+
+    if (this._selectedImageFile) {
+      this.visitorService.uploadImage(societyId, this._selectedImageFile).subscribe({
+        next: res => doRegister(res.imageUrl),
+        error: () => {
+          // Upload failed — continue without image rather than blocking registration
+          doRegister();
+        }
+      });
+    } else {
+      doRegister();
+    }
   }
 }
