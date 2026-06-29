@@ -5,6 +5,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatSelectModule } from '@angular/material/select';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { forkJoin } from 'rxjs';
@@ -28,6 +29,7 @@ type ResidentApartmentType = 'Owner' | 'Tenant';
     MatFormFieldModule,
     MatInputModule,
     MatProgressBarModule,
+    MatSelectModule,
     MatDividerModule,
     PageHeaderComponent,
     LoadingSpinnerComponent,
@@ -84,12 +86,15 @@ type ResidentApartmentType = 'Owner' | 'Tenant';
             <form [formGroup]="addApartmentForm" (ngSubmit)="addApartment()" novalidate>
               <mat-form-field appearance="fill" class="full-width">
                 <mat-label>Apartment</mat-label>
-                <select matNativeControl formControlName="apartmentId">
-                  <option value="" disabled>Select an apartment</option>
-                  @for (apartment of availableApartments(); track apartment.id) {
-                    <option [value]="apartment.id">{{ formatApartmentLabel(apartment) }}</option>
+                <mat-select formControlName="apartmentId">
+                  @if (availableApartments().length === 0) {
+                    <mat-option disabled value="">No apartments available</mat-option>
+                  } @else {
+                    @for (apartment of availableApartments(); track apartment.id) {
+                      <mat-option [value]="apartment.id">{{ formatApartmentLabel(apartment) }}</mat-option>
+                    }
                   }
-                </select>
+                </mat-select>
                 @if (addApartmentForm.controls.apartmentId.invalid && addApartmentForm.controls.apartmentId.touched) {
                   <mat-error>Apartment is required</mat-error>
                 }
@@ -97,10 +102,10 @@ type ResidentApartmentType = 'Owner' | 'Tenant';
 
               <mat-form-field appearance="fill" class="full-width">
                 <mat-label>Resident Type</mat-label>
-                <select matNativeControl formControlName="residentType">
-                  <option value="Owner">Owner</option>
-                  <option value="Tenant">Tenant</option>
-                </select>
+                <mat-select formControlName="residentType">
+                  <mat-option value="Owner">Owner</mat-option>
+                  <mat-option value="Tenant">Tenant</mat-option>
+                </mat-select>
               </mat-form-field>
 
               <button mat-raised-button color="primary" type="submit"

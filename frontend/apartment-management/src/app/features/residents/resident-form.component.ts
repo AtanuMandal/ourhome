@@ -5,6 +5,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 import { ApartmentService, UserService } from '../../core/services/apartment.service';
@@ -20,7 +21,7 @@ const PHONE_PATTERN = /^\d{10}$/;
   selector: 'app-resident-form',
   standalone: true,
   imports: [ReactiveFormsModule, RouterLink, MatFormFieldModule, MatInputModule,
-            MatButtonModule, MatProgressBarModule, PageHeaderComponent],
+            MatButtonModule, MatProgressBarModule, MatSelectModule, PageHeaderComponent],
   template: `
     <app-page-header [title]="pageTitle()" [showBack]="true"></app-page-header>
     @if (loading()) { <mat-progress-bar mode="indeterminate"></mat-progress-bar> }
@@ -31,10 +32,10 @@ const PHONE_PATTERN = /^\d{10}$/;
           @if (isAdmin()) {
             <mat-form-field appearance="fill" class="full-width">
               <mat-label>User Type</mat-label>
-              <select matNativeControl formControlName="userType">
-                <option value="SUUser">Resident</option>
-                <option value="SUSecurity">Security Personnel</option>
-              </select>
+              <mat-select formControlName="userType">
+                <mat-option value="SUUser">Resident</mat-option>
+                <mat-option value="SUSecurity">Security Personnel</mat-option>
+              </mat-select>
             </mat-form-field>
           }
 
@@ -77,21 +78,24 @@ const PHONE_PATTERN = /^\d{10}$/;
           @if (!isSecurityPersonnel()) {
             <mat-form-field appearance="fill" class="full-width">
               <mat-label>Resident Type</mat-label>
-              <select matNativeControl formControlName="residentType">
+              <mat-select formControlName="residentType">
                 @for (rt of residentTypes(); track rt.value) {
-                  <option [value]="rt.value">{{ rt.label }}</option>
+                  <mat-option [value]="rt.value">{{ rt.label }}</mat-option>
                 }
-              </select>
+              </mat-select>
             </mat-form-field>
 
             <mat-form-field appearance="fill" class="full-width">
               <mat-label>Apartment</mat-label>
-              <select matNativeControl formControlName="apartmentId">
-                <option value="" disabled>Select an apartment</option>
-                @for (apartment of apartments(); track apartment.id) {
-                  <option [value]="apartment.id">{{ apartmentLabel(apartment) }}</option>
+              <mat-select formControlName="apartmentId">
+                @if (apartments().length === 0) {
+                  <mat-option disabled value="">No apartments found</mat-option>
+                } @else {
+                  @for (apartment of apartments(); track apartment.id) {
+                    <mat-option [value]="apartment.id">{{ apartmentLabel(apartment) }}</mat-option>
+                  }
                 }
-              </select>
+              </mat-select>
               @if (form.controls.apartmentId.invalid && form.controls.apartmentId.touched) {
                 <mat-error>Apartment is required</mat-error>
               }

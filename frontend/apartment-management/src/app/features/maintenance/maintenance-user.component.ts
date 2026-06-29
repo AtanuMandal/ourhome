@@ -6,6 +6,7 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatSelectModule } from '@angular/material/select';
 import { MaintenanceFrequency } from '../../core/models/maintenance.model';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 import { LoadingSpinnerComponent } from '../../shared/components/loading-spinner/loading-spinner.component';
@@ -26,6 +27,7 @@ import { formatFrequencyLabel, MAINTENANCE_PAGE_STYLES } from './maintenance-sha
     MatFormFieldModule,
     MatInputModule,
     MatProgressBarModule,
+    MatSelectModule,
     PageHeaderComponent,
     LoadingSpinnerComponent,
     EmptyStateComponent,
@@ -52,22 +54,22 @@ import { formatFrequencyLabel, MAINTENANCE_PAGE_STYLES } from './maintenance-sha
           <form [formGroup]="filterForm" class="filters">
             <mat-form-field appearance="fill">
               <mat-label>Year</mat-label>
-              <select matNativeControl formControlName="year" (change)="refreshCharges()">
-                <option [ngValue]="null">All years</option>
+              <mat-select formControlName="year" (selectionChange)="refreshCharges()">
+                <mat-option [value]="null">All years</mat-option>
                 @for (year of yearOptions(); track year) {
-                  <option [ngValue]="year">{{ year }}</option>
+                  <mat-option [value]="year">{{ year }}</mat-option>
                 }
-              </select>
+              </mat-select>
             </mat-form-field>
 
             <mat-form-field appearance="fill">
               <mat-label>Month</mat-label>
-              <select matNativeControl formControlName="month" (change)="refreshCharges()">
-                <option [ngValue]="null">All months</option>
+              <mat-select formControlName="month" (selectionChange)="refreshCharges()">
+                <mat-option [value]="null">All months</mat-option>
                 @for (month of monthOptions; track month.value) {
-                  <option [ngValue]="month.value">{{ month.label }}</option>
+                  <mat-option [value]="month.value">{{ month.label }}</mat-option>
                 }
-              </select>
+              </mat-select>
             </mat-form-field>
           </form>
 

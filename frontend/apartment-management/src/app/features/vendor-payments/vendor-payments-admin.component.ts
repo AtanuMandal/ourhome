@@ -5,6 +5,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { RouterLink } from '@angular/router';
 import { Observable } from 'rxjs';
@@ -45,6 +46,7 @@ import {
     MatDividerModule,
     MatFormFieldModule,
     MatInputModule,
+    MatSelectModule,
     RouterLink,
     PageHeaderComponent,
     LoadingSpinnerComponent,
@@ -186,10 +188,10 @@ import {
 
               <mat-form-field appearance="fill">
                 <mat-label>Status</mat-label>
-                <select matNativeControl formControlName="isActive">
-                  <option [ngValue]="true">Active</option>
-                  <option [ngValue]="false">Inactive</option>
-                </select>
+                <mat-select formControlName="isActive">
+                  <mat-option [value]="true">Active</mat-option>
+                  <mat-option [value]="false">Inactive</mat-option>
+                </mat-select>
               </mat-form-field>
             </div>
 
@@ -248,11 +250,11 @@ import {
                 <div class="schedule-card__title">Recurring cost schedule</div>
                 <mat-form-field appearance="fill">
                   <mat-label>Frequency</mat-label>
-                  <select matNativeControl formControlName="frequency">
+                  <mat-select formControlName="frequency">
                     @for (frequency of frequencyOptions; track frequency) {
-                      <option [ngValue]="frequency">{{ frequency }}</option>
+                      <mat-option [value]="frequency">{{ frequency }}</mat-option>
                     }
-                  </select>
+                  </mat-select>
                 </mat-form-field>
                 <mat-form-field appearance="fill">
                   <mat-label>Amount</mat-label>
@@ -365,32 +367,32 @@ import {
           <form [formGroup]="chargeFilterForm" class="filters">
             <mat-form-field appearance="fill">
               <mat-label>Year</mat-label>
-              <select matNativeControl formControlName="year" (change)="loadCharges()">
-                <option [ngValue]="null">All years</option>
+              <mat-select formControlName="year" (selectionChange)="loadCharges()">
+                <mat-option [value]="null">All years</mat-option>
                 @for (year of yearOptions(); track year) {
-                  <option [ngValue]="year">{{ year }}</option>
+                  <mat-option [value]="year">{{ year }}</mat-option>
                 }
-              </select>
+              </mat-select>
             </mat-form-field>
 
             <mat-form-field appearance="fill">
               <mat-label>Month</mat-label>
-              <select matNativeControl formControlName="month" (change)="loadCharges()">
-                <option [ngValue]="null">All months</option>
+              <mat-select formControlName="month" (selectionChange)="loadCharges()">
+                <mat-option [value]="null">All months</mat-option>
                 @for (month of monthOptions; track month.value) {
-                  <option [ngValue]="month.value">{{ month.label }}</option>
+                  <mat-option [value]="month.value">{{ month.label }}</mat-option>
                 }
-              </select>
+              </mat-select>
             </mat-form-field>
 
             <mat-form-field appearance="fill">
               <mat-label>Status</mat-label>
-              <select matNativeControl formControlName="status" (change)="loadCharges()">
-                <option [ngValue]="null">All statuses</option>
+              <mat-select formControlName="status" (selectionChange)="loadCharges()">
+                <mat-option [value]="null">All statuses</mat-option>
                 @for (status of chargeStatusOptions; track status) {
-                  <option [ngValue]="status">{{ status }}</option>
+                  <mat-option [value]="status">{{ status }}</mat-option>
                 }
-              </select>
+              </mat-select>
             </mat-form-field>
           </form>
 
