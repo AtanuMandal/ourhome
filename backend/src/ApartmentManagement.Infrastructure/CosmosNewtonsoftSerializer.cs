@@ -43,8 +43,13 @@ public sealed class CosmosNewtonsoftSerializer : CosmosSerializer
 }
 
 /// <summary>
-/// Camel-case contract resolver that additionally allows Newtonsoft to write
-/// to properties that have private setters — preserving DDD encapsulation.
+/// Camel-case contract resolver that additionally:
+/// 1. Allows Newtonsoft to write to properties with private setters.
+/// 2. Respects System.Text.Json [JsonIgnore(Condition=Always)] so Domain entities
+///    don't need to take a Newtonsoft dependency.
+/// 3. Respects System.Text.Json [JsonPropertyName] for explicit field-name mapping,
+///    enabling legacy field migration (e.g. "ownerId" → LegacyOwnerId) without
+///    adding Newtonsoft attributes to the Domain layer.
 /// </summary>
 internal sealed class PrivateSetterCamelCaseContractResolver : CamelCasePropertyNamesContractResolver
 {
@@ -58,6 +63,19 @@ internal sealed class PrivateSetterCamelCaseContractResolver : CamelCaseProperty
             if (setter != null)
                 property.Writable = true;
         }
+
+        // [JsonIgnore] (Condition=Always) → exclude from both serialization and deserialization.
+        // WhenWritingNull / WhenWritingDefault are handled by NullValueHandling=Ignore on the serializer.
+        var ignoreAttr = member.GetCustomAttribute<System.Text.Json.Serialization.JsonIgnoreAttribute>();
+        if (ignoreAttr?.Condition == System.Text.Json.Serialization.JsonIgnoreCondition.Always)
+        {
+            property.Ignored = true;
+            return property;
+        }
+
+        // [JsonPropertyName("x")] → override the camelCase-derived key with the explicit name.
+        if (member.GetCustomAttribute<System.Text.Json.Serialization.JsonPropertyNameAttribute>() is { } nameAttr)
+            property.PropertyName = nameAttr.Name;
 
         return property;
     }

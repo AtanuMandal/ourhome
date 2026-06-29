@@ -194,13 +194,9 @@ public sealed record CreateNoticeRequest(
 
 public sealed record UpdateNoticeRequest(string? Title, string? Content, DateTime? ExpiresAt);
 
-// ─── Visitor ─────────────────────────────────────────────────────────────────
+public sealed record MarkNoticeReadRequest(bool IsRead);
 
-public sealed record VisitorLogDto(
-    string Id, string SocietyId, string VisitorName, string VisitorPhone,
-    string? VisitorEmail, string Purpose, string HostApartmentId, string HostUserId,
-    VisitorStatus Status, string QrCode, string PassCode, string? VehicleNumber,
-    DateTime? CheckInTime, DateTime? CheckOutTime, TimeSpan? Duration, DateTime CreatedAt);
+// ─── Visitor ─────────────────────────────────────────────────────────────────
 
 public sealed record RegisterVisitorRequest(
     string VisitorName,
@@ -429,7 +425,8 @@ public record AddFeedbackRequest(int Rating, string? Comment);
 public record NoticeResponse(
     string Id, string SocietyId, string Title, string Content, string Category,
     string PostedByUserId, bool IsArchived, DateTime PublishAt, DateTime? ExpiresAt,
-    bool IsActive, DateTime CreatedAt, IReadOnlyList<string> TargetApartmentIds);
+    bool IsActive, DateTime CreatedAt, IReadOnlyList<string> TargetApartmentIds,
+    bool IsReadByCurrentUser = false);
 
 public record VisitorResponse(
     string Id,

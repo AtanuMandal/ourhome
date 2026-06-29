@@ -17,8 +17,8 @@ $app-theme: mat.define-light-theme((
   density: 0,
 ));
 
-@include mat.all-component-themes($app-theme);
-
+// @include mat.all-component-themes($app-theme);
+@import '@angular/material/prebuilt-themes/indigo-pink.css';
 // ─── CSS Custom Properties ────────────────────────────────────────────────────
 :root {
   --primary:        #1565c0;

@@ -1,4 +1,6 @@
 using ApartmentManagement.Application.Commands.Notice;
+using ApartmentManagement.Application.DTOs;
+using ApartmentManagement.Application.Interfaces;
 using ApartmentManagement.Application.Queries.Notice;
 using ApartmentManagement.Functions.Helpers;
 using ApartmentManagement.Shared.Exceptions;
@@ -11,7 +13,7 @@ using System.Net;
 
 namespace ApartmentManagement.Functions.Http;
 
-public class NoticeFunctions(ISender mediator)
+public class NoticeFunctions(ISender mediator, ICurrentUserService currentUser)
 {
     [Function("PostNotice")]
     public async Task<IActionResult> PostNotice(
@@ -44,7 +46,7 @@ public class NoticeFunctions(ISender mediator)
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "societies/{societyId}/notices/{id}")] HttpRequest req,
         string societyId, string id, CancellationToken ct)
     {
-        var result = await mediator.Send(new GetNoticeQuery(societyId, id), ct);
+        var result = await mediator.Send(new GetNoticeQuery(societyId, id, currentUser.UserId), ct);
         return result.ToActionResult();
     }
 
@@ -55,7 +57,22 @@ public class NoticeFunctions(ISender mediator)
     {
         int.TryParse(req.Query["page"], out var page);
         int.TryParse(req.Query["pageSize"], out var pageSize);
-        var result = await mediator.Send(new GetActiveNoticesQuery(societyId, null, new PaginationParams { Page = page < 1 ? 1 : page, PageSize = pageSize < 1 ? 20 : pageSize }), ct);
+        var result = await mediator.Send(new GetActiveNoticesQuery(
+            societyId, null,
+            new PaginationParams { Page = page < 1 ? 1 : page, PageSize = pageSize < 1 ? 20 : pageSize },
+            currentUser.UserId), ct);
+        return result.ToActionResult();
+    }
+
+    [Function("MarkNoticeRead")]
+    public async Task<IActionResult> MarkNoticeRead(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "patch", Route = "societies/{societyId}/notices/{id}/read")] HttpRequest req,
+        string societyId, string id, CancellationToken ct)
+    {
+        var body = await req.DeserializeAsync<MarkNoticeReadRequest>(ct);
+        if (body is null) return new BadRequestObjectResult("Invalid request body");
+
+        var result = await mediator.Send(new MarkNoticeReadCommand(societyId, id, currentUser.UserId, body.IsRead), ct);
         return result.ToActionResult();
     }
 }

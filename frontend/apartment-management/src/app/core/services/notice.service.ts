@@ -17,4 +17,8 @@ export class NoticeService {
   post(societyId: string, dto: PostNoticeDto) {
     return this.api.post<Notice>(`societies/${societyId}/notices`, dto);
   }
+
+  markRead(societyId: string, id: string, isRead: boolean) {
+    return this.api.patch<boolean>(`societies/${societyId}/notices/${id}/read`, { isRead });
+  }
 }

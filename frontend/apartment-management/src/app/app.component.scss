@@ -4,8 +4,6 @@
 }
 
 .app-container {
-  height: 100vh;
-
   // Desktop: show sidenav
   .side-nav {
     width: 240px;
@@ -18,7 +16,7 @@
 
   .main-content {
     background: var(--background);
-    overflow-y: auto;
+    // No overflow-y: auto here — the window scrolls instead of this div.
     scrollbar-width: none;
     &::-webkit-scrollbar { display: none; }
 

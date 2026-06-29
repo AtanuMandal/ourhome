@@ -167,7 +167,7 @@ public static class MappingExtensions
             complaint.FeedbackRating,
             complaint.FeedbackComment);
 
-    public static NoticeResponse ToResponse(this Notice notice) =>
+    public static NoticeResponse ToResponse(this Notice notice, string? currentUserId = null) =>
         new(
             notice.Id,
             notice.SocietyId,
@@ -180,7 +180,8 @@ public static class MappingExtensions
             notice.ExpiresAt,
             notice.IsActive,
             notice.CreatedAt,
-            notice.TargetApartmentIds);
+            notice.TargetApartmentIds,
+            currentUserId is not null && notice.IsReadByUser(currentUserId));
 
     public static VisitorResponse ToResponse(this VisitorLog log) =>
         new(

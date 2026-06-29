@@ -1,18 +1,30 @@
 .notice-list { display: flex; flex-direction: column; gap: 10px; }
 
 .notice-card {
-  display: block;
+  display: flex;
+  align-items: flex-start;
   background: var(--surface);
   border-radius: var(--radius-md);
-  padding: 16px;
-  text-decoration: none;
-  color: inherit;
   box-shadow: var(--shadow-sm);
   transition: box-shadow var(--transition);
   position: relative;
   border-left: 4px solid var(--primary-light);
   -webkit-tap-highlight-color: transparent;
   &:active { box-shadow: var(--shadow-md); }
+
+  &--unread {
+    border-left-color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 4%, var(--surface));
+    .nc-title { font-weight: 700; }
+  }
+
+  &__link {
+    flex: 1;
+    display: block;
+    padding: 16px;
+    text-decoration: none;
+    color: inherit;
+  }
 
   .pin-badge {
     display: inline-flex; align-items: center; gap: 3px;
@@ -25,7 +37,14 @@
     font-size: 11px; font-weight: 600; text-transform: uppercase;
     letter-spacing: .08em; color: var(--text-secondary); margin-bottom: 4px;
   }
-  .nc-title { font-size: 15px; font-weight: 600; margin: 0 0 6px; }
+  .nc-title {
+    font-size: 15px; font-weight: 600; margin: 0 0 6px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .nc-unread-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--primary); flex-shrink: 0;
+  }
   .nc-body {
     font-size: 13px; color: var(--text-secondary);
     margin: 0 0 8px; line-height: 1.5;
@@ -33,6 +52,13 @@
     -webkit-box-orient: vertical; overflow: hidden;
   }
   .nc-date { font-size: 11px; color: var(--text-secondary); }
+
+  .nc-read-toggle {
+    flex-shrink: 0;
+    align-self: center;
+    margin-right: 4px;
+    color: var(--text-secondary);
+  }
 }
 
 .fab {
