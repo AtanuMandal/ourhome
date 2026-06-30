@@ -103,7 +103,8 @@ public record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 public record UserResponse(
     string Id, string SocietyId, string FullName, string Email, string Phone,
     string Role, string ResidentType, string? ApartmentId, string? InvitedByUserId, bool IsActive, bool IsVerified, bool HasPassword,
-    IReadOnlyList<string> Permissions, IReadOnlyList<ResidentApartmentDto> Apartments, DateTime CreatedAt);
+    IReadOnlyList<string> Permissions, IReadOnlyList<ResidentApartmentDto> Apartments, DateTime CreatedAt,
+    string? PendingApartmentId = null, string? PendingResidentType = null);
 
 public record ResidentApartmentDto(
     string ApartmentId,
@@ -139,6 +140,12 @@ public record AddHouseholdMemberRequest(
     string Email,
     string Phone,
     [property: JsonConverter(typeof(JsonStringEnumConverter))] ResidentType ResidentType);
+
+public record GenerateInviteLinkRequest(string? ApartmentId = null);
+public record InviteLinkResponse(string Token, string InviteUrl);
+public record ValidateInviteTokenResponse(bool Valid, string? SocietyId, string? ApartmentId);
+public record SelfRegisterRequest(string FullName, string Email, string Phone, string Password, string InviteToken);
+public record RequestApartmentJoinRequest(string ApartmentId, [property: JsonConverter(typeof(JsonStringEnumConverter))] ResidentType ResidentType);
 
 // ─── Amenity ─────────────────────────────────────────────────────────────────
 

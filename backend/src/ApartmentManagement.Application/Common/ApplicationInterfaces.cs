@@ -52,11 +52,15 @@ public interface IRateLimitService
     Task<int> GetRemainingCallsAsync(string userId, string endpoint, CancellationToken ct = default);
 }
 
+public record InviteTokenClaims(string SocietyId, string? ApartmentId);
+
 public interface IAuthService
 {
     string GenerateOtp();
     Task<string> GenerateJwtTokenAsync(string userId, string email, string role, string societyId, CancellationToken ct = default);
     Task<bool> ValidateTokenAsync(string token, CancellationToken ct = default);
+    Task<string> GenerateInviteTokenAsync(string societyId, string? apartmentId = null, CancellationToken ct = default);
+    Task<InviteTokenClaims?> ValidateInviteTokenAsync(string token, CancellationToken ct = default);
     string HashPassword(string password);
     bool VerifyPassword(string password, string hash);
 }

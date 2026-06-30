@@ -240,4 +240,86 @@ public class UserFunctions(ISender mediator, ICurrentUserService currentUser)
         var result = await mediator.Send(new ChangePasswordCommand(societyId, id, body.CurrentPassword, body.NewPassword), ct);
         return result.ToActionResult();
     }
+
+    [Function("GenerateInviteLink")]
+    public async Task<IActionResult> GenerateInviteLink(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "societies/{societyId}/invite-link")] HttpRequest req,
+        string societyId, CancellationToken ct)
+    {
+        if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
+        if (!currentUser.IsInRoles("SUAdmin", "HQAdmin", "SUUser")) return new ForbidResult();
+        var body = await req.DeserializeAsync<GenerateInviteLinkRequest>(ct);
+        var result = await mediator.Send(new GenerateInviteLinkCommand(societyId, body?.ApartmentId), ct);
+        return result.ToActionResult(201);
+    }
+
+    [Function("ValidateInviteToken")]
+    public async Task<IActionResult> ValidateInviteToken(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "invite/validate")] HttpRequest req,
+        CancellationToken ct)
+    {
+        var token = req.Query["token"].ToString();
+        if (string.IsNullOrWhiteSpace(token))
+            return new BadRequestObjectResult(new { error = "token query parameter is required." });
+        var result = await mediator.Send(new ValidateInviteTokenQuery(token), ct);
+        return result.ToActionResult();
+    }
+
+    [Function("SelfRegister")]
+    public async Task<IActionResult> SelfRegister(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "societies/{societyId}/auth/register")] HttpRequest req,
+        string societyId, CancellationToken ct)
+    {
+        var body = await req.DeserializeAsync<SelfRegisterRequest>(ct);
+        if (body is null) return new BadRequestObjectResult("Invalid request body");
+
+        var result = await mediator.Send(
+            new SelfRegisterCommand(societyId, body.FullName, body.Email, body.Phone, body.Password), ct);
+        return result.ToActionResult(201);
+    }
+
+    [Function("RequestApartmentJoin")]
+    public async Task<IActionResult> RequestApartmentJoin(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "societies/{societyId}/users/{id}/apartment-join-request")] HttpRequest req,
+        string societyId, string id, CancellationToken ct)
+    {
+        if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
+        var body = await req.DeserializeAsync<RequestApartmentJoinRequest>(ct);
+        if (body is null) return new BadRequestObjectResult("Invalid request body");
+        var result = await mediator.Send(new RequestApartmentJoinCommand(societyId, id, body.ApartmentId, body.ResidentType), ct);
+        return result.ToActionResult();
+    }
+
+    [Function("ApproveApartmentJoin")]
+    public async Task<IActionResult> ApproveApartmentJoin(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "societies/{societyId}/users/{id}/apartment-join-request/approve")] HttpRequest req,
+        string societyId, string id, CancellationToken ct)
+    {
+        if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
+        if (!currentUser.IsInRoles("SUAdmin", "HQAdmin")) return new ForbidResult();
+        var result = await mediator.Send(new ApproveApartmentJoinCommand(societyId, id), ct);
+        return result.ToActionResult();
+    }
+
+    [Function("DenyApartmentJoin")]
+    public async Task<IActionResult> DenyApartmentJoin(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "societies/{societyId}/users/{id}/apartment-join-request/deny")] HttpRequest req,
+        string societyId, string id, CancellationToken ct)
+    {
+        if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
+        if (!currentUser.IsInRoles("SUAdmin", "HQAdmin")) return new ForbidResult();
+        var result = await mediator.Send(new DenyApartmentJoinCommand(societyId, id), ct);
+        return result.ToActionResult();
+    }
+
+    [Function("GetPendingApartmentJoinRequests")]
+    public async Task<IActionResult> GetPendingApartmentJoinRequests(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "societies/{societyId}/users/pending-join-requests")] HttpRequest req,
+        string societyId, CancellationToken ct)
+    {
+        if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
+        if (!currentUser.IsInRoles("SUAdmin", "HQAdmin")) return new ForbidResult();
+        var result = await mediator.Send(new GetUsersWithPendingJoinRequestsQuery(societyId), ct);
+        return result.ToActionResult();
+    }
 }

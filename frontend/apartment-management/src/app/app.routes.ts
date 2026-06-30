@@ -88,5 +88,11 @@ export const routes: Routes = [
     loadChildren: () => import('./features/vendor-payments/vendor-payments.routes').then(m => m.VENDOR_PAYMENT_ROUTES),
   },
 
+  {
+    path: 'my-apartment',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/my-apartment/my-apartment.component').then(m => m.MyApartmentComponent),
+  },
+
   { path: '**', redirectTo: '/dashboard' },
 ];

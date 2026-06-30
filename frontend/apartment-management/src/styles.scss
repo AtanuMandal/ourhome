@@ -1,5 +1,6 @@
 @use '@angular/material' as mat;
-@include mat.core();
+
+
 // ─── Custom palette ───────────────────────────────────────────────────────────
 $primary-palette: mat.define-palette(mat.$blue-palette, 700, 400, 900);
 $accent-palette:  mat.define-palette(mat.$teal-palette, 500, 200, 800);

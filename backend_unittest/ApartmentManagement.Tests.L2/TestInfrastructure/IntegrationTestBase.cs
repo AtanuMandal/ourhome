@@ -119,6 +119,12 @@ public sealed class FakeAuthService : IAuthService
     public string HashPassword(string password) => $"hashed-{password}";
 
     public bool VerifyPassword(string password, string hash) => hash == $"hashed-{password}";
+
+    public Task<string> GenerateInviteTokenAsync(string societyId, string? apartmentId = null, CancellationToken ct = default)
+        => Task.FromResult("fake-invite-token");
+
+    public Task<InviteTokenClaims?> ValidateInviteTokenAsync(string token, CancellationToken ct = default)
+        => Task.FromResult<InviteTokenClaims?>(new InviteTokenClaims("soc-001", null));
 }
 
 public sealed class FakeCacheService : ICacheService

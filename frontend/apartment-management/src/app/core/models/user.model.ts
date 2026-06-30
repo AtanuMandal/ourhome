@@ -35,6 +35,19 @@ export interface User {
   avatarUrl?: string;
   apartments?: ResidentApartment[];
   createdAt?: string;
+  pendingApartmentId?: string;
+  pendingResidentType?: string;
+}
+
+export interface InviteLink {
+  token: string;
+  inviteUrl: string;
+}
+
+export interface InviteTokenValidation {
+  valid: boolean;
+  societyId?: string;
+  apartmentId?: string;
 }
 
 export interface AuthState {
