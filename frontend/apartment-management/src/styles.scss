@@ -1,5 +1,5 @@
-@import '@angular/material/prebuilt-themes/indigo-pink.css';
 @use '@angular/material' as mat;
+@import '@angular/material/prebuilt-themes/indigo-pink.css';
 
 // ─── Custom palette ───────────────────────────────────────────────────────────
 $primary-palette: mat.define-palette(mat.$blue-palette, 700, 400, 900);

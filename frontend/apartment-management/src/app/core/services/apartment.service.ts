@@ -9,7 +9,7 @@ import {
   CreateApartmentDto,
   UpdateApartmentDto
 } from '../models/apartment.model';
-import { User } from '../models/user.model';
+import { User, InviteLink, InviteTokenValidation } from '../models/user.model';
 
 @Injectable({ providedIn: 'root' })
 export class ApartmentService {
@@ -123,5 +123,25 @@ export class UserService {
 
   changePassword(societyId: string, id: string, dto: { currentPassword: string; newPassword: string }) {
     return this.api.put<void>(`societies/${societyId}/users/${id}/password`, dto);
+  }
+
+  generateInviteLink(societyId: string, apartmentId?: string) {
+    return this.api.post<InviteLink>(`societies/${societyId}/invite-link`, { apartmentId });
+  }
+
+  requestApartmentJoin(societyId: string, userId: string, dto: { apartmentId: string; residentType: 'Owner' | 'Tenant' }) {
+    return this.api.post<User>(`societies/${societyId}/users/${userId}/apartment-join-request`, dto);
+  }
+
+  approveApartmentJoin(societyId: string, userId: string) {
+    return this.api.post<User>(`societies/${societyId}/users/${userId}/apartment-join-request/approve`, {});
+  }
+
+  denyApartmentJoin(societyId: string, userId: string) {
+    return this.api.post<User>(`societies/${societyId}/users/${userId}/apartment-join-request/deny`, {});
+  }
+
+  getPendingJoinRequests(societyId: string) {
+    return this.api.get<User[]>(`societies/${societyId}/users/pending-join-requests`);
   }
 }

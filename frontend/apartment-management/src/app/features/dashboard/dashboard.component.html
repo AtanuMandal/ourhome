@@ -1,4 +1,4 @@
-<app-page-header [title]="'Good ' + greeting" [subtitle]="user()?.name ?? ''"></app-page-header>
+<app-page-header [title]="'Good ' + greeting" [subtitle]="user()?.fullName ?? user()?.name ?? ''"></app-page-header>
 
 <div class="page-content">
 
@@ -10,7 +10,7 @@
     <section class="section">
       <h2 class="section-title">Quick Actions</h2>
       <div class="quick-grid">
-        @for (action of quickActions; track action.route) {
+        @for (action of quickActions(); track action.route) {
           <a [routerLink]="action.route" class="quick-action" [style.--action-color]="action.color">
             <div class="action-icon">
               <span class="material-icons">{{ action.icon }}</span>

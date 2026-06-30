@@ -3,6 +3,7 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
 import { MatRippleModule } from '@angular/material/core';
 import { MatBadgeModule } from '@angular/material/badge';
 import { NgClass } from '@angular/common';
+import { AuthService } from '../../../core/services/auth.service';
 
 interface NavItem {
   path: string;
@@ -17,7 +18,7 @@ interface NavItem {
   imports: [RouterLink, RouterLinkActive, MatRippleModule, MatBadgeModule, NgClass],
   template: `
     <nav class="bottom-nav" role="navigation" aria-label="Main navigation">
-      @for (item of navItems; track item.path) {
+      @for (item of navItems(); track item.path) {
         <a
           [routerLink]="item.path"
           routerLinkActive="active"
@@ -43,11 +44,48 @@ interface NavItem {
   styleUrl: './bottom-nav.component.scss',
 })
 export class BottomNavComponent {
-  readonly navItems: NavItem[] = [
-    { path: '/dashboard',   icon: 'home',            label: 'Home' },
-    { path: '/complaints',  icon: 'report_problem',  label: 'Complaints' },
-    { path: '/notices',     icon: 'notifications',   label: 'Notices' },
-    { path: '/amenities',   icon: 'event_available', label: 'Bookings' },
-    { path: '/maintenance', icon: 'receipt_long', label: 'Maintenance' },
-  ];
+  private readonly auth = inject(AuthService);
+
+  readonly navItems = computed<NavItem[]>(() => {
+    const role = this.auth.user()?.role;
+
+    if (role === 'SUUser') {
+      return [
+        { path: '/dashboard',    icon: 'home',           label: 'Home' },
+        { path: '/my-apartment', icon: 'apartment',      label: 'My Apt' },
+        { path: '/notices',      icon: 'notifications',  label: 'Notices' },
+        { path: '/complaints',   icon: 'report_problem', label: 'Complaints' },
+        { path: '/maintenance',  icon: 'receipt_long',   label: 'Maintenance' },
+      ];
+    }
+
+    if (role === 'SUAdmin') {
+      return [
+        { path: '/dashboard',   icon: 'home',           label: 'Home' },
+        { path: '/residents',   icon: 'people',         label: 'Users' },
+        { path: '/apartments',  icon: 'domain',         label: 'Apartments' },
+        { path: '/complaints',  icon: 'report_problem', label: 'Complaints' },
+        { path: '/maintenance', icon: 'receipt_long',   label: 'Maintenance' },
+      ];
+    }
+
+    if (role === 'SUSecurity') {
+      return [
+        { path: '/dashboard',  icon: 'home',           label: 'Home' },
+        { path: '/visitors',   icon: 'badge',          label: 'Visitors' },
+        { path: '/residents',  icon: 'people',         label: 'Residents' },
+        { path: '/notices',    icon: 'notifications',  label: 'Notices' },
+        { path: '/complaints', icon: 'report_problem', label: 'Complaints' },
+      ];
+    }
+
+    // HQAdmin, HQUser
+    return [
+      { path: '/dashboard',   icon: 'home',            label: 'Home' },
+      { path: '/complaints',  icon: 'report_problem',  label: 'Complaints' },
+      { path: '/notices',     icon: 'notifications',   label: 'Notices' },
+      { path: '/amenities',   icon: 'event_available', label: 'Bookings' },
+      { path: '/maintenance', icon: 'receipt_long',    label: 'Maintenance' },
+    ];
+  });
 }

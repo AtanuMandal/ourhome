@@ -2,6 +2,7 @@ using ApartmentManagement.Domain.Events;
 using ApartmentManagement.Application.Interfaces;
 using ApartmentManagement.Domain.Entities;
 using ApartmentManagement.Domain.Repositories;
+using System.Collections.Generic;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -71,6 +72,60 @@ public class JwtAuthService(IOptions<InfrastructureSettings> options) : IAuthSer
             return Task.FromResult(true);
         }
         catch { return Task.FromResult(false); }
+    }
+
+    public Task<string> GenerateInviteTokenAsync(string societyId, string? apartmentId = null, CancellationToken ct = default)
+    {
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_s.JwtSecret));
+        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        var claims = new List<Claim>
+        {
+            new Claim("type", "invite"),
+            new Claim("societyId", societyId),
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+        };
+        if (!string.IsNullOrWhiteSpace(apartmentId))
+            claims.Add(new Claim("apartmentId", apartmentId));
+
+        var token = new JwtSecurityToken(
+            issuer: _s.JwtIssuer,
+            audience: _s.JwtAudience,
+            claims: claims,
+            expires: DateTime.UtcNow.AddDays(7),
+            signingCredentials: creds);
+
+        return Task.FromResult(new JwtSecurityTokenHandler().WriteToken(token));
+    }
+
+    public Task<InviteTokenClaims?> ValidateInviteTokenAsync(string token, CancellationToken ct = default)
+    {
+        try
+        {
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_s.JwtSecret));
+            var handler = new JwtSecurityTokenHandler();
+            var principal = handler.ValidateToken(token, new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = key,
+                ValidateIssuer = true,
+                ValidIssuer = _s.JwtIssuer,
+                ValidateAudience = true,
+                ValidAudience = _s.JwtAudience,
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.Zero,
+            }, out _);
+
+            var typeClaim = principal.FindFirst("type")?.Value;
+            if (typeClaim != "invite") return Task.FromResult<InviteTokenClaims?>(null);
+
+            var sid = principal.FindFirst("societyId")?.Value;
+            if (string.IsNullOrWhiteSpace(sid)) return Task.FromResult<InviteTokenClaims?>(null);
+
+            var apt = principal.FindFirst("apartmentId")?.Value;
+            return Task.FromResult<InviteTokenClaims?>(new InviteTokenClaims(sid, apt));
+        }
+        catch { return Task.FromResult<InviteTokenClaims?>(null); }
     }
 
     public string HashPassword(string password)

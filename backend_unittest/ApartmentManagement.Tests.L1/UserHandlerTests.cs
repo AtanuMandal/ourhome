@@ -1,5 +1,6 @@
 using ApartmentManagement.Application.Commands.User;
 using ApartmentManagement.Application.Interfaces;
+using ApartmentManagement.Application.Queries.User;
 using ApartmentManagement.Domain.Entities;
 using ApartmentManagement.Domain.Enums;
 using ApartmentManagement.Domain.Repositories;
@@ -375,5 +376,270 @@ public class SendOtpCommandHandlerTests
         // Assert
         result.IsFailure.Should().BeTrue();
         result.ErrorCode.Should().Be(ErrorCodes.UserNotFound);
+    }
+}
+
+// ─── SelfRegisterCommandHandler Tests ─────────────────────────────────────────
+
+public class SelfRegisterCommandHandlerTests
+{
+    private readonly Mock<IUserRepository> _userRepoMock = new();
+    private readonly Mock<IAuthService> _authServiceMock = new();
+
+    private SelfRegisterCommandHandler CreateHandler() =>
+        new(_userRepoMock.Object, _authServiceMock.Object);
+
+    [Fact]
+    public async Task Handle_NewUser_CreatesVerifiedUserWithHashedPassword()
+    {
+        // Arrange
+        User? captured = null;
+        _userRepoMock
+            .Setup(r => r.GetByEmailAsync("soc-001", "alice@example.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
+        _userRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
+            .Callback<User, CancellationToken>((u, _) => captured = u)
+            .ReturnsAsync((User u, CancellationToken _) => u);
+        _authServiceMock
+            .Setup(a => a.HashPassword("Password1!"))
+            .Returns("hashed-password");
+
+        var handler = CreateHandler();
+        var command = new SelfRegisterCommand("soc-001", "Alice Smith", "alice@example.com", "+91-9876543210", "Password1!");
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        _userRepoMock.Verify(r => r.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()), Times.Once);
+        _userRepoMock.Verify(r => r.UpdateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()), Times.Never);
+        _authServiceMock.Verify(a => a.HashPassword("Password1!"), Times.Once);
+        captured.Should().NotBeNull();
+        captured!.IsVerified.Should().BeTrue();
+        captured!.OtpCode.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Handle_ExistingEmail_ReturnsUserAlreadyExists()
+    {
+        // Arrange
+        var existing = User.Create("soc-001", "Bob", "alice@example.com", "+91-1111111111", UserRole.SUUser, ResidentType.Owner);
+        _userRepoMock
+            .Setup(r => r.GetByEmailAsync("soc-001", "alice@example.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existing);
+
+        var handler = CreateHandler();
+        var command = new SelfRegisterCommand("soc-001", "Alice", "alice@example.com", "+91-9876543210", "Password1!");
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.UserAlreadyExists);
+        _userRepoMock.Verify(r => r.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+}
+
+// ─── RequestApartmentJoinCommandHandler Tests ─────────────────────────────────
+
+public class RequestApartmentJoinCommandHandlerTests
+{
+    private readonly Mock<IUserRepository> _userRepoMock = new();
+    private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
+
+    private RequestApartmentJoinCommandHandler CreateHandler() =>
+        new(_userRepoMock.Object, _apartmentRepoMock.Object);
+
+    [Fact]
+    public async Task Handle_ValidRequest_SetsPendingFields()
+    {
+        // Arrange
+        var user = User.Create("soc-001", "Alice", "alice@example.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
+        _userRepoMock
+            .Setup(r => r.GetByIdAsync(user.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _apartmentRepoMock
+            .Setup(r => r.GetByIdAsync("apt-001", "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Apartment.Create("soc-001", "101", "A", 1, 2, ["P1"], 500, 600, 700));
+        _userRepoMock
+            .Setup(r => r.UpdateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User u, CancellationToken _) => u);
+
+        var handler = CreateHandler();
+        var command = new RequestApartmentJoinCommand("soc-001", user.Id, "apt-001", ResidentType.Owner);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.PendingApartmentId.Should().Be("apt-001");
+        result.Value.PendingResidentType.Should().Be("Owner");
+    }
+
+    [Fact]
+    public async Task Handle_UserNotFound_ReturnsFailure()
+    {
+        // Arrange
+        _userRepoMock
+            .Setup(r => r.GetByIdAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
+
+        var handler = CreateHandler();
+        var command = new RequestApartmentJoinCommand("soc-001", "unknown", "apt-001", ResidentType.Owner);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.UserNotFound);
+    }
+
+    [Fact]
+    public async Task Handle_InvalidResidentType_ReturnsValidationFailed()
+    {
+        // Arrange
+        var user = User.Create("soc-001", "Alice", "alice@example.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
+        _userRepoMock
+            .Setup(r => r.GetByIdAsync(user.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _apartmentRepoMock
+            .Setup(r => r.GetByIdAsync("apt-001", "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Apartment.Create("soc-001", "101", "A", 1, 2, ["P1"], 500, 600, 700));
+
+        var handler = CreateHandler();
+        var command = new RequestApartmentJoinCommand("soc-001", user.Id, "apt-001", ResidentType.FamilyMember);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.ValidationFailed);
+    }
+}
+
+// ─── ApproveApartmentJoinCommandHandler Tests ─────────────────────────────────
+
+public class ApproveApartmentJoinCommandHandlerTests
+{
+    private readonly Mock<IUserRepository> _userRepoMock = new();
+    private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
+
+    private ApproveApartmentJoinCommandHandler CreateHandler() =>
+        new(_userRepoMock.Object, _apartmentRepoMock.Object);
+
+    [Fact]
+    public async Task Handle_WithPendingRequest_LinksApartmentAndClearsPending()
+    {
+        // Arrange
+        var user = User.Create("soc-001", "Alice", "alice@example.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
+        user.RequestApartmentJoin("apt-001", ResidentType.Owner);
+
+        var apartment = Apartment.Create("soc-001", "101", "A", 1, 2, ["P1"], 500, 600, 700);
+        apartment.GetType().GetProperty("Id")?.SetValue(apartment, "apt-001");
+
+        _userRepoMock
+            .Setup(r => r.GetByIdAsync(user.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _apartmentRepoMock
+            .Setup(r => r.GetByIdAsync("apt-001", "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(apartment);
+        _apartmentRepoMock
+            .Setup(r => r.UpdateAsync(It.IsAny<Apartment>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Apartment a, CancellationToken _) => a);
+        _userRepoMock
+            .Setup(r => r.UpdateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User u, CancellationToken _) => u);
+
+        var handler = CreateHandler();
+        var command = new ApproveApartmentJoinCommand("soc-001", user.Id);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.PendingApartmentId.Should().BeNull();
+        result.Value.PendingResidentType.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Handle_NoPendingRequest_ReturnsNoPendingApartmentRequest()
+    {
+        // Arrange
+        var user = User.Create("soc-001", "Alice", "alice@example.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
+        _userRepoMock
+            .Setup(r => r.GetByIdAsync(user.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        var handler = CreateHandler();
+        var command = new ApproveApartmentJoinCommand("soc-001", user.Id);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.NoPendingApartmentRequest);
+    }
+}
+
+// ─── DenyApartmentJoinCommandHandler Tests ────────────────────────────────────
+
+public class DenyApartmentJoinCommandHandlerTests
+{
+    private readonly Mock<IUserRepository> _userRepoMock = new();
+
+    private DenyApartmentJoinCommandHandler CreateHandler() =>
+        new(_userRepoMock.Object);
+
+    [Fact]
+    public async Task Handle_WithPendingRequest_ClearsPendingFields()
+    {
+        // Arrange
+        var user = User.Create("soc-001", "Alice", "alice@example.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
+        user.RequestApartmentJoin("apt-001", ResidentType.Owner);
+
+        _userRepoMock
+            .Setup(r => r.GetByIdAsync(user.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _userRepoMock
+            .Setup(r => r.UpdateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User u, CancellationToken _) => u);
+
+        var handler = CreateHandler();
+        var command = new DenyApartmentJoinCommand("soc-001", user.Id);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.PendingApartmentId.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Handle_NoPendingRequest_ReturnsNoPendingApartmentRequest()
+    {
+        // Arrange
+        var user = User.Create("soc-001", "Alice", "alice@example.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
+        _userRepoMock
+            .Setup(r => r.GetByIdAsync(user.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        var handler = CreateHandler();
+        var command = new DenyApartmentJoinCommand("soc-001", user.Id);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.NoPendingApartmentRequest);
     }
 }

@@ -39,14 +39,52 @@ export class DashboardComponent implements OnInit {
   readonly recentComplaints = signal<Complaint[]>([]);
   readonly recentNotices    = signal<Notice[]>([]);
 
-  readonly quickActions: QuickAction[] = [
-    { icon: 'report_problem',         label: 'Complaint',  route: '/complaints/new',  color: '#ef5350' },
-    { icon: 'event_available',        label: 'Book',       route: '/amenities',        color: '#26a69a' },
-    { icon: 'badge',                  label: 'Visitor',    route: '/visitors/register',color: '#7e57c2' },
-    { icon: 'receipt_long',           label: 'Maintenance', route: '/maintenance',      color: '#42a5f5' },
-    { icon: 'build',                  label: 'Service',    route: '/services',         color: '#ff7043' },
-    { icon: 'emoji_events',           label: 'Rewards',    route: '/rewards',          color: '#ffca28' },
-  ];
+  readonly quickActions = computed<QuickAction[]>(() => {
+    const role = this.user()?.role;
+
+    if (role === 'SUUser') {
+      return [
+        { icon: 'apartment',       label: 'My Apartment', route: '/my-apartment',       color: '#1565c0' },
+        { icon: 'report_problem',  label: 'Complaint',    route: '/complaints/new',     color: '#ef5350' },
+        { icon: 'notifications',   label: 'Notices',      route: '/notices',            color: '#ff9800' },
+        { icon: 'event_available', label: 'Book Amenity', route: '/amenities',          color: '#26a69a' },
+        { icon: 'build',           label: 'Service',      route: '/services',           color: '#ff7043' },
+        { icon: 'emoji_events',    label: 'Rewards',      route: '/rewards',            color: '#ffca28' },
+      ];
+    }
+
+    if (role === 'SUAdmin') {
+      return [
+        { icon: 'people',          label: 'Users',        route: '/residents',          color: '#1565c0' },
+        { icon: 'domain',          label: 'Apartments',   route: '/apartments',         color: '#26a69a' },
+        { icon: 'report_problem',  label: 'Complaints',   route: '/complaints',         color: '#ef5350' },
+        { icon: 'badge',           label: 'Visitors',     route: '/visitors',           color: '#7e57c2' },
+        { icon: 'receipt_long',    label: 'Maintenance',  route: '/maintenance',        color: '#42a5f5' },
+        { icon: 'campaign',        label: 'Notices',      route: '/notices',            color: '#ff9800' },
+      ];
+    }
+
+    if (role === 'SUSecurity') {
+      return [
+        { icon: 'badge',           label: 'Visitors',     route: '/visitors',           color: '#7e57c2' },
+        { icon: 'people',          label: 'Residents',    route: '/residents',          color: '#1565c0' },
+        { icon: 'report_problem',  label: 'Complaint',    route: '/complaints/new',     color: '#ef5350' },
+        { icon: 'notifications',   label: 'Notices',      route: '/notices',            color: '#ff9800' },
+        { icon: 'receipt_long',    label: 'Maintenance',  route: '/maintenance',        color: '#42a5f5' },
+        { icon: 'emoji_events',    label: 'Rewards',      route: '/rewards',            color: '#ffca28' },
+      ];
+    }
+
+    // HQAdmin, HQUser — platform-level
+    return [
+      { icon: 'report_problem',  label: 'Complaint',    route: '/complaints/new',     color: '#ef5350' },
+      { icon: 'event_available', label: 'Book',         route: '/amenities',          color: '#26a69a' },
+      { icon: 'badge',           label: 'Visitor',      route: '/visitors/register',  color: '#7e57c2' },
+      { icon: 'receipt_long',    label: 'Maintenance',  route: '/maintenance',        color: '#42a5f5' },
+      { icon: 'build',           label: 'Service',      route: '/services',           color: '#ff7043' },
+      { icon: 'emoji_events',    label: 'Rewards',      route: '/rewards',            color: '#ffca28' },
+    ];
+  });
 
   get greeting() {
     const h = new Date().getHours();

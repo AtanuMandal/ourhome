@@ -1108,4 +1108,240 @@ public sealed class GetUsersByApartmentQueryHandler(IUserRepository userReposito
         }
     }
 }
+
+// ─── Generate Invite Link ─────────────────────────────────────────────────────
+
+public record GenerateInviteLinkCommand(string SocietyId, string? ApartmentId = null)
+    : IRequest<Result<InviteLinkResponse>>;
+
+public sealed class GenerateInviteLinkCommandHandler(IAuthService authService, ISocietyRepository societyRepository)
+    : IRequestHandler<GenerateInviteLinkCommand, Result<InviteLinkResponse>>
+{
+    public async Task<Result<InviteLinkResponse>> Handle(GenerateInviteLinkCommand request, CancellationToken ct)
+    {
+        try
+        {
+            var society = await societyRepository.GetByIdAsync(request.SocietyId, request.SocietyId, ct);
+            if (society is null)
+                return Result<InviteLinkResponse>.Failure(ErrorCodes.SocietyNotFound, "Society not found.");
+
+            var token = await authService.GenerateInviteTokenAsync(request.SocietyId, request.ApartmentId, ct);
+            return Result<InviteLinkResponse>.Success(new InviteLinkResponse(token, $"/auth/register?token={token}"));
+        }
+        catch (Exception ex)
+        {
+            return Result<InviteLinkResponse>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
+// ─── Validate Invite Token ────────────────────────────────────────────────────
+
+public record ValidateInviteTokenQuery(string Token)
+    : IRequest<Result<ValidateInviteTokenResponse>>;
+
+public sealed class ValidateInviteTokenQueryHandler(IAuthService authService)
+    : IRequestHandler<ValidateInviteTokenQuery, Result<ValidateInviteTokenResponse>>
+{
+    public async Task<Result<ValidateInviteTokenResponse>> Handle(ValidateInviteTokenQuery request, CancellationToken ct)
+    {
+        var claims = await authService.ValidateInviteTokenAsync(request.Token, ct);
+        if (claims is null)
+            return Result<ValidateInviteTokenResponse>.Success(new ValidateInviteTokenResponse(false, null, null));
+
+        return Result<ValidateInviteTokenResponse>.Success(new ValidateInviteTokenResponse(true, claims.SocietyId, claims.ApartmentId));
+    }
+}
+
+// ─── Self Register ────────────────────────────────────────────────────────────
+
+public record SelfRegisterCommand(string SocietyId, string FullName, string Email, string Phone, string Password)
+    : IRequest<Result<UserResponse>>;
+
+public sealed class SelfRegisterCommandHandler(
+    IUserRepository userRepository,
+    IAuthService authService)
+    : IRequestHandler<SelfRegisterCommand, Result<UserResponse>>
+{
+    public async Task<Result<UserResponse>> Handle(SelfRegisterCommand request, CancellationToken ct)
+    {
+        try
+        {
+            var existing = await userRepository.GetByEmailAsync(request.SocietyId, request.Email.Trim().ToLowerInvariant(), ct);
+            if (existing is not null)
+                return Result<UserResponse>.Failure(ErrorCodes.UserAlreadyExists, $"An account with email {request.Email} already exists in this society.");
+
+            var user = Domain.Entities.User.Create(
+                request.SocietyId, request.FullName, request.Email, request.Phone,
+                UserRole.SUUser, ResidentType.Owner);
+
+            user.SetPasswordHash(authService.HashPassword(request.Password));
+            user.Verify(); // invite token already proves identity — no OTP step needed
+
+            await userRepository.CreateAsync(user, ct);
+            return Result<UserResponse>.Success(user.ToResponse());
+        }
+        catch (Exception ex)
+        {
+            return Result<UserResponse>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
+// ─── Request Apartment Join ───────────────────────────────────────────────────
+
+public record RequestApartmentJoinCommand(string SocietyId, string UserId, string ApartmentId, ResidentType ResidentType)
+    : IRequest<Result<UserResponse>>;
+
+public sealed class RequestApartmentJoinCommandHandler(
+    IUserRepository userRepository,
+    IApartmentRepository apartmentRepository)
+    : IRequestHandler<RequestApartmentJoinCommand, Result<UserResponse>>
+{
+    public async Task<Result<UserResponse>> Handle(RequestApartmentJoinCommand request, CancellationToken ct)
+    {
+        try
+        {
+            var user = await userRepository.GetByIdAsync(request.UserId, request.SocietyId, ct);
+            if (user is null)
+                return Result<UserResponse>.Failure(ErrorCodes.UserNotFound, $"User '{request.UserId}' not found.");
+
+            var apartment = await apartmentRepository.GetByIdAsync(request.ApartmentId, request.SocietyId, ct);
+            if (apartment is null)
+                return Result<UserResponse>.Failure(ErrorCodes.ApartmentNotFound, $"Apartment '{request.ApartmentId}' not found.");
+
+            if (request.ResidentType is not (ResidentType.Owner or ResidentType.Tenant))
+                return Result<UserResponse>.Failure(ErrorCodes.ValidationFailed, "Apartment join requests are only supported for Owner or Tenant resident types.");
+
+            user.RequestApartmentJoin(request.ApartmentId, request.ResidentType);
+            await userRepository.UpdateAsync(user, ct);
+
+            var apartments = user.Apartments
+                .Select(a => new ResidentApartmentDto(a.ApartmentId, a.Name, a.ResidentType.ToString()))
+                .ToList();
+            return Result<UserResponse>.Success(user.ToResponse(apartments));
+        }
+        catch (Exception ex)
+        {
+            return Result<UserResponse>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
+// ─── Approve Apartment Join ───────────────────────────────────────────────────
+
+public record ApproveApartmentJoinCommand(string SocietyId, string UserId)
+    : IRequest<Result<UserResponse>>;
+
+public sealed class ApproveApartmentJoinCommandHandler(
+    IUserRepository userRepository,
+    IApartmentRepository apartmentRepository)
+    : IRequestHandler<ApproveApartmentJoinCommand, Result<UserResponse>>
+{
+    public async Task<Result<UserResponse>> Handle(ApproveApartmentJoinCommand request, CancellationToken ct)
+    {
+        try
+        {
+            var user = await userRepository.GetByIdAsync(request.UserId, request.SocietyId, ct);
+            if (user is null)
+                return Result<UserResponse>.Failure(ErrorCodes.UserNotFound, $"User '{request.UserId}' not found.");
+
+            if (string.IsNullOrWhiteSpace(user.PendingApartmentId) || string.IsNullOrWhiteSpace(user.PendingResidentType))
+                return Result<UserResponse>.Failure(ErrorCodes.NoPendingApartmentRequest, "User has no pending apartment join request.");
+
+            if (!Enum.TryParse<ResidentType>(user.PendingResidentType, out var residentType))
+                return Result<UserResponse>.Failure(ErrorCodes.ValidationFailed, "Invalid pending resident type.");
+
+            var apartment = await apartmentRepository.GetByIdAsync(user.PendingApartmentId, request.SocietyId, ct);
+            if (apartment is null)
+            {
+                user.ClearPendingApartmentRequest();
+                await userRepository.UpdateAsync(user, ct);
+                return Result<UserResponse>.Failure(ErrorCodes.ApartmentNotFound, "The requested apartment no longer exists.");
+            }
+
+            user.LinkApartment(apartment.Id, apartment.ToDisplayLabel(), residentType, makePrimary: !user.Apartments.Any());
+            apartment.AddResident(user.Id, user.FullName, residentType);
+            user.ClearPendingApartmentRequest();
+
+            await apartmentRepository.UpdateAsync(apartment, ct);
+            await userRepository.UpdateAsync(user, ct);
+
+            var apartments = user.Apartments
+                .Select(a => new ResidentApartmentDto(a.ApartmentId, a.Name, a.ResidentType.ToString()))
+                .ToList();
+            return Result<UserResponse>.Success(user.ToResponse(apartments));
+        }
+        catch (Exception ex)
+        {
+            return Result<UserResponse>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
+// ─── Deny Apartment Join ──────────────────────────────────────────────────────
+
+public record DenyApartmentJoinCommand(string SocietyId, string UserId)
+    : IRequest<Result<UserResponse>>;
+
+public sealed class DenyApartmentJoinCommandHandler(IUserRepository userRepository)
+    : IRequestHandler<DenyApartmentJoinCommand, Result<UserResponse>>
+{
+    public async Task<Result<UserResponse>> Handle(DenyApartmentJoinCommand request, CancellationToken ct)
+    {
+        try
+        {
+            var user = await userRepository.GetByIdAsync(request.UserId, request.SocietyId, ct);
+            if (user is null)
+                return Result<UserResponse>.Failure(ErrorCodes.UserNotFound, $"User '{request.UserId}' not found.");
+
+            if (string.IsNullOrWhiteSpace(user.PendingApartmentId))
+                return Result<UserResponse>.Failure(ErrorCodes.NoPendingApartmentRequest, "User has no pending apartment join request.");
+
+            user.ClearPendingApartmentRequest();
+            await userRepository.UpdateAsync(user, ct);
+
+            var apartments = user.Apartments
+                .Select(a => new ResidentApartmentDto(a.ApartmentId, a.Name, a.ResidentType.ToString()))
+                .ToList();
+            return Result<UserResponse>.Success(user.ToResponse(apartments));
+        }
+        catch (Exception ex)
+        {
+            return Result<UserResponse>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
+// ─── Get Users With Pending Apartment Requests ────────────────────────────────
+
+public record GetUsersWithPendingJoinRequestsQuery(string SocietyId)
+    : IRequest<Result<IReadOnlyList<UserResponse>>>;
+
+public sealed class GetUsersWithPendingJoinRequestsQueryHandler(
+    IUserRepository userRepository,
+    IApartmentRepository apartmentRepository)
+    : IRequestHandler<GetUsersWithPendingJoinRequestsQuery, Result<IReadOnlyList<UserResponse>>>
+{
+    public async Task<Result<IReadOnlyList<UserResponse>>> Handle(GetUsersWithPendingJoinRequestsQuery request, CancellationToken ct)
+    {
+        try
+        {
+            var all = await userRepository.GetAllAsync(request.SocietyId, ct);
+            var pending = all.Where(u => !string.IsNullOrWhiteSpace(u.PendingApartmentId)).ToList();
+
+            var items = new List<UserResponse>(pending.Count);
+            foreach (var user in pending)
+            {
+                var apartments = await UserQueryMapping.GetResidentApartmentsAsync(user, apartmentRepository, ct);
+                items.Add(user.ToResponse(apartments));
+            }
+            return Result<IReadOnlyList<UserResponse>>.Success(items);
+        }
+        catch (Exception ex)
+        {
+            return Result<IReadOnlyList<UserResponse>>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
 }

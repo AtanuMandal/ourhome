@@ -87,7 +87,9 @@ import { Apartment, ApartmentStatus, formatApartmentLabel } from '../../core/mod
               }
             </div>
           </div>
+        }
 
+        @if (isAdmin()) {
           <div class="card admin-card">
             <h3>Admin actions</h3>
             <p class="admin-copy">Update apartment availability or remove the apartment from the society.</p>

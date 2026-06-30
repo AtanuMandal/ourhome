@@ -13,7 +13,7 @@ import { PushNotificationService } from './core/services/push-notification.servi
 import { SwUpdate, VersionReadyEvent } from '@angular/service-worker';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
-interface SideNavItem { path: string; icon: string; label: string; adminOnly?: boolean; securityHidden?: boolean; }
+interface SideNavItem { path: string; icon: string; label: string; }
 
 @Component({
   selector: 'app-root',
@@ -34,26 +34,64 @@ export class AppComponent {
   private readonly snackBar = inject(MatSnackBar);
   readonly push             = inject(PushNotificationService);
 
-  readonly isLoggedIn    = this.auth.isLoggedIn;
-  readonly isAdmin       = this.auth.isAdmin;
-  readonly isSecurity    = this.auth.isSecurity;
-  readonly user          = this.auth.user;
+  readonly isLoggedIn = this.auth.isLoggedIn;
+  readonly user       = this.auth.user;
   readonly isAuthRoute = signal(false);
 
-  readonly navItems: SideNavItem[] = [
-    { path: '/dashboard',       icon: 'home',           label: 'Dashboard' },
-    { path: '/apartments',      icon: 'apartment',      label: 'Apartments',     securityHidden: true },
-    { path: '/residents',       icon: 'people',         label: 'Residents' },
-    { path: '/amenities',       icon: 'event_available',label: 'Amenities',      securityHidden: true },
-    { path: '/complaints',      icon: 'report_problem', label: 'Complaints',     securityHidden: true },
-    { path: '/notices',         icon: 'notifications',  label: 'Notices',        securityHidden: true },
-    { path: '/visitors',        icon: 'badge',          label: 'Visitors' },
-    { path: '/maintenance',     icon: 'receipt_long',   label: 'Maintenance',    securityHidden: true },
-    { path: '/rewards',         icon: 'emoji_events',   label: 'Rewards',        securityHidden: true },
-    { path: '/services',        icon: 'build',          label: 'Services',       securityHidden: true },
-    { path: '/vendor-payments', icon: 'payments',       label: 'Vendor Payments',adminOnly: true },
-    { path: '/society',         icon: 'location_city',  label: 'Society',        adminOnly: true },
-    { path: '/profile',         icon: 'manage_accounts',label: 'My Profile' },
+  private static readonly NAV_SUUSER: SideNavItem[] = [
+    { path: '/dashboard',    icon: 'home',            label: 'Dashboard' },
+    { path: '/my-apartment', icon: 'apartment',       label: 'My Apartment' },
+    { path: '/apartments',   icon: 'domain',          label: 'Apartments' },
+    { path: '/residents',    icon: 'people',          label: 'Residents' },
+    { path: '/amenities',    icon: 'event_available', label: 'Amenities' },
+    { path: '/complaints',   icon: 'report_problem',  label: 'Complaints' },
+    { path: '/notices',      icon: 'notifications',   label: 'Notices' },
+    { path: '/visitors',     icon: 'badge',           label: 'Visitors' },
+    { path: '/maintenance',  icon: 'receipt_long',    label: 'Maintenance' },
+    { path: '/rewards',      icon: 'emoji_events',    label: 'Rewards' },
+    { path: '/services',     icon: 'build',           label: 'Services' },
+    { path: '/profile',      icon: 'manage_accounts', label: 'My Profile' },
+  ];
+
+  private static readonly NAV_SUADMIN: SideNavItem[] = [
+    { path: '/dashboard',       icon: 'home',            label: 'Dashboard' },
+    { path: '/residents',       icon: 'people',          label: 'Users' },
+    { path: '/apartments',      icon: 'domain',          label: 'Apartments' },
+    { path: '/amenities',       icon: 'event_available', label: 'Amenities' },
+    { path: '/complaints',      icon: 'report_problem',  label: 'Complaints' },
+    { path: '/notices',         icon: 'notifications',   label: 'Notices' },
+    { path: '/visitors',        icon: 'badge',           label: 'Visitors' },
+    { path: '/maintenance',     icon: 'receipt_long',    label: 'Maintenance' },
+    { path: '/rewards',         icon: 'emoji_events',    label: 'Rewards' },
+    { path: '/services',        icon: 'build',           label: 'Services' },
+    { path: '/vendor-payments', icon: 'payments',        label: 'Vendor Payments' },
+    { path: '/society',         icon: 'location_city',   label: 'Society' },
+    { path: '/profile',         icon: 'manage_accounts', label: 'My Profile' },
+  ];
+
+  private static readonly NAV_SECURITY: SideNavItem[] = [
+    { path: '/dashboard',  icon: 'home',            label: 'Dashboard' },
+    { path: '/visitors',   icon: 'badge',           label: 'Visitors' },
+    { path: '/residents',  icon: 'people',          label: 'Residents' },
+    { path: '/complaints', icon: 'report_problem',  label: 'Complaints' },
+    { path: '/notices',    icon: 'notifications',   label: 'Notices' },
+    { path: '/profile',    icon: 'manage_accounts', label: 'My Profile' },
+  ];
+
+  private static readonly NAV_HQ: SideNavItem[] = [
+    { path: '/dashboard',       icon: 'home',            label: 'Dashboard' },
+    { path: '/apartments',      icon: 'domain',          label: 'Apartments' },
+    { path: '/residents',       icon: 'people',          label: 'Residents' },
+    { path: '/amenities',       icon: 'event_available', label: 'Amenities' },
+    { path: '/complaints',      icon: 'report_problem',  label: 'Complaints' },
+    { path: '/notices',         icon: 'notifications',   label: 'Notices' },
+    { path: '/visitors',        icon: 'badge',           label: 'Visitors' },
+    { path: '/maintenance',     icon: 'receipt_long',    label: 'Maintenance' },
+    { path: '/rewards',         icon: 'emoji_events',    label: 'Rewards' },
+    { path: '/services',        icon: 'build',           label: 'Services' },
+    { path: '/vendor-payments', icon: 'payments',        label: 'Vendor Payments' },
+    { path: '/society',         icon: 'location_city',   label: 'Society' },
+    { path: '/profile',         icon: 'manage_accounts', label: 'My Profile' },
   ];
 
   constructor() {
@@ -84,18 +122,19 @@ export class AppComponent {
     });
   }
 
-  visibleNav = computed(() =>
-    this.navItems.filter(i => {
-      if (i.adminOnly && !this.isAdmin()) return false;
-      if (i.securityHidden && this.isSecurity()) return false;
-      return true;
-    })
-  );
+  readonly visibleNav = computed<SideNavItem[]>(() => {
+    switch (this.user()?.role) {
+      case 'SUUser':     return AppComponent.NAV_SUUSER;
+      case 'SUAdmin':    return AppComponent.NAV_SUADMIN;
+      case 'SUSecurity': return AppComponent.NAV_SECURITY;
+      default:           return AppComponent.NAV_HQ;
+    }
+  });
 
   logout() { this.auth.logout(); }
 
-  userInitials = computed(() => {
-    const name = this.user()?.name ?? '';
+  readonly userInitials = computed(() => {
+    const name = this.user()?.fullName ?? this.user()?.name ?? '';
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   });
 

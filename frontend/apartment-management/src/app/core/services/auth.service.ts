@@ -3,7 +3,7 @@ import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { User, AuthState, LoginResponse, PasswordResetRequestResponse } from '../models/user.model';
+import { User, AuthState, LoginResponse, PasswordResetRequestResponse, InviteTokenValidation } from '../models/user.model';
 
 const TOKEN_KEY    = 'am_token';
 const USER_KEY     = 'am_user';
@@ -62,6 +62,20 @@ export class AuthService {
     return this.http.post<boolean>(
       `${environment.apiBaseUrl}/auth/password-reset/confirm`,
       { societyId, userId, otpCode, newPassword }
+    );
+  }
+
+  validateInviteToken(token: string) {
+    return this.http.get<InviteTokenValidation>(
+      `${environment.apiBaseUrl}/invite/validate`,
+      { params: { token } }
+    );
+  }
+
+  selfRegister(societyId: string, dto: { fullName: string; email: string; phone: string; password: string; inviteToken: string }) {
+    return this.http.post<User>(
+      `${environment.apiBaseUrl}/societies/${societyId}/auth/register`,
+      dto
     );
   }
 

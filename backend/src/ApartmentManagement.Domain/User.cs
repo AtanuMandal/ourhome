@@ -23,6 +23,8 @@ public sealed class User : BaseEntity
     public string? ExternalAuthId { get; private set; }
     public string? PasswordHash { get; private set; }
     public bool HasPassword => !string.IsNullOrWhiteSpace(PasswordHash);
+    public string? PendingApartmentId { get; private set; }
+    public string? PendingResidentType { get; private set; }
 
     private static readonly TimeSpan OtpLifetime = TimeSpan.FromMinutes(10);
     private static readonly Random _rng = new();
@@ -171,6 +173,21 @@ public sealed class User : BaseEntity
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(invitedByUserId, nameof(invitedByUserId));
         InvitedByUserId = invitedByUserId;
+        TouchUpdatedAt();
+    }
+
+    public void RequestApartmentJoin(string apartmentId, ResidentType residentType)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(apartmentId, nameof(apartmentId));
+        PendingApartmentId = apartmentId;
+        PendingResidentType = residentType.ToString();
+        TouchUpdatedAt();
+    }
+
+    public void ClearPendingApartmentRequest()
+    {
+        PendingApartmentId = null;
+        PendingResidentType = null;
         TouchUpdatedAt();
     }
 }

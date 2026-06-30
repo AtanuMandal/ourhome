@@ -259,4 +259,51 @@ public class UserTests
 
         user.Role.Should().Be(UserRole.SUAdmin);
     }
+
+    // ── Apartment Join Request ────────────────────────────────────────────────
+
+    [Fact]
+    public void RequestApartmentJoin_SetsPendingFields()
+    {
+        var user = User.Create(SocietyId, "Alice", "alice@example.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
+
+        user.RequestApartmentJoin("apt-001", ResidentType.Owner);
+
+        user.PendingApartmentId.Should().Be("apt-001");
+        user.PendingResidentType.Should().Be("Owner");
+    }
+
+    [Fact]
+    public void RequestApartmentJoin_WithEmptyApartmentId_ThrowsArgumentException()
+    {
+        var user = User.Create(SocietyId, "Alice", "alice@example.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
+
+        var act = () => user.RequestApartmentJoin("", ResidentType.Owner);
+
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void ClearPendingApartmentRequest_NullsPendingFields()
+    {
+        var user = User.Create(SocietyId, "Alice", "alice@example.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
+        user.RequestApartmentJoin("apt-001", ResidentType.Owner);
+
+        user.ClearPendingApartmentRequest();
+
+        user.PendingApartmentId.Should().BeNull();
+        user.PendingResidentType.Should().BeNull();
+    }
+
+    [Fact]
+    public void RequestApartmentJoin_OverwritesPreviousPendingRequest()
+    {
+        var user = User.Create(SocietyId, "Alice", "alice@example.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
+        user.RequestApartmentJoin("apt-001", ResidentType.Owner);
+
+        user.RequestApartmentJoin("apt-002", ResidentType.Tenant);
+
+        user.PendingApartmentId.Should().Be("apt-002");
+        user.PendingResidentType.Should().Be("Tenant");
+    }
 }

@@ -7,7 +7,7 @@
       <div class="side-nav__user">
         <div class="avatar avatar--lg">{{ userInitials() }}</div>
         <div class="user-info">
-          <span class="user-name">{{ user()?.name }}</span>
+          <span class="user-name">{{ user()?.fullName ?? user()?.name }}</span>
           <span class="user-role">{{ user()?.role }}</span>
         </div>
       </div>

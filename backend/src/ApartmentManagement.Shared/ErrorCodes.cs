@@ -56,4 +56,7 @@ public static class ErrorCodes
     public const string ServiceProviderNotApproved = "SERVICE_PROVIDER_NOT_APPROVED";
     public const string ServiceRequestNotFound = "SERVICE_REQUEST_NOT_FOUND";
     public const string ServiceRequestNotOpen = "SERVICE_REQUEST_NOT_OPEN";
+
+    public const string InvalidInviteToken = "INVALID_INVITE_TOKEN";
+    public const string NoPendingApartmentRequest = "NO_PENDING_APARTMENT_REQUEST";
 }

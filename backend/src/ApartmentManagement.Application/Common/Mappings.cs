@@ -98,7 +98,9 @@ public static class MappingExtensions
             user.HasPassword,
             user.GetPermissions(),
             apartments ?? [],
-            user.CreatedAt);
+            user.CreatedAt,
+            user.PendingApartmentId,
+            user.PendingResidentType);
 
     public static ResidentApartmentDto ToResidentApartmentResponse(this Apartment apartment, Domain.Enums.ResidentType residentType) =>
         new(
