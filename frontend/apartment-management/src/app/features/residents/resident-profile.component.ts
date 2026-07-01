@@ -1,12 +1,12 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatSelectModule } from '@angular/material/select';
 import { MatDividerModule } from '@angular/material/divider';
+import { SearchableSelectComponent } from '../../shared/components/searchable-select/searchable-select.component';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { forkJoin } from 'rxjs';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
@@ -29,10 +29,10 @@ type ResidentApartmentType = 'Owner' | 'Tenant';
     MatFormFieldModule,
     MatInputModule,
     MatProgressBarModule,
-    MatSelectModule,
     MatDividerModule,
     PageHeaderComponent,
     LoadingSpinnerComponent,
+    SearchableSelectComponent,
   ],
   template: `
     <app-page-header [title]="user()?.fullName ?? user()?.name ?? 'Profile'" [showBack]="true"></app-page-header>
@@ -86,29 +86,11 @@ type ResidentApartmentType = 'Owner' | 'Tenant';
           <div class="card" style="margin-top:16px">
             <div class="section-title">Add Another Apartment</div>
             <form [formGroup]="addApartmentForm" (ngSubmit)="addApartment()" novalidate>
-              <mat-form-field appearance="fill" class="full-width">
-                <mat-label>Apartment</mat-label>
-                <mat-select formControlName="apartmentId">
-                  @if (availableApartments().length === 0) {
-                    <mat-option disabled value="">No apartments available</mat-option>
-                  } @else {
-                    @for (apartment of availableApartments(); track apartment.id) {
-                      <mat-option [value]="apartment.id">{{ formatApartmentLabel(apartment) }}</mat-option>
-                    }
-                  }
-                </mat-select>
-                @if (addApartmentForm.controls.apartmentId.invalid && addApartmentForm.controls.apartmentId.touched) {
-                  <mat-error>Apartment is required</mat-error>
-                }
-              </mat-form-field>
+              <app-searchable-select label="Apartment" formControlName="apartmentId"
+                [options]="availableApartmentOptions()" errorMessage="Apartment is required"></app-searchable-select>
 
-              <mat-form-field appearance="fill" class="full-width">
-                <mat-label>Resident Type</mat-label>
-                <mat-select formControlName="residentType">
-                  <mat-option value="Owner">Owner</mat-option>
-                  <mat-option value="Tenant">Tenant</mat-option>
-                </mat-select>
-              </mat-form-field>
+              <app-searchable-select label="Resident Type" formControlName="residentType"
+                [options]="residentTypeOptions"></app-searchable-select>
 
               <button mat-raised-button color="primary" type="submit"
                       [disabled]="addingApartment() || addApartmentForm.invalid || availableApartments().length === 0">
@@ -198,6 +180,14 @@ export class ResidentProfileComponent implements OnInit {
   private readonly auth = inject(AuthService);
   private readonly route = inject(ActivatedRoute);
   private readonly snackBar = inject(MatSnackBar);
+
+  readonly residentTypeOptions = [
+    { value: 'Owner' as ResidentApartmentType, label: 'Owner' },
+    { value: 'Tenant' as ResidentApartmentType, label: 'Tenant' },
+  ];
+  readonly availableApartmentOptions = computed(() =>
+    this.availableApartments().map(a => ({ value: a.id, label: this.formatApartmentLabel(a) }))
+  );
 
   readonly loading = signal(true);
   readonly addingApartment = signal(false);

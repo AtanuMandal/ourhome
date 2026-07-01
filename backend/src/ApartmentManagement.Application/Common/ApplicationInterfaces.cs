@@ -49,7 +49,7 @@ public interface IQrCodeService
 public interface IRateLimitService
 {
     Task<bool> IsAllowedAsync(string userId, string societyId, string endpoint, CancellationToken ct = default);
-    Task<int> GetRemainingCallsAsync(string userId, string endpoint, CancellationToken ct = default);
+    Task<int> GetRemainingCallsAsync(string userId, string societyId, string endpoint, CancellationToken ct = default);
 }
 
 public record InviteTokenClaims(string SocietyId, string? ApartmentId);

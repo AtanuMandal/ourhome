@@ -2,10 +2,13 @@ using ApartmentManagement.Application;
 using ApartmentManagement.Functions;
 using ApartmentManagement.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using System.Text.Json;
@@ -77,4 +80,14 @@ if (string.IsNullOrWhiteSpace(pubKey) || string.IsNullOrWhiteSpace(privKey) || p
     Console.ResetColor();
 }
 
-host.Run();
+// Ensure Cosmos DB database and all containers exist before accepting requests.
+// using (var scope = host.Services.CreateScope())
+// {
+//     var cosmosClient = scope.ServiceProvider.GetRequiredService<CosmosClient>();
+//     var settings     = scope.ServiceProvider.GetRequiredService<IOptions<InfrastructureSettings>>().Value;
+//     var logger       = scope.ServiceProvider.GetRequiredService<ILoggerFactory>()
+//                             .CreateLogger(nameof(CosmosDbInitializer));
+//     await CosmosDbInitializer.InitializeAsync(cosmosClient, settings.CosmosDbDatabaseName, logger);
+// }
+
+await host.RunAsync();

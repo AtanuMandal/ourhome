@@ -155,7 +155,7 @@ public sealed class FakeRateLimitService : IRateLimitService
     public Task<bool> IsAllowedAsync(string userId, string societyId, string endpoint, CancellationToken ct = default)
         => Task.FromResult(true);
 
-    public Task<int> GetRemainingCallsAsync(string userId, string endpoint, CancellationToken ct = default)
+    public Task<int> GetRemainingCallsAsync(string userId, string societyId, string endpoint, CancellationToken ct = default)
         => Task.FromResult(1000);
 }
 

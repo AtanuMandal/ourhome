@@ -7,8 +7,8 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatSelectModule } from '@angular/material/select';
 import { Apartment, formatApartmentLabel } from '../../core/models/apartment.model';
+import { SearchableSelectComponent } from '../../shared/components/searchable-select/searchable-select.component';
 import { Visitor } from '../../core/models/visitor.model';
 import { ApartmentService } from '../../core/services/apartment.service';
 import { AuthService } from '../../core/services/auth.service';
@@ -28,9 +28,9 @@ import { StatusChipComponent } from '../../shared/components/status-chip/status-
     MatButtonModule,
     MatIconModule,
     MatProgressBarModule,
-    MatSelectModule,
     PageHeaderComponent,
-    StatusChipComponent
+    StatusChipComponent,
+    SearchableSelectComponent
   ],
   template: `
     <app-page-header
@@ -55,25 +55,8 @@ import { StatusChipComponent } from '../../shared/components/status-chip/status-
 
         <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
           @if (canManageVisitors()) {
-            <mat-form-field appearance="fill" class="full-width">
-              <mat-label>Apartment</mat-label>
-              <mat-select formControlName="apartmentId" [disabled]="apartmentsLoading()">
-                @if (apartmentsLoading()) {
-                  <mat-option disabled value="">Loading apartments...</mat-option>
-                } @else if (apartments().length === 0) {
-                  <mat-option disabled value="">No apartments found</mat-option>
-                } @else {
-                  @for (apartment of apartments(); track apartment.id) {
-                    <mat-option [value]="apartment.id">
-                      {{ apartmentLabel(apartment) }}
-                    </mat-option>
-                  }
-                }
-              </mat-select>
-              @if (form.get('apartmentId')?.invalid && form.get('apartmentId')?.touched) {
-                <mat-error>Select an apartment</mat-error>
-              }
-            </mat-form-field>
+            <app-searchable-select label="Apartment" formControlName="apartmentId"
+              [options]="apartmentOptions()" errorMessage="Select an apartment"></app-searchable-select>
           } @else {
             <div class="resident-target">
               <span class="resident-target__label">Apartment</span>
@@ -83,15 +66,8 @@ import { StatusChipComponent } from '../../shared/components/status-chip/status-
           }
 
           @if (!canManageVisitors()) {
-            <mat-form-field appearance="fill" class="full-width">
-              <mat-label>Valid for (hours)</mat-label>
-              <mat-select formControlName="validityHours">
-                <mat-option [value]="null">No expiry</mat-option>
-                @for (h of validityOptions; track h) {
-                  <mat-option [value]="h">{{ h }} hour{{ h > 1 ? 's' : '' }}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
+            <app-searchable-select label="Valid for (hours)" formControlName="validityHours"
+              [options]="validitySelectOptions"></app-searchable-select>
           }
 
           <div class="image-upload-row">
@@ -232,6 +208,13 @@ export class VisitorRegisterComponent implements OnInit {
   readonly canManageVisitors = this.auth.canManageVisitors;
   readonly visitorImagePreview = signal<string | null>(null);
   readonly validityOptions = [1, 2, 4, 8, 12, 24, 48, 72, 168];
+  readonly validitySelectOptions = [
+    { value: null, label: 'No expiry' },
+    ...this.validityOptions.map(h => ({ value: h, label: `${h} hour${h > 1 ? 's' : ''}` })),
+  ];
+  readonly apartmentOptions = computed(() =>
+    this.apartments().map(a => ({ value: a.id, label: formatApartmentLabel(a) }))
+  );
 
   private _selectedImageFile: File | null = null;
 

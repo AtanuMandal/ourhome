@@ -6,14 +6,14 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatSelectModule } from '@angular/material/select';
+import { SearchableSelectComponent } from '../../shared/components/searchable-select/searchable-select.component';
 import { MaintenanceFrequency } from '../../core/models/maintenance.model';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 import { LoadingSpinnerComponent } from '../../shared/components/loading-spinner/loading-spinner.component';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 import { StatusChipComponent } from '../../shared/components/status-chip/status-chip.component';
 import { MaintenancePageBase } from './maintenance-page-base';
-import { formatFrequencyLabel, MAINTENANCE_PAGE_STYLES } from './maintenance-shared';
+import { MAINTENANCE_PAGE_STYLES, formatFrequencyLabel } from './maintenance-shared';
 
 @Component({
   selector: 'app-maintenance-user',
@@ -27,8 +27,8 @@ import { formatFrequencyLabel, MAINTENANCE_PAGE_STYLES } from './maintenance-sha
     MatFormFieldModule,
     MatInputModule,
     MatProgressBarModule,
-    MatSelectModule,
     PageHeaderComponent,
+    SearchableSelectComponent,
     LoadingSpinnerComponent,
     EmptyStateComponent,
     StatusChipComponent,
@@ -52,25 +52,10 @@ import { formatFrequencyLabel, MAINTENANCE_PAGE_STYLES } from './maintenance-sha
           </div>
 
           <form [formGroup]="filterForm" class="filters">
-            <mat-form-field appearance="fill">
-              <mat-label>Year</mat-label>
-              <mat-select formControlName="year" (selectionChange)="refreshCharges()">
-                <mat-option [value]="null">All years</mat-option>
-                @for (year of yearOptions(); track year) {
-                  <mat-option [value]="year">{{ year }}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
-
-            <mat-form-field appearance="fill">
-              <mat-label>Month</mat-label>
-              <mat-select formControlName="month" (selectionChange)="refreshCharges()">
-                <mat-option [value]="null">All months</mat-option>
-                @for (month of monthOptions; track month.value) {
-                  <mat-option [value]="month.value">{{ month.label }}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
+            <app-searchable-select label="Year" formControlName="year"
+              [options]="yearSelectOptions()" (selectionChange)="refreshCharges()"></app-searchable-select>
+            <app-searchable-select label="Month" formControlName="month"
+              [options]="monthSelectOptions" (selectionChange)="refreshCharges()"></app-searchable-select>
           </form>
 
           @if (selectableCharges().length) {

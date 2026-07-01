@@ -4,8 +4,8 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { SearchableSelectComponent } from '../../shared/components/searchable-select/searchable-select.component';
 import { RouterLink } from '@angular/router';
 import { Observable } from 'rxjs';
 import { MaintenanceChargeGrid, MaintenanceChargeStatus, MaintenanceGridCharge } from '../../core/models/maintenance.model';
@@ -27,12 +27,12 @@ import { CHARGE_STATUS_OPTIONS, MAINTENANCE_PAGE_STYLES, MONTH_OPTIONS } from '.
     MatButtonModule,
     MatFormFieldModule,
     MatInputModule,
-    MatSelectModule,
     RouterLink,
     PageHeaderComponent,
     LoadingSpinnerComponent,
     EmptyStateComponent,
     StatusChipComponent,
+    SearchableSelectComponent,
   ],
   template: `
     <app-page-header
@@ -87,18 +87,8 @@ import { CHARGE_STATUS_OPTIONS, MAINTENANCE_PAGE_STYLES, MONTH_OPTIONS } from '.
 
         <form [formGroup]="penaltyForm" class="stack" (ngSubmit)="createPenalty()">
           <div class="two-col">
-            <mat-form-field appearance="fill">
-              <mat-label>Apartment</mat-label>
-              <mat-select formControlName="apartmentId">
-                @if (apartmentOptions().length === 0) {
-                  <mat-option disabled value="">No apartments found</mat-option>
-                } @else {
-                  @for (apartment of apartmentOptions(); track apartment.id) {
-                    <mat-option [value]="apartment.id">{{ apartment.label }}</mat-option>
-                  }
-                }
-              </mat-select>
-            </mat-form-field>
+            <app-searchable-select label="Apartment" formControlName="apartmentId"
+              [options]="penaltyApartmentOptions()"></app-searchable-select>
 
             <mat-form-field appearance="fill">
               <mat-label>Penalty amount</mat-label>
@@ -137,63 +127,23 @@ import { CHARGE_STATUS_OPTIONS, MAINTENANCE_PAGE_STYLES, MONTH_OPTIONS } from '.
         </div>
 
         <form [formGroup]="filterForm" class="filters">
-          <mat-form-field appearance="fill">
-            <mat-label>Financial year</mat-label>
-            <mat-select formControlName="financialYearStart" (selectionChange)="loadGrid()">
-              @for (year of financialYearOptions(); track year) {
-                <mat-option [value]="year">{{ financialYearLabel(year) }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
+          <app-searchable-select label="Financial year" formControlName="financialYearStart"
+            [options]="financialYearSelectOptions()" (selectionChange)="loadGrid()"></app-searchable-select>
 
-          <mat-form-field appearance="fill">
-            <mat-label>View</mat-label>
-            <mat-select formControlName="periodView">
-              @for (view of periodViewOptions; track view.value) {
-                <mat-option [value]="view.value">{{ view.label }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
+          <app-searchable-select label="View" formControlName="periodView"
+            [options]="periodViewOptions"></app-searchable-select>
 
-          <mat-form-field appearance="fill">
-            <mat-label>Status</mat-label>
-            <mat-select formControlName="status" (selectionChange)="loadGrid()">
-              <mat-option [value]="null">All statuses</mat-option>
-              @for (status of chargeStatusOptions; track status) {
-                <mat-option [value]="status">{{ status }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
+          <app-searchable-select label="Status" formControlName="status"
+            [options]="chargeStatusSelectOptions" (selectionChange)="loadGrid()"></app-searchable-select>
 
-          <mat-form-field appearance="fill">
-            <mat-label>Apartment</mat-label>
-            <mat-select formControlName="apartmentId" (selectionChange)="loadGrid()">
-              <mat-option [value]="null">All apartments</mat-option>
-              @for (apartment of apartmentOptions(); track apartment.id) {
-                <mat-option [value]="apartment.id">{{ apartment.label }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
+          <app-searchable-select label="Apartment" formControlName="apartmentId"
+            [options]="filterApartmentOptions()" (selectionChange)="loadGrid()"></app-searchable-select>
 
-          <mat-form-field appearance="fill">
-            <mat-label>Block</mat-label>
-            <mat-select formControlName="block" (selectionChange)="loadGrid()">
-              <mat-option [value]="null">All blocks</mat-option>
-              @for (block of blockOptions(); track block) {
-                <mat-option [value]="block">{{ block }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
+          <app-searchable-select label="Block" formControlName="block"
+            [options]="blockSelectOptions()" (selectionChange)="loadGrid()"></app-searchable-select>
 
-          <mat-form-field appearance="fill">
-            <mat-label>Floor</mat-label>
-            <mat-select formControlName="floor" (selectionChange)="loadGrid()">
-              <mat-option [value]="null">All floors</mat-option>
-              @for (floor of floorOptions(); track floor) {
-                <mat-option [value]="floor">{{ floor }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
+          <app-searchable-select label="Floor" formControlName="floor"
+            [options]="floorSelectOptions()" (selectionChange)="loadGrid()"></app-searchable-select>
 
           <mat-form-field appearance="fill">
             <mat-label>From date</mat-label>
@@ -419,7 +369,10 @@ export class MaintenanceAdminGridComponent {
   readonly creatingPenalty = signal(false);
   readonly grid = signal<MaintenanceChargeGrid | null>(null);
   readonly proofCharge = signal<MaintenanceGridCharge | null>(null);
-  readonly chargeStatusOptions = CHARGE_STATUS_OPTIONS;
+  readonly chargeStatusSelectOptions = [
+    { value: null as MaintenanceChargeStatus | null, label: 'All statuses' },
+    ...CHARGE_STATUS_OPTIONS.map(s => ({ value: s as MaintenanceChargeStatus | null, label: s })),
+  ];
 
   readonly filterForm = this.fb.group({
     financialYearStart: [this.currentFinancialYearStart(), [Validators.required, Validators.min(2000)]],
@@ -457,6 +410,10 @@ export class MaintenanceAdminGridComponent {
     return [currentYear - 1, currentYear, currentYear + 1];
   });
 
+  readonly financialYearSelectOptions = computed(() =>
+    this.financialYearOptions().map(y => ({ value: y, label: this.financialYearLabel(y) }))
+  );
+
   readonly apartmentOptions = computed(() =>
     (this.grid()?.rows ?? [])
       .map(row => ({
@@ -466,12 +423,26 @@ export class MaintenanceAdminGridComponent {
       .sort((left, right) => left.label.localeCompare(right.label))
   );
 
+  readonly penaltyApartmentOptions = computed(() =>
+    this.apartmentOptions().map(a => ({ value: a.id, label: a.label }))
+  );
+
+  readonly filterApartmentOptions = computed(() => [
+    { value: null as string | null, label: 'All apartments' },
+    ...this.apartmentOptions().map(a => ({ value: a.id as string | null, label: a.label })),
+  ]);
+
   readonly blockOptions = computed(() =>
     Array.from(new Set((this.grid()?.rows ?? [])
       .map(row => row.apartmentNumber.split(' ')[0])
       .filter(Boolean)))
       .sort((left, right) => left.localeCompare(right))
   );
+
+  readonly blockSelectOptions = computed(() => [
+    { value: null as string | null, label: 'All blocks' },
+    ...this.blockOptions().map(b => ({ value: b as string | null, label: b })),
+  ]);
 
   readonly floorOptions = computed(() =>
     Array.from(new Set((this.grid()?.rows ?? [])
@@ -482,6 +453,11 @@ export class MaintenanceAdminGridComponent {
       .filter((value): value is number => value !== null)))
       .sort((left, right) => left - right)
   );
+
+  readonly floorSelectOptions = computed(() => [
+    { value: null as number | null, label: 'All floors' },
+    ...this.floorOptions().map(f => ({ value: f as number | null, label: String(f) })),
+  ]);
 
   readonly displayPeriods = computed<GridDisplayPeriod[]>(() => {
     const months = this.grid()?.months ?? [];

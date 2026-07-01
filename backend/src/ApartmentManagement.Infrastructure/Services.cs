@@ -191,11 +191,8 @@ public class OutboxEventPublisher(
         }
     }
 
-    public async Task PublishManyAsync(IEnumerable<IDomainEvent> events, CancellationToken ct = default)
-    {
-        foreach (var e in events)
-            await PublishAsync(e, ct);
-    }
+    public Task PublishManyAsync(IEnumerable<IDomainEvent> events, CancellationToken ct = default)
+        => Task.WhenAll(events.Select(e => PublishAsync(e, ct)));
 }
 
 public class QrCodeService : IQrCodeService
@@ -217,6 +214,7 @@ public class InMemoryRateLimitService : IRateLimitService
     private readonly Dictionary<string, (int Count, DateTime Window)> _buckets = new();
     private readonly object _lock = new();
     private const int MaxPerMinute = 60;
+    private static readonly TimeSpan Window = TimeSpan.FromMinutes(1);
 
     public Task<bool> IsAllowedAsync(string userId, string societyId, string endpoint, CancellationToken ct = default)
     {
@@ -224,8 +222,11 @@ public class InMemoryRateLimitService : IRateLimitService
         lock (_lock)
         {
             var now = DateTime.UtcNow;
-            var window = TimeSpan.FromMinutes(1);
-            if (_buckets.TryGetValue(key, out var bucket) && (now - bucket.Window) < window)
+            // Evict expired buckets on every write to prevent unbounded growth.
+            foreach (var expired in _buckets.Where(kv => (now - kv.Value.Window) >= Window).Select(kv => kv.Key).ToList())
+                _buckets.Remove(expired);
+
+            if (_buckets.TryGetValue(key, out var bucket) && (now - bucket.Window) < Window)
             {
                 if (bucket.Count >= MaxPerMinute) return Task.FromResult(false);
                 _buckets[key] = (bucket.Count + 1, bucket.Window);
@@ -238,14 +239,13 @@ public class InMemoryRateLimitService : IRateLimitService
         }
     }
 
-    public Task<int> GetRemainingCallsAsync(string userId, string endpoint, CancellationToken ct = default)
+    public Task<int> GetRemainingCallsAsync(string userId, string societyId, string endpoint, CancellationToken ct = default)
     {
-        var key = $"{userId}::{endpoint}";
+        var key = $"{userId}:{societyId}:{endpoint}";
         lock (_lock)
         {
             var now = DateTime.UtcNow;
-            var window = TimeSpan.FromMinutes(1);
-            if (_buckets.TryGetValue(key, out var bucket) && (now - bucket.Window) < window)
+            if (_buckets.TryGetValue(key, out var bucket) && (now - bucket.Window) < Window)
                 return Task.FromResult(Math.Max(0, MaxPerMinute - bucket.Count));
             return Task.FromResult(MaxPerMinute);
         }
@@ -261,8 +261,12 @@ public class InMemoryCacheService : ICacheService
     {
         lock (_lock)
         {
-            if (_cache.TryGetValue(key, out var entry) && entry.Expires > DateTime.UtcNow)
-                return Task.FromResult((T?)entry.Value);
+            if (_cache.TryGetValue(key, out var entry))
+            {
+                if (entry.Expires > DateTime.UtcNow)
+                    return Task.FromResult((T?)entry.Value);
+                _cache.Remove(key); // evict stale entry on read
+            }
             return Task.FromResult(default(T?));
         }
     }

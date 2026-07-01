@@ -52,6 +52,26 @@ export abstract class MaintenancePageBase {
     return Array.from(years).sort((a, b) => b - a);
   });
 
+  readonly yearSelectOptions = computed(() => [
+    { value: null as number | null, label: 'All years' },
+    ...this.yearOptions().map(y => ({ value: y as number | null, label: String(y) })),
+  ]);
+
+  readonly monthSelectOptions = [
+    { value: null as number | null, label: 'All months' },
+    ...MONTH_OPTIONS.map(m => ({ value: m.value as number | null, label: m.label })),
+  ];
+
+  readonly chargeStatusSelectOptions = [
+    { value: null as MaintenanceChargeStatus | null, label: 'All statuses' },
+    ...CHARGE_STATUS_OPTIONS.map(s => ({ value: s as MaintenanceChargeStatus | null, label: s })),
+  ];
+
+  readonly apartmentSelectOptions = computed(() => [
+    { value: null as string | null, label: 'All apartments' },
+    ...this.apartments().map(a => ({ value: a.id as string | null, label: formatApartmentLabel(a) })),
+  ]);
+
   readonly chargeSections = computed(() => buildChargeSections(this.charges()));
 
   protected abstract get isAdminView(): boolean;

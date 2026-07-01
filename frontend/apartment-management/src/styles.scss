@@ -165,6 +165,50 @@ h1, h2, h3, h4, h5, h6 { margin: 0; font-weight: 500; }
   margin-bottom: calc(var(--bottom-nav-h) + 8px) !important;
 }
 
+// ─── Searchable select overlay ────────────────────────────────────────────────
+// These rules target elements inside the mat-select overlay portal (outside component DOM),
+// so they must live in the global stylesheet — component-scoped styles cannot reach them.
+.mat-mdc-option.searchable-select-search-row {
+  position: sticky !important;
+  top: 0;
+  z-index: 1;
+  background-color: var(--surface) !important;
+  border-bottom: 1px solid var(--border);
+  min-height: 48px !important;
+  cursor: default !important;
+
+  &.mdc-list-item--disabled { opacity: 1 !important; }
+
+  .mat-mdc-option-text {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    pointer-events: none;
+  }
+
+  mat-icon {
+    color: var(--text-secondary);
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+  }
+}
+
+.searchable-select-input {
+  pointer-events: all;
+  border: none;
+  outline: none;
+  background: transparent;
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--on-surface);
+
+  &::placeholder { color: var(--text-secondary); }
+}
+
 // ─── Route transition ─────────────────────────────────────────────────────────
 router-outlet + * {
   animation: fadeIn 150ms ease-out both;

@@ -104,15 +104,8 @@ public sealed class RegisterVisitorCommandHandler(
                     ["visitorImageUrl"]= request.VisitorImageUrl ?? string.Empty
                 };
 
-                foreach (var resident in residents)
-                {
-                    await notificationService.SendPushNotificationAsync(
-                        resident.UserId,
-                        "Visitor Request",
-                        notificationBody,
-                        ct,
-                        notificationData);
-                }
+                await Task.WhenAll(residents.Select(r =>
+                    notificationService.SendPushNotificationAsync(r.UserId, "Visitor Request", notificationBody, ct, notificationData)));
             }
 
             return Result<VisitorResponse>.Success(created.ToResponse());

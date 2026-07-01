@@ -5,8 +5,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatSelectModule } from '@angular/material/select';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
+import { SearchableSelectComponent } from '../../shared/components/searchable-select/searchable-select.component';
 import { UserService } from '../../core/services/apartment.service';
 import { AuthService } from '../../core/services/auth.service';
 
@@ -15,7 +15,7 @@ const PHONE_PATTERN = /^\d{10}$/;
 @Component({
   selector: 'app-apartment-household-member',
   standalone: true,
-  imports: [ReactiveFormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatProgressBarModule, MatSelectModule, PageHeaderComponent],
+  imports: [ReactiveFormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatProgressBarModule, PageHeaderComponent, SearchableSelectComponent],
   template: `
     <app-page-header title="Add Family Member / Co-Occupant" [showBack]="true"></app-page-header>
     @if (loading()) { <mat-progress-bar mode="indeterminate"></mat-progress-bar> }
@@ -49,14 +49,8 @@ const PHONE_PATTERN = /^\d{10}$/;
               </mat-error>
             }
           </mat-form-field>
-          <mat-form-field appearance="fill" class="full-width">
-            <mat-label>Resident type</mat-label>
-            <mat-select formControlName="residentType">
-              @for (residentType of residentTypes(); track residentType.value) {
-                <mat-option [value]="residentType.value">{{ residentType.label }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
+          <app-searchable-select label="Resident type" formControlName="residentType"
+            [options]="residentTypes()"></app-searchable-select>
           <button mat-raised-button color="primary" type="submit" [disabled]="loading() || form.invalid">
             Add Household Member
           </button>

@@ -32,15 +32,8 @@
       </mat-form-field>
 
       @if (options().length > 0 && !requested()) {
-        <mat-form-field appearance="fill" class="full-width">
-          <mat-label>Select account</mat-label>
-          <mat-icon matPrefix>person</mat-icon>
-          <mat-select formControlName="selectedUserId">
-            @for (option of options(); track option.userId) {
-              <mat-option [value]="option.userId">{{ labelFor(option) }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
+        <app-searchable-select label="Select account" formControlName="selectedUserId"
+          [options]="loginSelectOptions()"></app-searchable-select>
       }
 
       @if (!requested()) {

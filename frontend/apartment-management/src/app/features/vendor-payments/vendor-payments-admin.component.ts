@@ -5,8 +5,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { SearchableSelectComponent } from '../../shared/components/searchable-select/searchable-select.component';
 import { RouterLink } from '@angular/router';
 import { Observable } from 'rxjs';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
@@ -46,8 +46,8 @@ import {
     MatDividerModule,
     MatFormFieldModule,
     MatInputModule,
-    MatSelectModule,
     RouterLink,
+    SearchableSelectComponent,
     PageHeaderComponent,
     LoadingSpinnerComponent,
     EmptyStateComponent,
@@ -186,13 +186,8 @@ import {
                 <input matInput type="date" formControlName="validUptoDate">
               </mat-form-field>
 
-              <mat-form-field appearance="fill">
-                <mat-label>Status</mat-label>
-                <mat-select formControlName="isActive">
-                  <mat-option [value]="true">Active</mat-option>
-                  <mat-option [value]="false">Inactive</mat-option>
-                </mat-select>
-              </mat-form-field>
+              <app-searchable-select label="Status" formControlName="isActive"
+                [options]="isActiveOptions"></app-searchable-select>
             </div>
 
             <mat-form-field appearance="fill" class="full-width">
@@ -248,14 +243,8 @@ import {
             <div class="three-col">
               <form [formGroup]="scheduleForm" class="card schedule-card" (ngSubmit)="saveSchedule()">
                 <div class="schedule-card__title">Recurring cost schedule</div>
-                <mat-form-field appearance="fill">
-                  <mat-label>Frequency</mat-label>
-                  <mat-select formControlName="frequency">
-                    @for (frequency of frequencyOptions; track frequency) {
-                      <mat-option [value]="frequency">{{ frequency }}</mat-option>
-                    }
-                  </mat-select>
-                </mat-form-field>
+                <app-searchable-select label="Frequency" formControlName="frequency"
+                  [options]="frequencySelectOptions"></app-searchable-select>
                 <mat-form-field appearance="fill">
                   <mat-label>Amount</mat-label>
                   <input matInput type="number" min="0.01" step="0.01" formControlName="amount">
@@ -365,35 +354,12 @@ import {
           </div>
 
           <form [formGroup]="chargeFilterForm" class="filters">
-            <mat-form-field appearance="fill">
-              <mat-label>Year</mat-label>
-              <mat-select formControlName="year" (selectionChange)="loadCharges()">
-                <mat-option [value]="null">All years</mat-option>
-                @for (year of yearOptions(); track year) {
-                  <mat-option [value]="year">{{ year }}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
-
-            <mat-form-field appearance="fill">
-              <mat-label>Month</mat-label>
-              <mat-select formControlName="month" (selectionChange)="loadCharges()">
-                <mat-option [value]="null">All months</mat-option>
-                @for (month of monthOptions; track month.value) {
-                  <mat-option [value]="month.value">{{ month.label }}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
-
-            <mat-form-field appearance="fill">
-              <mat-label>Status</mat-label>
-              <mat-select formControlName="status" (selectionChange)="loadCharges()">
-                <mat-option [value]="null">All statuses</mat-option>
-                @for (status of chargeStatusOptions; track status) {
-                  <mat-option [value]="status">{{ status }}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
+            <app-searchable-select label="Year" formControlName="year"
+              [options]="yearSelectOptions()" (selectionChange)="loadCharges()"></app-searchable-select>
+            <app-searchable-select label="Month" formControlName="month"
+              [options]="monthSelectOptions" (selectionChange)="loadCharges()"></app-searchable-select>
+            <app-searchable-select label="Status" formControlName="status"
+              [options]="chargeStatusSelectOptions" (selectionChange)="loadCharges()"></app-searchable-select>
           </form>
 
           @if (charges().length) {
@@ -457,9 +423,19 @@ export class VendorPaymentsAdminComponent {
   readonly selectedVendorId = signal<string | null>(null);
   readonly selectedScheduleId = signal<string | null>(null);
 
-  readonly frequencyOptions = VENDOR_FREQUENCY_OPTIONS;
-  readonly chargeStatusOptions = VENDOR_CHARGE_STATUS_OPTIONS;
-  readonly monthOptions = MONTH_OPTIONS;
+  readonly isActiveOptions = [
+    { value: true, label: 'Active' },
+    { value: false, label: 'Inactive' },
+  ];
+  readonly frequencySelectOptions = VENDOR_FREQUENCY_OPTIONS.map(f => ({ value: f, label: f }));
+  readonly chargeStatusSelectOptions = [
+    { value: null as string | null, label: 'All statuses' },
+    ...VENDOR_CHARGE_STATUS_OPTIONS.map(s => ({ value: s as string | null, label: s })),
+  ];
+  readonly monthSelectOptions = [
+    { value: null as number | null, label: 'All months' },
+    ...MONTH_OPTIONS.map(m => ({ value: m.value as number | null, label: m.label })),
+  ];
   vendorSearch = '';
 
   readonly vendorForm = this.fb.group({
@@ -519,6 +495,11 @@ export class VendorPaymentsAdminComponent {
     ]);
     return Array.from(years).sort((left, right) => right - left);
   });
+
+  readonly yearSelectOptions = computed(() => [
+    { value: null as number | null, label: 'All years' },
+    ...this.yearOptions().map(y => ({ value: y as number | null, label: String(y) })),
+  ]);
 
   constructor() {
     this.loadVendors();

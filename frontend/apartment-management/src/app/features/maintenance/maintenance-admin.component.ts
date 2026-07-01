@@ -1,13 +1,13 @@
 import { CurrencyPipe, DatePipe } from '@angular/common';
-import { Component, ElementRef, signal, viewChild } from '@angular/core';
+import { Component, ElementRef, computed, signal, viewChild } from '@angular/core';
 import { ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatSelectModule } from '@angular/material/select';
 import { RouterLink } from '@angular/router';
+import { SearchableSelectComponent } from '../../shared/components/searchable-select/searchable-select.component';
 import { Observable } from 'rxjs';
 import { MaintenanceAreaBasis, MaintenanceFrequency, MaintenancePricingType, MaintenanceSchedule } from '../../core/models/maintenance.model';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
@@ -37,12 +37,12 @@ import {
     MatFormFieldModule,
     MatInputModule,
     MatProgressBarModule,
-    MatSelectModule,
     RouterLink,
     PageHeaderComponent,
     LoadingSpinnerComponent,
     EmptyStateComponent,
     StatusChipComponent,
+    SearchableSelectComponent,
   ],
   template: `
     <app-page-header
@@ -87,85 +87,34 @@ import {
               </mat-form-field>
 
               <div class="two-col">
-                <mat-form-field appearance="fill">
-                  <mat-label>Scope</mat-label>
-                  <mat-select formControlName="scope" (selectionChange)="onScopeChanged()">
-                    @for (scope of scopeOptions; track scope.value) {
-                      <mat-option [value]="scope.value">{{ scope.label }}</mat-option>
-                    }
-                  </mat-select>
-                </mat-form-field>
-
-                <mat-form-field appearance="fill">
-                  <mat-label>Frequency</mat-label>
-                  <mat-select formControlName="frequency">
-                    @for (frequency of frequencyOptions; track frequency) {
-                      <mat-option [value]="frequency">{{ frequency }}</mat-option>
-                    }
-                  </mat-select>
-                </mat-form-field>
+                <app-searchable-select label="Scope" formControlName="scope"
+                  [options]="scopeOptions" (selectionChange)="onScopeChanged()"></app-searchable-select>
+                <app-searchable-select label="Frequency" formControlName="frequency"
+                  [options]="frequencySelectOptions"></app-searchable-select>
               </div>
 
               <div class="two-col">
-                <mat-form-field appearance="fill">
-                  <mat-label>Start month</mat-label>
-                  <mat-select formControlName="startMonth">
-                    @for (month of monthOptions; track month.value) {
-                      <mat-option [value]="month.value">{{ month.label }}</mat-option>
-                    }
-                  </mat-select>
-                </mat-form-field>
-
-                <mat-form-field appearance="fill">
-                  <mat-label>Start year</mat-label>
-                  <mat-select formControlName="startYear">
-                    @for (year of scheduleYearOptions; track year) {
-                      <mat-option [value]="year">{{ year }}</mat-option>
-                    }
-                  </mat-select>
-                </mat-form-field>
+                <app-searchable-select label="Start month" formControlName="startMonth"
+                  [options]="monthOptions"></app-searchable-select>
+                <app-searchable-select label="Start year" formControlName="startYear"
+                  [options]="scheduleYearSelectOptions"></app-searchable-select>
               </div>
 
               <div class="two-col">
-                <mat-form-field appearance="fill">
-                  <mat-label>End month</mat-label>
-                  <mat-select formControlName="endMonth">
-                    @for (month of monthOptions; track month.value) {
-                      <mat-option [value]="month.value">{{ month.label }}</mat-option>
-                    }
-                  </mat-select>
-                </mat-form-field>
-
-                <mat-form-field appearance="fill">
-                  <mat-label>End year</mat-label>
-                  <mat-select formControlName="endYear">
-                    @for (year of scheduleYearOptions; track year) {
-                      <mat-option [value]="year">{{ year }}</mat-option>
-                    }
-                  </mat-select>
-                </mat-form-field>
+                <app-searchable-select label="End month" formControlName="endMonth"
+                  [options]="monthOptions"></app-searchable-select>
+                <app-searchable-select label="End year" formControlName="endYear"
+                  [options]="scheduleYearSelectOptions"></app-searchable-select>
               </div>
 
               @if (scheduleForm.controls.scope.value === 'Apartment') {
-                <mat-form-field appearance="fill" class="full-width">
-                  <mat-label>Apartment</mat-label>
-                  <mat-select formControlName="apartmentId">
-                    @for (apartment of apartments(); track apartment.id) {
-                      <mat-option [value]="apartment.id">{{ formatApartmentLabel(apartment) }}</mat-option>
-                    }
-                  </mat-select>
-                </mat-form-field>
+                <app-searchable-select label="Apartment" formControlName="apartmentId"
+                  [options]="apartmentIdOptions()"></app-searchable-select>
               }
 
               <div class="two-col">
-                <mat-form-field appearance="fill">
-                  <mat-label>Pricing type</mat-label>
-                  <mat-select formControlName="pricingType" (selectionChange)="onPricingTypeChanged()">
-                    @for (type of pricingTypeOptions; track type.value) {
-                      <mat-option [value]="type.value">{{ type.label }}</mat-option>
-                    }
-                  </mat-select>
-                </mat-form-field>
+                <app-searchable-select label="Pricing type" formControlName="pricingType"
+                  [options]="pricingTypeOptions" (selectionChange)="onPricingTypeChanged()"></app-searchable-select>
 
                 <mat-form-field appearance="fill">
                   <mat-label>Rate</mat-label>
@@ -174,14 +123,8 @@ import {
               </div>
 
               <div class="two-col">
-                <mat-form-field appearance="fill">
-                  <mat-label>Area basis</mat-label>
-                  <mat-select formControlName="areaBasis">
-                    @for (basis of areaBasisOptions; track basis.value) {
-                      <mat-option [value]="basis.value">{{ basis.label }}</mat-option>
-                    }
-                  </mat-select>
-                </mat-form-field>
+                <app-searchable-select label="Area basis" formControlName="areaBasis"
+                  [options]="areaBasisOptions"></app-searchable-select>
 
                 <mat-form-field appearance="fill">
                   <mat-label>Due day</mat-label>
@@ -191,13 +134,8 @@ import {
 
               @if (editingScheduleId()) {
                 <div class="two-col">
-                  <mat-form-field appearance="fill">
-                    <mat-label>Status</mat-label>
-                    <mat-select formControlName="isActive">
-                      <mat-option [value]="true">Active</mat-option>
-                      <mat-option [value]="false">Inactive</mat-option>
-                    </mat-select>
-                  </mat-form-field>
+                  <app-searchable-select label="Status" formControlName="isActive"
+                    [options]="isActiveOptions"></app-searchable-select>
 
                   <mat-form-field appearance="fill">
                     <mat-label>Change reason</mat-label>
@@ -206,23 +144,10 @@ import {
                 </div>
 
                 <div class="two-col">
-                  <mat-form-field appearance="fill">
-                    <mat-label>Effective month</mat-label>
-                    <mat-select formControlName="effectiveMonth">
-                      @for (month of monthOptions; track month.value) {
-                        <mat-option [value]="month.value">{{ month.label }}</mat-option>
-                      }
-                    </mat-select>
-                  </mat-form-field>
-
-                  <mat-form-field appearance="fill">
-                    <mat-label>Effective year</mat-label>
-                    <mat-select formControlName="effectiveYear">
-                      @for (year of scheduleYearOptions; track year) {
-                        <mat-option [value]="year">{{ year }}</mat-option>
-                      }
-                    </mat-select>
-                  </mat-form-field>
+                  <app-searchable-select label="Effective month" formControlName="effectiveMonth"
+                    [options]="monthOptions"></app-searchable-select>
+                  <app-searchable-select label="Effective year" formControlName="effectiveYear"
+                    [options]="scheduleYearSelectOptions"></app-searchable-select>
                 </div>
               }
 
@@ -263,35 +188,12 @@ import {
 
           @if (isSectionOpen('charge-register')) {
             <form [formGroup]="filterForm" class="filters">
-              <mat-form-field appearance="fill">
-                <mat-label>Year</mat-label>
-                <mat-select formControlName="year" (selectionChange)="refreshCharges()">
-                  <mat-option [value]="null">All years</mat-option>
-                  @for (year of yearOptions(); track year) {
-                    <mat-option [value]="year">{{ year }}</mat-option>
-                  }
-                </mat-select>
-              </mat-form-field>
-
-              <mat-form-field appearance="fill">
-                <mat-label>Month</mat-label>
-                <mat-select formControlName="month" (selectionChange)="refreshCharges()">
-                  <mat-option [value]="null">All months</mat-option>
-                  @for (month of monthOptions; track month.value) {
-                    <mat-option [value]="month.value">{{ month.label }}</mat-option>
-                  }
-                </mat-select>
-              </mat-form-field>
-
-              <mat-form-field appearance="fill">
-                <mat-label>Status</mat-label>
-                <mat-select formControlName="status" (selectionChange)="refreshCharges()">
-                  <mat-option [value]="null">All statuses</mat-option>
-                  @for (status of chargeStatusOptions; track status) {
-                    <mat-option [value]="status">{{ status }}</mat-option>
-                  }
-                </mat-select>
-              </mat-form-field>
+              <app-searchable-select label="Year" formControlName="year"
+                [options]="yearSelectOptions()" (selectionChange)="refreshCharges()"></app-searchable-select>
+              <app-searchable-select label="Month" formControlName="month"
+                [options]="monthSelectOptions" (selectionChange)="refreshCharges()"></app-searchable-select>
+              <app-searchable-select label="Status" formControlName="status"
+                [options]="chargeStatusSelectOptions" (selectionChange)="refreshCharges()"></app-searchable-select>
             </form>
 
             <div class="sub-card stack">
@@ -526,8 +428,16 @@ export class MaintenanceAdminComponent extends MaintenancePageBase {
   readonly scopeOptions = SCOPE_OPTIONS;
   readonly pricingTypeOptions = PRICING_TYPE_OPTIONS;
   readonly areaBasisOptions = AREA_BASIS_OPTIONS;
-  readonly frequencyOptions = FREQUENCY_OPTIONS;
+  readonly frequencySelectOptions = FREQUENCY_OPTIONS.map(f => ({ value: f, label: formatFrequencyLabel(f) }));
   readonly scheduleYearOptions = Array.from({ length: 8 }, (_, index) => new Date().getFullYear() + index);
+  readonly scheduleYearSelectOptions = this.scheduleYearOptions.map(y => ({ value: y, label: String(y) }));
+  readonly isActiveOptions = [
+    { value: true, label: 'Active' },
+    { value: false, label: 'Inactive' },
+  ];
+  readonly apartmentIdOptions = computed(() =>
+    this.apartments().map(a => ({ value: a.id, label: this.formatApartmentLabel(a) }))
+  );
 
   readonly settlementForm = this.fb.group({
     paymentMethod: ['Manual', Validators.required],

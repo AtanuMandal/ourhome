@@ -135,14 +135,13 @@ public sealed class CreateServiceRequestCommandHandler(
             var matchingProviders = await providerRepository.GetByServiceTypeAsync(
                 request.SocietyId, request.ServiceType, 1, 50, ct);
 
-            foreach (var provider in matchingProviders.Where(p => p.Status == ServiceProviderStatus.Approved))
-            {
-                if (!string.IsNullOrWhiteSpace(provider.ContactEmail))
-                    await notificationService.SendEmailAsync(
-                        provider.ContactEmail,
+            await Task.WhenAll(
+                matchingProviders
+                    .Where(p => p.Status == ServiceProviderStatus.Approved && !string.IsNullOrWhiteSpace(p.ContactEmail))
+                    .Select(p => notificationService.SendEmailAsync(
+                        p.ContactEmail!,
                         "New Service Request",
-                        $"A new {request.ServiceType} request has been posted. Description: {request.Description}", ct);
-            }
+                        $"A new {request.ServiceType} request has been posted. Description: {request.Description}", ct)));
 
             return Result<ServiceRequestResponse>.Success(created.ToResponse());
         }

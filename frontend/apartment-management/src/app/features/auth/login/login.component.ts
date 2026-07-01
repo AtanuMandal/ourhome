@@ -1,21 +1,21 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
-import { MatSelectModule } from '@angular/material/select';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatIconModule } from '@angular/material/icon';
 import { AuthService } from '../../../core/services/auth.service';
 import { LoginOption } from '../../../core/models/user.model';
+import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select.component';
 
 @Component({
   selector: 'app-login',
   standalone: true,
   imports: [
     ReactiveFormsModule, RouterLink, MatFormFieldModule, MatInputModule,
-    MatButtonModule, MatSelectModule, MatProgressBarModule, MatIconModule,
+    MatButtonModule, MatProgressBarModule, MatIconModule, SearchableSelectComponent,
   ],
   templateUrl: './login.component.html',
   styleUrl: './login.component.scss',
@@ -28,6 +28,9 @@ export class LoginComponent {
   readonly loading = signal(false);
   readonly error = signal('');
   readonly options = signal<LoginOption[]>([]);
+  readonly loginSelectOptions = computed(() =>
+    this.options().map(o => ({ value: o.userId, label: this.labelFor(o) }))
+  );
 
   readonly form = this.fb.nonNullable.group({
     email: ['', [Validators.required, Validators.email]],

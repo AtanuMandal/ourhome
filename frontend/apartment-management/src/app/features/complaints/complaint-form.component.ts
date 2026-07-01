@@ -3,10 +3,10 @@ import { FormBuilder, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
+import { SearchableSelectComponent } from '../../shared/components/searchable-select/searchable-select.component';
 import { ComplaintService } from '../../core/services/complaint.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ComplaintCategory, ComplaintPriority } from '../../core/models/complaint.model';
@@ -15,30 +15,15 @@ import { ComplaintCategory, ComplaintPriority } from '../../core/models/complain
   selector: 'app-complaint-form',
   standalone: true,
   imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule,
-            MatSelectModule, MatButtonModule, MatProgressBarModule, PageHeaderComponent],
+            MatButtonModule, MatProgressBarModule, PageHeaderComponent, SearchableSelectComponent],
   template: `
     <app-page-header title="Raise Complaint" [showBack]="true"></app-page-header>
     @if (loading()) { <mat-progress-bar mode="indeterminate"></mat-progress-bar> }
     <div class="page-content">
       <div class="card">
         <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
-          <mat-form-field appearance="fill" class="full-width">
-            <mat-label>Category</mat-label>
-            <mat-select formControlName="category">
-              @for (cat of categories; track cat) {
-                <mat-option [value]="cat">{{ cat }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
-
-          <mat-form-field appearance="fill" class="full-width">
-            <mat-label>Priority</mat-label>
-            <mat-select formControlName="priority">
-              @for (p of priorities; track p) {
-                <mat-option [value]="p">{{ p }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
+          <app-searchable-select label="Category" formControlName="category" [options]="categoryOptions"></app-searchable-select>
+          <app-searchable-select label="Priority" formControlName="priority" [options]="priorityOptions"></app-searchable-select>
 
           <mat-form-field appearance="fill" class="full-width">
             <mat-label>Title</mat-label>
@@ -75,10 +60,10 @@ export class ComplaintFormComponent {
 
   readonly loading = signal(false);
 
-  readonly categories: ComplaintCategory[] = [
-    'Plumbing', 'Electrical', 'Cleaning', 'Security', 'Noise', 'Parking', 'Other'
-  ];
-  readonly priorities: ComplaintPriority[] = ['Low', 'Medium', 'High', 'Critical'];
+  readonly categoryOptions = (['Plumbing', 'Electrical', 'Cleaning', 'Security', 'Noise', 'Parking', 'Other'] as ComplaintCategory[])
+    .map(c => ({ value: c, label: c }));
+  readonly priorityOptions = (['Low', 'Medium', 'High', 'Critical'] as ComplaintPriority[])
+    .map(p => ({ value: p, label: p }));
 
   readonly form = this.fb.group({
     category:    ['Plumbing' as ComplaintCategory, Validators.required],

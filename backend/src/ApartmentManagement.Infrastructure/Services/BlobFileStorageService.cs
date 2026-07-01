@@ -3,17 +3,21 @@ using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Azure.Storage.Sas;
 using Microsoft.Extensions.Options;
+using System.Collections.Concurrent;
 
 namespace ApartmentManagement.Infrastructure.Services;
 
 public sealed class BlobFileStorageService(IOptions<InfrastructureSettings> settings) : IFileStorageService
 {
     private readonly InfrastructureSettings _settings = settings.Value;
+    // Tracks containers already confirmed to exist — avoids a network round-trip on every upload.
+    private static readonly ConcurrentDictionary<string, byte> _knownContainers = new(StringComparer.OrdinalIgnoreCase);
 
     public async Task<string> UploadAsync(Stream content, string fileName, string contentType, string containerName, CancellationToken ct = default)
     {
         var client = CreateContainerClient(containerName);
-        await client.CreateIfNotExistsAsync(cancellationToken: ct);
+        if (_knownContainers.TryAdd(client.Name, 0))
+            await client.CreateIfNotExistsAsync(cancellationToken: ct);
 
         var blobClient = client.GetBlobClient(fileName);
         content.Position = 0;
