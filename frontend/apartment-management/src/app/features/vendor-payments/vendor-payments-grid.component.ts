@@ -4,8 +4,8 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { SearchableSelectComponent } from '../../shared/components/searchable-select/searchable-select.component';
 import { RouterLink } from '@angular/router';
 import { Observable } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
@@ -27,12 +27,12 @@ import { VENDOR_PAGE_STYLES, monthLabel } from './vendor-payments-shared';
     MatButtonModule,
     MatFormFieldModule,
     MatInputModule,
-    MatSelectModule,
     RouterLink,
     PageHeaderComponent,
     LoadingSpinnerComponent,
     EmptyStateComponent,
     StatusChipComponent,
+    SearchableSelectComponent,
   ],
   template: `
     <app-page-header
@@ -52,14 +52,8 @@ import { VENDOR_PAGE_STYLES, monthLabel } from './vendor-payments-shared';
         </div>
 
         <form [formGroup]="filterForm" class="filters">
-          <mat-form-field appearance="fill">
-            <mat-label>Year</mat-label>
-            <mat-select formControlName="year" (selectionChange)="loadGrid()">
-              @for (year of yearOptions(); track year) {
-                <mat-option [value]="year">{{ year }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
+          <app-searchable-select label="Year" formControlName="year"
+            [options]="yearSelectOptions()" (selectionChange)="loadGrid()"></app-searchable-select>
         </form>
       </section>
 
@@ -291,6 +285,10 @@ export class VendorPaymentsGridComponent {
     const currentYear = new Date().getFullYear();
     return [currentYear - 1, currentYear, currentYear + 1];
   });
+
+  readonly yearSelectOptions = computed(() =>
+    this.yearOptions().map(y => ({ value: y, label: String(y) }))
+  );
 
   constructor() {
     this.loadGrid();

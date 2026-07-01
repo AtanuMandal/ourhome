@@ -1,10 +1,10 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { FormBuilder, Validators, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { SearchableSelectComponent } from '../../shared/components/searchable-select/searchable-select.component';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatCardModule } from '@angular/material/card';
@@ -25,12 +25,12 @@ import { Apartment, formatApartmentLabel } from '../../core/models/apartment.mod
     MatButtonModule,
     MatFormFieldModule,
     MatInputModule,
-    MatSelectModule,
     MatProgressBarModule,
     MatDividerModule,
     MatCardModule,
     PageHeaderComponent,
     LoadingSpinnerComponent,
+    SearchableSelectComponent,
   ],
   template: `
     <app-page-header title="My Apartment" [showBack]="false"></app-page-header>
@@ -82,29 +82,11 @@ import { Apartment, formatApartmentLabel } from '../../core/models/apartment.mod
               <p class="help-text">You're not linked to any apartment yet. Select the apartment you live in and submit a request. Your society admin will approve it.</p>
             }
             <form [formGroup]="joinForm" (ngSubmit)="submitJoinRequest()" novalidate>
-              <mat-form-field appearance="fill" class="full-width">
-                <mat-label>Apartment</mat-label>
-                <mat-select formControlName="apartmentId">
-                  @if (apartments().length === 0) {
-                    <mat-option disabled value="">No apartments available</mat-option>
-                  } @else {
-                    @for (apt of apartments(); track apt.id) {
-                      <mat-option [value]="apt.id">{{ formatApartmentLabel(apt) }}</mat-option>
-                    }
-                  }
-                </mat-select>
-                @if (joinForm.controls.apartmentId.invalid && joinForm.controls.apartmentId.touched) {
-                  <mat-error>Please select an apartment</mat-error>
-                }
-              </mat-form-field>
+              <app-searchable-select label="Apartment" formControlName="apartmentId"
+                [options]="apartmentJoinOptions()" errorMessage="Please select an apartment"></app-searchable-select>
 
-              <mat-form-field appearance="fill" class="full-width">
-                <mat-label>I am a</mat-label>
-                <mat-select formControlName="residentType">
-                  <mat-option value="Owner">Owner</mat-option>
-                  <mat-option value="Tenant">Tenant</mat-option>
-                </mat-select>
-              </mat-form-field>
+              <app-searchable-select label="I am a" formControlName="residentType"
+                [options]="residentTypeOptions"></app-searchable-select>
 
               <button mat-raised-button color="primary" type="submit"
                       class="full-width" style="height:48px;margin-top:8px"
@@ -159,8 +141,15 @@ export class MyApartmentComponent implements OnInit {
   readonly loading = signal(true);
   readonly submittingJoin = signal(false);
   readonly generatingLink = signal(false);
+  readonly residentTypeOptions = [
+    { value: 'Owner', label: 'Owner' },
+    { value: 'Tenant', label: 'Tenant' },
+  ];
   readonly currentUser = signal<User | null>(null);
   readonly apartments = signal<Apartment[]>([]);     // unlinked apartments for the join form
+  readonly apartmentJoinOptions = computed(() =>
+    this.apartments().map(a => ({ value: a.id, label: formatApartmentLabel(a) }))
+  );
   private readonly allApartments = signal<Apartment[]>([]); // full list for name lookups
   readonly generatedLink = signal<InviteLink | null>(null);
 

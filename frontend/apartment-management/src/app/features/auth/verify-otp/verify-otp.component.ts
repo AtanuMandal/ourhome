@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -6,16 +6,16 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatIconModule } from '@angular/material/icon';
-import { MatSelectModule } from '@angular/material/select';
 import { AuthService } from '../../../core/services/auth.service';
 import { LoginOption } from '../../../core/models/user.model';
+import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select.component';
 
 @Component({
   selector: 'app-verify-otp',
   standalone: true,
   imports: [
     ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatButtonModule,
-    MatProgressBarModule, MatIconModule, MatSelectModule,
+    MatProgressBarModule, MatIconModule, SearchableSelectComponent,
   ],
   templateUrl: './verify-otp.component.html',
   styleUrl: './verify-otp.component.scss',
@@ -30,6 +30,9 @@ export class VerifyOtpComponent {
   readonly requested = signal(false);
   readonly options = signal<LoginOption[]>([]);
   readonly selected = signal<LoginOption | null>(null);
+  readonly loginSelectOptions = computed(() =>
+    this.options().map(o => ({ value: o.userId, label: this.labelFor(o) }))
+  );
 
   readonly form = this.fb.nonNullable.group({
     email: ['', [Validators.required, Validators.email]],

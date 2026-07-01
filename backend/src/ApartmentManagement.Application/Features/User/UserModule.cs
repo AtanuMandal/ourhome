@@ -964,14 +964,16 @@ internal static class UserQueryMapping
         var residentApartments = new List<ResidentApartmentDto>();
         var seenApartmentIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        var ownedApartments = await apartmentRepository.GetByOwnerAsync(user.SocietyId, user.Id, ct) ?? [];
+        var ownedTask  = apartmentRepository.GetByOwnerAsync(user.SocietyId, user.Id, ct);
+        var tenantTask = apartmentRepository.GetByTenantAsync(user.SocietyId, user.Id, ct);
+        await Task.WhenAll(ownedTask, tenantTask);
+        var ownedApartments  = ownedTask.Result  ?? [];
+        var tenantApartments = tenantTask.Result ?? [];
         foreach (var apartment in ownedApartments.OrderBy(a => a.ApartmentNumber, StringComparer.OrdinalIgnoreCase))
         {
             if (seenApartmentIds.Add(apartment.Id))
                 residentApartments.Add(apartment.ToResidentApartmentResponse(ResidentType.Owner));
         }
-
-        var tenantApartments = await apartmentRepository.GetByTenantAsync(user.SocietyId, user.Id, ct) ?? [];
         foreach (var apartment in tenantApartments.OrderBy(a => a.ApartmentNumber, StringComparer.OrdinalIgnoreCase))
         {
             if (seenApartmentIds.Add(apartment.Id))

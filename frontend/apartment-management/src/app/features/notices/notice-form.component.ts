@@ -3,10 +3,10 @@ import { FormBuilder, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
+import { SearchableSelectComponent } from '../../shared/components/searchable-select/searchable-select.component';
 import { NoticeService } from '../../core/services/notice.service';
 import { AuthService } from '../../core/services/auth.service';
 import { NoticeCategory } from '../../core/models/notice.model';
@@ -14,20 +14,15 @@ import { NoticeCategory } from '../../core/models/notice.model';
 @Component({
   selector: 'app-notice-form',
   standalone: true,
-  imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatSelectModule,
-            MatButtonModule, MatProgressBarModule, PageHeaderComponent],
+  imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule,
+            MatButtonModule, MatProgressBarModule, PageHeaderComponent, SearchableSelectComponent],
   template: `
     <app-page-header title="Post Notice" [showBack]="true"></app-page-header>
     @if (loading()) { <mat-progress-bar mode="indeterminate"></mat-progress-bar> }
     <div class="page-content">
       <div class="card">
         <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
-          <mat-form-field appearance="fill" class="full-width">
-            <mat-label>Category</mat-label>
-            <mat-select formControlName="category">
-              @for (cat of categories; track cat) { <mat-option [value]="cat">{{ cat }}</mat-option> }
-            </mat-select>
-          </mat-form-field>
+          <app-searchable-select label="Category" formControlName="category" [options]="categoryOptions"></app-searchable-select>
 
           <mat-form-field appearance="fill" class="full-width">
             <mat-label>Title</mat-label>
@@ -72,7 +67,8 @@ export class NoticeFormComponent {
   private readonly router = inject(Router);
 
   readonly loading = signal(false);
-  readonly categories: NoticeCategory[] = ['General','Maintenance','Event','Emergency','Financial','Bylaw'];
+  readonly categoryOptions = (['General','Maintenance','Event','Emergency','Financial','Bylaw'] as NoticeCategory[])
+    .map(c => ({ value: c, label: c }));
 
   readonly form = this.fb.group({
     category:  ['General' as NoticeCategory, Validators.required],

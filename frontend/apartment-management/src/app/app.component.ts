@@ -1,6 +1,7 @@
 import { Component, inject, computed, signal } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
 import { filter } from 'rxjs';
+import { take } from 'rxjs/operators';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatListModule } from '@angular/material/list';
@@ -108,7 +109,7 @@ export class AppComponent {
         filter((e): e is VersionReadyEvent => e.type === 'VERSION_READY')
       ).subscribe(() => {
         const snack = this.snackBar.open('New version available!', 'Update', { duration: 10000 });
-        snack.onAction().subscribe(() => this.sw!.activateUpdate().then(() => location.reload()));
+        snack.onAction().pipe(take(1)).subscribe(() => this.sw!.activateUpdate().then(() => location.reload()));
       });
     }
 

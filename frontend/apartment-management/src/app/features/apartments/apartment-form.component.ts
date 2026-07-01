@@ -1,4 +1,5 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, OnInit, DestroyRef, ChangeDetectionStrategy } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormBuilder, Validators, ReactiveFormsModule } from '@angular/forms';
@@ -6,9 +7,9 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatSelectModule } from '@angular/material/select';
 import { CreateApartmentDto, UpdateApartmentDto } from '../../core/models/apartment.model';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
+import { SearchableSelectComponent } from '../../shared/components/searchable-select/searchable-select.component';
 import { ApartmentService } from '../../core/services/apartment.service';
 import { AuthService } from '../../core/services/auth.service';
 
@@ -18,7 +19,7 @@ type OccupancyOption = 'Available' | 'Owner' | 'Tenant';
   selector: 'app-apartment-form',
   standalone: true,
   imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule,
-            MatButtonModule, MatProgressBarModule, MatSelectModule, PageHeaderComponent],
+            MatButtonModule, MatProgressBarModule, PageHeaderComponent, SearchableSelectComponent],
   template: `
     <app-page-header [title]="editId ? 'Edit Apartment' : 'Add Apartment'" [showBack]="true"></app-page-header>
     @if (loading()) { <mat-progress-bar mode="indeterminate"></mat-progress-bar> }
@@ -111,14 +112,8 @@ type OccupancyOption = 'Available' | 'Owner' | 'Tenant';
                 If the email already belongs to a resident in this society, the apartment will be linked to that account.
               </p>
 
-              <mat-form-field appearance="fill" class="full-width">
-                <mat-label>Occupancy</mat-label>
-                <mat-select formControlName="occupancy">
-                  <mat-option value="Available">Available</mat-option>
-                  <mat-option value="Owner">Occupied by Owner</mat-option>
-                  <mat-option value="Tenant">Occupied by Tenant</mat-option>
-                </mat-select>
-              </mat-form-field>
+              <app-searchable-select label="Occupancy" formControlName="occupancy"
+                [options]="occupancyOptions"></app-searchable-select>
 
               @if (isOccupied()) {
                 <mat-form-field appearance="fill" class="full-width">
@@ -148,13 +143,21 @@ type OccupancyOption = 'Available' | 'Owner' | 'Tenant';
       </div>
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ApartmentFormComponent implements OnInit {
-  private readonly fb     = inject(FormBuilder).nonNullable;
-  private readonly svc    = inject(ApartmentService);
-  private readonly auth   = inject(AuthService);
-  private readonly route  = inject(ActivatedRoute);
-  private readonly router = inject(Router);
+  private readonly fb        = inject(FormBuilder).nonNullable;
+  private readonly svc       = inject(ApartmentService);
+  private readonly auth      = inject(AuthService);
+  private readonly route     = inject(ActivatedRoute);
+  private readonly router    = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
+
+  readonly occupancyOptions = [
+    { value: 'Available' as OccupancyOption, label: 'Available' },
+    { value: 'Owner' as OccupancyOption, label: 'Occupied by Owner' },
+    { value: 'Tenant' as OccupancyOption, label: 'Occupied by Tenant' },
+  ];
 
   readonly loading = signal(false);
   readonly duplicateLocationMessage = signal('');
@@ -177,10 +180,10 @@ export class ApartmentFormComponent implements OnInit {
 
   ngOnInit() {
     this.updateResidentValidators(this.form.controls.occupancy.value);
-    this.form.controls.occupancy.valueChanges.subscribe(value => this.updateResidentValidators(value));
-    this.form.controls.apartmentNumber.valueChanges.subscribe(() => this.clearDuplicateLocationError());
-    this.form.controls.blockName.valueChanges.subscribe(() => this.clearDuplicateLocationError());
-    this.form.controls.floorNumber.valueChanges.subscribe(() => this.clearDuplicateLocationError());
+    this.form.controls.occupancy.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(value => this.updateResidentValidators(value));
+    this.form.controls.apartmentNumber.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.clearDuplicateLocationError());
+    this.form.controls.blockName.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.clearDuplicateLocationError());
+    this.form.controls.floorNumber.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.clearDuplicateLocationError());
 
     this.editId = this.route.snapshot.paramMap.get('id') ?? '';
     if (this.editId) {

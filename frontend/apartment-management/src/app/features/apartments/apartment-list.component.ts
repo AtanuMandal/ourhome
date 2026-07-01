@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -20,6 +20,7 @@ import { Apartment, BulkImportResult, formatApartmentLabel } from '../../core/mo
   standalone: true,
   imports: [RouterLink, FormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule,
             MatProgressBarModule, PageHeaderComponent, StatusChipComponent, LoadingSpinnerComponent, EmptyStateComponent],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <app-page-header title="Apartments"></app-page-header>
     <div class="page-content">
@@ -74,7 +75,7 @@ import { Apartment, BulkImportResult, formatApartmentLabel } from '../../core/mo
         <mat-form-field appearance="fill" class="full-width" style="margin-bottom:-8px">
           <mat-icon matPrefix>search</mat-icon>
           <mat-label>Search apartments</mat-label>
-          <input matInput [(ngModel)]="search" placeholder="Number, block, floor...">
+          <input matInput [ngModel]="search()" (ngModelChange)="search.set($event)" placeholder="Number, block, floor...">
         </mat-form-field>
       </div>
 
@@ -120,17 +121,17 @@ export class ApartmentListComponent implements OnInit {
   readonly selectedFileName = signal('');
   readonly importResult = signal<BulkImportResult | null>(null);
   readonly isAdmin = this.auth.isAdmin;
-  search = '';
+  readonly search = signal('');
 
-  filtered() {
-    const q = this.search.toLowerCase();
+  readonly filtered = computed(() => {
+    const q = this.search().toLowerCase();
     return this.items().filter(a =>
       !q || a.apartmentNumber.toLowerCase().includes(q) ||
       this.formatApartmentLabel(a).toLowerCase().includes(q) ||
       (a.blockName ?? '').toLowerCase().includes(q) ||
       String(a.floorNumber).includes(q)
     );
-  }
+  });
 
   formatApartmentLabel(apartment: Apartment) {
     return formatApartmentLabel(apartment);

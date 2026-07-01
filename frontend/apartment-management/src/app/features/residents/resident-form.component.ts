@@ -1,13 +1,14 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, DestroyRef, ChangeDetectionStrategy } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
+import { SearchableSelectComponent } from '../../shared/components/searchable-select/searchable-select.component';
 import { ApartmentService, UserService } from '../../core/services/apartment.service';
 import { AuthService } from '../../core/services/auth.service';
 import { Apartment, formatApartmentLabel } from '../../core/models/apartment.model';
@@ -21,7 +22,7 @@ const PHONE_PATTERN = /^\d{10}$/;
   selector: 'app-resident-form',
   standalone: true,
   imports: [ReactiveFormsModule, RouterLink, MatFormFieldModule, MatInputModule,
-            MatButtonModule, MatProgressBarModule, MatSelectModule, PageHeaderComponent],
+            MatButtonModule, MatProgressBarModule, PageHeaderComponent, SearchableSelectComponent],
   template: `
     <app-page-header [title]="pageTitle()" [showBack]="true"></app-page-header>
     @if (loading()) { <mat-progress-bar mode="indeterminate"></mat-progress-bar> }
@@ -30,13 +31,8 @@ const PHONE_PATTERN = /^\d{10}$/;
         <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
 
           @if (isAdmin()) {
-            <mat-form-field appearance="fill" class="full-width">
-              <mat-label>User Type</mat-label>
-              <mat-select formControlName="userType">
-                <mat-option value="SUUser">Resident</mat-option>
-                <mat-option value="SUSecurity">Security Personnel</mat-option>
-              </mat-select>
-            </mat-form-field>
+            <app-searchable-select label="User Type" formControlName="userType"
+              [options]="userTypeOptions"></app-searchable-select>
           }
 
           <mat-form-field appearance="fill" class="full-width">
@@ -76,30 +72,11 @@ const PHONE_PATTERN = /^\d{10}$/;
           </mat-form-field>
 
           @if (!isSecurityPersonnel()) {
-            <mat-form-field appearance="fill" class="full-width">
-              <mat-label>Resident Type</mat-label>
-              <mat-select formControlName="residentType">
-                @for (rt of residentTypes(); track rt.value) {
-                  <mat-option [value]="rt.value">{{ rt.label }}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
+            <app-searchable-select label="Resident Type" formControlName="residentType"
+              [options]="residentTypes()"></app-searchable-select>
 
-            <mat-form-field appearance="fill" class="full-width">
-              <mat-label>Apartment</mat-label>
-              <mat-select formControlName="apartmentId">
-                @if (apartments().length === 0) {
-                  <mat-option disabled value="">No apartments found</mat-option>
-                } @else {
-                  @for (apartment of apartments(); track apartment.id) {
-                    <mat-option [value]="apartment.id">{{ apartmentLabel(apartment) }}</mat-option>
-                  }
-                }
-              </mat-select>
-              @if (form.controls.apartmentId.invalid && form.controls.apartmentId.touched) {
-                <mat-error>Apartment is required</mat-error>
-              }
-            </mat-form-field>
+            <app-searchable-select label="Apartment" formControlName="apartmentId"
+              [options]="apartmentOptions()" errorMessage="Apartment is required"></app-searchable-select>
 
             @if (!loading() && apartments().length === 0) {
               <p class="mt-8" style="color: var(--warn);">No apartments are available for this society yet.</p>
@@ -130,19 +107,28 @@ const PHONE_PATTERN = /^\d{10}$/;
       </div>
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ResidentFormComponent implements OnInit {
-  private readonly fb = inject(FormBuilder).nonNullable;
-  private readonly svc = inject(UserService);
+  private readonly fb           = inject(FormBuilder).nonNullable;
+  private readonly svc          = inject(UserService);
   private readonly apartmentSvc = inject(ApartmentService);
-  private readonly auth = inject(AuthService);
-  private readonly router = inject(Router);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly auth         = inject(AuthService);
+  private readonly router       = inject(Router);
+  private readonly snackBar     = inject(MatSnackBar);
+  private readonly destroyRef   = inject(DestroyRef);
 
   readonly loading = signal(true);
   readonly apartments = signal<Apartment[]>([]);
   readonly duplicateResident = signal<User | null>(null);
   readonly residentTypes = signal<Array<{ value: ResidentType; label: string }>>([]);
+  readonly userTypeOptions = [
+    { value: 'SUUser' as UserType, label: 'Resident' },
+    { value: 'SUSecurity' as UserType, label: 'Security Personnel' },
+  ];
+  readonly apartmentOptions = computed(() =>
+    this.apartments().map(a => ({ value: a.id, label: this.apartmentLabel(a) }))
+  );
 
   readonly isAdmin = this.auth.isAdmin;
 
@@ -185,7 +171,7 @@ export class ResidentFormComponent implements OnInit {
       },
     });
 
-    this.form.controls.email.valueChanges.subscribe(() => {
+    this.form.controls.email.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
       this.duplicateResident.set(null);
       if (this.form.controls.email.hasError('duplicate')) {
         const errors = { ...(this.form.controls.email.errors ?? {}) };
@@ -194,7 +180,7 @@ export class ResidentFormComponent implements OnInit {
       }
     });
 
-    this.form.controls.userType.valueChanges.subscribe(type => {
+    this.form.controls.userType.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(type => {
       if (type === 'SUSecurity') {
         this.form.controls.apartmentId.clearValidators();
         this.form.controls.apartmentId.setValue('');

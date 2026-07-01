@@ -110,7 +110,9 @@ public class CosmosDbRepository<T>(
     protected async Task<IReadOnlyList<T>> ExecuteCrossPartitionQueryAsync(QueryDefinition query, CancellationToken ct)
     {
         var results = new List<T>();
-        using var feed = _container.GetItemQueryIterator<T>(query);
+        // MaxConcurrency caps the parallel partition fan-out; MaxItemCount limits per-page payload.
+        var options = new QueryRequestOptions { MaxConcurrency = 10, MaxItemCount = 100 };
+        using var feed = _container.GetItemQueryIterator<T>(query, requestOptions: options);
         while (feed.HasMoreResults)
         {
             var page = await feed.ReadNextAsync(ct);

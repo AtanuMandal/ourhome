@@ -9,7 +9,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatSelectModule } from '@angular/material/select';
+import { SearchableSelectComponent } from '../../shared/components/searchable-select/searchable-select.component';
 import { Visitor, VisitorListFilters, VisitorStatus } from '../../core/models/visitor.model';
 import { AuthService } from '../../core/services/auth.service';
 import { VisitorService } from '../../core/services/visitor.service';
@@ -30,8 +30,8 @@ import { StatusChipComponent } from '../../shared/components/status-chip/status-
     MatIconModule,
     MatInputModule,
     MatProgressBarModule,
-    MatSelectModule,
     PageHeaderComponent,
+    SearchableSelectComponent,
     StatusChipComponent,
     LoadingSpinnerComponent,
     EmptyStateComponent
@@ -79,15 +79,8 @@ import { StatusChipComponent } from '../../shared/components/status-chip/status-
             </mat-form-field>
           }
 
-          <mat-form-field appearance="fill">
-            <mat-label>Status</mat-label>
-            <mat-select formControlName="status">
-              <mat-option value="">All</mat-option>
-              @for (status of statuses; track status) {
-                <mat-option [value]="status">{{ status }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
+          <app-searchable-select label="Status" formControlName="status"
+            [options]="statusOptions"></app-searchable-select>
 
           <mat-form-field appearance="fill">
             <mat-label>From date</mat-label>
@@ -259,7 +252,11 @@ export class VisitorListComponent implements OnInit, OnDestroy {
   readonly isAdmin = this.auth.isAdmin;
   readonly canManageVisitors = this.auth.canManageVisitors;
   readonly residentApartmentId = computed(() => this.auth.user()?.apartmentId ?? this.auth.user()?.apartments?.[0]?.apartmentId ?? '');
-  readonly statuses: VisitorStatus[] = ['Pending', 'Approved', 'Denied', 'CheckedIn', 'CheckedOut'];
+  readonly statusOptions = [
+    { value: '', label: 'All' },
+    ...(['Pending', 'Approved', 'Denied', 'CheckedIn', 'CheckedOut'] as VisitorStatus[])
+      .map(s => ({ value: s, label: s })),
+  ];
   readonly canScanQr = signal(typeof window !== 'undefined' && 'BarcodeDetector' in window);
 
   private _stream: MediaStream | null = null;

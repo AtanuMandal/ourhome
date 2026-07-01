@@ -233,7 +233,7 @@ public sealed class BookAmenityCommandValidator : AbstractValidator<BookAmenityC
     public BookAmenityCommandValidator()
     {
         RuleFor(x => x.AmenityId).NotEmpty();
-        RuleFor(x => x.StartTime).GreaterThan(DateTime.UtcNow).WithMessage("Start time must be in the future.");
+        RuleFor(x => x.StartTime).GreaterThan(_ => DateTime.UtcNow).WithMessage("Start time must be in the future.");
         RuleFor(x => x.EndTime).GreaterThan(x => x.StartTime).WithMessage("End time must be after start time.");
         RuleFor(x => x).Must(x => (x.EndTime - x.StartTime).TotalHours <= 8)
             .WithMessage("Booking duration cannot exceed 8 hours.");
@@ -262,7 +262,7 @@ public sealed class CreateNoticeCommandValidator : AbstractValidator<CreateNotic
     {
         RuleFor(x => x.Title).NotEmpty();
         RuleFor(x => x.Content).NotEmpty();
-        RuleFor(x => x.PublishAt).GreaterThanOrEqualTo(DateTime.UtcNow.AddMinutes(-5))
+        RuleFor(x => x.PublishAt).GreaterThanOrEqualTo(_ => DateTime.UtcNow.AddMinutes(-5))
             .WithMessage("Publish date cannot be in the past.");
         RuleFor(x => x.SocietyId).NotEmpty();
     }
@@ -402,7 +402,7 @@ public sealed class CreateCompetitionCommandValidator : AbstractValidator<Create
     public CreateCompetitionCommandValidator()
     {
         RuleFor(x => x.Title).NotEmpty();
-        RuleFor(x => x.StartDate).GreaterThan(DateTime.UtcNow).WithMessage("Start date must be in the future.");
+        RuleFor(x => x.StartDate).GreaterThan(_ => DateTime.UtcNow).WithMessage("Start date must be in the future.");
         RuleFor(x => x.EndDate).GreaterThan(x => x.StartDate).WithMessage("End date must be after start date.");
         RuleFor(x => x.SocietyId).NotEmpty();
     }

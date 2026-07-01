@@ -3,18 +3,18 @@ import { FormBuilder, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
+import { SearchableSelectComponent } from '../../shared/components/searchable-select/searchable-select.component';
 import { ServiceProviderService } from '../../core/services/service-provider.service';
 import { AuthService } from '../../core/services/auth.service';
 
 @Component({
   selector: 'app-provider-form',
   standalone: true,
-  imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatSelectModule,
-            MatButtonModule, MatProgressBarModule, PageHeaderComponent],
+  imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule,
+            MatButtonModule, MatProgressBarModule, PageHeaderComponent, SearchableSelectComponent],
   template: `
     <app-page-header title="Register Service Provider" [showBack]="true"></app-page-header>
     @if (loading()) { <mat-progress-bar mode="indeterminate"></mat-progress-bar> }
@@ -47,15 +47,9 @@ import { AuthService } from '../../core/services/auth.service';
             <input matInput type="email" formControlName="email">
           </mat-form-field>
 
-          <mat-form-field appearance="fill" class="full-width">
-            <mat-label>Service Types</mat-label>
-            <mat-select formControlName="serviceTypes" multiple>
-              @for (t of allTypes; track t) { <mat-option [value]="t">{{ t }}</mat-option> }
-            </mat-select>
-            @if (form.get('serviceTypes')?.invalid && form.get('serviceTypes')?.touched) {
-              <mat-error>Select at least one service type</mat-error>
-            }
-          </mat-form-field>
+          <app-searchable-select label="Service Types" formControlName="serviceTypes"
+            [options]="serviceTypeOptions" [multiple]="true"
+            errorMessage="Select at least one service type"></app-searchable-select>
 
           <mat-form-field appearance="fill" class="full-width">
             <mat-label>Description</mat-label>
@@ -79,7 +73,8 @@ export class ProviderFormComponent {
   private readonly router = inject(Router);
 
   readonly loading  = signal(false);
-  readonly allTypes = ['Plumber','Electrician','Carpenter','Painter','Cleaner','AC_Repair','Other'];
+  readonly serviceTypeOptions = ['Plumber','Electrician','Carpenter','Painter','Cleaner','AC_Repair','Other']
+    .map(t => ({ value: t, label: t }));
 
   readonly form = this.fb.group({
     providerName: ['', Validators.required],

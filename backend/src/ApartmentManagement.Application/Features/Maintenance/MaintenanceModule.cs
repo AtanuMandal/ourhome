@@ -768,6 +768,9 @@ internal static class MaintenanceGridProjectionHelper
         IMaintenanceChargeGridViewRepository gridViewRepository,
         CancellationToken ct)
     {
+        // Fetch apartments once — they don't change between financial year iterations.
+        var apartments = await apartmentRepository.GetAllAsync(societyId, ct);
+
         foreach (var financialYearStart in financialYearStarts.Distinct().OrderBy(value => value))
         {
             var periodStart = new DateTime(financialYearStart, 4, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -776,8 +779,6 @@ internal static class MaintenanceGridProjectionHelper
                 .Select(offset => periodStart.AddMonths(offset))
                 .Select(date => date.Month)
                 .ToList();
-
-            var apartments = await apartmentRepository.GetAllAsync(societyId, ct);
             var charges = await chargeRepository.GetByDueDateRangeAsync(societyId, periodStart, periodEnd, ct);
             var rows = apartments
                 .OrderBy(apartment => apartment.BlockName, StringComparer.OrdinalIgnoreCase)

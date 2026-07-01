@@ -3,33 +3,26 @@ import { FormBuilder, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
+import { SearchableSelectComponent } from '../../shared/components/searchable-select/searchable-select.component';
 import { ServiceProviderService } from '../../core/services/service-provider.service';
 import { AuthService } from '../../core/services/auth.service';
 
 @Component({
   selector: 'app-request-form',
   standalone: true,
-  imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatSelectModule,
-            MatButtonModule, MatProgressBarModule, PageHeaderComponent],
+  imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule,
+            MatButtonModule, MatProgressBarModule, PageHeaderComponent, SearchableSelectComponent],
   template: `
     <app-page-header title="Service Request" [showBack]="true"></app-page-header>
     @if (loading()) { <mat-progress-bar mode="indeterminate"></mat-progress-bar> }
     <div class="page-content">
       <div class="card">
         <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
-          <mat-form-field appearance="fill" class="full-width">
-            <mat-label>Service Type</mat-label>
-            <mat-select formControlName="serviceType">
-              @for (t of serviceTypes; track t) { <mat-option [value]="t">{{ t }}</mat-option> }
-            </mat-select>
-            @if (form.get('serviceType')?.invalid && form.get('serviceType')?.touched) {
-              <mat-error>Service type is required</mat-error>
-            }
-          </mat-form-field>
+          <app-searchable-select label="Service Type" formControlName="serviceType"
+            [options]="serviceTypeOptions" errorMessage="Service type is required"></app-searchable-select>
 
           <mat-form-field appearance="fill" class="full-width">
             <mat-label>Description</mat-label>
@@ -59,7 +52,8 @@ export class RequestFormComponent {
   private readonly router = inject(Router);
 
   readonly loading = signal(false);
-  readonly serviceTypes = ['Plumber','Electrician','Carpenter','Painter','Cleaner','AC_Repair','Other'];
+  readonly serviceTypeOptions = ['Plumber','Electrician','Carpenter','Painter','Cleaner','AC_Repair','Other']
+    .map(t => ({ value: t, label: t }));
 
   readonly form = this.fb.group({
     serviceType:       ['Plumber', Validators.required],
