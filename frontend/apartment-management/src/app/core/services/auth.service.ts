@@ -14,12 +14,10 @@ export class AuthService {
   private readonly http   = inject(HttpClient);
   private readonly router = inject(Router);
 
+  private expiryTimer: ReturnType<typeof setTimeout> | null = null;
+
   // ── Signals ────────────────────────────────────────────────────────────────
-  private readonly _state = signal<AuthState>({
-    user:      this.loadUser(),
-    token:     localStorage.getItem(TOKEN_KEY),
-    societyId: localStorage.getItem(SOCIETY_KEY),
-  });
+  private readonly _state = signal<AuthState>(this.loadInitialState());
 
   readonly user      = computed(() => this._state().user);
   readonly token     = computed(() => this._state().token);
@@ -91,6 +89,7 @@ export class AuthService {
   }
 
   logout() {
+    this.clearExpiryTimer();
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     localStorage.removeItem(SOCIETY_KEY);
@@ -109,6 +108,27 @@ export class AuthService {
     localStorage.setItem(USER_KEY,    JSON.stringify(user));
     localStorage.setItem(SOCIETY_KEY, societyId);
     this._state.set({ user, token, societyId });
+    this.scheduleAutoLogout(token);
+  }
+
+  // Reads localStorage and discards any already-expired token before signals are initialised.
+  private loadInitialState(): AuthState {
+    const token     = localStorage.getItem(TOKEN_KEY);
+    const societyId = localStorage.getItem(SOCIETY_KEY);
+
+    if (token && this.isTokenExpired(token)) {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
+      localStorage.removeItem(SOCIETY_KEY);
+      return { user: null, token: null, societyId: null };
+    }
+
+    if (token) {
+      // Timer is scheduled in the constructor after signals are ready.
+      this.scheduleAutoLogout(token);
+    }
+
+    return { user: this.loadUser(), token, societyId };
   }
 
   private loadUser(): User | null {
@@ -116,5 +136,41 @@ export class AuthService {
       const raw = localStorage.getItem(USER_KEY);
       return raw ? (JSON.parse(raw) as User) : null;
     } catch { return null; }
+  }
+
+  private getTokenExpiry(token: string): number | null {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return typeof payload['exp'] === 'number' ? payload['exp'] : null;
+    } catch { return null; }
+  }
+
+  private isTokenExpired(token: string): boolean {
+    const exp = this.getTokenExpiry(token);
+    if (exp === null) return false; // no expiry claim — treat as valid
+    return Date.now() >= exp * 1000;
+  }
+
+  private scheduleAutoLogout(token: string): void {
+    this.clearExpiryTimer();
+    const exp = this.getTokenExpiry(token);
+    if (exp === null) return;
+
+    const msUntilExpiry = exp * 1000 - Date.now();
+    if (msUntilExpiry <= 0) {
+      this.logout();
+      return;
+    }
+
+    // Cap at 24 days to stay within setTimeout's safe integer range (~2^31 ms).
+    const delay = Math.min(msUntilExpiry, 24 * 24 * 60 * 60 * 1000);
+    this.expiryTimer = setTimeout(() => this.logout(), delay);
+  }
+
+  private clearExpiryTimer(): void {
+    if (this.expiryTimer !== null) {
+      clearTimeout(this.expiryTimer);
+      this.expiryTimer = null;
+    }
   }
 }
