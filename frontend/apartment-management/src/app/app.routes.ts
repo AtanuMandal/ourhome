@@ -89,6 +89,12 @@ export const routes: Routes = [
   },
 
   {
+    path: 'financial-report',
+    canActivate: [authGuard],
+    loadChildren: () => import('./features/financial-report/financial-report.routes').then(m => m.FINANCIAL_REPORT_ROUTES),
+  },
+
+  {
     path: 'my-apartment',
     canActivate: [authGuard],
     loadComponent: () => import('./features/my-apartment/my-apartment.component').then(m => m.MyApartmentComponent),

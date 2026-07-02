@@ -19,29 +19,32 @@ interface QuickAction { icon: string; label: string; route: string; color: strin
 
 // One definition per feature — reused across role configs below.
 const A = {
-  myApt:        { icon: 'apartment',       label: 'My Apartment', route: '/my-apartment',      color: '#1565c0' },
-  users:        { icon: 'people',          label: 'Users',        route: '/residents',          color: '#1565c0' },
-  residents:    { icon: 'people',          label: 'Residents',    route: '/residents',          color: '#1565c0' },
-  apartments:   { icon: 'domain',          label: 'Apartments',   route: '/apartments',         color: '#26a69a' },
-  amenities:    { icon: 'event_available', label: 'Book Amenity', route: '/amenities',          color: '#26a69a' },
-  book:         { icon: 'event_available', label: 'Book',         route: '/amenities',          color: '#26a69a' },
-  newComplaint: { icon: 'report_problem',  label: 'Complaint',    route: '/complaints/new',     color: '#ef5350' },
-  complaints:   { icon: 'report_problem',  label: 'Complaints',   route: '/complaints',         color: '#ef5350' },
-  visitors:     { icon: 'badge',           label: 'Visitors',     route: '/visitors',           color: '#7e57c2' },
-  newVisitor:   { icon: 'badge',           label: 'Visitor',      route: '/visitors/register',  color: '#7e57c2' },
-  maintenance:  { icon: 'receipt_long',    label: 'Maintenance',  route: '/maintenance',        color: '#42a5f5' },
-  notices:      { icon: 'notifications',   label: 'Notices',      route: '/notices',            color: '#ff9800' },
-  noticesMgmt:  { icon: 'campaign',        label: 'Notices',      route: '/notices',            color: '#ff9800' },
-  service:      { icon: 'build',           label: 'Service',      route: '/services',           color: '#ff7043' },
-  rewards:      { icon: 'emoji_events',    label: 'Rewards',      route: '/rewards',            color: '#ffca28' },
+  myApt:        { icon: 'apartment',       label: 'My Apartment', route: '/my-apartment',                     color: '#1565c0' },
+  users:        { icon: 'people',          label: 'Users',        route: '/residents',                        color: '#1565c0' },
+  residents:    { icon: 'people',          label: 'Residents',    route: '/residents',                        color: '#1565c0' },
+  apartments:   { icon: 'domain',          label: 'Apartments',   route: '/apartments',                       color: '#26a69a' },
+  amenities:    { icon: 'event_available', label: 'Book Amenity', route: '/amenities',                        color: '#26a69a' },
+  book:         { icon: 'event_available', label: 'Book',         route: '/amenities',                        color: '#26a69a' },
+  newComplaint: { icon: 'report_problem',  label: 'Complaint',    route: '/complaints/new',                   color: '#ef5350' },
+  complaints:   { icon: 'report_problem',  label: 'Complaints',   route: '/complaints',                       color: '#ef5350' },
+  visitors:     { icon: 'badge',           label: 'Visitors',     route: '/visitors',                         color: '#7e57c2' },
+  newVisitor:   { icon: 'badge',           label: 'Visitor',      route: '/visitors/register',                color: '#7e57c2' },
+  maintenance:  { icon: 'receipt_long',    label: 'Maintenance',  route: '/maintenance',                      color: '#42a5f5' },
+  notices:      { icon: 'notifications',   label: 'Notices',      route: '/notices',                          color: '#ff9800' },
+  noticesMgmt:  { icon: 'campaign',        label: 'Notices',      route: '/notices',                          color: '#ff9800' },
+  service:      { icon: 'build',           label: 'Service',      route: '/services',                         color: '#ff7043' },
+  rewards:      { icon: 'emoji_events',    label: 'Rewards',      route: '/rewards',                          color: '#ffca28' },
+  reports:      { icon: 'bar_chart',       label: 'Reports',      route: '/financial-report',                 color: '#00897b' },
+  myStatement:  { icon: 'bar_chart',       label: 'My Statement', route: '/financial-report/my-statement',    color: '#00897b' },
+  societySummary: { icon: 'pie_chart',     label: 'Soc. Finances',route: '/financial-report/society-summary', color: '#00897b' },
 } satisfies Record<string, QuickAction>;
 
 // Role → ordered quick-action list; 'default' covers HQAdmin / HQUser.
 const ROLE_ACTIONS: Partial<Record<string, QuickAction[]>> = {
-  SUUser:     [A.myApt,        A.newComplaint, A.notices,     A.amenities,   A.service,     A.rewards     ],
-  SUAdmin:    [A.users,        A.apartments,   A.complaints,  A.visitors,    A.maintenance, A.noticesMgmt ],
-  SUSecurity: [A.visitors,     A.residents,    A.newComplaint,A.notices,     A.maintenance, A.rewards     ],
-  default:    [A.newComplaint, A.book,         A.newVisitor,  A.maintenance, A.service,     A.rewards     ],
+  SUUser:     [A.myApt,        A.newComplaint, A.notices,     A.myStatement,  A.societySummary, A.rewards     ],
+  SUAdmin:    [A.users,        A.apartments,   A.complaints,  A.visitors,     A.maintenance,    A.reports     ],
+  SUSecurity: [A.visitors,     A.residents,    A.newComplaint,A.notices,      A.maintenance,    A.rewards     ],
+  default:    [A.newComplaint, A.book,         A.newVisitor,  A.maintenance,  A.service,        A.rewards     ],
 };
 
 @Component({

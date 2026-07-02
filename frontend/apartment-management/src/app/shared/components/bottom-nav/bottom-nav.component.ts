@@ -9,24 +9,26 @@ interface NavItem { path: string; icon: string; label: string; badge?: number; }
 
 // One definition per destination — reused across role configs below.
 const N = {
-  home:        { path: '/dashboard',    icon: 'home',            label: 'Home' },
-  myApt:       { path: '/my-apartment', icon: 'apartment',       label: 'My Apt' },
-  users:       { path: '/residents',    icon: 'people',          label: 'Users' },
-  residents:   { path: '/residents',    icon: 'people',          label: 'Residents' },
-  apartments:  { path: '/apartments',   icon: 'domain',          label: 'Apartments' },
-  complaints:  { path: '/complaints',   icon: 'report_problem',  label: 'Complaints' },
-  notices:     { path: '/notices',      icon: 'notifications',   label: 'Notices' },
-  visitors:    { path: '/visitors',     icon: 'badge',           label: 'Visitors' },
-  maintenance: { path: '/maintenance',  icon: 'receipt_long',    label: 'Maintenance' },
-  bookings:    { path: '/amenities',    icon: 'event_available', label: 'Bookings' },
+  home:        { path: '/dashboard',                        icon: 'home',            label: 'Home' },
+  myApt:       { path: '/my-apartment',                     icon: 'apartment',       label: 'My Apt' },
+  users:       { path: '/residents',                        icon: 'people',          label: 'Users' },
+  residents:   { path: '/residents',                        icon: 'people',          label: 'Residents' },
+  apartments:  { path: '/apartments',                       icon: 'domain',          label: 'Apartments' },
+  complaints:  { path: '/complaints',                       icon: 'report_problem',  label: 'Complaints' },
+  notices:     { path: '/notices',                          icon: 'notifications',   label: 'Notices' },
+  visitors:    { path: '/visitors',                         icon: 'badge',           label: 'Visitors' },
+  maintenance: { path: '/maintenance',                      icon: 'receipt_long',    label: 'Maintenance' },
+  bookings:    { path: '/amenities',                        icon: 'event_available', label: 'Bookings' },
+  reports:     { path: '/financial-report',                 icon: 'bar_chart',       label: 'Reports' },
+  myStatement: { path: '/financial-report/my-statement',    icon: 'bar_chart',       label: 'Reports' },
 } satisfies Record<string, NavItem>;
 
 // Role → 5-item bottom-nav list; 'default' covers HQAdmin / HQUser.
 const ROLE_NAV: Partial<Record<string, NavItem[]>> = {
-  SUUser:     [N.home, N.visitors,   N.notices,    N.complaints, N.maintenance],
-  SUAdmin:    [N.home, N.users,      N.apartments, N.complaints, N.maintenance],
-  SUSecurity: [N.home, N.visitors,   N.residents,  N.notices,    N.complaints ],
-  default:    [N.home, N.complaints, N.notices,    N.bookings,   N.maintenance],
+  SUUser:     [N.home, N.visitors,   N.notices,    N.myStatement, N.maintenance],
+  SUAdmin:    [N.home, N.users,      N.apartments, N.reports,     N.maintenance],
+  SUSecurity: [N.home, N.visitors,   N.residents,  N.notices,     N.complaints ],
+  default:    [N.home, N.complaints, N.notices,    N.bookings,    N.maintenance],
 };
 
 @Component({

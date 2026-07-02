@@ -40,18 +40,20 @@ export class AppComponent {
   readonly isAuthRoute = signal(false);
 
   private static readonly NAV_SUUSER: SideNavItem[] = [
-    { path: '/dashboard',    icon: 'home',            label: 'Dashboard' },
-    { path: '/my-apartment', icon: 'apartment',       label: 'My Apartment' },
-    { path: '/apartments',   icon: 'domain',          label: 'Apartments' },
-    { path: '/residents',    icon: 'people',          label: 'Residents' },
-    { path: '/amenities',    icon: 'event_available', label: 'Amenities' },
-    { path: '/complaints',   icon: 'report_problem',  label: 'Complaints' },
-    { path: '/notices',      icon: 'notifications',   label: 'Notices' },
-    { path: '/visitors',     icon: 'badge',           label: 'Visitors' },
-    { path: '/maintenance',  icon: 'receipt_long',    label: 'Maintenance' },
-    { path: '/rewards',      icon: 'emoji_events',    label: 'Rewards' },
-    { path: '/services',     icon: 'build',           label: 'Services' },
-    { path: '/profile',      icon: 'manage_accounts', label: 'My Profile' },
+    { path: '/dashboard',                        icon: 'home',            label: 'Dashboard' },
+    { path: '/my-apartment',                     icon: 'apartment',       label: 'My Apartment' },
+    { path: '/apartments',                       icon: 'domain',          label: 'Apartments' },
+    { path: '/residents',                        icon: 'people',          label: 'Residents' },
+    { path: '/amenities',                        icon: 'event_available', label: 'Amenities' },
+    { path: '/complaints',                       icon: 'report_problem',  label: 'Complaints' },
+    { path: '/notices',                          icon: 'notifications',   label: 'Notices' },
+    { path: '/visitors',                         icon: 'badge',           label: 'Visitors' },
+    { path: '/maintenance',                      icon: 'receipt_long',    label: 'Maintenance' },
+    { path: '/financial-report/my-statement',    icon: 'bar_chart',       label: 'My Statement' },
+    { path: '/financial-report/society-summary', icon: 'pie_chart',       label: 'Society Finances' },
+    { path: '/rewards',                          icon: 'emoji_events',    label: 'Rewards' },
+    { path: '/services',                         icon: 'build',           label: 'Services' },
+    { path: '/profile',                          icon: 'manage_accounts', label: 'My Profile' },
   ];
 
   private static readonly NAV_SUADMIN: SideNavItem[] = [
@@ -63,6 +65,7 @@ export class AppComponent {
     { path: '/notices',         icon: 'notifications',   label: 'Notices' },
     { path: '/visitors',        icon: 'badge',           label: 'Visitors' },
     { path: '/maintenance',     icon: 'receipt_long',    label: 'Maintenance' },
+    { path: '/financial-report',icon: 'bar_chart',       label: 'Financial Reports' },
     { path: '/rewards',         icon: 'emoji_events',    label: 'Rewards' },
     { path: '/services',        icon: 'build',           label: 'Services' },
     { path: '/vendor-payments', icon: 'payments',        label: 'Vendor Payments' },
@@ -88,6 +91,7 @@ export class AppComponent {
     { path: '/notices',         icon: 'notifications',   label: 'Notices' },
     { path: '/visitors',        icon: 'badge',           label: 'Visitors' },
     { path: '/maintenance',     icon: 'receipt_long',    label: 'Maintenance' },
+    { path: '/financial-report',icon: 'bar_chart',       label: 'Financial Reports' },
     { path: '/rewards',         icon: 'emoji_events',    label: 'Rewards' },
     { path: '/services',        icon: 'build',           label: 'Services' },
     { path: '/vendor-payments', icon: 'payments',        label: 'Vendor Payments' },
