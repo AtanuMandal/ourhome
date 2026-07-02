@@ -160,7 +160,9 @@ import { StatusChipComponent } from '../../shared/components/status-chip/status-
         <app-loading-spinner></app-loading-spinner>
       } @else if (items().length === 0) {
         <app-empty-state icon="badge" title="No visitors" message="No visitor records match the selected filters.">
-          <a routerLink="register" mat-stroked-button color="primary" style="margin-top:16px">Register visitor</a>
+          <a routerLink="register" mat-stroked-button color="primary" style="margin-top:16px">
+            {{ canManageVisitors() ? 'Register visitor' : 'Pre-approve a visitor' }}
+          </a>
         </app-empty-state>
       } @else {
         <div class="visitor-list">
@@ -227,7 +229,8 @@ import { StatusChipComponent } from '../../shared/components/status-chip/status-
       }
     </div>
 
-    <a routerLink="register" mat-fab color="primary" class="fab" aria-label="Register visitor">
+    <a routerLink="register" mat-fab color="primary" class="fab"
+       [attr.aria-label]="canManageVisitors() ? 'Register visitor' : 'Pre-approve visitor'">
       <mat-icon>person_add</mat-icon>
     </a>
   `,

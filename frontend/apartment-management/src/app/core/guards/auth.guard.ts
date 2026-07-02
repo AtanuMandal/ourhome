@@ -32,12 +32,19 @@ export const guestGuard: CanActivateFn = () => {
   return false;
 };
 
-/** Allows SUAdmin + SUSecurity. Redirects others to dashboard. */
+/** Allows any authenticated society user (SUAdmin, SUUser, SUSecurity). HQ-only users are excluded. */
 export const visitorGuard: CanActivateFn = () => {
   const auth   = inject(AuthService);
   const router = inject(Router);
 
-  if (auth.isLoggedIn() && auth.canManageVisitors()) return true;
+  if (!auth.isLoggedIn()) {
+    router.navigate(['/dashboard']);
+    return false;
+  }
+
+  const role = auth.user()?.role;
+  const allowed = role === 'SUAdmin' || role === 'SUUser' || role === 'SUSecurity';
+  if (allowed) return true;
 
   router.navigate(['/dashboard']);
   return false;

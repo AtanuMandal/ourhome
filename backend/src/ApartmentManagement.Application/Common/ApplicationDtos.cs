@@ -472,6 +472,20 @@ public sealed record VisitorImageUploadResponse(string FileName, string ImageUrl
 
 public sealed record VisitorExportResponse(string FileName, string ContentType, byte[] Content);
 
+/// <summary>Sanitized pass info returned on the public (unauthenticated) shareable pass page.</summary>
+public sealed record PublicVisitorPassResponse(
+    string VisitorName,
+    string Purpose,
+    string HostBlockName,
+    string HostFlatNumber,
+    string Status,
+    string? QrCode,
+    DateTime? ValidUntil,
+    bool IsPassExpired,
+    string? VisitorImageUrl);
+
+public sealed record ShareVisitorPassRequest(string? Email, string? Phone);
+
 public record FeeScheduleResponse(
     string Id, string SocietyId, string ApartmentId, string Description,
     decimal Amount, string Frequency, int DueDay, DateTime NextDueDate, bool IsActive);

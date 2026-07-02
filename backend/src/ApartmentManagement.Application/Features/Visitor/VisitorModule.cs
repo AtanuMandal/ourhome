@@ -234,6 +234,9 @@ public sealed class CheckInVisitorCommandHandler(
             if (log.Status != VisitorStatus.Approved)
                 return Result<VisitorResponse>.Failure(ErrorCodes.VisitorNotApproved, "Visitor must be approved before check-in.");
 
+            if (log.IsPassExpired)
+                return Result<VisitorResponse>.Failure(ErrorCodes.VisitorPassExpired, "Visitor pass has expired and can no longer be used for check-in.");
+
             log.CheckIn();
             await visitorRepository.UpdateAsync(log, ct);
             return Result<VisitorResponse>.Success(log.ToResponse());
@@ -524,6 +527,81 @@ public sealed class ExportVisitorsQueryHandler(IVisitorLogRepository visitorRepo
 
         var escaped = value.Replace("\"", "\"\"");
         return $"\"{escaped}\"";
+    }
+}
+
+public record GetPublicVisitorPassQuery(string PassCode) : IRequest<Result<PublicVisitorPassResponse>>;
+
+public sealed class GetPublicVisitorPassQueryHandler(
+    IVisitorLogRepository visitorRepository,
+    ILogger<GetPublicVisitorPassQueryHandler> logger)
+    : IRequestHandler<GetPublicVisitorPassQuery, Result<PublicVisitorPassResponse>>
+{
+    public async Task<Result<PublicVisitorPassResponse>> Handle(GetPublicVisitorPassQuery request, CancellationToken ct)
+    {
+        try
+        {
+            var log = await visitorRepository.GetByPassCodeAsync(request.PassCode.Trim(), ct);
+            if (log is null)
+                return Result<PublicVisitorPassResponse>.Failure(ErrorCodes.InvalidPassCode, "Pass not found.");
+
+            return Result<PublicVisitorPassResponse>.Success(new PublicVisitorPassResponse(
+                log.VisitorName,
+                log.Purpose,
+                log.HostBlockName,
+                log.HostFlatNumber,
+                log.Status.ToString(),
+                log.QrCode,
+                log.ValidUntil,
+                log.IsPassExpired,
+                log.VisitorImageUrl));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to retrieve public visitor pass.");
+            return Result<PublicVisitorPassResponse>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
+public record ShareVisitorPassCommand(string SocietyId, string VisitorLogId, string? Email, string? Phone, string FrontendBaseUrl)
+    : IRequest<Result<bool>>;
+
+public sealed class ShareVisitorPassCommandHandler(
+    IVisitorLogRepository visitorRepository,
+    INotificationService notificationService,
+    ILogger<ShareVisitorPassCommandHandler> logger)
+    : IRequestHandler<ShareVisitorPassCommand, Result<bool>>
+{
+    public async Task<Result<bool>> Handle(ShareVisitorPassCommand request, CancellationToken ct)
+    {
+        try
+        {
+            var log = await visitorRepository.GetByIdAsync(request.VisitorLogId, request.SocietyId, ct);
+            if (log is null)
+                return Result<bool>.Failure(ErrorCodes.VisitorNotFound, "Visitor log not found.");
+
+            if (string.IsNullOrWhiteSpace(request.Email) && string.IsNullOrWhiteSpace(request.Phone))
+                return Result<bool>.Failure(ErrorCodes.ValidationFailed, "At least one of email or phone is required.");
+
+            var passLink = $"{request.FrontendBaseUrl.TrimEnd('/')}/visitor-pass/{log.PassCode}";
+            var subject = $"Visitor Pass – {log.VisitorName}";
+            var message = $"Your visitor pass for {log.VisitorName} visiting {log.HostBlockName}-{log.HostFlatNumber} is ready.\n\nView the pass: {passLink}";
+
+            var tasks = new List<Task>();
+            if (!string.IsNullOrWhiteSpace(request.Email))
+                tasks.Add(notificationService.SendEmailAsync(request.Email, subject, message, ct));
+            if (!string.IsNullOrWhiteSpace(request.Phone))
+                tasks.Add(notificationService.SendSmsAsync(request.Phone, message, ct));
+
+            await Task.WhenAll(tasks);
+            return Result<bool>.Success(true);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to share visitor pass.");
+            return Result<bool>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
     }
 }
 

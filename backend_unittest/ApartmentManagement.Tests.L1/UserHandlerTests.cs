@@ -270,7 +270,7 @@ public class VerifyOtpCommandHandlerTests
             .ReturnsAsync((User u, CancellationToken _) => u);
 
         _authServiceMock
-            .Setup(a => a.GenerateJwtTokenAsync(user.Id, user.Email, user.Role.ToString(), user.SocietyId, It.IsAny<CancellationToken>()))
+            .Setup(a => a.GenerateJwtTokenAsync(user.Id, user.Email, user.Role.ToString(), user.SocietyId, It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync("token");
 
         var handler = CreateHandler();

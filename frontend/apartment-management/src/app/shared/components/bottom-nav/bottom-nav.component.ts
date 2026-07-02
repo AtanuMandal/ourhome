@@ -23,7 +23,7 @@ const N = {
 
 // Role → 5-item bottom-nav list; 'default' covers HQAdmin / HQUser.
 const ROLE_NAV: Partial<Record<string, NavItem[]>> = {
-  SUUser:     [N.home, N.myApt,      N.notices,    N.complaints, N.maintenance],
+  SUUser:     [N.home, N.visitors,   N.notices,    N.complaints, N.maintenance],
   SUAdmin:    [N.home, N.users,      N.apartments, N.complaints, N.maintenance],
   SUSecurity: [N.home, N.visitors,   N.residents,  N.notices,    N.complaints ],
   default:    [N.home, N.complaints, N.notices,    N.bookings,   N.maintenance],

@@ -54,3 +54,20 @@ export interface VisitorListFilters {
   fromDate?: string;
   toDate?: string;
 }
+
+export interface PublicVisitorPass {
+  visitorName: string;
+  purpose: string;
+  hostBlockName: string;
+  hostFlatNumber: string;
+  status: VisitorStatus;
+  qrCode?: string;
+  validUntil?: string;
+  isPassExpired: boolean;
+  visitorImageUrl?: string;
+}
+
+export interface ShareVisitorPassRequest {
+  email?: string;
+  phone?: string;
+}

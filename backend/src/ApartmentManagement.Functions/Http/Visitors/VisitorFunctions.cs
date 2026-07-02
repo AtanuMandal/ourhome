@@ -8,11 +8,12 @@ using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
+using Microsoft.Extensions.Configuration;
 using IO = System.IO;
 
 namespace ApartmentManagement.Functions.Http;
 
-public class VisitorFunctions(ISender mediator, ICurrentUserService currentUser)
+public class VisitorFunctions(ISender mediator, ICurrentUserService currentUser, IConfiguration configuration)
 {
     [Function("RegisterVisitor")]
     public async Task<IActionResult> RegisterVisitor(
@@ -20,7 +21,7 @@ public class VisitorFunctions(ISender mediator, ICurrentUserService currentUser)
         string societyId, CancellationToken ct)
     {
         if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
-        if (!currentUser.IsInRoles("SUAdmin", "SUSecurity")) return new ForbidResult();
+        if (!currentUser.IsInRoles("SUAdmin", "SUSecurity", "SUUser")) return new ForbidResult();
         var request = await req.DeserializeAsync<RegisterVisitorRequest>(ct);
         if (request is null) return new BadRequestObjectResult("Invalid request body");
 
@@ -112,14 +113,21 @@ public class VisitorFunctions(ISender mediator, ICurrentUserService currentUser)
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "societies/{societyId}/visitors")] HttpRequest req,
         string societyId, CancellationToken ct)
     {
+        if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
+
         int.TryParse(req.Query["page"], out var page);
         int.TryParse(req.Query["pageSize"], out var pageSize);
         DateOnly? fromDate = ParseDate(req.Query["fromDate"]);
         DateOnly? toDate = ParseDate(req.Query["toDate"]);
 
+        // Residents may only see their own apartment's visitors
+        var apartmentId = currentUser.IsInRole("SUUser")
+            ? currentUser.ApartmentId
+            : EmptyToNull(req.Query["apartmentId"]);
+
         var result = await mediator.Send(new GetVisitorsBySocietyQuery(
             societyId,
-            EmptyToNull(req.Query["apartmentId"]),
+            apartmentId,
             EmptyToNull(req.Query["search"]),
             EmptyToNull(req.Query["residentName"]),
             EmptyToNull(req.Query["status"]),
@@ -186,6 +194,29 @@ public class VisitorFunctions(ISender mediator, ICurrentUserService currentUser)
         var result = await mediator.Send(
             new UploadVisitorImageCommand(societyId, file.FileName, file.ContentType, memory.ToArray()), ct);
         return result.ToActionResult(201);
+    }
+
+    [Function("GetPublicVisitorPass")]
+    public async Task<IActionResult> GetPublicVisitorPass(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "visitors/pass/{passCode}")] HttpRequest req,
+        string passCode, CancellationToken ct)
+    {
+        var result = await mediator.Send(new GetPublicVisitorPassQuery(passCode), ct);
+        return result.ToActionResult();
+    }
+
+    [Function("ShareVisitorPass")]
+    public async Task<IActionResult> ShareVisitorPass(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "societies/{societyId}/visitors/{id}/share")] HttpRequest req,
+        string societyId, string id, CancellationToken ct)
+    {
+        if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
+        var request = await req.DeserializeAsync<ShareVisitorPassRequest>(ct);
+        if (request is null) return new BadRequestObjectResult("Invalid request body");
+
+        var frontendUrl = configuration["FrontendUrl"] ?? "https://localhost:4200";
+        var result = await mediator.Send(new ShareVisitorPassCommand(societyId, id, request.Email, request.Phone, frontendUrl), ct);
+        return result.ToActionResult();
     }
 
     private static DateOnly? ParseDate(string? value) =>

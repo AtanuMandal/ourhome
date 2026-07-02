@@ -28,19 +28,22 @@ public class JwtAuthService(IOptions<InfrastructureSettings> options) : IAuthSer
 
     public Task<string> GenerateJwtTokenAsync(
         string userId, string email, string role, string societyId,
-        CancellationToken ct = default)
+        string? apartmentId = null, CancellationToken ct = default)
     {
         var key   = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_s.JwtSecret));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-        var claims = new[]
+        var claims = new List<Claim>
         {
-            new Claim(JwtRegisteredClaimNames.Sub,   userId),
-            new Claim(JwtRegisteredClaimNames.Email, email),
-            new Claim(ClaimTypes.Role,               role),
-            new Claim("societyId",                   societyId),
-            new Claim(JwtRegisteredClaimNames.Jti,   Guid.NewGuid().ToString()),
+            new(JwtRegisteredClaimNames.Sub,   userId),
+            new(JwtRegisteredClaimNames.Email, email),
+            new(ClaimTypes.Role,               role),
+            new("societyId",                   societyId),
+            new(JwtRegisteredClaimNames.Jti,   Guid.NewGuid().ToString()),
         };
+
+        if (!string.IsNullOrWhiteSpace(apartmentId))
+            claims.Add(new Claim("apartmentId", apartmentId));
 
         var token = new JwtSecurityToken(
             issuer:            _s.JwtIssuer,

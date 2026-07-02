@@ -1,6 +1,7 @@
 using ApartmentManagement.Application.Commands.Visitor;
 using ApartmentManagement.Application.Commands.Maintenance;
 using ApartmentManagement.Application.Interfaces;
+using ApartmentManagement.Application.Queries.Visitor;
 using ApartmentManagement.Domain.Entities;
 using ApartmentManagement.Domain.Enums;
 using ApartmentManagement.Domain.Events;
@@ -239,7 +240,7 @@ public class CheckInVisitorCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WithExpiredPass_ReturnsFailure()
+    public async Task Handle_WithExpiredPass_ReturnsVisitorPassExpiredError()
     {
         // Arrange: pre-approved log with ValidUntil in the past
         var log = VisitorLog.Create("soc-001", "John", "+91-9876543210", null, null, "Visit",
@@ -255,7 +256,7 @@ public class CheckInVisitorCommandHandlerTests
         var result = await CreateHandler().Handle(new CheckInVisitorCommand("soc-001", passCode), CancellationToken.None);
 
         result.IsFailure.Should().BeTrue();
-        result.ErrorCode.Should().Be(ErrorCodes.InternalError);
+        result.ErrorCode.Should().Be(ErrorCodes.VisitorPassExpired);
     }
 }
 
@@ -555,6 +556,130 @@ public class CheckOutVisitorCommandHandlerTests
         _visitorRepoMock.Setup(r => r.GetByIdAsync("missing", "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync((VisitorLog?)null);
 
         var result = await CreateHandler().Handle(new CheckOutVisitorCommand("soc-001", "missing"), CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.VisitorNotFound);
+    }
+}
+
+public class GetPublicVisitorPassQueryHandlerTests
+{
+    private readonly Mock<IVisitorLogRepository> _visitorRepoMock = new();
+    private readonly Mock<ILogger<GetPublicVisitorPassQueryHandler>> _loggerMock = new();
+
+    private GetPublicVisitorPassQueryHandler CreateHandler() =>
+        new(_visitorRepoMock.Object, _loggerMock.Object);
+
+    [Fact]
+    public async Task Handle_WithValidPassCode_ReturnsPublicInfo()
+    {
+        var log = VisitorLog.Create("soc-001", "Alice Visitor", "+91-9800000001", null, "Amazon", "Delivery",
+            "apt-001", "host-001", "Host Name", "B", 3, "B-303", true, null, DateTime.UtcNow.AddHours(4));
+
+        _visitorRepoMock
+            .Setup(r => r.GetByPassCodeAsync(log.PassCode, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(log);
+
+        var result = await CreateHandler().Handle(new GetPublicVisitorPassQuery(log.PassCode), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.VisitorName.Should().Be("Alice Visitor");
+        result.Value.Purpose.Should().Be("Delivery");
+        result.Value.HostBlockName.Should().Be("B");
+        result.Value.HostFlatNumber.Should().Be("B-303");
+        result.Value.IsPassExpired.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Handle_WithExpiredPass_ReturnsExpiredPublicInfo()
+    {
+        var log = VisitorLog.Create("soc-001", "Bob Expired", "+91-9800000002", null, null, "Visit",
+            "apt-001", "host-001", "Host Name", "A", 1, "A-101",
+            isPreApproved: true, vehicleNumber: null, validUntil: DateTime.UtcNow.AddHours(-1));
+
+        _visitorRepoMock
+            .Setup(r => r.GetByPassCodeAsync(log.PassCode, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(log);
+
+        var result = await CreateHandler().Handle(new GetPublicVisitorPassQuery(log.PassCode), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.IsPassExpired.Should().BeTrue();
+        result.Value.Status.Should().Be("Approved");
+    }
+
+    [Fact]
+    public async Task Handle_WithInvalidPassCode_ReturnsFailure()
+    {
+        _visitorRepoMock
+            .Setup(r => r.GetByPassCodeAsync("000000", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((VisitorLog?)null);
+
+        var result = await CreateHandler().Handle(new GetPublicVisitorPassQuery("000000"), CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.InvalidPassCode);
+    }
+}
+
+public class ShareVisitorPassCommandHandlerTests
+{
+    private readonly Mock<IVisitorLogRepository> _visitorRepoMock = new();
+    private readonly Mock<INotificationService> _notificationMock = new();
+    private readonly Mock<ILogger<ShareVisitorPassCommandHandler>> _loggerMock = new();
+
+    private ShareVisitorPassCommandHandler CreateHandler() =>
+        new(_visitorRepoMock.Object, _notificationMock.Object, _loggerMock.Object);
+
+    [Fact]
+    public async Task Handle_WithEmail_SendsEmailWithPassLink()
+    {
+        var log = VisitorLog.Create("soc-001", "Carol Guest", "+91-9900000001", null, null, "Visit",
+            "apt-001", "host-001", "Host", "C", 5, "C-501", true);
+
+        _visitorRepoMock.Setup(r => r.GetByIdAsync(log.Id, "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync(log);
+
+        string? sentSubject = null;
+        string? sentBody = null;
+        _notificationMock
+            .Setup(n => n.SendEmailAsync("carol@example.com", It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback<string, string, string, CancellationToken>((_, s, b, _) => { sentSubject = s; sentBody = b; })
+            .Returns(Task.CompletedTask);
+
+        var result = await CreateHandler().Handle(
+            new ShareVisitorPassCommand("soc-001", log.Id, "carol@example.com", null, "https://app.example.com"),
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        sentSubject.Should().Contain("Carol Guest");
+        sentBody.Should().Contain(log.PassCode);
+        sentBody.Should().Contain("https://app.example.com");
+    }
+
+    [Fact]
+    public async Task Handle_WithNoContactInfo_ReturnsValidationError()
+    {
+        var log = VisitorLog.Create("soc-001", "Dave", "+91-9900000002", null, null, "Visit",
+            "apt-001", "host-001", "Host", "A", 1, "A-101", true);
+
+        _visitorRepoMock.Setup(r => r.GetByIdAsync(log.Id, "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync(log);
+
+        var result = await CreateHandler().Handle(
+            new ShareVisitorPassCommand("soc-001", log.Id, null, null, "https://app.example.com"),
+            CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.ValidationFailed);
+    }
+
+    [Fact]
+    public async Task Handle_VisitorNotFound_ReturnsFailure()
+    {
+        _visitorRepoMock.Setup(r => r.GetByIdAsync("missing", "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync((VisitorLog?)null);
+
+        var result = await CreateHandler().Handle(
+            new ShareVisitorPassCommand("soc-001", "missing", "test@example.com", null, "https://app.example.com"),
+            CancellationToken.None);
 
         result.IsFailure.Should().BeTrue();
         result.ErrorCode.Should().Be(ErrorCodes.VisitorNotFound);
