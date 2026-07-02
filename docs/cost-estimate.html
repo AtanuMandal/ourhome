@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OurHome — Azure Monthly Cost Estimate</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --indigo:   #6366F1;
+      --purple:   #8B5CF6;
+      --pink:     #EC4899;
+      --green:    #10B981;
+      --amber:    #F59E0B;
+      --red:      #EF4444;
+      --sky:      #0EA5E9;
+      --slate-50: #F8FAFC;
+      --slate-100:#F1F5F9;
+      --slate-200:#E2E8F0;
+      --slate-300:#CBD5E1;
+      --slate-500:#64748B;
+      --slate-700:#334155;
+      --slate-800:#1E293B;
+      --slate-900:#0F172A;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,.05);
+      --shadow:    0 4px 6px rgba(0,0,0,.07);
+      --shadow-lg: 0 10px 25px rgba(0,0,0,.10);
+      --radius:    16px;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--slate-50);
+      color: var(--slate-800);
+      line-height: 1.6;
+    }
+
+    /* ─── HERO ─────────────────────────────────────────────── */
+    .hero {
+      background: linear-gradient(135deg, var(--slate-900) 0%, #1a1060 50%, #2d1b69 100%);
+      color: white;
+      padding: 56px 32px 64px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse at 20% 50%, rgba(99,102,241,.35) 0%, transparent 60%),
+                  radial-gradient(ellipse at 80% 20%, rgba(139,92,246,.25) 0%, transparent 55%);
+    }
+    .hero-inner { position: relative; max-width: 900px; margin: 0 auto; }
+    .hero-badge {
+      display: inline-block;
+      background: rgba(255,255,255,.12);
+      border: 1px solid rgba(255,255,255,.25);
+      border-radius: 999px;
+      padding: 4px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+    .hero h1 { font-size: clamp(2rem, 4vw, 3rem); font-weight: 800; margin-bottom: 12px; }
+    .hero h1 span { color: #a5b4fc; }
+    .hero p { font-size: 1.1rem; color: rgba(255,255,255,.75); max-width: 620px; margin: 0 auto 40px; }
+
+    .hero-stats {
+      display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;
+    }
+    .hero-stat {
+      background: rgba(255,255,255,.10);
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 12px;
+      padding: 16px 28px;
+      min-width: 140px;
+    }
+    .hero-stat__value { font-size: 2rem; font-weight: 800; }
+    .hero-stat__label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: rgba(255,255,255,.65); margin-top: 2px; }
+
+    /* ─── LAYOUT ────────────────────────────────────────────── */
+    .page { max-width: 1140px; margin: 0 auto; padding: 0 24px 80px; }
+
+    .section { margin-top: 56px; }
+    .section-title {
+      font-size: 1.5rem; font-weight: 700;
+      color: var(--slate-800);
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 24px;
+    }
+    .section-title::before {
+      content: '';
+      display: inline-block; width: 4px; height: 24px;
+      background: linear-gradient(180deg, var(--indigo), var(--purple));
+      border-radius: 2px;
+    }
+
+    /* ─── CARDS ─────────────────────────────────────────────── */
+    .card {
+      background: white;
+      border: 1px solid var(--slate-200);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 28px;
+    }
+
+    /* ─── SCENARIOS ─────────────────────────────────────────── */
+    .scenarios { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+
+    .scenario {
+      border-radius: var(--radius);
+      padding: 28px;
+      position: relative;
+      overflow: hidden;
+    }
+    .scenario-starter  { background: linear-gradient(135deg, #eff6ff 0%, #eef2ff 100%); border: 1px solid #c7d2fe; }
+    .scenario-growing  { background: linear-gradient(135deg, #f5f3ff 0%, #fdf4ff 100%); border: 1px solid #d8b4fe; }
+    .scenario-scale    { background: linear-gradient(135deg, #fff7ed 0%, #fef3c7 100%); border: 1px solid #fed7aa; }
+
+    .scenario__badge {
+      display: inline-block; border-radius: 999px;
+      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em;
+      padding: 3px 12px; margin-bottom: 12px;
+    }
+    .scenario-starter .scenario__badge  { background: var(--indigo); color: white; }
+    .scenario-growing .scenario__badge  { background: var(--purple); color: white; }
+    .scenario-scale .scenario__badge    { background: var(--amber);  color: white; }
+
+    .scenario h3 { font-size: 1.2rem; font-weight: 700; margin-bottom: 4px; }
+    .scenario__range { font-size: .85rem; color: var(--slate-500); margin-bottom: 18px; }
+
+    .scenario__meta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px; }
+    .scenario__meta-item label { display: block; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .07em; color: var(--slate-500); }
+    .scenario__meta-item span  { font-size: 1rem; font-weight: 700; color: var(--slate-800); }
+
+    .scenario__price {
+      font-size: 3rem; font-weight: 800; line-height: 1;
+      background: linear-gradient(135deg, var(--indigo), var(--purple));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .scenario-scale .scenario__price {
+      background: linear-gradient(135deg, var(--amber), var(--red));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .scenario__price-label { font-size: .8rem; color: var(--slate-500); margin-top: 2px; }
+
+    /* ─── BREAKDOWN TABLE ────────────────────────────────────── */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+    thead { background: var(--slate-800); color: white; }
+    thead th { padding: 14px 16px; text-align: left; font-weight: 600; font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; }
+    thead th:not(:first-child) { text-align: right; }
+    tbody tr { border-bottom: 1px solid var(--slate-100); transition: background .15s; }
+    tbody tr:hover { background: var(--slate-50); }
+    tbody td { padding: 13px 16px; }
+    tbody td:not(:first-child) { text-align: right; font-weight: 600; }
+    .service-icon { display: inline-flex; align-items: center; gap: 10px; }
+    .service-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    tfoot td { padding: 14px 16px; font-weight: 800; font-size: 1rem; border-top: 2px solid var(--slate-800); }
+    tfoot td:not(:first-child) { text-align: right; }
+
+    .cost-cell { font-variant-numeric: tabular-nums; }
+    .cost-zero { color: var(--slate-400); }
+    .cost-low  { color: var(--green); }
+    .cost-med  { color: var(--amber); }
+    .cost-high { color: var(--red); }
+
+    /* ─── CHARTS ─────────────────────────────────────────────── */
+    .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 768px) { .charts { grid-template-columns: 1fr; } }
+    .chart-card { text-align: center; }
+    .chart-card h4 { font-size: .9rem; font-weight: 600; color: var(--slate-500); margin-bottom: 12px; text-transform: uppercase; letter-spacing: .06em; }
+    .chart-wrap { position: relative; height: 280px; }
+
+    /* ─── ASSUMPTIONS ────────────────────────────────────────── */
+    .assumptions-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;
+    }
+    .assumption {
+      background: var(--slate-50);
+      border: 1px solid var(--slate-200);
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+    .assumption label { display: block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--slate-500); margin-bottom: 4px; }
+    .assumption span  { font-size: .95rem; font-weight: 600; color: var(--slate-800); }
+
+    /* ─── TIPS ───────────────────────────────────────────────── */
+    .tips { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+    .tip {
+      display: flex; gap: 14px; align-items: flex-start;
+      background: white; border: 1px solid var(--slate-200);
+      border-radius: 12px; padding: 18px;
+    }
+    .tip-icon { font-size: 1.5rem; flex-shrink: 0; }
+    .tip h4 { font-size: .9rem; font-weight: 700; margin-bottom: 4px; }
+    .tip p  { font-size: .82rem; color: var(--slate-500); }
+
+    /* ─── DRIVERS ────────────────────────────────────────────── */
+    .driver-bars { display: flex; flex-direction: column; gap: 12px; }
+    .driver { display: grid; grid-template-columns: 170px 1fr 60px; gap: 12px; align-items: center; font-size: .85rem; }
+    .driver-name { font-weight: 600; color: var(--slate-700); }
+    .driver-bar-wrap { background: var(--slate-100); border-radius: 999px; height: 10px; overflow: hidden; }
+    .driver-bar { height: 100%; border-radius: 999px; }
+    .driver-pct { text-align: right; font-weight: 700; font-size: .8rem; color: var(--slate-600); }
+
+    /* ─── FOOTER ─────────────────────────────────────────────── */
+    footer {
+      text-align: center;
+      color: var(--slate-500);
+      font-size: .8rem;
+      padding: 32px 24px;
+      border-top: 1px solid var(--slate-200);
+    }
+
+    .note-box {
+      background: #fefce8; border: 1px solid #fde047;
+      border-radius: 10px; padding: 14px 18px;
+      font-size: .85rem; color: #713f12;
+      margin-top: 20px;
+    }
+    .note-box strong { font-weight: 700; }
+
+    @media (max-width: 640px) {
+      .hero { padding: 40px 20px 48px; }
+      .hero h1 { font-size: 1.75rem; }
+      .page { padding: 0 16px 60px; }
+      .scenario__price { font-size: 2.2rem; }
+    }
+
+    @media print {
+      .hero { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-inner">
+    <div class="hero-badge">Azure Deployment Cost Estimate</div>
+    <h1>OurHome <span>Monthly Cloud Costs</span></h1>
+    <p>End-to-end Azure cost projection across three deployment scales — from 2 to 50 societies, 200 to 1,000 apartments each.</p>
+    <div class="hero-stats">
+      <div class="hero-stat"><div class="hero-stat__value">~$19</div><div class="hero-stat__label">Starter / mo</div></div>
+      <div class="hero-stat"><div class="hero-stat__value">~$151</div><div class="hero-stat__label">Growing / mo</div></div>
+      <div class="hero-stat"><div class="hero-stat__value">~$636</div><div class="hero-stat__label">Scale / mo</div></div>
+      <div class="hero-stat"><div class="hero-stat__value">9</div><div class="hero-stat__label">Azure Services</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="page">
+
+  <!-- ── ASSUMPTIONS ─────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-title">Modelling Assumptions</div>
+    <div class="card">
+      <div class="assumptions-grid">
+        <div class="assumption"><label>Avg residents / apartment</label><span>2.5 users</span></div>
+        <div class="assumption"><label>Daily active user rate</label><span>15 % of total users</span></div>
+        <div class="assumption"><label>API calls / active user / day</label><span>12 calls</span></div>
+        <div class="assumption"><label>Avg Cosmos RU / request</label><span>~80 RU (mixed reads/writes)</span></div>
+        <div class="assumption"><label>Function memory / duration</label><span>512 MB · 250 ms avg</span></div>
+        <div class="assumption"><label>Blob storage per apartment</label><span>~5 files × 200 KB / month</span></div>
+        <div class="assumption"><label>OTP logins per month</label><span>5 % of total users</span></div>
+        <div class="assumption"><label>Push notifications</label><span>Browser VAPID (no cost)</span></div>
+        <div class="assumption"><label>SMS notifications</label><span>OTP + explicit share-pass only</span></div>
+        <div class="assumption"><label>ACS SMS rate</label><span>$0.04 / message (India)</span></div>
+        <div class="assumption"><label>ACS Email rate</label><span>$0.00025 / email</span></div>
+        <div class="assumption"><label>Currency</label><span>USD · prices as of Jun 2025</span></div>
+      </div>
+      <div class="note-box">
+        <strong>💡 Note on SMS:</strong> ACS SMS at $0.04/msg is the largest variable cost driver. Switching to an Indian SMS provider (e.g., MSG91, Textlocal) at ~$0.003–$0.005/msg reduces SMS costs by 85–90%, dropping total bills to ~$10 / $80 / $390 per month for the three tiers.
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SCENARIOS ───────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-title">Deployment Scenarios</div>
+    <div class="scenarios">
+
+      <div class="scenario scenario-starter">
+        <div class="scenario__badge">Starter</div>
+        <h3>2 – 5 Societies</h3>
+        <div class="scenario__range">200 – 500 apartments per society</div>
+        <div class="scenario__meta">
+          <div class="scenario__meta-item"><label>Total Apartments</label><span>~1,500</span></div>
+          <div class="scenario__meta-item"><label>Total Users</label><span>~3,750</span></div>
+          <div class="scenario__meta-item"><label>Monthly API Calls</label><span>~203K</span></div>
+          <div class="scenario__meta-item"><label>Cosmos RUs / mo</label><span>~16M</span></div>
+          <div class="scenario__meta-item"><label>Blob Storage</label><span>~18 GB</span></div>
+          <div class="scenario__meta-item"><label>SMS / mo</label><span>~250</span></div>
+        </div>
+        <div class="scenario__price">$19<sup style="font-size:1.2rem">/mo</sup></div>
+        <div class="scenario__price-label">Estimated monthly total</div>
+      </div>
+
+      <div class="scenario scenario-growing">
+        <div class="scenario__badge">Growing</div>
+        <h3>10 – 20 Societies</h3>
+        <div class="scenario__range">500 – 700 apartments per society</div>
+        <div class="scenario__meta">
+          <div class="scenario__meta-item"><label>Total Apartments</label><span>~12,000</span></div>
+          <div class="scenario__meta-item"><label>Total Users</label><span>~30,000</span></div>
+          <div class="scenario__meta-item"><label>Monthly API Calls</label><span>~1.62M</span></div>
+          <div class="scenario__meta-item"><label>Cosmos RUs / mo</label><span>~130M</span></div>
+          <div class="scenario__meta-item"><label>Blob Storage</label><span>~144 GB</span></div>
+          <div class="scenario__meta-item"><label>SMS / mo</label><span>~1,900</span></div>
+        </div>
+        <div class="scenario__price">$151<sup style="font-size:1.2rem">/mo</sup></div>
+        <div class="scenario__price-label">Estimated monthly total</div>
+      </div>
+
+      <div class="scenario scenario-scale">
+        <div class="scenario__badge">Scale</div>
+        <h3>30 – 50 Societies</h3>
+        <div class="scenario__range">700 – 1,000 apartments per society</div>
+        <div class="scenario__meta">
+          <div class="scenario__meta-item"><label>Total Apartments</label><span>~42,500</span></div>
+          <div class="scenario__meta-item"><label>Total Users</label><span>~106,000</span></div>
+          <div class="scenario__meta-item"><label>Monthly API Calls</label><span>~5.74M</span></div>
+          <div class="scenario__meta-item"><label>Cosmos RUs / mo</label><span>~459M</span></div>
+          <div class="scenario__meta-item"><label>Blob Storage</label><span>~510 GB</span></div>
+          <div class="scenario__meta-item"><label>SMS / mo</label><span>~6,800</span></div>
+        </div>
+        <div class="scenario__price">$636<sup style="font-size:1.2rem">/mo</sup></div>
+        <div class="scenario__price-label">Estimated monthly total</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── DETAILED BREAKDOWN TABLE ────────────────────────── -->
+  <div class="section">
+    <div class="section-title">Detailed Service Breakdown</div>
+    <div class="card" style="padding:0">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:240px">Azure Service</th>
+              <th>Pricing Model</th>
+              <th>Starter</th>
+              <th>Growing</th>
+              <th>Scale</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="service-icon"><span class="service-dot" style="background:#6366F1"></span>Azure Functions</span></td>
+              <td style="font-size:.8rem;color:var(--slate-500)">$0.20/M exec · $0.000016/GB-s (1M + 400K GB-s free)</td>
+              <td class="cost-cell cost-zero">$0.00</td>
+              <td class="cost-cell cost-zero">$0.12</td>
+              <td class="cost-cell cost-low">$3.78</td>
+            </tr>
+            <tr>
+              <td><span class="service-icon"><span class="service-dot" style="background:#8B5CF6"></span>Cosmos DB (Serverless)</span></td>
+              <td style="font-size:.8rem;color:var(--slate-500)">$0.25/M RU · $0.25/GB storage</td>
+              <td class="cost-cell cost-low">$5.86</td>
+              <td class="cost-cell cost-med">$46.50</td>
+              <td class="cost-cell cost-high">$165.80</td>
+            </tr>
+            <tr>
+              <td><span class="service-icon"><span class="service-dot" style="background:#0EA5E9"></span>Blob Storage</span></td>
+              <td style="font-size:.8rem;color:var(--slate-500)">$0.018/GB storage · $0.005/10K writes</td>
+              <td class="cost-cell cost-low">$0.74</td>
+              <td class="cost-cell cost-low">$2.86</td>
+              <td class="cost-cell cost-low">$9.56</td>
+            </tr>
+            <tr>
+              <td><span class="service-icon"><span class="service-dot" style="background:#10B981"></span>Azure Event Grid</span></td>
+              <td style="font-size:.8rem;color:var(--slate-500)">100K ops/mo free · $0.60/M beyond</td>
+              <td class="cost-cell cost-zero">$0.00</td>
+              <td class="cost-cell cost-zero">$0.12</td>
+              <td class="cost-cell cost-zero">$0.54</td>
+            </tr>
+            <tr>
+              <td><span class="service-icon"><span class="service-dot" style="background:#F59E0B"></span>Azure Key Vault</span></td>
+              <td style="font-size:.8rem;color:var(--slate-500)">$0.03/10K transactions</td>
+              <td class="cost-cell cost-zero">$1.00</td>
+              <td class="cost-cell cost-zero">$1.00</td>
+              <td class="cost-cell cost-zero">$2.00</td>
+            </tr>
+            <tr>
+              <td><span class="service-icon"><span class="service-dot" style="background:#64748B"></span>Application Insights</span></td>
+              <td style="font-size:.8rem;color:var(--slate-500)">5 GB/mo free · $2.30/GB beyond</td>
+              <td class="cost-cell cost-zero">$0.00</td>
+              <td class="cost-cell cost-zero">$0.00</td>
+              <td class="cost-cell cost-low">$6.90</td>
+            </tr>
+            <tr>
+              <td><span class="service-icon"><span class="service-dot" style="background:#EC4899"></span>ACS — SMS (OTP + share)</span></td>
+              <td style="font-size:.8rem;color:var(--slate-500)">$0.04/msg (India via ACS)</td>
+              <td class="cost-cell cost-low">$9.50</td>
+              <td class="cost-cell cost-high">$76.00</td>
+              <td class="cost-cell cost-high">$272.80</td>
+            </tr>
+            <tr>
+              <td><span class="service-icon"><span class="service-dot" style="background:#F97316"></span>ACS — Email</span></td>
+              <td style="font-size:.8rem;color:var(--slate-500)">$0.00025/email sent</td>
+              <td class="cost-cell cost-zero">$0.05</td>
+              <td class="cost-cell cost-zero">$0.50</td>
+              <td class="cost-cell cost-zero">$2.00</td>
+            </tr>
+            <tr>
+              <td><span class="service-icon"><span class="service-dot" style="background:#EF4444"></span>APIM (Consumption)</span></td>
+              <td style="font-size:.8rem;color:var(--slate-500)">1M calls/mo free · $3.50/100K beyond</td>
+              <td class="cost-cell cost-zero">$0.00</td>
+              <td class="cost-cell cost-med">$21.70</td>
+              <td class="cost-cell cost-high">$165.90</td>
+            </tr>
+            <tr>
+              <td><span class="service-icon"><span class="service-dot" style="background:#06B6D4"></span>Azure CDN</span></td>
+              <td style="font-size:.8rem;color:var(--slate-500)">$0.087/GB outbound (South Asia)</td>
+              <td class="cost-cell cost-zero">$0.44</td>
+              <td class="cost-cell cost-zero">$1.74</td>
+              <td class="cost-cell cost-low">$5.22</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="2">Monthly Total (USD)</td>
+              <td style="color:var(--indigo)">~$18.59</td>
+              <td style="color:var(--purple)">~$150.54</td>
+              <td style="color:var(--amber)">~$634.50</td>
+            </tr>
+            <tr style="background:var(--slate-50)">
+              <td colspan="2" style="font-size:.8rem;color:var(--slate-500);font-weight:400">With local Indian SMS provider ($0.004/msg)</td>
+              <td style="color:var(--green);font-size:.9rem">~$10</td>
+              <td style="color:var(--green);font-size:.9rem">~$82</td>
+              <td style="color:var(--green);font-size:.9rem">~$389</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CHARTS ───────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-title">Visual Breakdown</div>
+    <div class="charts">
+      <div class="card chart-card">
+        <h4>Monthly Total Cost by Scenario</h4>
+        <div class="chart-wrap">
+          <canvas id="barChart"></canvas>
+        </div>
+      </div>
+      <div class="card chart-card">
+        <h4>Cost Composition — Scale Scenario</h4>
+        <div class="chart-wrap">
+          <canvas id="pieChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── COST DRIVERS ─────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-title">Key Cost Drivers — Scale Scenario</div>
+    <div class="card">
+      <div class="driver-bars">
+        <div class="driver">
+          <span class="driver-name">ACS SMS</span>
+          <div class="driver-bar-wrap"><div class="driver-bar" style="width:43%;background:linear-gradient(90deg,#EC4899,#F43F5E)"></div></div>
+          <span class="driver-pct">43 %</span>
+        </div>
+        <div class="driver">
+          <span class="driver-name">APIM</span>
+          <div class="driver-bar-wrap"><div class="driver-bar" style="width:26%;background:linear-gradient(90deg,#EF4444,#DC2626)"></div></div>
+          <span class="driver-pct">26 %</span>
+        </div>
+        <div class="driver">
+          <span class="driver-name">Cosmos DB</span>
+          <div class="driver-bar-wrap"><div class="driver-bar" style="width:26%;background:linear-gradient(90deg,#8B5CF6,#6366F1)"></div></div>
+          <span class="driver-pct">26 %</span>
+        </div>
+        <div class="driver">
+          <span class="driver-name">App Insights</span>
+          <div class="driver-bar-wrap"><div class="driver-bar" style="width:2%;background:#94A3B8"></div></div>
+          <span class="driver-pct">1 %</span>
+        </div>
+        <div class="driver">
+          <span class="driver-name">Blob Storage</span>
+          <div class="driver-bar-wrap"><div class="driver-bar" style="width:2%;background:#0EA5E9"></div></div>
+          <span class="driver-pct">2 %</span>
+        </div>
+        <div class="driver">
+          <span class="driver-name">Other services</span>
+          <div class="driver-bar-wrap"><div class="driver-bar" style="width:2%;background:#CBD5E1"></div></div>
+          <span class="driver-pct">2 %</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── OPTIMISATION TIPS ─────────────────────────────────── -->
+  <div class="section">
+    <div class="section-title">Cost Optimisation Recommendations</div>
+    <div class="tips">
+      <div class="tip">
+        <div class="tip-icon">📩</div>
+        <div>
+          <h4>Replace ACS SMS with Indian Provider</h4>
+          <p>Switch OTP and notification SMS from ACS ($0.04/msg) to MSG91 or Textlocal ($0.003–0.005/msg). Saves up to 90% of SMS costs — the single biggest saving available.</p>
+        </div>
+      </div>
+      <div class="tip">
+        <div class="tip-icon">🔔</div>
+        <div>
+          <h4>Use Push Notifications over SMS</h4>
+          <p>Visitor alerts, notice notifications, and complaint updates are already sent via browser push (VAPID — free). Avoid SMS for these; reserve SMS for OTP only.</p>
+        </div>
+      </div>
+      <div class="tip">
+        <div class="tip-icon">🔍</div>
+        <div>
+          <h4>Tune Cosmos DB Indexes</h4>
+          <p>Each unnecessary index increases write RU consumption. Audit index policy per container — favour composite indexes on (societyId, status, date) and exclude unused fields.</p>
+        </div>
+      </div>
+      <div class="tip">
+        <div class="tip-icon">🌐</div>
+        <div>
+          <h4>Switch APIM to Standard v2 at Scale</h4>
+          <p>At the Scale tier with 5.74M calls, Consumption APIM costs ~$166/mo. APIM Standard v2 ($250/mo flat) includes 2.5M calls + $0.0035/1K beyond — evaluate break-even at ~8M calls/month.</p>
+        </div>
+      </div>
+      <div class="tip">
+        <div class="tip-icon">🗄️</div>
+        <div>
+          <h4>Archive Old Blob Data</h4>
+          <p>Visitor photos and payment proofs older than 12 months can be moved to Blob Archive tier ($0.002/GB vs $0.018/GB hot). Reduces Blob costs by 85–90% for aged data.</p>
+        </div>
+      </div>
+      <div class="tip">
+        <div class="tip-icon">📊</div>
+        <div>
+          <h4>Cap App Insights Ingestion</h4>
+          <p>Set a daily data cap on App Insights to avoid surprise costs. Use sampling (already configured in host.json) and exclude noisy health-probe logs from ingestion.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── NOTES ─────────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-title">Important Notes</div>
+    <div class="card">
+      <ul style="padding-left:18px;display:flex;flex-direction:column;gap:10px;font-size:.9rem;color:var(--slate-700)">
+        <li><strong>Estimates only:</strong> Actual costs depend on real usage patterns, Azure region pricing, and promotional discounts. Use the Azure Pricing Calculator for live quotes.</li>
+        <li><strong>Region:</strong> Prices are based on the <em>Central India</em> Azure region. Costs may vary by 5–20% in other regions.</li>
+        <li><strong>Azure Free Tier:</strong> New Azure accounts have a 12-month free tier and $200 credit; Starter-tier costs may be $0 in the first months.</li>
+        <li><strong>No Reserved Capacity:</strong> These estimates use pay-as-you-go / Serverless pricing. Reserved capacity (for Cosmos DB Provisioned Throughput) could reduce DB costs by 30–60% at predictable scale but requires upfront commitment.</li>
+        <li><strong>Support Plan not included:</strong> Azure support plans ($29–$300/mo) are not part of this estimate.</li>
+        <li><strong>Payment gateway not included:</strong> Razorpay / Stripe payment processing fees (0.5–2% per transaction) are not included — these are future-phase costs from <code>recurring_fee_payment.md</code>.</li>
+      </ul>
+    </div>
+  </div>
+
+</div><!-- /page -->
+
+<footer>
+  OurHome · Azure Cost Estimate · Generated June 2025 · All prices in USD · Subject to change with Azure pricing updates
+</footer>
+
+<script>
+  // ── BAR CHART ──────────────────────────────────────────────
+  const barCtx = document.getElementById('barChart').getContext('2d');
+  new Chart(barCtx, {
+    type: 'bar',
+    data: {
+      labels: ['Starter\n(2–5 societies)', 'Growing\n(10–20 societies)', 'Scale\n(30–50 societies)'],
+      datasets: [
+        { label: 'ACS SMS',          data: [9.50,   76.00, 272.80], backgroundColor: '#EC4899' },
+        { label: 'APIM',             data: [0,       21.70, 165.90], backgroundColor: '#EF4444' },
+        { label: 'Cosmos DB',        data: [5.86,    46.50, 165.80], backgroundColor: '#8B5CF6' },
+        { label: 'App Insights',     data: [0,       0,       6.90], backgroundColor: '#64748B' },
+        { label: 'Azure Functions',  data: [0,       0.12,    3.78], backgroundColor: '#6366F1' },
+        { label: 'Blob Storage',     data: [0.74,    2.86,    9.56], backgroundColor: '#0EA5E9' },
+        { label: 'CDN',              data: [0.44,    1.74,    5.22], backgroundColor: '#06B6D4' },
+        { label: 'Key Vault',        data: [1.00,    1.00,    2.00], backgroundColor: '#F59E0B' },
+        { label: 'ACS Email',        data: [0.05,    0.50,    2.00], backgroundColor: '#F97316' },
+        { label: 'Event Grid',       data: [0.00,    0.12,    0.54], backgroundColor: '#10B981' },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } },
+      scales: {
+        x: { stacked: true, ticks: { font: { size: 10 } } },
+        y: { stacked: true, ticks: { callback: v => '$' + v }, title: { display: true, text: 'USD / month', font: { size: 10 } } }
+      }
+    }
+  });
+
+  // ── PIE CHART (Scale scenario) ─────────────────────────────
+  const pieCtx = document.getElementById('pieChart').getContext('2d');
+  new Chart(pieCtx, {
+    type: 'doughnut',
+    data: {
+      labels: ['ACS SMS','APIM','Cosmos DB','App Insights','Blob Storage','Functions','CDN','Key Vault','ACS Email','Event Grid'],
+      datasets: [{
+        data: [272.80, 165.90, 165.80, 6.90, 9.56, 3.78, 5.22, 2.00, 2.00, 0.54],
+        backgroundColor: ['#EC4899','#EF4444','#8B5CF6','#64748B','#0EA5E9','#6366F1','#06B6D4','#F59E0B','#F97316','#10B981'],
+        borderWidth: 2, borderColor: '#fff'
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      cutout: '60%',
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: $${ctx.raw.toFixed(2)}` } }
+      }
+    }
+  });
+</script>
+</body>
+</html>
