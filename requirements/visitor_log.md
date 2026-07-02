@@ -14,6 +14,8 @@ The visitor log module will maintain a record of all visitors entering and exiti
 2. **Visitor Pass**
    - Generate a digital or physical visitor pass when resident pre enters the data for the visitor .
    - QR code-based entry for quick verification.Security personal can scan and verify the QR code.
+   - Visitor Pass should be sharable via unique link to any email address or ph no , this link will be showing the approval page and the QR code . This link only be valid for the duration of the Pass validity 
+   - SUSecurity should be able to scan the QR code via device camera and find if that Pass belongs to which apartment .
 
 3. **Resident Notifications**
    - Notify residents  when a visitor arrives for them, in case its pre aapproves residents dont have to approve the request .

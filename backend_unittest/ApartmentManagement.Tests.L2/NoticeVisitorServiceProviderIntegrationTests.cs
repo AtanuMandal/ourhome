@@ -301,6 +301,37 @@ public class NoticeVisitorServiceProviderIntegrationTests : IntegrationTestBase
         System.Text.Encoding.UTF8.GetString(exported.Value.Content).Should().Contain("Sam Delivery");
     }
 
+    [Fact]
+    public async Task GetPublicVisitorPass_WithValidPreApprovedPass_ReturnsPublicInfoWithoutSensitiveData()
+    {
+        var (apartmentId, residentUserId, _) = await SeedVisitorContextAsync();
+        CurrentUserService.UserId = residentUserId;
+        CurrentUserService.Role = "SUUser";
+
+        var registered = await Mediator.Send(new RegisterVisitorCommand(
+            SocietyId, "Public Pass Visitor", "+91-9800033333", "visitor@private.com",
+            "Guest Visit", apartmentId, null, null, true, ValidityHours: 4));
+
+        registered.IsSuccess.Should().BeTrue();
+        var passCode = registered.Value!.PassCode;
+
+        var publicPass = await Mediator.Send(new GetPublicVisitorPassQuery(passCode));
+
+        publicPass.IsSuccess.Should().BeTrue();
+        publicPass.Value!.VisitorName.Should().Be("Public Pass Visitor");
+        publicPass.Value.IsPassExpired.Should().BeFalse();
+        publicPass.Value.ValidUntil.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task GetPublicVisitorPass_WithInvalidPassCode_ReturnsFailure()
+    {
+        var publicPass = await Mediator.Send(new GetPublicVisitorPassQuery("000000"));
+
+        publicPass.IsFailure.Should().BeTrue();
+        publicPass.ErrorCode.Should().Be(ErrorCodes.InvalidPassCode);
+    }
+
     private async Task<(string ApartmentId, string ResidentUserId, string ResidentName)> SeedVisitorContextAsync()
     {
         var apartment = ApartmentRepo.Store.Values.FirstOrDefault(existing => existing.SocietyId == SocietyId)

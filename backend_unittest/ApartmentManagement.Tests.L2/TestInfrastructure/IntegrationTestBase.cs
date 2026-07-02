@@ -16,6 +16,7 @@ public sealed class FakeCurrentUserService : ICurrentUserService
     public string SocietyId { get; set; } = "test-society-id";
     public string Email { get; set; } = "admin@test.com";
     public string Role { get; set; } = "SUAdmin";
+    public string? ApartmentId { get; set; }
     public bool IsAuthenticated => true;
 
     public bool IsInRole(string role) =>
@@ -110,7 +111,7 @@ public sealed class FakeAuthService : IAuthService
 {
     public string GenerateOtp() => "123456";
 
-    public Task<string> GenerateJwtTokenAsync(string userId, string email, string role, string societyId, CancellationToken ct = default)
+    public Task<string> GenerateJwtTokenAsync(string userId, string email, string role, string societyId, string? apartmentId = null, CancellationToken ct = default)
         => Task.FromResult("fake-jwt-token");
 
     public Task<bool> ValidateTokenAsync(string token, CancellationToken ct = default)

@@ -1,7 +1,8 @@
 import { Component, ElementRef, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { DatePipe } from '@angular/common';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { environment } from '../../../environments/environment';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -22,6 +23,7 @@ import { StatusChipComponent } from '../../shared/components/status-chip/status-
   imports: [
     RouterLink,
     DatePipe,
+    FormsModule,
     ReactiveFormsModule,
     MatFormFieldModule,
     MatInputModule,
@@ -176,15 +178,49 @@ import { StatusChipComponent } from '../../shared/components/status-chip/status-
 
           <p class="pass-card__note">
             @if (createdVisitor()!.isPreApproved) {
-              Share this pass with security for quick verification and check-in.
+              Share this pass with the visitor or security for quick verification and check-in.
             } @else {
               Visitor request created. Resident approval is still required before entry.
             }
           </p>
 
           <div class="pass-card__actions">
-            <a mat-stroked-button color="primary" routerLink="/visitors">View visitor history</a>
+            <button mat-stroked-button color="primary" (click)="copyPassLink()">
+              <mat-icon>link</mat-icon>
+              Copy pass link
+            </button>
+            <button mat-stroked-button (click)="showShareDialog.set(true)">
+              <mat-icon>share</mat-icon>
+              Share via email/SMS
+            </button>
+            <a mat-stroked-button routerLink="/visitors">View visitor history</a>
           </div>
+
+          @if (showShareDialog()) {
+            <div class="share-dialog">
+              <h4>Share visitor pass</h4>
+              <mat-form-field appearance="fill" class="full-width">
+                <mat-label>Email (optional)</mat-label>
+                <input matInput type="email" [(ngModel)]="shareEmail" placeholder="visitor@example.com">
+              </mat-form-field>
+              <mat-form-field appearance="fill" class="full-width">
+                <mat-label>Phone (optional)</mat-label>
+                <input matInput type="tel" [(ngModel)]="sharePhone" placeholder="+91-XXXXXXXXXX">
+              </mat-form-field>
+              @if (shareError()) {
+                <p class="share-error">{{ shareError() }}</p>
+              }
+              @if (shareSuccess()) {
+                <p class="share-success">Pass shared successfully!</p>
+              }
+              <div class="share-dialog__actions">
+                <button mat-button (click)="showShareDialog.set(false)">Cancel</button>
+                <button mat-raised-button color="primary" [disabled]="shareLoading()" (click)="submitShare()">
+                  {{ shareLoading() ? 'Sending...' : 'Send' }}
+                </button>
+              </div>
+            </div>
+          }
         </div>
       }
     </div>
@@ -204,6 +240,12 @@ export class VisitorRegisterComponent implements OnInit {
   readonly apartments = signal<Apartment[]>([]);
   readonly createdVisitor = signal<Visitor | null>(null);
   readonly errorMessage = signal('');
+  readonly showShareDialog = signal(false);
+  readonly shareLoading = signal(false);
+  readonly shareError = signal('');
+  readonly shareSuccess = signal(false);
+  shareEmail = '';
+  sharePhone = '';
   readonly isAdmin = this.auth.isAdmin;
   readonly canManageVisitors = this.auth.canManageVisitors;
   readonly visitorImagePreview = signal<string | null>(null);
@@ -366,12 +408,48 @@ export class VisitorRegisterComponent implements OnInit {
       this.visitorService.uploadImage(societyId, this._selectedImageFile).subscribe({
         next: res => doRegister(res.imageUrl),
         error: () => {
-          // Upload failed — continue without image rather than blocking registration
           doRegister();
         }
       });
     } else {
       doRegister();
     }
+  }
+
+  copyPassLink() {
+    const visitor = this.createdVisitor();
+    if (!visitor) return;
+    const link = `${window.location.origin}/visitor-pass/${visitor.passCode}`;
+    navigator.clipboard.writeText(link).catch(() => {});
+  }
+
+  submitShare() {
+    const visitor = this.createdVisitor();
+    const societyId = this.auth.societyId();
+    if (!visitor || !societyId) return;
+    if (!this.shareEmail && !this.sharePhone) {
+      this.shareError.set('Enter at least one of email or phone.');
+      return;
+    }
+
+    this.shareLoading.set(true);
+    this.shareError.set('');
+    this.shareSuccess.set(false);
+
+    this.visitorService.sharePass(societyId, visitor.id, {
+      email: this.shareEmail || undefined,
+      phone: this.sharePhone || undefined
+    }).subscribe({
+      next: () => {
+        this.shareLoading.set(false);
+        this.shareSuccess.set(true);
+        this.shareEmail = '';
+        this.sharePhone = '';
+      },
+      error: err => {
+        this.shareLoading.set(false);
+        this.shareError.set(err?.error?.message ?? 'Unable to share the pass right now.');
+      }
+    });
   }
 }

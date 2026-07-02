@@ -39,6 +39,7 @@ public static class ErrorCodes
     public const string VisitorNotFound = "VISITOR_NOT_FOUND";
     public const string InvalidPassCode = "INVALID_PASS_CODE";
     public const string VisitorNotApproved = "VISITOR_NOT_APPROVED";
+    public const string VisitorPassExpired = "VISITOR_PASS_EXPIRED";
 
     public const string FeeScheduleNotFound = "FEE_SCHEDULE_NOT_FOUND";
     public const string PaymentNotFound = "PAYMENT_NOT_FOUND";

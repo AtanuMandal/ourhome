@@ -464,7 +464,7 @@ public sealed class VerifyOtpCommandHandler(
             user.Verify();
             await userRepository.UpdateAsync(user, ct);
 
-            var token    = await authService.GenerateJwtTokenAsync(user.Id, user.Email, user.Role.ToString(), user.SocietyId, ct);
+            var token    = await authService.GenerateJwtTokenAsync(user.Id, user.Email, user.Role.ToString(), user.SocietyId, user.ApartmentId, ct);
             var authUser = user.ToAuthUser();
 
             return Result<VerifyOtpResponse>.Success(new VerifyOtpResponse(token, authUser));
@@ -557,7 +557,7 @@ public sealed class LoginCommandHandler(
             if (selected is null)
                 return Result<LoginResponse>.Failure(ErrorCodes.InvalidCredentials, "The selected login option is not available.");
 
-            var token = await authService.GenerateJwtTokenAsync(selected.Id, selected.Email, selected.Role.ToString(), selected.SocietyId, ct);
+            var token = await authService.GenerateJwtTokenAsync(selected.Id, selected.Email, selected.Role.ToString(), selected.SocietyId, selected.ApartmentId, ct);
             return Result<LoginResponse>.Success(new LoginResponse(false, token, selected.ToAuthUser(), []));
         }
         catch (Exception ex)

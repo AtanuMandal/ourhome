@@ -205,6 +205,40 @@
   color: var(--text-secondary);
 }
 
+.share-dialog {
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 16px;
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  h4 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  &__actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+}
+
+.share-error {
+  margin: 0;
+  color: #b42318;
+  font-size: 0.875rem;
+}
+
+.share-success {
+  margin: 0;
+  color: #1b5e20;
+  font-size: 0.875rem;
+}
+
 .visitor-list {
   display: flex;
   flex-direction: column;

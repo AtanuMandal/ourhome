@@ -94,5 +94,10 @@ export const routes: Routes = [
     loadComponent: () => import('./features/my-apartment/my-apartment.component').then(m => m.MyApartmentComponent),
   },
 
+  {
+    path: 'visitor-pass/:passCode',
+    loadComponent: () => import('./features/visitors/visitor-pass-public.component').then(m => m.VisitorPassPublicComponent),
+  },
+
   { path: '**', redirectTo: '/dashboard' },
 ];

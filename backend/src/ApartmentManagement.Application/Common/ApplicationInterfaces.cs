@@ -8,6 +8,7 @@ public interface ICurrentUserService
     string SocietyId { get; }
     string Email { get; }
     string Role { get; }
+    string? ApartmentId { get; }
     bool IsAuthenticated { get; }
     bool IsInRole(string role);
     bool IsInRoles(params string[] roles);
@@ -57,7 +58,7 @@ public record InviteTokenClaims(string SocietyId, string? ApartmentId);
 public interface IAuthService
 {
     string GenerateOtp();
-    Task<string> GenerateJwtTokenAsync(string userId, string email, string role, string societyId, CancellationToken ct = default);
+    Task<string> GenerateJwtTokenAsync(string userId, string email, string role, string societyId, string? apartmentId = null, CancellationToken ct = default);
     Task<bool> ValidateTokenAsync(string token, CancellationToken ct = default);
     Task<string> GenerateInviteTokenAsync(string societyId, string? apartmentId = null, CancellationToken ct = default);
     Task<InviteTokenClaims?> ValidateInviteTokenAsync(string token, CancellationToken ct = default);
