@@ -72,7 +72,7 @@ src/app/
 - Signals-based reactive state (`signal()`, `computed()`) — no NgRx.
 - Lazy-loaded routes — each feature is a separate chunk.
 - PWA service worker: network-first for `/api/*`, cache-first for static assets.
-
+- Any gridview should have filter and sorting built in by default .
 ---
 
 ## Security
