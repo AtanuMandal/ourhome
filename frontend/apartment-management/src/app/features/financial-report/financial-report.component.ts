@@ -1,5 +1,5 @@
 import { CurrencyPipe, DatePipe, NgClass, PercentPipe } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -7,7 +7,9 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { RouterLink } from '@angular/router';
+import { Apartment, formatApartmentLabel } from '../../core/models/apartment.model';
 import { ApartmentLedger, CashFlow, CashFlowMonth, FinancialDashboard } from '../../core/models/financial-report.model';
+import { ApartmentService } from '../../core/services/apartment.service';
 import { AuthService } from '../../core/services/auth.service';
 import { FinancialReportService } from '../../core/services/financial-report.service';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
@@ -311,10 +313,14 @@ const STYLES = `
         <div class="card">
           <p class="card-title">Apartment Selection</p>
           <form [formGroup]="ledgerForm" class="filter-row" (ngSubmit)="loadLedger()">
-            <mat-form-field appearance="fill" style="min-width:220px">
-              <mat-label>Apartment ID</mat-label>
-              <input matInput formControlName="apartmentId" placeholder="Enter apartment ID">
-            </mat-form-field>
+            <div style="min-width:240px">
+              <app-searchable-select
+                label="Apartment"
+                formControlName="apartmentId"
+                [options]="apartmentOptions()"
+                errorMessage="Select an apartment">
+              </app-searchable-select>
+            </div>
             <mat-form-field appearance="fill">
               <mat-label>From Year</mat-label>
               <input matInput type="number" formControlName="fromYear" placeholder="2024">
@@ -388,10 +394,11 @@ const STYLES = `
     </div>
   `,
 })
-export class FinancialReportComponent {
-  private readonly auth    = inject(AuthService);
-  private readonly service = inject(FinancialReportService);
-  private readonly fb      = inject(FormBuilder);
+export class FinancialReportComponent implements OnInit {
+  private readonly auth             = inject(AuthService);
+  private readonly service          = inject(FinancialReportService);
+  private readonly apartmentService = inject(ApartmentService);
+  private readonly fb               = inject(FormBuilder);
 
   readonly activeTab = signal<Tab>('dashboard');
   readonly loading   = signal(false);
@@ -400,6 +407,11 @@ export class FinancialReportComponent {
   readonly dashboard = signal<FinancialDashboard | null>(null);
   readonly cashFlow  = signal<CashFlow | null>(null);
   readonly ledger    = signal<ApartmentLedger | null>(null);
+
+  private readonly apartments = signal<Apartment[]>([]);
+  readonly apartmentOptions = computed(() =>
+    this.apartments().map(a => ({ value: a.id, label: formatApartmentLabel(a) }))
+  );
 
   private get societyId() { return this.auth.societyId() ?? ''; }
 
@@ -416,8 +428,13 @@ export class FinancialReportComponent {
     toYear:      [null as number | null],
   });
 
-  constructor() {
+  ngOnInit() {
     this.loadDashboard();
+    if (this.societyId) {
+      this.apartmentService.list(this.societyId, 1, 200).subscribe({
+        next: res => this.apartments.set(res.items ?? []),
+      });
+    }
   }
 
   setTab(tab: Tab) {
