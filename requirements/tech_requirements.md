@@ -15,6 +15,10 @@ backend in .NET
 
 front end in Angular
 
+frontend mobile should be in React Native.
+
+For frontend any gridview should have filter and sorting built in by default .
+
 Multitenancy should be built in
 
 standard security architecture features like rate limiting, retry mechanism, even driven architecture needs to be established
