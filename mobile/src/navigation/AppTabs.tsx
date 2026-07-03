@@ -1,148 +1,194 @@
 import React from 'react';
-import { Text } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { MaterialIcons } from '@expo/vector-icons';
 import { useAuthStore } from '../store/authStore';
-import { AdminStack } from './AdminStack';
-import { ResidentStack } from './ResidentStack';
-import { SecurityStack } from './SecurityStack';
-import { ProfileScreen } from '../features/profile/ProfileScreen';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 
+// Admin / HQ stacks
+import {
+  AdminHomeStack,
+  AdminUsersStack,
+  AdminApartmentsStack,
+  AdminReportsStack,
+  AdminMaintenanceStack,
+  HQComplaintsStack,
+  HQNoticesStack,
+  HQBookingsStack,
+} from './AdminStack';
+
+// Resident stacks
+import {
+  ResidentHomeStack,
+  ResidentVisitorsStack,
+  ResidentNoticesStack,
+  ResidentReportsStack,
+  ResidentMaintenanceStack,
+} from './ResidentStack';
+
+// Security stacks
+import {
+  SecurityHomeStack,
+  SecurityVisitorsStack,
+  SecurityResidentsStack,
+  SecurityNoticesStack,
+  SecurityComplaintsStack,
+} from './SecurityStack';
+
 const Tab = createBottomTabNavigator();
 
-function tabIcon(emoji: string) {
-  return ({ focused }: { focused: boolean }) => (
-    <Text style={{ fontSize: 22, opacity: focused ? 1 : 0.6 }}>{emoji}</Text>
+type MIName = React.ComponentProps<typeof MaterialIcons>['name'];
+
+const screenOpts = {
+  headerShown: false,
+  tabBarActiveTintColor: colors.primaryLight,
+  tabBarInactiveTintColor: colors.text.secondary,
+  tabBarLabelStyle: {
+    fontSize: typography.fontSize.xs,
+    fontWeight: '500' as const,
+  },
+  tabBarStyle: {
+    backgroundColor: colors.surface,
+    borderTopColor: colors.border,
+    height: 64,
+    paddingBottom: 8,
+    paddingTop: 4,
+  },
+};
+
+function icon(name: MIName) {
+  return ({ color, size }: { color: string; size: number }) => (
+    <MaterialIcons name={name} size={size} color={color} />
   );
 }
 
+// ─── SUAdmin: Home | Users | Apartments | Reports | Maintenance ───────────────
 function SUAdminTabs() {
   return (
-    <Tab.Navigator
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: colors.primary,
-        tabBarLabelStyle: { fontSize: typography.fontSize.xs },
-      }}
-    >
+    <Tab.Navigator screenOptions={screenOpts}>
       <Tab.Screen
-        name="DashboardTab"
-        component={AdminStack}
-        options={{ title: 'Dashboard', tabBarIcon: tabIcon('🏠') }}
+        name="HomeTab"
+        component={AdminHomeStack}
+        options={{ title: 'Home', tabBarIcon: icon('home') }}
       />
       <Tab.Screen
-        name="ResidentsTab"
-        component={AdminStack}
-        options={{ title: 'Residents', tabBarIcon: tabIcon('👥') }}
+        name="UsersTab"
+        component={AdminUsersStack}
+        options={{ title: 'Users', tabBarIcon: icon('people') }}
       />
       <Tab.Screen
-        name="MaintenanceTab"
-        component={AdminStack}
-        options={{ title: 'Maintenance', tabBarIcon: tabIcon('💰') }}
+        name="ApartmentsTab"
+        component={AdminApartmentsStack}
+        options={{ title: 'Apartments', tabBarIcon: icon('domain') }}
       />
       <Tab.Screen
         name="ReportsTab"
-        component={AdminStack}
-        options={{ title: 'Reports', tabBarIcon: tabIcon('📊') }}
-      />
-      <Tab.Screen
-        name="ProfileTab"
-        component={ProfileScreen}
-        options={{ title: 'More', tabBarIcon: tabIcon('☰') }}
-      />
-    </Tab.Navigator>
-  );
-}
-
-function SUUserTabs() {
-  return (
-    <Tab.Navigator
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: colors.primary,
-        tabBarLabelStyle: { fontSize: typography.fontSize.xs },
-      }}
-    >
-      <Tab.Screen
-        name="HomeTab"
-        component={ResidentStack}
-        options={{ title: 'Home', tabBarIcon: tabIcon('🏠') }}
-      />
-      <Tab.Screen
-        name="VisitorsTab"
-        component={ResidentStack}
-        options={{ title: 'Visitors', tabBarIcon: tabIcon('🚪') }}
+        component={AdminReportsStack}
+        options={{ title: 'Reports', tabBarIcon: icon('bar-chart') }}
       />
       <Tab.Screen
         name="MaintenanceTab"
-        component={ResidentStack}
-        options={{ title: 'Maintenance', tabBarIcon: tabIcon('💰') }}
-      />
-      <Tab.Screen
-        name="StatementTab"
-        component={ResidentStack}
-        options={{ title: 'Statement', tabBarIcon: tabIcon('📋') }}
-      />
-      <Tab.Screen
-        name="ProfileTab"
-        component={ProfileScreen}
-        options={{ title: 'More', tabBarIcon: tabIcon('☰') }}
+        component={AdminMaintenanceStack}
+        options={{ title: 'Maintenance', tabBarIcon: icon('receipt-long') }}
       />
     </Tab.Navigator>
   );
 }
 
-function SUSecurityTabs() {
+// ─── SUUser: Home | Visitors | Notices | Reports | Maintenance ────────────────
+function SUUserTabs() {
   return (
-    <Tab.Navigator
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: colors.primary,
-        tabBarLabelStyle: { fontSize: typography.fontSize.xs },
-      }}
-    >
+    <Tab.Navigator screenOptions={screenOpts}>
       <Tab.Screen
-        name="GateTab"
-        component={SecurityStack}
-        options={{ title: 'Gate', tabBarIcon: tabIcon('🔒') }}
+        name="HomeTab"
+        component={ResidentHomeStack}
+        options={{ title: 'Home', tabBarIcon: icon('home') }}
       />
       <Tab.Screen
         name="VisitorsTab"
-        component={SecurityStack}
-        options={{ title: 'Visitors', tabBarIcon: tabIcon('🚪') }}
+        component={ResidentVisitorsStack}
+        options={{ title: 'Visitors', tabBarIcon: icon('badge') }}
       />
       <Tab.Screen
-        name="ResidentsTab"
-        component={SecurityStack}
-        options={{ title: 'Residents', tabBarIcon: tabIcon('👥') }}
+        name="NoticesTab"
+        component={ResidentNoticesStack}
+        options={{ title: 'Notices', tabBarIcon: icon('notifications') }}
       />
       <Tab.Screen
-        name="ProfileTab"
-        component={ProfileScreen}
-        options={{ title: 'More', tabBarIcon: tabIcon('☰') }}
+        name="ReportsTab"
+        component={ResidentReportsStack}
+        options={{ title: 'Reports', tabBarIcon: icon('bar-chart') }}
+      />
+      <Tab.Screen
+        name="MaintenanceTab"
+        component={ResidentMaintenanceStack}
+        options={{ title: 'Maintenance', tabBarIcon: icon('receipt-long') }}
       />
     </Tab.Navigator>
   );
 }
 
-function DefaultTabs() {
+// ─── SUSecurity: Home | Visitors | Residents | Notices | Complaints ───────────
+function SUSecurityTabs() {
   return (
-    <Tab.Navigator
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: colors.primary,
-      }}
-    >
+    <Tab.Navigator screenOptions={screenOpts}>
       <Tab.Screen
-        name="DashboardTab"
-        component={AdminStack}
-        options={{ title: 'Dashboard', tabBarIcon: tabIcon('🏠') }}
+        name="HomeTab"
+        component={SecurityHomeStack}
+        options={{ title: 'Home', tabBarIcon: icon('home') }}
       />
       <Tab.Screen
-        name="ProfileTab"
-        component={ProfileScreen}
-        options={{ title: 'More', tabBarIcon: tabIcon('☰') }}
+        name="VisitorsTab"
+        component={SecurityVisitorsStack}
+        options={{ title: 'Visitors', tabBarIcon: icon('badge') }}
+      />
+      <Tab.Screen
+        name="ResidentsTab"
+        component={SecurityResidentsStack}
+        options={{ title: 'Residents', tabBarIcon: icon('people') }}
+      />
+      <Tab.Screen
+        name="NoticesTab"
+        component={SecurityNoticesStack}
+        options={{ title: 'Notices', tabBarIcon: icon('notifications') }}
+      />
+      <Tab.Screen
+        name="ComplaintsTab"
+        component={SecurityComplaintsStack}
+        options={{ title: 'Complaints', tabBarIcon: icon('report-problem') }}
+      />
+    </Tab.Navigator>
+  );
+}
+
+// ─── HQAdmin / HQUser: Home | Complaints | Notices | Bookings | Maintenance ──
+function HQTabs() {
+  return (
+    <Tab.Navigator screenOptions={screenOpts}>
+      <Tab.Screen
+        name="HomeTab"
+        component={AdminHomeStack}
+        options={{ title: 'Home', tabBarIcon: icon('home') }}
+      />
+      <Tab.Screen
+        name="ComplaintsTab"
+        component={HQComplaintsStack}
+        options={{ title: 'Complaints', tabBarIcon: icon('report-problem') }}
+      />
+      <Tab.Screen
+        name="NoticesTab"
+        component={HQNoticesStack}
+        options={{ title: 'Notices', tabBarIcon: icon('notifications') }}
+      />
+      <Tab.Screen
+        name="BookingsTab"
+        component={HQBookingsStack}
+        options={{ title: 'Bookings', tabBarIcon: icon('event-available') }}
+      />
+      <Tab.Screen
+        name="MaintenanceTab"
+        component={AdminMaintenanceStack}
+        options={{ title: 'Maintenance', tabBarIcon: icon('receipt-long') }}
       />
     </Tab.Navigator>
   );
@@ -151,14 +197,8 @@ function DefaultTabs() {
 export function AppTabs() {
   const role = useAuthStore((s) => s.user?.role);
 
-  if (role === 'SUAdmin' || role === 'HQAdmin' || role === 'HQUser') {
-    return <SUAdminTabs />;
-  }
-  if (role === 'SUUser') {
-    return <SUUserTabs />;
-  }
-  if (role === 'SUSecurity') {
-    return <SUSecurityTabs />;
-  }
-  return <DefaultTabs />;
+  if (role === 'SUAdmin') return <SUAdminTabs />;
+  if (role === 'SUUser') return <SUUserTabs />;
+  if (role === 'SUSecurity') return <SUSecurityTabs />;
+  return <HQTabs />;  // HQAdmin, HQUser, and any unrecognised role
 }

@@ -10,7 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSocietyId } from '../../shared/hooks/useSocietyId';
 import { useNoticeList } from './hooks/useNotices';
-import { PageHeader } from '../../shared/components/PageHeader';
+import { AppHeader } from '../../shared/components/AppHeader';
 import { EmptyState } from '../../shared/components/EmptyState';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
@@ -43,8 +43,8 @@ export function NoticeListScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <PageHeader title="Notices" />
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <AppHeader title="Notices" showMenu />
       <FlatList
         data={data}
         keyExtractor={(item) => item.id}

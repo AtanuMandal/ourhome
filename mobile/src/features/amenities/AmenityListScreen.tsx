@@ -10,7 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSocietyId } from '../../shared/hooks/useSocietyId';
 import { useAmenities, useBookingList } from './hooks/useAmenities';
-import { PageHeader } from '../../shared/components/PageHeader';
+import { AppHeader } from '../../shared/components/AppHeader';
 import { StatusChip } from '../../shared/components/StatusChip';
 import { EmptyState } from '../../shared/components/EmptyState';
 import { colors } from '../../theme/colors';
@@ -41,8 +41,8 @@ export function AmenityListScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <PageHeader title="Amenities" />
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <AppHeader title="Amenities" showMenu />
 
       {amenities != null && amenities.length > 0 && (
         <View style={styles.amenitiesBar}>

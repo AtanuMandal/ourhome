@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSocietyId } from '../../shared/hooks/useSocietyId';
 import { useVisitor } from './hooks/useVisitors';
-import { PageHeader } from '../../shared/components/PageHeader';
+import { AppHeader } from '../../shared/components/AppHeader';
 import { StatusChip } from '../../shared/components/StatusChip';
 import { LoadingOverlay } from '../../shared/components/LoadingOverlay';
 import { colors } from '../../theme/colors';
@@ -21,8 +21,8 @@ export function VisitorPassScreen({ route }: VisitorPassScreenProps) {
   const { data: visitor, isLoading } = useVisitor(societyId, id);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <PageHeader title="Visitor Pass" showBack />
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <AppHeader title="Visitor Pass" showBack />
       <LoadingOverlay visible={isLoading} />
       {visitor != null && (
         <ScrollView contentContainerStyle={styles.content}>

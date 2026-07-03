@@ -9,7 +9,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSocietyId } from '../../shared/hooks/useSocietyId';
 import { useComplaintList } from './hooks/useComplaints';
-import { PageHeader } from '../../shared/components/PageHeader';
+import { AppHeader } from '../../shared/components/AppHeader';
 import { StatusChip } from '../../shared/components/StatusChip';
 import { EmptyState } from '../../shared/components/EmptyState';
 import { colors } from '../../theme/colors';
@@ -41,8 +41,8 @@ export function ComplaintListScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <PageHeader title="Complaints" />
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <AppHeader title="Complaints" showMenu />
       <FlatList
         data={data}
         keyExtractor={(item) => item.id}

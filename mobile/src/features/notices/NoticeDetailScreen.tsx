@@ -3,7 +3,7 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Linking } from 'r
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSocietyId } from '../../shared/hooks/useSocietyId';
 import { useNotice, useMarkNoticeRead } from './hooks/useNotices';
-import { PageHeader } from '../../shared/components/PageHeader';
+import { AppHeader } from '../../shared/components/AppHeader';
 import { LoadingOverlay } from '../../shared/components/LoadingOverlay';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
@@ -27,8 +27,8 @@ export function NoticeDetailScreen({ route }: NoticeDetailScreenProps) {
   }, [notice, id, markRead]);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <PageHeader title="Notice" showBack />
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <AppHeader title="Notice" showBack />
       <LoadingOverlay visible={isLoading} />
       {notice != null && (
         <ScrollView contentContainerStyle={styles.content}>

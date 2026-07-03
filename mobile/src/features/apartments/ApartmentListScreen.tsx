@@ -11,7 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSocietyId } from '../../shared/hooks/useSocietyId';
 import { useApartmentList } from './hooks/useApartments';
 import { useDebounce } from '../../shared/hooks/useDebounce';
-import { PageHeader } from '../../shared/components/PageHeader';
+import { AppHeader } from '../../shared/components/AppHeader';
 import { StatusChip } from '../../shared/components/StatusChip';
 import { EmptyState } from '../../shared/components/EmptyState';
 import { colors } from '../../theme/colors';
@@ -45,8 +45,8 @@ export function ApartmentListScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <PageHeader title="Apartments" />
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <AppHeader title="Apartments" showMenu />
       <View style={styles.searchBar}>
         <TextInput
           style={styles.searchInput}

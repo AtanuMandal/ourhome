@@ -20,13 +20,36 @@ export interface LoginRequest {
   selectedUserId?: string;
 }
 
-export interface LoginResponse {
-  token: string;
-  userId: string;
-  role: UserRole;
+// Matches backend ApplicationDtos.AuthUserDto (field "name" not "fullName")
+export interface AuthUserDto {
+  id: string;
   societyId: string;
+  name: string;
   email: string;
-  fullName: string;
+  phone: string | null;
+  role: UserRole;
+  residentType: string;
+  apartmentId: string | null;
+  isVerified: boolean;
+  permissions: string[];
+}
+
+export interface LoginOptionDto {
+  userId: string;
+  societyId: string;
+  societyName: string;
+  apartmentId: string | null;
+  apartmentLabel: string | null;
+  role: UserRole;
+  residentType: string;
+}
+
+// Matches backend ApplicationDtos.LoginResponse
+export interface LoginResponse {
+  requiresSelection: boolean;
+  token: string | null;
+  user: AuthUserDto | null;
+  options: LoginOptionDto[];
 }
 
 export interface Visitor {

@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSocietyId } from '../../shared/hooks/useSocietyId';
 import { useCreateComplaint } from './hooks/useComplaints';
-import { PageHeader } from '../../shared/components/PageHeader';
+import { AppHeader } from '../../shared/components/AppHeader';
 import { LoadingOverlay } from '../../shared/components/LoadingOverlay';
 import { SearchableSelect } from '../../shared/components/SearchableSelect';
 import { normalizeError } from '../../shared/utils/errors';
@@ -51,8 +51,8 @@ export function ComplaintCreateScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <PageHeader title="New Complaint" showBack />
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <AppHeader title="New Complaint" showBack />
       <LoadingOverlay visible={isPending} />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Text style={styles.label}>Category *</Text>

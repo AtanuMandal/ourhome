@@ -4,14 +4,31 @@ export const linking: LinkingOptions<ReactNavigation.RootParamList> = {
   prefixes: ['ourhome://'],
   config: {
     screens: {
-      App: {
+      Dashboard:       'dashboard',
+      Visitors: {
         screens: {
-          Visitors: { screens: { VisitorDetail: 'visitors/:id' } },
-          Maintenance: { screens: { ChargeDetail: 'maintenance/charges/:id' } },
-          Notices: { screens: { NoticeDetail: 'notices/:id' } },
-          Complaints: { screens: { ComplaintDetail: 'complaints/:id' } },
+          VisitorList:     'visitors',
+          VisitorDetail:   'visitors/:id',
+          VisitorRegister: 'visitors/new',
         },
       },
+      Notices: {
+        screens: {
+          NoticeList:   'notices',
+          NoticeDetail: 'notices/:id',
+        },
+      },
+      Complaints: {
+        screens: {
+          ComplaintList:   'complaints',
+          ComplaintCreate: 'complaints/new',
+        },
+      },
+      Maintenance:     'maintenance',
+      FinancialReport: 'financial-report',
+      VendorPayments:  'vendor-payments',
+      Amenities:       'amenities',
+      Profile:         'profile',
     },
   },
 };

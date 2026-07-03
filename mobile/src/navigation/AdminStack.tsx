@@ -9,36 +9,114 @@ import { VendorPaymentListScreen } from '../features/vendor-payments/VendorPayme
 import { NoticeListScreen } from '../features/notices/NoticeListScreen';
 import { NoticeDetailScreen } from '../features/notices/NoticeDetailScreen';
 import { ComplaintListScreen } from '../features/complaints/ComplaintListScreen';
+import { AmenityListScreen } from '../features/amenities/AmenityListScreen';
 import { ProfileScreen } from '../features/profile/ProfileScreen';
 
-export type AdminStackParamList = {
+const opts = { headerShown: false };
+
+// ── Tab 1: Home ───────────────────────────────────────────────────────────────
+type HomeParams = {
   Dashboard: undefined;
-  Apartments: undefined;
-  Residents: undefined;
-  Maintenance: undefined;
-  FinancialReport: undefined;
-  VendorPayments: undefined;
   Notices: undefined;
   NoticeDetail: { id: string };
   Complaints: undefined;
   Profile: undefined;
 };
-
-const Stack = createNativeStackNavigator<AdminStackParamList>();
-
-export function AdminStack() {
+const SHome = createNativeStackNavigator<HomeParams>();
+export function AdminHomeStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="Dashboard" component={DashboardScreen} />
-      <Stack.Screen name="Apartments" component={ApartmentListScreen} />
-      <Stack.Screen name="Residents" component={ResidentListScreen} />
-      <Stack.Screen name="Maintenance" component={MaintenanceScreen} />
-      <Stack.Screen name="FinancialReport" component={FinancialReportScreen} />
-      <Stack.Screen name="VendorPayments" component={VendorPaymentListScreen} />
-      <Stack.Screen name="Notices" component={NoticeListScreen} />
-      <Stack.Screen name="NoticeDetail" component={NoticeDetailScreen} />
-      <Stack.Screen name="Complaints" component={ComplaintListScreen} />
-      <Stack.Screen name="Profile" component={ProfileScreen} />
-    </Stack.Navigator>
+    <SHome.Navigator screenOptions={opts}>
+      <SHome.Screen name="Dashboard" component={DashboardScreen} />
+      <SHome.Screen name="Notices" component={NoticeListScreen} />
+      <SHome.Screen name="NoticeDetail" component={NoticeDetailScreen} />
+      <SHome.Screen name="Complaints" component={ComplaintListScreen} />
+      <SHome.Screen name="Profile" component={ProfileScreen} />
+    </SHome.Navigator>
+  );
+}
+
+// ── Tab 2: Users ──────────────────────────────────────────────────────────────
+type UsersParams = { Residents: undefined; Profile: undefined };
+const SUsers = createNativeStackNavigator<UsersParams>();
+export function AdminUsersStack() {
+  return (
+    <SUsers.Navigator screenOptions={opts}>
+      <SUsers.Screen name="Residents" component={ResidentListScreen} />
+      <SUsers.Screen name="Profile" component={ProfileScreen} />
+    </SUsers.Navigator>
+  );
+}
+
+// ── Tab 3: Apartments ─────────────────────────────────────────────────────────
+type AptsParams = { Apartments: undefined; Profile: undefined };
+const SApts = createNativeStackNavigator<AptsParams>();
+export function AdminApartmentsStack() {
+  return (
+    <SApts.Navigator screenOptions={opts}>
+      <SApts.Screen name="Apartments" component={ApartmentListScreen} />
+      <SApts.Screen name="Profile" component={ProfileScreen} />
+    </SApts.Navigator>
+  );
+}
+
+// ── Tab 4: Reports ────────────────────────────────────────────────────────────
+type RptParams = { FinancialReport: undefined; VendorPayments: undefined; Profile: undefined };
+const SRpt = createNativeStackNavigator<RptParams>();
+export function AdminReportsStack() {
+  return (
+    <SRpt.Navigator screenOptions={opts}>
+      <SRpt.Screen name="FinancialReport" component={FinancialReportScreen} />
+      <SRpt.Screen name="VendorPayments" component={VendorPaymentListScreen} />
+      <SRpt.Screen name="Profile" component={ProfileScreen} />
+    </SRpt.Navigator>
+  );
+}
+
+// ── Tab 5: Maintenance ────────────────────────────────────────────────────────
+type MaintParams = { Maintenance: undefined; Profile: undefined };
+const SMaint = createNativeStackNavigator<MaintParams>();
+export function AdminMaintenanceStack() {
+  return (
+    <SMaint.Navigator screenOptions={opts}>
+      <SMaint.Screen name="Maintenance" component={MaintenanceScreen} />
+      <SMaint.Screen name="Profile" component={ProfileScreen} />
+    </SMaint.Navigator>
+  );
+}
+
+// ── HQ Complaints ─────────────────────────────────────────────────────────────
+type HQCmpParams = { Complaints: undefined; Profile: undefined };
+const SHQCmp = createNativeStackNavigator<HQCmpParams>();
+export function HQComplaintsStack() {
+  return (
+    <SHQCmp.Navigator screenOptions={opts}>
+      <SHQCmp.Screen name="Complaints" component={ComplaintListScreen} />
+      <SHQCmp.Screen name="Profile" component={ProfileScreen} />
+    </SHQCmp.Navigator>
+  );
+}
+
+// ── HQ Notices ────────────────────────────────────────────────────────────────
+type HQNtcParams = { Notices: undefined; NoticeDetail: { id: string }; Profile: undefined };
+const SHQNtc = createNativeStackNavigator<HQNtcParams>();
+export function HQNoticesStack() {
+  return (
+    <SHQNtc.Navigator screenOptions={opts}>
+      <SHQNtc.Screen name="Notices" component={NoticeListScreen} />
+      <SHQNtc.Screen name="NoticeDetail" component={NoticeDetailScreen} />
+      <SHQNtc.Screen name="Profile" component={ProfileScreen} />
+    </SHQNtc.Navigator>
+  );
+}
+
+// ── HQ Bookings/Amenities ─────────────────────────────────────────────────────
+type HQBkgParams = { Amenities: undefined; Profile: undefined };
+const SHQBkg = createNativeStackNavigator<HQBkgParams>();
+export function HQBookingsStack() {
+  return (
+    <SHQBkg.Navigator screenOptions={opts}>
+      <SHQBkg.Screen name="Amenities" component={AmenityListScreen} />
+      <SHQBkg.Screen name="Profile" component={ProfileScreen} />
+    </SHQBkg.Navigator>
   );
 }

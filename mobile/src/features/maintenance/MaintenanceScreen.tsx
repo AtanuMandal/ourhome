@@ -10,7 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSocietyId } from '../../shared/hooks/useSocietyId';
 import { useMaintenanceList } from './hooks/useMaintenance';
-import { PageHeader } from '../../shared/components/PageHeader';
+import { AppHeader } from '../../shared/components/AppHeader';
 import { StatusChip } from '../../shared/components/StatusChip';
 import { EmptyState } from '../../shared/components/EmptyState';
 import { CurrencyText } from '../../shared/components/CurrencyText';
@@ -53,8 +53,8 @@ export function MaintenanceScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <PageHeader title="Maintenance" />
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <AppHeader title="Maintenance" showMenu />
       <View style={styles.filters}>
         {STATUS_FILTERS.map((s) => (
           <TouchableOpacity

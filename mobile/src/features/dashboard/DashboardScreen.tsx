@@ -9,6 +9,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/authStore';
 import { useDashboard } from './useDashboard';
+import { AppHeader } from '../../shared/components/AppHeader';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing } from '../../theme/spacing';
@@ -35,7 +36,8 @@ export function DashboardScreen() {
   const greeting = getGreeting();
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <AppHeader title="Dashboard" showMenu />
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={

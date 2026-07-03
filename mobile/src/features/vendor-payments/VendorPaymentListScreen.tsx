@@ -9,7 +9,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSocietyId } from '../../shared/hooks/useSocietyId';
 import { useVendorPaymentList } from './hooks/useVendorPayments';
-import { PageHeader } from '../../shared/components/PageHeader';
+import { AppHeader } from '../../shared/components/AppHeader';
 import { StatusChip } from '../../shared/components/StatusChip';
 import { EmptyState } from '../../shared/components/EmptyState';
 import { CurrencyText } from '../../shared/components/CurrencyText';
@@ -42,8 +42,8 @@ export function VendorPaymentListScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <PageHeader title="Vendor Payments" />
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <AppHeader title="Vendor Payments" showMenu />
       <FlatList
         data={data}
         keyExtractor={(item) => item.id}

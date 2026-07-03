@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSocietyId } from '../../shared/hooks/useSocietyId';
 import { useRegisterVisitor } from './hooks/useVisitors';
-import { PageHeader } from '../../shared/components/PageHeader';
+import { AppHeader } from '../../shared/components/AppHeader';
 import { LoadingOverlay } from '../../shared/components/LoadingOverlay';
 import { useCamera } from '../../camera/useCamera';
 import { normalizeError } from '../../shared/utils/errors';
@@ -63,8 +63,8 @@ export function VisitorRegisterScreen() {
   void handlePhotoCapture;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <PageHeader title="Register Visitor" showBack />
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <AppHeader title="Register Visitor" showBack />
       <LoadingOverlay visible={isPending || isUploading} />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {photoUrl != null && (

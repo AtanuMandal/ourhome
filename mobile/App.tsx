@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StyleSheet } from 'react-native';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { NotificationProvider } from './src/notifications/NotificationProvider';
+import { AuthProvider } from './src/auth/AuthProvider';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -22,9 +23,11 @@ export default function App() {
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
-          <NotificationProvider navigationRef={navigationRef}>
-            <RootNavigator />
-          </NotificationProvider>
+          <AuthProvider>
+            <NotificationProvider navigationRef={navigationRef}>
+              <RootNavigator />
+            </NotificationProvider>
+          </AuthProvider>
         </QueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

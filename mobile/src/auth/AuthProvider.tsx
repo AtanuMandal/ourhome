@@ -9,11 +9,11 @@ interface JwtPayload {
   sub?: string;
   userId?: string;
   societyId?: string;
-  fullName?: string;
-  email?: string;
-  phone?: string;
+  // .NET ClaimTypes.Role may serialize as the short "role" key (via OutboundClaimTypeMap)
   role?: UserRole;
-  residentType?: ResidentType;
+  // Fallback for full URI claim key that older .NET handlers emit
+  'http://schemas.microsoft.com/ws/2008/06/identity/claims/role'?: UserRole;
+  email?: string;
   exp?: number;
 }
 
@@ -63,14 +63,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (isValid) {
             const biometricPassed = await authenticateWithBiometric();
             if (biometricPassed) {
+              const role: UserRole =
+                payload.role ??
+                payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] ??
+                'SUUser';
               const user: User = {
                 id: payload.sub ?? payload.userId ?? '',
                 societyId: payload.societyId ?? '',
-                fullName: payload.fullName ?? '',
+                fullName: payload.email ?? '',  // fullName not in JWT; use email as fallback
                 email: payload.email ?? '',
-                phone: payload.phone ?? '',
-                role: payload.role ?? 'SUUser',
-                residentType: payload.residentType ?? 'Owner',
+                phone: '',
+                role,
+                residentType: 'Owner',
                 isVerified: true,
                 isActive: true,
               };

@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/authStore';
 import { useProfile, useUpdateProfile, useChangePassword } from './hooks/useProfile';
-import { PageHeader } from '../../shared/components/PageHeader';
+import { AppHeader } from '../../shared/components/AppHeader';
 import { LoadingOverlay } from '../../shared/components/LoadingOverlay';
 import { useAuth } from '../../auth/useAuth';
 import { normalizeError } from '../../shared/utils/errors';
@@ -63,8 +63,8 @@ export function ProfileScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <PageHeader title="Profile" />
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <AppHeader title="My Profile" showMenu />
       <LoadingOverlay visible={isUpdating || isChanging} />
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.avatar}>

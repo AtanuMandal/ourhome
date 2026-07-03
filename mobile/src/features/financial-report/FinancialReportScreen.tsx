@@ -11,7 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSocietyId } from '../../shared/hooks/useSocietyId';
 import { useFinancialSummary, useIncomeBreakdown } from './hooks/useFinancialReport';
 import type { IncomeBreakdown } from '../../api/endpoints/financial-report';
-import { PageHeader } from '../../shared/components/PageHeader';
+import { AppHeader } from '../../shared/components/AppHeader';
 import { CurrencyText } from '../../shared/components/CurrencyText';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
@@ -37,8 +37,8 @@ export function FinancialReportScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <PageHeader title="Financial Report" />
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <AppHeader title="Financial Report" showMenu />
       <ScrollView
         refreshControl={
           <RefreshControl
