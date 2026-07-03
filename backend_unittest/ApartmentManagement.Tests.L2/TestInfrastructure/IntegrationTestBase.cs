@@ -68,6 +68,15 @@ public sealed class FakeNotificationService : INotificationService
         => Task.CompletedTask;
 
     public string GetVapidPublicKey() => "test-vapid-public-key";
+
+    public Task SaveMobilePushTokenAsync(string userId, string societyId, string platform, string token, string? appVersion, CancellationToken ct = default)
+        => Task.CompletedTask;
+
+    public Task DeleteMobilePushTokenAsync(string userId, string societyId, string token, CancellationToken ct = default)
+        => Task.CompletedTask;
+
+    public Task SendMobilePushNotificationAsync(string userId, string societyId, string title, string body, CancellationToken ct = default, IReadOnlyDictionary<string, string>? data = null)
+        => Task.CompletedTask;
 }
 
 public sealed class FakeEventPublisher : IEventPublisher

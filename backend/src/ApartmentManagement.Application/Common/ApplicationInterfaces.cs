@@ -26,6 +26,11 @@ public interface INotificationService
     Task SavePushSubscriptionAsync(string userId, string societyId, string endpoint, string p256dh, string auth, CancellationToken ct = default);
     Task DeletePushSubscriptionAsync(string userId, string societyId, string endpoint, CancellationToken ct = default);
     string GetVapidPublicKey();
+
+    // Mobile Push Token management (FCM/APNs)
+    Task SaveMobilePushTokenAsync(string userId, string societyId, string platform, string token, string? appVersion, CancellationToken ct = default);
+    Task DeleteMobilePushTokenAsync(string userId, string societyId, string token, CancellationToken ct = default);
+    Task SendMobilePushNotificationAsync(string userId, string societyId, string title, string body, CancellationToken ct = default, IReadOnlyDictionary<string, string>? data = null);
 }
 
 public interface IEventPublisher

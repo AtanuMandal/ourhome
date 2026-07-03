@@ -139,9 +139,19 @@ public static class InfrastructureDependencyInjection
             sp.GetRequiredService<IOptions<InfrastructureSettings>>().Value.CosmosDbDatabaseName,
             sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<PushSubscriptionRepository>>()));
 
+        // Mobile push tokens (Cosmos container: mobile-push-tokens)
+        services.AddScoped<IMobilePushTokenStore>(sp => new MobilePushTokenRepository(
+            sp.GetRequiredService<CosmosClient>(),
+            sp.GetRequiredService<IOptions<InfrastructureSettings>>().Value.CosmosDbDatabaseName,
+            sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<MobilePushTokenRepository>>()));
+
         // Services
         services.AddScoped<IAuthService, JwtAuthService>();
-        services.AddScoped<INotificationService, NotificationService>();
+        services.AddScoped<INotificationService>(sp => new NotificationService(
+            sp.GetRequiredService<IOptions<InfrastructureSettings>>(),
+            sp.GetRequiredService<IPushSubscriptionStore>(),
+            sp.GetRequiredService<IMobilePushTokenStore>(),
+            sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<NotificationService>>()));
         services.AddScoped<IEventPublisher, OutboxEventPublisher>();
         services.AddScoped<IFileStorageService, BlobFileStorageService>();
         services.AddSingleton<IQrCodeService, QrCodeService>();

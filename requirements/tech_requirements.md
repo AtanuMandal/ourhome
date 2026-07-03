@@ -181,3 +181,475 @@ Triggers on merge to `main` or manual dispatch:
 > 🔜 **Distributed tracing** — correlation ID injection and App Insights custom telemetry for key business operations (visitor registration, payment submission, etc.).
 
 > 🔜 **Azure Monitor alerts** — alert rules for function error rate, outbox backlog size, and p95 API latency.
+
+---
+
+## Mobile Application — React Native (Android & iOS)
+
+### Overview
+
+The OurHome mobile app is a companion to the Angular PWA, targeting the same four user roles (`HQAdmin`, `HQUser`, `SUAdmin`, `SUUser`, `SUSecurity`) with the same backend API. It adds three native capabilities that are impractical in a browser: **biometric authentication**, **device push notifications** (FCM + APNs), and **direct camera capture with upload**. The app is built with **React Native 0.75+** (New Architecture, Bridgeless) using the **Expo SDK 52** managed-to-bare workflow with **EAS Build** for distribution.
+
+The mobile client is a read-write peer to the PWA — not a stripped-down viewer. Every feature available to a role in the web app must be available in the mobile app.
+
+---
+
+### Technology Choices
+
+| Concern | Library / Tool | Rationale |
+|---|---|---|
+| Framework | React Native 0.75 + Expo SDK 52 | Broadest native API coverage via Expo modules; EAS Build for CI |
+| Language | TypeScript (strict mode) | Consistency with Angular frontend; catches API contract drift early |
+| Navigation | React Navigation 7 (Native Stack + Bottom Tabs) | De-facto standard; native animations; deep-link support |
+| Server state | TanStack Query v5 | Cache, background refresh, optimistic updates; mirrors web patterns |
+| Client state | Zustand | Minimal boilerplate; TypeScript-first; replaces Context for auth/theme/permissions |
+| Styling | NativeWind v4 (Tailwind CSS for RN) | Mirrors Tailwind token vocabulary; no runtime JS overhead |
+| Biometrics | `expo-local-authentication` | Face ID / Touch ID / Fingerprint; single API for both platforms |
+| Secure storage | `expo-secure-store` | iOS Keychain / Android Keystore; tokens never in AsyncStorage |
+| Push notifications | `expo-notifications` + FCM + APNs | Unified API; handles foreground, background, and killed-app states |
+| Camera | `expo-camera` + `expo-image-picker` | Capture and gallery; used for visitor photos, payment proof, profile |
+| Image processing | `expo-image-manipulator` | Resize and compress before upload; enforces ≤ 1 MB cap |
+| File upload | `expo-file-system` + `fetch` multipart | Streams files to the existing blob upload endpoints |
+| Offline detection | `@react-native-community/netinfo` | Shows a banner and queues mutations when offline |
+| Persisted cache | `@react-native-async-storage/async-storage` | TanStack Query `persistQueryClient` hydrates cache on cold start |
+| Analytics | Azure App Insights (via REST) | Reuses existing observability stack |
+| Testing | Jest + React Native Testing Library | Unit and component tests |
+| E2E testing | Detox | Runs on iOS Simulator and Android Emulator in CI |
+| Distribution | EAS Build + EAS Submit | TestFlight (iOS) and Play Store (Android) |
+
+---
+
+### Project Structure
+
+```
+mobile/
+├── app.json                      # Expo config (bundle IDs, permissions, plugins)
+├── eas.json                      # EAS Build profiles (dev, preview, production)
+├── babel.config.js
+├── tsconfig.json
+│
+└── src/
+    ├── api/
+    │   ├── client.ts             # Axios instance — base URL, JWT injection interceptor,
+    │   │                         #   401 → token refresh → retry logic
+    │   ├── endpoints/            # One file per domain (visitors.ts, maintenance.ts, …)
+    │   └── types/                # TypeScript interfaces mirroring backend DTOs
+    │       └── index.ts          # Re-exports from domain-specific type files
+    │
+    ├── auth/
+    │   ├── AuthProvider.tsx      # Zustand-backed context; exposes login / logout / refresh
+    │   ├── biometric.ts          # Biometric availability check, prompt, and fallback
+    │   ├── tokenStore.ts         # SecureStore read/write helpers; never exposes raw token
+    │   └── useAuth.ts            # Hook wrapping AuthProvider context
+    │
+    ├── features/                 # One folder per business domain
+    │   ├── dashboard/
+    │   │   ├── DashboardScreen.tsx
+    │   │   └── useDashboard.ts
+    │   ├── visitors/
+    │   │   ├── VisitorListScreen.tsx
+    │   │   ├── VisitorRegisterScreen.tsx
+    │   │   ├── VisitorPassScreen.tsx
+    │   │   └── hooks/
+    │   ├── maintenance/
+    │   ├── notices/
+    │   ├── complaints/
+    │   ├── apartments/
+    │   ├── residents/
+    │   ├── amenities/
+    │   ├── financial-report/
+    │   ├── vendor-payments/
+    │   └── profile/
+    │
+    ├── navigation/
+    │   ├── RootNavigator.tsx     # Auth gate: shows AuthStack or AppTabs
+    │   ├── AuthStack.tsx         # Login, forgot-password, invite-accept screens
+    │   ├── AppTabs.tsx           # Role-aware bottom tab configuration
+    │   ├── AdminStack.tsx        # SUAdmin / HQ nested stack inside tabs
+    │   ├── ResidentStack.tsx     # SUUser nested stack inside tabs
+    │   ├── SecurityStack.tsx     # SUSecurity nested stack
+    │   └── linking.ts            # Deep-link URL scheme (ourhome://)
+    │
+    ├── notifications/
+    │   ├── NotificationProvider.tsx   # Registers token, listens for incoming events
+    │   ├── notificationRouter.ts      # Routes tap-action to the correct screen
+    │   └── useNotifications.ts
+    │
+    ├── camera/
+    │   ├── CameraCapture.tsx          # Full-screen capture modal (visitor, proof, profile)
+    │   ├── ImagePicker.tsx            # Gallery picker wrapper
+    │   ├── imageUpload.ts             # Compress → upload → return blob URL
+    │   └── useCamera.ts
+    │
+    ├── store/
+    │   ├── authStore.ts               # Zustand: token, user, societyId
+    │   ├── notificationStore.ts       # Zustand: unread count, queued events
+    │   └── networkStore.ts            # Zustand: isOnline, pendingMutations
+    │
+    ├── shared/
+    │   ├── components/
+    │   │   ├── PageHeader.tsx
+    │   │   ├── StatusChip.tsx
+    │   │   ├── EmptyState.tsx
+    │   │   ├── LoadingOverlay.tsx
+    │   │   ├── OfflineBanner.tsx
+    │   │   ├── BottomSheet.tsx        # @gorhom/bottom-sheet
+    │   │   ├── SearchableSelect.tsx
+    │   │   └── CurrencyText.tsx
+    │   ├── hooks/
+    │   │   ├── useDebounce.ts
+    │   │   ├── useInfiniteList.ts     # Wraps TanStack Query infinite scroll
+    │   │   └── useSocietyId.ts        # Reads societyId from authStore
+    │   └── utils/
+    │       ├── currency.ts            # ₹ formatting helpers
+    │       ├── date.ts                # Indian locale date helpers
+    │       └── errors.ts             # API error normalisation
+    │
+    └── theme/
+        ├── colors.ts                  # Tokens matching the web design system
+        ├── typography.ts
+        └── spacing.ts
+```
+
+**Rules:**
+- Every screen lives in a `features/<domain>/` folder; no screens in `navigation/`.
+- No direct API calls from components — all server state goes through a `use<Feature>.ts` hook backed by TanStack Query.
+- No `any` types; `strict: true` in `tsconfig.json`.
+- No business logic in components — components render and dispatch; hooks own state and mutations.
+
+---
+
+### Authentication Flow
+
+#### Initial Login
+
+```
+App launch
+  └── tokenStore.getToken()
+        ├── null → AuthStack (Login screen)
+        │     └── POST /auth/login → store JWT in SecureStore → AppTabs
+        └── found → validate expiry
+              ├── valid  → prompt biometric (if enrolled) → AppTabs
+              └── expired → POST /auth/refresh → update SecureStore → AppTabs
+                            └── refresh fails → AuthStack
+```
+
+#### Biometric Authentication
+
+- On first login the user is offered "Enable biometric login". If accepted, the JWT is stored in `expo-secure-store` under a biometric-protected key.
+- On subsequent launches `expo-local-authentication.authenticateAsync()` is called. Success unlocks the stored token; failure (3 attempts) falls back to password.
+- Biometric type is auto-detected: Face ID on face-capable iOS devices, Touch ID otherwise, Fingerprint/Face Unlock on Android.
+- The biometric prompt appears on every cold start and after the app returns from background for more than 5 minutes.
+
+```typescript
+// auth/biometric.ts (outline)
+export async function authenticateWithBiometric(): Promise<boolean> {
+  const supported = await LocalAuthentication.hasHardwareAsync();
+  const enrolled  = await LocalAuthentication.isEnrolledAsync();
+  if (!supported || !enrolled) return false;
+
+  const result = await LocalAuthentication.authenticateAsync({
+    promptMessage:     'Verify your identity',
+    cancelLabel:       'Use password',
+    disableDeviceFallback: false,
+  });
+  return result.success;
+}
+```
+
+#### Token Storage Contract
+
+| What | Where | Why |
+|---|---|---|
+| JWT access token | `expo-secure-store` (biometric-protected key) | Keychain / Keystore; never in JS memory longer than needed |
+| Refresh token | `expo-secure-store` (standard key) | Separate key; rotated on each use |
+| User profile + societyId | Zustand `authStore` (in-memory) | Lost on kill; rehydrated from SecureStore on launch |
+
+---
+
+### Push Notifications
+
+#### Registration Flow
+
+1. On first launch after login, `expo-notifications.requestPermissionsAsync()` prompts the user.
+2. On grant, `getExpoPushTokenAsync()` or the native FCM/APNs token is retrieved.
+3. Token is `POST`-ed to `POST /societies/{societyId}/users/{userId}/push-subscriptions` (existing endpoint used by the PWA's VAPID flow — a new mobile variant will be added).
+4. Token is re-registered on app upgrade or OS notification setting change.
+
+#### Notification Types and Deep Links
+
+| Event | Notification Body | Deep Link Target |
+|---|---|---|
+| Maintenance charge due | "Your ₹X maintenance for May is due on the 5th." | `/maintenance/charges/{id}` |
+| Payment approved | "Your payment for April has been confirmed." | `/maintenance/charges/{id}` |
+| Visitor pending approval | "John Doe is at the gate. Approve?" | `/visitors/{id}` — with approve/deny action buttons |
+| New notice posted | "Notice: {title}" | `/notices/{id}` |
+| Complaint status change | "Your complaint is now In Progress." | `/complaints/{id}` |
+| Vendor payment due | "₹X due to CleanSphere by 30 Apr." | `/vendor-payments/{id}` |
+
+#### Action Buttons (Visitor Approval)
+
+Android and iOS both support interactive notification actions. The visitor pending notification carries two actions:
+
+```typescript
+await Notifications.setNotificationCategoryAsync('VISITOR_REQUEST', [
+  { identifier: 'APPROVE', buttonTitle: 'Approve', options: { isDestructive: false } },
+  { identifier: 'DENY',    buttonTitle: 'Deny',    options: { isDestructive: true  } },
+]);
+```
+
+The background task handler calls `PATCH /societies/{sid}/visitors/{id}/approve` or `/deny` without the user opening the app.
+
+#### Backend Integration
+
+The existing `OutboxPublisher` function publishes domain events to Event Grid. A new **`MobilePushPublisher`** subscriber function will:
+1. Subscribe to the same Event Grid events already used for VAPID push.
+2. Fan out to registered FCM (Android) and APNs (iOS) tokens via **Firebase Admin SDK** (server-side FCM v1 API) and the **APNs HTTP/2 provider API**, both running as Azure Functions.
+3. Token cleanup: `410 Gone` responses from FCM/APNs remove the stale registration from Cosmos.
+
+---
+
+### Camera and Image Upload
+
+All three image upload surfaces (visitor photo at gate, payment proof, profile picture) share the same component and upload pipeline.
+
+#### Capture Flow
+
+```
+CameraCapture modal
+  ├── Source selection: [Camera] [Gallery]
+  │     ├── Camera  → expo-camera full-screen preview → capture JPEG
+  │     └── Gallery → expo-image-picker → pick from library
+  ├── Preview + crop (expo-image-manipulator)
+  ├── Compress to ≤ 800 px longest side, quality 0.75 (JPEG)
+  │     → enforces ≤ 1 MB upload cap
+  ├── POST multipart/form-data to /societies/{sid}/files/upload
+  │     → returns { blobUrl: string }
+  └── blobUrl passed back to calling screen's form field
+```
+
+#### Permissions
+
+Declared in `app.json` and requested at runtime before first use:
+
+```json
+{
+  "plugins": [
+    ["expo-camera",       { "cameraPermission": "OurHome needs your camera to capture visitor photos and payment proofs." }],
+    ["expo-image-picker", { "photosPermission": "OurHome needs access to your photos to upload payment proofs." }]
+  ]
+}
+```
+
+Permissions are requested **at the point of use** (not on app launch) to maximise grant rate.
+
+---
+
+### Navigation Architecture
+
+```
+RootNavigator
+├── AuthStack              (unauthenticated)
+│   ├── LoginScreen
+│   ├── ForgotPasswordScreen
+│   └── InviteAcceptScreen
+│
+└── AppTabs                (authenticated — tabs differ by role)
+    │
+    ├── [SUAdmin tabs]
+    │   ├── Dashboard       → DashboardStack
+    │   ├── Residents       → ResidentsStack
+    │   ├── Maintenance     → MaintenanceStack
+    │   ├── Reports         → FinancialReportStack
+    │   └── More            → MoreStack (visitors, complaints, notices, society, profile)
+    │
+    ├── [SUUser tabs]
+    │   ├── Home            → DashboardStack
+    │   ├── Visitors        → VisitorsStack
+    │   ├── Maintenance     → MaintenanceStack (own apartment only)
+    │   ├── My Statement    → FinancialStatementStack
+    │   └── More            → MoreStack (notices, complaints, amenities, profile)
+    │
+    └── [SUSecurity tabs]
+        ├── Gate            → VisitorRegisterStack
+        ├── Visitors        → VisitorListStack
+        ├── Residents       → ResidentsStack (read-only)
+        └── More            → MoreStack (complaints, notices, profile)
+```
+
+- All stacks use `createNativeStackNavigator` for native-platform transitions.
+- Deep links (`ourhome://`) map to the same screen hierarchy using `linking.ts`.
+- The `More` tab renders a menu list screen — avoids overwhelming the tab bar.
+
+---
+
+### Offline Strategy
+
+| Scenario | Behaviour |
+|---|---|
+| Read data, device online | TanStack Query fetches; stale-while-revalidate; cached data shown instantly |
+| Read data, device offline | Persisted TanStack Query cache served from AsyncStorage; `OfflineBanner` shown |
+| Mutation (raise complaint, submit payment proof), device online | Normal API call |
+| Mutation, device offline | Action blocked with inline message: "You are offline — this action requires a connection." No silent queue (avoids stale data confusion on retry) |
+| Returns online | `netInfo` event triggers `queryClient.invalidateQueries()` to refresh all active queries |
+
+---
+
+### Role-Based Access Control
+
+The mobile app reads the `role` claim from the JWT (same as the web app). Each Navigator, screen, and API call enforces role requirements:
+
+```typescript
+// shared/hooks/useRequireRole.ts
+export function useRequireRole(...allowed: UserRole[]) {
+  const role = useAuthStore(s => s.user?.role);
+  if (!allowed.includes(role!)) {
+    throw new Error(`Role ${role} is not authorised for this screen.`);
+  }
+}
+```
+
+Screens that are unauthorised for the current role are excluded from the navigator config entirely — they are not rendered as hidden routes.
+
+---
+
+### Security Hardening
+
+| Concern | Measure |
+|---|---|
+| Token storage | `expo-secure-store` only; never `AsyncStorage`, `MMKV`, or JS memory across renders |
+| Certificate pinning | `react-native-ssl-pinning` pinned to the Azure API Management certificate in production builds |
+| Screenshot prevention | `expo-screen-capture.preventScreenCaptureAsync()` enabled on screens showing financial data and visitor passes |
+| Jailbreak / root detection | `jail-monkey` at startup; if detected, warn the user and restrict sensitive operations |
+| Obfuscation | Hermes engine + Metro minification in production; ProGuard rules for Android |
+| Biometric downgrade | If biometric is removed from the device OS, the stored token is invalidated and the user must re-login with password |
+
+---
+
+### Testing Strategy
+
+#### Unit and Component Tests (Jest + RNTL)
+
+```
+mobile/__tests__/
+├── auth/
+│   ├── biometric.test.ts         # Mock expo-local-authentication; test fallback paths
+│   └── tokenStore.test.ts
+├── features/
+│   ├── visitors/
+│   │   └── VisitorRegisterScreen.test.tsx
+│   └── maintenance/
+│       └── MaintenanceScreen.test.tsx
+└── shared/
+    └── components/
+```
+
+Coverage requirement: ≥ 70 % on `src/` excluding generated types.
+
+#### E2E Tests (Detox)
+
+```
+mobile/e2e/
+├── auth.e2e.ts           # Login → biometric unlock → logout
+├── visitor.e2e.ts        # Register visitor → approve → check in → check out
+├── maintenance.e2e.ts    # View charges → submit payment proof
+└── notification.e2e.ts   # Receive test push → tap → land on correct screen
+```
+
+Detox runs on:
+- iOS Simulator (iPhone 15, iOS 17) in CI
+- Android Emulator (Pixel 7, API 34) in CI
+- Physical devices in pre-release stage
+
+---
+
+### CI/CD Pipeline
+
+#### EAS Build Profiles (`eas.json`)
+
+```json
+{
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": { "API_BASE_URL": "http://localhost:7071/api" }
+    },
+    "preview": {
+      "distribution": "internal",
+      "env": { "API_BASE_URL": "https://api-dev.greenvalley.in/api" }
+    },
+    "production": {
+      "distribution": "store",
+      "env": { "API_BASE_URL": "https://api.greenvalley.in/api" }
+    }
+  }
+}
+```
+
+#### GitHub Actions — Mobile CI (`mobile-ci.yml`)
+
+Triggers on push/PR to `main` where `mobile/**` files change:
+1. `npm ci` in `mobile/`
+2. `npx tsc --noEmit` — TypeScript check
+3. `npm test -- --coverage` — Jest
+4. `npx detox build --configuration ios.sim` + `npx detox test` — E2E on iOS Simulator
+5. `npx detox build --configuration android.emu` + `npx detox test` — E2E on Android Emulator
+
+#### GitHub Actions — Mobile CD (`mobile-cd.yml`)
+
+Triggers on merge to `main` or manual dispatch:
+1. `eas build --platform all --profile production --non-interactive`
+2. `eas submit --platform ios` → TestFlight
+3. `eas submit --platform android` → Play Store internal track
+
+---
+
+### Feature Parity Matrix
+
+| Feature | PWA | Mobile |
+|---|---|---|
+| Login / logout | ✅ | ✅ |
+| Biometric login | ❌ | ✅ Native |
+| Push notifications | ✅ VAPID | ✅ FCM + APNs |
+| Visitor registration + QR | ✅ | ✅ |
+| Camera capture (visitor photo) | ✅ Browser | ✅ Native |
+| Payment proof upload | ✅ Browser | ✅ Native |
+| Maintenance charges | ✅ | ✅ |
+| Financial reports | ✅ | ✅ |
+| Vendor payments | ✅ | ✅ |
+| Notices | ✅ | ✅ |
+| Complaints | ✅ | ✅ |
+| Amenity booking | ✅ | ✅ |
+| Resident / user management | ✅ | ✅ |
+| Apartment management | ✅ | ✅ |
+| Society settings | ✅ | ✅ |
+| Offline read | ✅ SW cache | ✅ Persisted TQ |
+| Deep links from notification | ✅ | ✅ |
+
+---
+
+### Acceptance Criteria
+
+- App launches and reaches the dashboard within 2 seconds on a mid-range Android device (Pixel 6a) on a 4G connection.
+- Biometric prompt appears on every cold start and after 5 minutes of backgrounding.
+- Push notification received within 5 seconds of the triggering backend event in a test environment.
+- Visitor approval via notification action button (without opening the app) succeeds and reflects in the visitor list on next foreground.
+- Camera capture compresses to ≤ 1 MB and the blob URL is stored in Cosmos within 3 seconds on Wi-Fi.
+- All L0-equivalent Jest tests pass with no network calls; all Detox E2E tests pass on both platforms.
+- No JWT or sensitive data written to `AsyncStorage`, logs, or crash reports.
+- App Store and Play Store builds produced from `main` branch via EAS without manual Xcode / Android Studio intervention.
+
+---
+
+### Future / Planned (Mobile)
+
+> 🔜 **Expo Router** — file-system-based routing (evaluate when Expo Router v4 reaches stable; removes `navigation/` boilerplate entirely).
+
+> 🔜 **Widgets** — iOS 17 Live Activities and Android 14 Dynamic Island equivalents for active visitor pass countdown.
+
+> 🔜 **QR scanner** — `expo-barcode-scanner` to scan visitor QR codes at the gate without typing the pass code.
+
+> 🔜 **Offline mutations** — `react-query-offline-manager` to queue complaint submissions and payment proof uploads while offline, replaying on reconnect.
+
+> 🔜 **Accessibility** — full VoiceOver (iOS) and TalkBack (Android) compliance; minimum touch target 44×44 pt.

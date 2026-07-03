@@ -1,0 +1,57 @@
+{
+  "expo": {
+    "name": "OurHome",
+    "slug": "ourhome",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.ourhome.mobile",
+      "infoPlist": {
+        "NSCameraUsageDescription": "OurHome needs your camera to capture visitor photos and payment proofs.",
+        "NSPhotoLibraryUsageDescription": "OurHome needs access to your photos to upload payment proofs.",
+        "NSFaceIDUsageDescription": "OurHome uses Face ID to keep your account secure."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.ourhome.mobile",
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      ["expo-camera", { "cameraPermission": "OurHome needs your camera to capture visitor photos and payment proofs." }],
+      ["expo-image-picker", { "photosPermission": "OurHome needs access to your photos to upload payment proofs." }],
+      "expo-secure-store",
+      ["expo-notifications", {
+        "icon": "./assets/notification-icon.png",
+        "color": "#ffffff"
+      }]
+    ],
+    "scheme": "ourhome",
+    "extra": {
+      "eas": { "projectId": "ourhome-project-id" }
+    }
+  }
+}
