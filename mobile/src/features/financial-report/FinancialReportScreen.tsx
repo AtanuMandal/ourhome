@@ -1,40 +1,30 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
   ScrollView,
   RefreshControl,
-  TouchableOpacity,
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSocietyId } from '../../shared/hooks/useSocietyId';
-import { useFinancialSummary, useIncomeBreakdown } from './hooks/useFinancialReport';
-import type { IncomeBreakdown } from '../../api/endpoints/financial-report';
+import { useFinancialSocietySummary } from './hooks/useFinancialReport';
 import { AppHeader } from '../../shared/components/AppHeader';
 import { CurrencyText } from '../../shared/components/CurrencyText';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing } from '../../theme/spacing';
+import type { ExpenseCategoryDto } from '../../api/endpoints/financial-report';
 
-const CURRENT_YEAR = new Date().getFullYear();
-const YEAR_OPTIONS = [CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export function FinancialReportScreen() {
   const societyId = useSocietyId();
-  const [year, setYear] = useState(CURRENT_YEAR);
+  const { data: summary, isLoading, refetch } = useFinancialSocietySummary(societyId);
 
-  const { data: summary, isLoading: summaryLoading, refetch: refetchSummary } =
-    useFinancialSummary(societyId, year);
-  const { data: breakdown, isLoading: breakdownLoading, refetch: refetchBreakdown } =
-    useIncomeBreakdown(societyId, year);
-
-  const isLoading = summaryLoading || breakdownLoading;
-
-  function handleRefresh(): void {
-    void refetchSummary();
-    void refetchBreakdown();
-  }
+  const periodLabel = summary
+    ? `${MONTHS[(summary.currentMonth ?? 1) - 1]} ${summary.currentYear}`
+    : '';
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -43,68 +33,80 @@ export function FinancialReportScreen() {
         refreshControl={
           <RefreshControl
             refreshing={isLoading}
-            onRefresh={handleRefresh}
+            onRefresh={() => void refetch()}
             tintColor={colors.primary}
           />
         }
       >
-        <View style={styles.yearSelector}>
-          {YEAR_OPTIONS.map((y) => (
-            <TouchableOpacity
-              key={y}
-              style={[styles.yearChip, year === y && styles.yearChipActive]}
-              onPress={() => setYear(y)}
-            >
-              <Text
-                style={[styles.yearText, year === y && styles.yearTextActive]}
-              >
-                {y}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
         {summary != null && (
-          <View style={styles.summarySection}>
-            <Text style={styles.sectionTitle}>Summary — {year}</Text>
-            <View style={styles.summaryCards}>
-              <View style={[styles.summaryCard, { borderLeftColor: colors.success }]}>
-                <Text style={styles.summaryLabel}>Total Income</Text>
-                <CurrencyText amount={summary.totalIncome} style={styles.summaryValue} />
-              </View>
-              <View style={[styles.summaryCard, { borderLeftColor: colors.error }]}>
-                <Text style={styles.summaryLabel}>Total Expenses</Text>
-                <CurrencyText amount={summary.totalExpenses} style={styles.summaryValue} />
-              </View>
-              <View
-                style={[
-                  styles.summaryCard,
-                  {
-                    borderLeftColor:
-                      summary.netBalance >= 0 ? colors.success : colors.error,
-                  },
-                ]}
-              >
-                <Text style={styles.summaryLabel}>Net Balance</Text>
-                <CurrencyText amount={summary.netBalance} style={styles.summaryValue} />
-              </View>
-            </View>
-          </View>
-        )}
-
-        {breakdown != null && breakdown.length > 0 && (
-          <View style={styles.breakdownSection}>
-            <Text style={styles.sectionTitle}>Income Breakdown</Text>
-            {(breakdown as IncomeBreakdown[]).map((item) => (
-              <View key={item.category} style={styles.breakdownRow}>
-                <Text style={styles.breakdownCategory}>{item.category}</Text>
-                <View style={styles.breakdownRight}>
-                  <CurrencyText amount={item.amount} style={styles.breakdownAmount} />
-                  <Text style={styles.breakdownPct}>{item.percentage.toFixed(1)}%</Text>
+          <>
+            <View style={styles.summarySection}>
+              <Text style={styles.sectionTitle}>Current Month — {periodLabel}</Text>
+              <View style={styles.summaryCards}>
+                <View style={[styles.summaryCard, { borderLeftColor: colors.success }]}>
+                  <Text style={styles.summaryLabel}>Maintenance Collected</Text>
+                  <CurrencyText amount={summary.totalCollectedCurrentMonth} style={styles.summaryValue} />
+                  <Text style={styles.summaryMeta}>
+                    {summary.collectionPercentageCurrentMonth}% of dues
+                  </Text>
+                </View>
+                <View style={[styles.summaryCard, { borderLeftColor: colors.error }]}>
+                  <Text style={styles.summaryLabel}>Vendor Expenses</Text>
+                  <CurrencyText amount={summary.vendorExpensesCurrentMonth} style={styles.summaryValue} />
+                </View>
+                <View
+                  style={[
+                    styles.summaryCard,
+                    {
+                      borderLeftColor:
+                        summary.netCurrentMonth >= 0 ? colors.success : colors.error,
+                    },
+                  ]}
+                >
+                  <Text style={styles.summaryLabel}>Net Position</Text>
+                  <CurrencyText amount={summary.netCurrentMonth} style={styles.summaryValue} />
                 </View>
               </View>
-            ))}
-          </View>
+            </View>
+
+            <View style={styles.summarySection}>
+              <Text style={styles.sectionTitle}>Year-to-Date</Text>
+              <View style={styles.summaryCards}>
+                <View style={[styles.summaryCard, { borderLeftColor: colors.success }]}>
+                  <Text style={styles.summaryLabel}>Total Collected</Text>
+                  <CurrencyText amount={summary.totalCollectedYtd} style={styles.summaryValue} />
+                </View>
+                <View style={[styles.summaryCard, { borderLeftColor: colors.error }]}>
+                  <Text style={styles.summaryLabel}>Total Expenses</Text>
+                  <CurrencyText amount={summary.totalVendorExpensesYtd} style={styles.summaryValue} />
+                </View>
+                <View
+                  style={[
+                    styles.summaryCard,
+                    { borderLeftColor: summary.netYtd >= 0 ? colors.success : colors.error },
+                  ]}
+                >
+                  <Text style={styles.summaryLabel}>Net YTD</Text>
+                  <CurrencyText amount={summary.netYtd} style={styles.summaryValue} />
+                </View>
+              </View>
+            </View>
+
+            {summary.expenseBreakdownYtd.length > 0 && (
+              <View style={styles.breakdownSection}>
+                <Text style={styles.sectionTitle}>Expense Breakdown (YTD)</Text>
+                {(summary.expenseBreakdownYtd as ExpenseCategoryDto[]).map((item) => (
+                  <View key={item.category} style={styles.breakdownRow}>
+                    <Text style={styles.breakdownCategory}>{item.category}</Text>
+                    <View style={styles.breakdownRight}>
+                      <CurrencyText amount={item.amount} style={styles.breakdownAmount} />
+                      <Text style={styles.breakdownPct}>{item.percentageOfTotal}%</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+          </>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -113,22 +115,6 @@ export function FinancialReportScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  yearSelector: {
-    flexDirection: 'row',
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
-  yearChip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  yearChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  yearText: { color: colors.text.secondary, fontSize: typography.fontSize.sm },
-  yearTextActive: { color: '#FFF', fontWeight: typography.fontWeight.medium },
   summarySection: { padding: spacing.md },
   sectionTitle: {
     fontSize: typography.fontSize.sm,
@@ -150,6 +136,7 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.bold,
     marginTop: 4,
   },
+  summaryMeta: { fontSize: typography.fontSize.xs, color: colors.text.disabled, marginTop: 2 },
   breakdownSection: { padding: spacing.md },
   breakdownRow: {
     flexDirection: 'row',
@@ -159,8 +146,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  breakdownCategory: { fontSize: typography.fontSize.base, color: colors.text.primary },
+  breakdownCategory: { fontSize: typography.fontSize.base, color: colors.text.primary, flex: 1 },
   breakdownRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   breakdownAmount: { fontSize: typography.fontSize.base, fontWeight: typography.fontWeight.medium },
-  breakdownPct: { fontSize: typography.fontSize.sm, color: colors.text.disabled, minWidth: 50, textAlign: 'right' },
+  breakdownPct: { fontSize: typography.fontSize.sm, color: colors.text.disabled, minWidth: 45, textAlign: 'right' },
 });

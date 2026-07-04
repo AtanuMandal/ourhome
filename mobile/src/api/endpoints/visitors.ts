@@ -1,6 +1,20 @@
 import api from '../client';
 import type { Visitor, PaginatedResponse } from '../types';
 
+// Matches backend RegisterVisitorRequest
+export interface RegisterVisitorRequest {
+  visitorName: string;
+  visitorPhone: string;
+  visitorEmail?: string;
+  purpose: string;
+  apartmentId: string;
+  companyName?: string;
+  vehicleNumber?: string;
+  isPreApproved?: boolean;
+  validityHours?: number;
+  visitorImageUrl?: string;
+}
+
 export const visitorsApi = {
   getVisitors: (
     societyId: string,
@@ -15,7 +29,7 @@ export const visitorsApi = {
       .get<Visitor>(`/societies/${societyId}/visitors/${id}`)
       .then((r) => r.data),
 
-  registerVisitor: (societyId: string, data: Partial<Visitor>) =>
+  registerVisitor: (societyId: string, data: RegisterVisitorRequest) =>
     api
       .post<Visitor>(`/societies/${societyId}/visitors`, data)
       .then((r) => r.data),

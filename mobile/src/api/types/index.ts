@@ -1,6 +1,13 @@
 export type UserRole = 'HQAdmin' | 'HQUser' | 'SUAdmin' | 'SUUser' | 'SUSecurity';
 export type ResidentType = 'Owner' | 'Tenant' | 'CoOccupant' | 'FamilyMember' | 'SocietyAdmin';
 
+// Matches backend ResidentApartmentDto — name is the formatted display label
+export interface ResidentApartmentInfo {
+  apartmentId: string;
+  name: string;
+  residentType: string;
+}
+
 export interface User {
   id: string;
   societyId: string;
@@ -12,6 +19,8 @@ export interface User {
   apartmentId?: string;
   isVerified: boolean;
   isActive: boolean;
+  // Populated from UserResponse.Apartments — contains formatted display labels
+  apartments?: ResidentApartmentInfo[];
 }
 
 export interface LoginRequest {
@@ -52,55 +61,92 @@ export interface LoginResponse {
   options: LoginOptionDto[];
 }
 
+// Matches backend VisitorResponse
 export interface Visitor {
   id: string;
   societyId: string;
-  residentId: string;
-  residentName: string;
   visitorName: string;
   visitorPhone: string;
+  visitorEmail?: string;
+  companyName?: string;
   purpose: string;
-  photoUrl?: string;
+  hostApartmentId: string;
+  hostResidentName: string;
+  hostBlockName: string;
+  hostFloorNumber: number;
+  hostFlatNumber: string;
+  isPreApproved: boolean;
   status: string;
-  checkInAt?: string;
-  checkOutAt?: string;
+  passCode: string;
+  qrCode?: string;
+  vehicleNumber?: string;
+  checkInTime?: string;
+  checkOutTime?: string;
+  duration?: number;
   createdAt: string;
+  validUntil?: string;
+  visitorImageUrl?: string;
+  isPassExpired: boolean;
 }
 
+// Matches backend NoticeResponse
 export interface Notice {
   id: string;
   societyId: string;
   title: string;
   content: string;
-  postedBy: string;
-  postedAt: string;
-  isRead?: boolean;
-  attachmentUrl?: string;
+  category: string;
+  postedByUserId: string;
+  isArchived: boolean;
+  publishAt: string;
+  expiresAt?: string;
+  isActive: boolean;
+  createdAt: string;
+  targetApartmentIds: string[];
+  isReadByCurrentUser: boolean;
 }
 
+// Matches backend ComplaintResponse
 export interface Complaint {
   id: string;
   societyId: string;
-  residentId: string;
-  residentName: string;
-  category: string;
+  apartmentId: string;
+  raisedByUserId: string;
+  title: string;
   description: string;
+  category: string;
   status: string;
+  priority: string;
+  assignedToUserId?: string;
+  attachmentUrls: string[];
   createdAt: string;
+  updatedAt: string;
+  resolvedAt?: string;
+  feedbackRating?: number;
+  feedbackComment?: string;
 }
 
+// Matches backend MaintenanceChargeDto
 export interface MaintenanceCharge {
   id: string;
   societyId: string;
   apartmentId: string;
   apartmentNumber: string;
+  scheduleId: string;
+  scheduleName: string;
+  chargeYear: number;
+  chargeMonth: number;
   amount: number;
-  month: string;
-  year: number;
   status: string;
   dueDate: string;
+  isOverdue: boolean;
   paidAt?: string;
-  paymentProofUrl?: string;
+  paymentMethod?: string;
+  transactionReference?: string;
+  receiptUrl?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ApartmentResident {
@@ -125,17 +171,28 @@ export interface Amenity {
   name: string;
   description: string;
   capacity: number;
+  rules: string;
   isActive: boolean;
+  bookingSlotMinutes: number;
+  operatingStart: string;
+  operatingEnd: string;
+  advanceBookingDays: number;
 }
 
+// Matches backend BookingResponse
 export interface AmenityBooking {
   id: string;
+  societyId: string;
   amenityId: string;
   amenityName: string;
-  bookingDate: string;
+  bookedByUserId: string;
+  bookedByApartmentId: string;
   startTime: string;
   endTime: string;
   status: string;
+  adminNotes?: string;
+  duration: number;
+  createdAt: string;
 }
 
 export interface PaginatedResponse<T> {

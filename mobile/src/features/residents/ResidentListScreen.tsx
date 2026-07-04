@@ -36,8 +36,10 @@ export function ResidentListScreen() {
         <View style={styles.itemInfo}>
           <Text style={styles.name}>{item.fullName}</Text>
           <Text style={styles.meta}>{item.residentType} · {item.phone}</Text>
-          {item.apartmentId != null && (
-            <Text style={styles.apartment}>Apt: {item.apartmentId}</Text>
+          {(item.apartments && item.apartments.length > 0) && (
+            <Text style={styles.apartment}>
+              {item.apartments.map((a) => a.name).join(', ')}
+            </Text>
           )}
         </View>
         <StatusChip status={item.isActive ? 'Active' : 'Inactive'} />

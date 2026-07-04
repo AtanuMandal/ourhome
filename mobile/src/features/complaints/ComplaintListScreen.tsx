@@ -31,10 +31,10 @@ export function ComplaintListScreen() {
           <StatusChip status={item.status} />
         </View>
         <Text style={styles.description} numberOfLines={2}>
-          {item.description}
+          {item.title}
         </Text>
         <Text style={styles.meta}>
-          {item.residentName} · {formatDate(item.createdAt)}
+          {item.priority} · {formatDate(item.createdAt)}
         </Text>
       </View>
     );

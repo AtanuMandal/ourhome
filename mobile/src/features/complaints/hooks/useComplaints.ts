@@ -1,6 +1,6 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useInfiniteList } from '../../../shared/hooks/useInfiniteList';
-import { complaintsApi } from '../../../api/endpoints/complaints';
+import { complaintsApi, type ResolveComplaintRequest } from '../../../api/endpoints/complaints';
 import type { Complaint } from '../../../api/types';
 
 export function useComplaintList(
@@ -15,6 +15,14 @@ export function useComplaintList(
   });
 }
 
+export function useComplaint(societyId: string, id: string) {
+  return useQuery({
+    queryKey: ['complaint', societyId, id],
+    queryFn: () => complaintsApi.getComplaint(societyId, id),
+    enabled: !!societyId && !!id,
+  });
+}
+
 export function useCreateComplaint(societyId: string) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -26,11 +34,11 @@ export function useCreateComplaint(societyId: string) {
   });
 }
 
-export function useUpdateComplaintStatus(societyId: string) {
+export function useResolveComplaint(societyId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) =>
-      complaintsApi.updateComplaintStatus(societyId, id, status),
+    mutationFn: ({ id, ...data }: { id: string } & ResolveComplaintRequest) =>
+      complaintsApi.resolveComplaint(societyId, id, data),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['complaints', societyId] });
     },

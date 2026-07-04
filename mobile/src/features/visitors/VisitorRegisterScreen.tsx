@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSocietyId } from '../../shared/hooks/useSocietyId';
+import { useAuthStore } from '../../store/authStore';
 import { useRegisterVisitor } from './hooks/useVisitors';
 import { AppHeader } from '../../shared/components/AppHeader';
 import { LoadingOverlay } from '../../shared/components/LoadingOverlay';
@@ -22,6 +23,7 @@ import { spacing } from '../../theme/spacing';
 
 export function VisitorRegisterScreen() {
   const societyId = useSocietyId();
+  const apartmentId = useAuthStore((s) => s.user?.apartmentId ?? '');
   const { mutateAsync: registerVisitor, isPending } = useRegisterVisitor(societyId);
   const { upload, isUploading } = useCamera();
 
@@ -37,7 +39,7 @@ export function VisitorRegisterScreen() {
       return;
     }
     try {
-      await registerVisitor({ visitorName, visitorPhone, purpose, photoUrl });
+      await registerVisitor({ visitorName, visitorPhone, purpose, apartmentId, visitorImageUrl: photoUrl });
       Alert.alert('Success', 'Visitor registered successfully.');
       setVisitorName('');
       setVisitorPhone('');

@@ -25,14 +25,14 @@ export function NoticeListScreen() {
 
   function renderItem({ item }: { item: Notice }) {
     return (
-      <TouchableOpacity style={[styles.item, !item.isRead && styles.unread]}>
-        {!item.isRead && <View style={styles.dot} />}
+      <TouchableOpacity style={[styles.item, !item.isReadByCurrentUser && styles.unread]}>
+        {!item.isReadByCurrentUser && <View style={styles.dot} />}
         <View style={styles.itemContent}>
           <Text style={styles.title} numberOfLines={2}>
             {item.title}
           </Text>
           <Text style={styles.meta}>
-            {item.postedBy} · {formatDate(item.postedAt)}
+            {item.category} · {formatDate(item.publishAt)}
           </Text>
           <Text style={styles.preview} numberOfLines={2}>
             {item.content}

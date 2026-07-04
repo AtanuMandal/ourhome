@@ -13,16 +13,12 @@ export const maintenanceApi = {
       )
       .then((r) => r.data),
 
-  getCharge: (societyId: string, id: string) =>
+  // Backend: POST /maintenance/payments/proof — body: { chargeIds: string[], proofUrl, notes? }
+  submitPaymentProof: (societyId: string, chargeIds: string[], proofUrl: string, notes?: string) =>
     api
-      .get<MaintenanceCharge>(`/societies/${societyId}/maintenance/charges/${id}`)
-      .then((r) => r.data),
-
-  submitPaymentProof: (societyId: string, id: string, proofUrl: string) =>
-    api
-      .patch<MaintenanceCharge>(
-        `/societies/${societyId}/maintenance/charges/${id}/payment-proof`,
-        { proofUrl }
+      .post(
+        `/societies/${societyId}/maintenance/payments/proof`,
+        { chargeIds, proofUrl, notes }
       )
       .then((r) => r.data),
 };

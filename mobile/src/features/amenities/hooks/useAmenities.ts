@@ -1,7 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useInfiniteList } from '../../../shared/hooks/useInfiniteList';
-import { amenitiesApi } from '../../../api/endpoints/amenities';
-import type { AmenityBooking } from '../../../api/types';
+import { amenitiesApi, type BookAmenityRequest } from '../../../api/endpoints/amenities';
 
 export function useAmenities(societyId: string) {
   return useQuery({
@@ -11,25 +9,21 @@ export function useAmenities(societyId: string) {
   });
 }
 
-export function useBookingList(
-  societyId: string,
-  params?: Record<string, string | number>
-) {
-  return useInfiniteList<AmenityBooking>({
-    queryKey: ['amenity-bookings', societyId, params],
-    fetchPage: (page) =>
-      amenitiesApi.getBookings(societyId, { ...params, page, pageSize: 20 }),
-    enabled: !!societyId,
+export function useAmenityAvailability(societyId: string, amenityId: string, date: string) {
+  return useQuery({
+    queryKey: ['amenity-availability', societyId, amenityId, date],
+    queryFn: () => amenitiesApi.getAvailability(societyId, amenityId, date),
+    enabled: !!societyId && !!amenityId && !!date,
   });
 }
 
 export function useCreateBooking(societyId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: Partial<AmenityBooking>) =>
+    mutationFn: (data: BookAmenityRequest) =>
       amenitiesApi.createBooking(societyId, data),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['amenity-bookings', societyId] });
+      void queryClient.invalidateQueries({ queryKey: ['amenities', societyId] });
     },
   });
 }

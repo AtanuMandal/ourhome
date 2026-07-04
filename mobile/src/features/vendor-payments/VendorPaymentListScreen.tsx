@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSocietyId } from '../../shared/hooks/useSocietyId';
-import { useVendorPaymentList } from './hooks/useVendorPayments';
+import { useVendorChargeList } from './hooks/useVendorPayments';
 import { AppHeader } from '../../shared/components/AppHeader';
 import { StatusChip } from '../../shared/components/StatusChip';
 import { EmptyState } from '../../shared/components/EmptyState';
@@ -17,25 +17,25 @@ import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing } from '../../theme/spacing';
 import { formatDate } from '../../shared/utils/date';
-import type { VendorPayment } from '../../api/endpoints/vendor-payments';
+import type { VendorCharge } from '../../api/endpoints/vendor-payments';
 
 export function VendorPaymentListScreen() {
   const societyId = useSocietyId();
   const { data, isLoading, fetchNextPage, hasNextPage, refetch } =
-    useVendorPaymentList(societyId);
+    useVendorChargeList(societyId);
 
-  function renderItem({ item }: { item: VendorPayment }) {
+  function renderItem({ item }: { item: VendorCharge }) {
     return (
       <View style={styles.item}>
         <View style={styles.itemTop}>
           <Text style={styles.vendor}>{item.vendorName}</Text>
           <CurrencyText amount={item.amount} style={styles.amount} />
         </View>
-        <Text style={styles.category}>{item.category}</Text>
+        <Text style={styles.category}>{item.chargeType}</Text>
         <Text style={styles.description} numberOfLines={1}>{item.description}</Text>
         <View style={styles.itemBottom}>
           <StatusChip status={item.status} />
-          <Text style={styles.date}>{formatDate(item.paymentDate)}</Text>
+          <Text style={styles.date}>{formatDate(item.dueDate)}</Text>
         </View>
       </View>
     );

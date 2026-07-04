@@ -15,8 +15,9 @@ export const noticesApi = {
       .get<Notice>(`/societies/${societyId}/notices/${id}`)
       .then((r) => r.data),
 
+  // Backend: PATCH /notices/{id}/read — body: MarkNoticeReadRequest { isRead: bool }
   markNoticeRead: (societyId: string, id: string) =>
     api
-      .post(`/societies/${societyId}/notices/${id}/read`)
+      .patch(`/societies/${societyId}/notices/${id}/read`, { isRead: true })
       .then((r) => r.data),
 };

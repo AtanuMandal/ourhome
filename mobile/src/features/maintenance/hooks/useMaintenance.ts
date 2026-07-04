@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useInfiniteList } from '../../../shared/hooks/useInfiniteList';
 import { maintenanceApi } from '../../../api/endpoints/maintenance';
 import type { MaintenanceCharge } from '../../../api/types';
@@ -15,19 +15,11 @@ export function useMaintenanceList(
   });
 }
 
-export function useMaintenanceCharge(societyId: string, id: string) {
-  return useQuery({
-    queryKey: ['maintenance-charge', societyId, id],
-    queryFn: () => maintenanceApi.getCharge(societyId, id),
-    enabled: !!societyId && !!id,
-  });
-}
-
 export function useSubmitPaymentProof(societyId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, proofUrl }: { id: string; proofUrl: string }) =>
-      maintenanceApi.submitPaymentProof(societyId, id, proofUrl),
+    mutationFn: ({ chargeIds, proofUrl, notes }: { chargeIds: string[]; proofUrl: string; notes?: string }) =>
+      maintenanceApi.submitPaymentProof(societyId, chargeIds, proofUrl, notes),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['maintenance', societyId] });
     },

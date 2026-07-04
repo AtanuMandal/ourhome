@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useInfiniteList } from '../../../shared/hooks/useInfiniteList';
-import { visitorsApi } from '../../../api/endpoints/visitors';
+import { visitorsApi, type RegisterVisitorRequest } from '../../../api/endpoints/visitors';
 import type { Visitor } from '../../../api/types';
 
 export function useVisitorList(
@@ -26,7 +26,7 @@ export function useVisitor(societyId: string, id: string) {
 export function useRegisterVisitor(societyId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: Partial<Visitor>) =>
+    mutationFn: (data: RegisterVisitorRequest) =>
       visitorsApi.registerVisitor(societyId, data),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['visitors', societyId] });

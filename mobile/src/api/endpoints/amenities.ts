@@ -1,5 +1,12 @@
 import api from '../client';
-import type { Amenity, AmenityBooking, PaginatedResponse } from '../types';
+import type { Amenity, AmenityBooking } from '../types';
+
+export interface BookAmenityRequest {
+  amenityId: string;
+  apartmentId: string;
+  startTime: string;
+  endTime: string;
+}
 
 export const amenitiesApi = {
   getAmenities: (societyId: string) =>
@@ -7,19 +14,18 @@ export const amenitiesApi = {
       .get<Amenity[]>(`/societies/${societyId}/amenities`)
       .then((r) => r.data),
 
-  getBookings: (
-    societyId: string,
-    params?: Record<string, string | number>
-  ) =>
+  // Backend: GET /amenities/{amenityId}/availability?date
+  getAvailability: (societyId: string, amenityId: string, date: string) =>
     api
-      .get<PaginatedResponse<AmenityBooking>>(
-        `/societies/${societyId}/amenities/bookings`,
-        { params }
+      .get<{ start: string; end: string; isAvailable: boolean }[]>(
+        `/societies/${societyId}/amenities/${amenityId}/availability`,
+        { params: { date } }
       )
       .then((r) => r.data),
 
-  createBooking: (societyId: string, data: Partial<AmenityBooking>) =>
+  // Backend: POST /amenity-bookings (not /amenities/bookings)
+  createBooking: (societyId: string, data: BookAmenityRequest) =>
     api
-      .post<AmenityBooking>(`/societies/${societyId}/amenities/bookings`, data)
+      .post<AmenityBooking>(`/societies/${societyId}/amenity-bookings`, data)
       .then((r) => r.data),
 };

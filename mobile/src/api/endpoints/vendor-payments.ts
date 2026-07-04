@@ -1,33 +1,42 @@
 import api from '../client';
 import type { PaginatedResponse } from '../types';
 
-export interface VendorPayment {
+// Matches backend VendorChargeDto
+export interface VendorCharge {
   id: string;
   societyId: string;
+  vendorId: string;
   vendorName: string;
-  vendorPhone: string;
-  category: string;
-  amount: number;
-  paymentDate: string;
-  status: string;
+  scheduleId?: string;
+  chargeType: string;
   description: string;
-  invoiceUrl?: string;
+  effectiveDate: string;
+  chargeYear: number;
+  chargeMonth: number;
+  amount: number;
+  dueDate: string;
+  status: string;
+  isActive: boolean;
+  isOverdue: boolean;
+  paidAt?: string;
+  paymentMethod?: string;
+  transactionReference?: string;
+  receiptUrl?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export const vendorPaymentsApi = {
-  getVendorPayments: (
+  // Backend: GET /vendor-payments/charges — paged list of vendor charges
+  getVendorCharges: (
     societyId: string,
     params?: Record<string, string | number>
   ) =>
     api
-      .get<PaginatedResponse<VendorPayment>>(
-        `/societies/${societyId}/vendor-payments`,
+      .get<PaginatedResponse<VendorCharge>>(
+        `/societies/${societyId}/vendor-payments/charges`,
         { params }
       )
-      .then((r) => r.data),
-
-  getVendorPayment: (societyId: string, id: string) =>
-    api
-      .get<VendorPayment>(`/societies/${societyId}/vendor-payments/${id}`)
       .then((r) => r.data),
 };

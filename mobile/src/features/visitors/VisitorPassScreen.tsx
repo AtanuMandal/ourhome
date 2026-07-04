@@ -35,20 +35,22 @@ export function VisitorPassScreen({ route }: VisitorPassScreenProps) {
             <Text style={styles.visitorName}>{visitor.visitorName}</Text>
             <Text style={styles.meta}>Phone: {visitor.visitorPhone}</Text>
             <Text style={styles.meta}>Purpose: {visitor.purpose}</Text>
-            <Text style={styles.meta}>Resident: {visitor.residentName}</Text>
+            <Text style={styles.meta}>
+              Host: {visitor.hostResidentName} · {visitor.hostBlockName} {visitor.hostFloorNumber}-{visitor.hostFlatNumber}
+            </Text>
 
             <View style={styles.statusRow}>
               <StatusChip status={visitor.status} />
             </View>
 
-            {visitor.checkInAt != null && (
+            {visitor.checkInTime != null && (
               <Text style={styles.time}>
-                Check-in: {formatDateTime(visitor.checkInAt)}
+                Check-in: {formatDateTime(visitor.checkInTime)}
               </Text>
             )}
-            {visitor.checkOutAt != null && (
+            {visitor.checkOutTime != null && (
               <Text style={styles.time}>
-                Check-out: {formatDateTime(visitor.checkOutAt)}
+                Check-out: {formatDateTime(visitor.checkOutTime)}
               </Text>
             )}
           </View>

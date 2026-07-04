@@ -18,6 +18,7 @@ import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing } from '../../theme/spacing';
 import type { Apartment } from '../../api/types';
+import { formatApartmentLabel } from '../../shared/utils/apartment';
 
 export function ApartmentListScreen() {
   const societyId = useSocietyId();
@@ -28,13 +29,11 @@ export function ApartmentListScreen() {
     useApartmentList(societyId, debouncedSearch ? { search: debouncedSearch } : undefined);
 
   function renderItem({ item }: { item: Apartment }) {
+    const label = formatApartmentLabel(item.blockName, item.floorNumber, item.apartmentNumber);
     return (
       <View style={styles.item}>
         <View style={styles.itemLeft}>
-          <Text style={styles.number}>{item.apartmentNumber}</Text>
-          <Text style={styles.meta}>
-            Block {item.blockName} · Floor {item.floorNumber}
-          </Text>
+          <Text style={styles.number}>{label}</Text>
           <Text style={styles.residents}>
             {item.residents.length} resident{item.residents.length !== 1 ? 's' : ''}
           </Text>

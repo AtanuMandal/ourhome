@@ -1,18 +1,26 @@
 import { useQuery } from '@tanstack/react-query';
 import { financialReportApi } from '../../../api/endpoints/financial-report';
 
-export function useFinancialSummary(societyId: string, year: number) {
+export function useFinancialSocietySummary(societyId: string) {
   return useQuery({
-    queryKey: ['financial-summary', societyId, year],
-    queryFn: () => financialReportApi.getFinancialSummary(societyId, year),
+    queryKey: ['financial-society-summary', societyId],
+    queryFn: () => financialReportApi.getSocietySummary(societyId),
     enabled: !!societyId,
   });
 }
 
-export function useIncomeBreakdown(societyId: string, year: number) {
+export function useFinancialDashboard(societyId: string) {
   return useQuery({
-    queryKey: ['income-breakdown', societyId, year],
-    queryFn: () => financialReportApi.getIncomeBreakdown(societyId, year),
+    queryKey: ['financial-dashboard', societyId],
+    queryFn: () => financialReportApi.getDashboard(societyId),
     enabled: !!societyId,
+  });
+}
+
+export function usePersonalStatement(societyId: string, apartmentId: string, year?: number) {
+  return useQuery({
+    queryKey: ['personal-statement', societyId, apartmentId, year],
+    queryFn: () => financialReportApi.getPersonalStatement(societyId, apartmentId, year),
+    enabled: !!societyId && !!apartmentId,
   });
 }

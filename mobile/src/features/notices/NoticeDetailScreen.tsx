@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Linking } from 'react-native';
+import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSocietyId } from '../../shared/hooks/useSocietyId';
 import { useNotice, useMarkNoticeRead } from './hooks/useNotices';
@@ -21,7 +21,7 @@ export function NoticeDetailScreen({ route }: NoticeDetailScreenProps) {
   const { mutate: markRead } = useMarkNoticeRead(societyId);
 
   useEffect(() => {
-    if (notice && !notice.isRead) {
+    if (notice && !notice.isReadByCurrentUser) {
       markRead(id);
     }
   }, [notice, id, markRead]);
@@ -34,18 +34,10 @@ export function NoticeDetailScreen({ route }: NoticeDetailScreenProps) {
         <ScrollView contentContainerStyle={styles.content}>
           <Text style={styles.title}>{notice.title}</Text>
           <Text style={styles.meta}>
-            Posted by {notice.postedBy} · {formatDateTime(notice.postedAt)}
+            {notice.category} · {formatDateTime(notice.publishAt)}
           </Text>
           <View style={styles.divider} />
           <Text style={styles.body}>{notice.content}</Text>
-          {notice.attachmentUrl != null && (
-            <TouchableOpacity
-              style={styles.attachment}
-              onPress={() => void Linking.openURL(notice.attachmentUrl!)}
-            >
-              <Text style={styles.attachmentText}>View Attachment</Text>
-            </TouchableOpacity>
-          )}
         </ScrollView>
       )}
     </SafeAreaView>

@@ -9,6 +9,8 @@ import {
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSocietyId } from '../../shared/hooks/useSocietyId';
 import { useVisitorList } from './hooks/useVisitors';
 import { useDebounce } from '../../shared/hooks/useDebounce';
@@ -21,7 +23,10 @@ import { spacing } from '../../theme/spacing';
 import { formatDateTime } from '../../shared/utils/date';
 import type { Visitor } from '../../api/types';
 
+type VisitorsNav = NativeStackNavigationProp<{ VisitorList: undefined; VisitorRegister: undefined; VisitorDetail: { id: string } }>;
+
 export function VisitorListScreen() {
+  const navigation = useNavigation<VisitorsNav>();
   const societyId = useSocietyId();
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search);
@@ -35,10 +40,10 @@ export function VisitorListScreen() {
         <View style={styles.itemLeft}>
           <Text style={styles.visitorName}>{item.visitorName}</Text>
           <Text style={styles.meta}>
-            {item.residentName} • {item.purpose}
+            {item.hostResidentName} • {item.purpose}
           </Text>
-          {item.checkInAt != null && (
-            <Text style={styles.time}>{formatDateTime(item.checkInAt)}</Text>
+          {item.checkInTime != null && (
+            <Text style={styles.time}>{formatDateTime(item.checkInTime)}</Text>
           )}
         </View>
         <StatusChip status={item.status} />
@@ -81,7 +86,11 @@ export function VisitorListScreen() {
         }
         ItemSeparatorComponent={() => <View style={styles.separator} />}
       />
-      <TouchableOpacity style={styles.fab} accessibilityLabel="Register visitor">
+      <TouchableOpacity
+        style={styles.fab}
+        accessibilityLabel="Register visitor"
+        onPress={() => navigation.navigate('VisitorRegister')}
+      >
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
     </SafeAreaView>

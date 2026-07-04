@@ -24,7 +24,7 @@ export function useDashboard() {
       ]);
       return {
         visitorsToday: visitors.total,
-        unreadNotices: notices.items.filter((n) => !n.isRead).length,
+        unreadNotices: notices.items.filter((n) => !n.isReadByCurrentUser).length,
         pendingComplaints: complaints.total,
       };
     },

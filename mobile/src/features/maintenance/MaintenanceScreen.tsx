@@ -31,6 +31,8 @@ export function MaintenanceScreen() {
   const { data, isLoading, fetchNextPage, hasNextPage, refetch } =
     useMaintenanceList(societyId, params);
 
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
   function renderItem({ item }: { item: MaintenanceCharge }) {
     const overdue = item.status !== 'Paid' && isOverdue(item.dueDate);
     return (
@@ -40,7 +42,7 @@ export function MaintenanceScreen() {
           <CurrencyText amount={item.amount} style={styles.amount} />
         </View>
         <Text style={styles.period}>
-          {item.month} {item.year}
+          {MONTHS[(item.chargeMonth ?? 1) - 1]} {item.chargeYear}
         </Text>
         <View style={styles.itemBottom}>
           <StatusChip status={item.status} />
