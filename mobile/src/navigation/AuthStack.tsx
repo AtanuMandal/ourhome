@@ -16,6 +16,8 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../auth/useAuth';
 import { authApi, type PasswordResetOption } from '../api/endpoints/auth';
+import * as loginPreference from '../auth/loginPreference';
+import type { LoginMethod } from '../auth/loginPreference';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 import { spacing } from '../theme/spacing';
@@ -35,6 +37,26 @@ type AuthNav = NativeStackNavigationProp<AuthStackParamList>;
 // ──────────────────────────────────────────────────────────────────────────────
 function LoginScreen() {
   const navigation = useNavigation<AuthNav>();
+  const [method, setMethod] = useState<LoginMethod>('phone');
+
+  useEffect(() => {
+    loginPreference.getLoginMethod().then(setMethod);
+  }, []);
+
+  function switchMethod(next: LoginMethod): void {
+    setMethod(next);
+    void loginPreference.setLoginMethod(next);
+  }
+
+  return method === 'phone'
+    ? <PhoneOtpLoginScreen navigation={navigation} onSwitchToEmail={() => switchMethod('email')} />
+    : <EmailPasswordLoginScreen navigation={navigation} onSwitchToPhone={() => switchMethod('phone')} />;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// EmailPasswordLoginScreen
+// ──────────────────────────────────────────────────────────────────────────────
+function EmailPasswordLoginScreen({ navigation, onSwitchToPhone }: { navigation: AuthNav; onSwitchToPhone: () => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -81,7 +103,7 @@ function LoginScreen() {
             </TouchableOpacity>
           ))}
           <TouchableOpacity onPress={() => setOptions(null)} style={styles.backLink}>
-            <Text style={styles.backLinkText}>��� Back to login</Text>
+            <Text style={styles.backLinkText}>‹ Back to login</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -120,6 +142,146 @@ function LoginScreen() {
 
         <TouchableOpacity style={styles.button} onPress={() => void handleLogin()}>
           <Text style={styles.buttonText}>Sign In</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.forgotLink} onPress={onSwitchToPhone}>
+          <Text style={styles.forgotLinkText}>Use mobile number instead</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.forgotLink}
+          onPress={() => navigation.navigate('ForgotPassword')}
+        >
+          <Text style={styles.forgotLinkText}>Forgot password?</Text>
+        </TouchableOpacity>
+      </View>
+    </KeyboardAvoidingView>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// PhoneOtpLoginScreen — default login method: phone + OTP, 2-step (request → verify)
+// ──────────────────────────────────────────────────────────────────────────────
+function PhoneOtpLoginScreen({ navigation, onSwitchToEmail }: { navigation: AuthNav; onSwitchToEmail: () => void }) {
+  const [step, setStep] = useState<'enter-phone' | 'select-account' | 'enter-otp'>('enter-phone');
+  const [phone, setPhone] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [options, setOptions] = useState<PasswordResetOption[] | null>(null);
+  const [resolvedUserId, setResolvedUserId] = useState<string | null>(null);
+  const [resolvedSocietyId, setResolvedSocietyId] = useState<string | null>(null);
+  const { loginWithOtp } = useAuth();
+
+  async function handleRequestOtp(selectedUserId?: string): Promise<void> {
+    if (!phone.trim()) { Alert.alert('Validation', 'Mobile number is required.'); return; }
+    setLoading(true);
+    try {
+      const res = await authApi.requestOtpLogin(phone.trim(), selectedUserId);
+      if (res.requiresSelection && !selectedUserId) {
+        setOptions(res.options);
+        setStep('select-account');
+        return;
+      }
+      const opt = res.options[0] ?? null;
+      setResolvedUserId(res.userId ?? opt?.userId ?? null);
+      setResolvedSocietyId(opt?.societyId ?? null);
+      setStep('enter-otp');
+    } catch (e) {
+      Alert.alert('Error', normalizeError(e));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleSelectOption(opt: PasswordResetOption): void {
+    setOptions(null);
+    void handleRequestOtp(opt.userId);
+  }
+
+  async function handleVerifyOtp(): Promise<void> {
+    if (!otpCode.trim()) { Alert.alert('Validation', 'OTP is required.'); return; }
+    if (!resolvedUserId || !resolvedSocietyId) { Alert.alert('Error', 'No account resolved.'); return; }
+    setLoading(true);
+    try {
+      await loginWithOtp(resolvedSocietyId, resolvedUserId, otpCode.trim());
+    } catch (e) {
+      Alert.alert('Login failed', normalizeError(e));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (step === 'select-account' && options != null) {
+    return (
+      <View style={styles.container}>
+        <LoadingOverlay visible={loading} />
+        <View style={styles.card}>
+          <Text style={styles.heading}>Select Account</Text>
+          <Text style={styles.subheading}>This number is linked to multiple accounts</Text>
+          {options.map((opt) => (
+            <TouchableOpacity key={opt.userId} style={styles.optionRow} onPress={() => handleSelectOption(opt)}>
+              <View style={styles.optionLeft}>
+                <Text style={styles.optionSociety}>{opt.societyName}</Text>
+                <Text style={styles.optionMeta}>{opt.role}{opt.apartmentLabel ? ` · ${opt.apartmentLabel}` : ''}</Text>
+              </View>
+              <Text style={styles.optionArrow}>›</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+    );
+  }
+
+  if (step === 'enter-otp') {
+    return (
+      <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <LoadingOverlay visible={loading} />
+        <View style={styles.card}>
+          <Text style={styles.heading}>Enter OTP</Text>
+          <Text style={styles.subheading}>Check your phone for the 6-digit code</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="OTP code"
+            placeholderTextColor={colors.text.disabled}
+            value={otpCode}
+            onChangeText={setOtpCode}
+            keyboardType="number-pad"
+            maxLength={6}
+          />
+          <TouchableOpacity style={styles.button} onPress={() => void handleVerifyOtp()}>
+            <Text style={styles.buttonText}>Verify &amp; Sign In</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.forgotLink} onPress={() => setStep('enter-phone')}>
+            <Text style={styles.forgotLinkText}>← Back</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    );
+  }
+
+  return (
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <LoadingOverlay visible={loading} />
+      <View style={styles.card}>
+        <Text style={styles.heading}>OurHome</Text>
+        <Text style={styles.subheading}>Society Management</Text>
+
+        <TextInput
+          style={styles.input}
+          placeholder="Mobile number"
+          placeholderTextColor={colors.text.disabled}
+          value={phone}
+          onChangeText={setPhone}
+          keyboardType="phone-pad"
+          autoComplete="tel"
+        />
+
+        <TouchableOpacity style={styles.button} onPress={() => void handleRequestOtp()}>
+          <Text style={styles.buttonText}>Send OTP</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.forgotLink} onPress={onSwitchToEmail}>
+          <Text style={styles.forgotLinkText}>Use email &amp; password instead</Text>
         </TouchableOpacity>
 
         <TouchableOpacity

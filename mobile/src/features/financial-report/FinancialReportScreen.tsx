@@ -1,26 +1,39 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   ScrollView,
   RefreshControl,
+  TouchableOpacity,
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSocietyId } from '../../shared/hooks/useSocietyId';
-import { useFinancialSocietySummary } from './hooks/useFinancialReport';
+import { useAuthStore } from '../../store/authStore';
+import { useFinancialSocietySummary, useSocietyLedger } from './hooks/useFinancialReport';
 import { AppHeader } from '../../shared/components/AppHeader';
 import { CurrencyText } from '../../shared/components/CurrencyText';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing } from '../../theme/spacing';
-import type { ExpenseCategoryDto } from '../../api/endpoints/financial-report';
+import type { ExpenseCategoryDto, LedgerEntryDto } from '../../api/endpoints/financial-report';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+type Tab = 'summary' | 'ledger';
+
 export function FinancialReportScreen() {
   const societyId = useSocietyId();
+  const role = useAuthStore((s) => s.user?.role);
+  const isAdmin = role === 'SUAdmin' || role === 'HQAdmin' || role === 'HQUser';
+
+  const [tab, setTab] = useState<Tab>('summary');
   const { data: summary, isLoading, refetch } = useFinancialSocietySummary(societyId);
+  const {
+    data: ledger,
+    isLoading: ledgerLoading,
+    refetch: refetchLedger,
+  } = useSocietyLedger(societyId, isAdmin && tab === 'ledger');
 
   const periodLabel = summary
     ? `${MONTHS[(summary.currentMonth ?? 1) - 1]} ${summary.currentYear}`
@@ -29,6 +42,65 @@ export function FinancialReportScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <AppHeader title="Financial Report" showMenu />
+
+      {isAdmin && (
+        <View style={styles.tabBar}>
+          <TouchableOpacity
+            style={[styles.tabBtn, tab === 'summary' && styles.tabBtnActive]}
+            onPress={() => setTab('summary')}
+          >
+            <Text style={[styles.tabBtnText, tab === 'summary' && styles.tabBtnTextActive]}>Summary</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tabBtn, tab === 'ledger' && styles.tabBtnActive]}
+            onPress={() => setTab('ledger')}
+          >
+            <Text style={[styles.tabBtnText, tab === 'ledger' && styles.tabBtnTextActive]}>Society Ledger</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {tab === 'ledger' && isAdmin ? (
+        <ScrollView
+          refreshControl={
+            <RefreshControl
+              refreshing={ledgerLoading}
+              onRefresh={() => void refetchLedger()}
+              tintColor={colors.primary}
+            />
+          }
+        >
+          <View style={styles.summarySection}>
+            <View style={styles.ledgerHeaderRow}>
+              <Text style={styles.sectionTitle}>Overall Society Ledger</Text>
+              {ledger != null && (
+                <CurrencyText amount={ledger.currentBalance} style={styles.ledgerBalance} />
+              )}
+            </View>
+
+            {ledger != null && ledger.entries.length === 0 && (
+              <Text style={styles.emptyText}>No transactions found for this society.</Text>
+            )}
+
+            {ledger?.entries.map((entry: LedgerEntryDto, idx: number) => (
+              <View key={`${entry.date}-${idx}`} style={styles.ledgerRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.ledgerDescription}>{entry.description}</Text>
+                  <Text style={styles.ledgerDate}>{new Date(entry.date).toLocaleDateString()}</Text>
+                </View>
+                <View style={styles.ledgerAmounts}>
+                  {entry.debit != null && (
+                    <CurrencyText amount={entry.debit} style={styles.ledgerDebit} />
+                  )}
+                  {entry.credit != null && (
+                    <CurrencyText amount={entry.credit} style={styles.ledgerCredit} />
+                  )}
+                </View>
+              </View>
+            ))}
+          </View>
+        </ScrollView>
+      ) : (
       <ScrollView
         refreshControl={
           <RefreshControl
@@ -109,12 +181,50 @@ export function FinancialReportScreen() {
           </>
         )}
       </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
+  tabBar: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  tabBtn: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: 999,
+    backgroundColor: colors.surface,
+  },
+  tabBtnActive: { backgroundColor: colors.primary },
+  tabBtnText: { fontSize: typography.fontSize.sm, color: colors.text.secondary, fontWeight: typography.fontWeight.medium },
+  tabBtnTextActive: { color: '#fff' },
+  ledgerHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  ledgerBalance: { fontSize: typography.fontSize.lg, fontWeight: typography.fontWeight.bold },
+  emptyText: { fontSize: typography.fontSize.sm, color: colors.text.disabled, textAlign: 'center', marginTop: spacing.lg },
+  ledgerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    gap: spacing.sm,
+  },
+  ledgerDescription: { fontSize: typography.fontSize.sm, color: colors.text.primary },
+  ledgerDate: { fontSize: typography.fontSize.xs, color: colors.text.disabled, marginTop: 2 },
+  ledgerAmounts: { alignItems: 'flex-end' },
+  ledgerDebit: { fontSize: typography.fontSize.sm, color: colors.error, fontWeight: typography.fontWeight.medium },
+  ledgerCredit: { fontSize: typography.fontSize.sm, color: colors.success, fontWeight: typography.fontWeight.medium },
   summarySection: { padding: spacing.md },
   sectionTitle: {
     fontSize: typography.fontSize.sm,

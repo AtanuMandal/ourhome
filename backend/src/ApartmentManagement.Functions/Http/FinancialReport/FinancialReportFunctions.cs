@@ -58,6 +58,21 @@ public class FinancialReportFunctions(ISender mediator, ICurrentUserService curr
         return result.ToActionResult();
     }
 
+    [Function("GetSocietyLedger")]
+    public async Task<IActionResult> GetSocietyLedger(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get",
+            Route = "societies/{societyId}/financial-report/society-ledger")] HttpRequest req,
+        string societyId, CancellationToken ct)
+    {
+        if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
+
+        DateTime? from = DateTime.TryParse(req.Query["from"], out var f) ? f : null;
+        DateTime? to   = DateTime.TryParse(req.Query["to"],   out var t) ? t : null;
+
+        var result = await mediator.Send(new GetSocietyLedgerQuery(societyId, from, to), ct);
+        return result.ToActionResult();
+    }
+
     [Function("GetSocietySummary")]
     public async Task<IActionResult> GetSocietySummary(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get",

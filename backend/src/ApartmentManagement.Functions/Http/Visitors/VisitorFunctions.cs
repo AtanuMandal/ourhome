@@ -88,7 +88,8 @@ public class VisitorFunctions(ISender mediator, ICurrentUserService currentUser,
 
     [Function("GetVisitor")]
     public async Task<IActionResult> GetVisitor(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "societies/{societyId}/visitors/{id}")] HttpRequest req,
+        // Constrained to :guid so literal sibling routes (verify/active/lookups/export) never bind here as "id".
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "societies/{societyId}/visitors/{id:guid}")] HttpRequest req,
         string societyId, string id, CancellationToken ct)
     {
         var result = await mediator.Send(new GetVisitorLogQuery(societyId, id), ct);
@@ -148,6 +149,16 @@ public class VisitorFunctions(ISender mediator, ICurrentUserService currentUser,
         string societyId, CancellationToken ct)
     {
         var result = await mediator.Send(new GetActiveVisitorsQuery(societyId), ct);
+        return result.ToActionResult();
+    }
+
+    [Function("GetVisitorLookups")]
+    public async Task<IActionResult> GetVisitorLookups(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "societies/{societyId}/visitors/lookups")] HttpRequest req,
+        string societyId, CancellationToken ct)
+    {
+        if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
+        var result = await mediator.Send(new GetVisitorLookupsQuery(societyId), ct);
         return result.ToActionResult();
     }
 

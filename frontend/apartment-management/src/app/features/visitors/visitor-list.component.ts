@@ -3,7 +3,7 @@ import { Component, DestroyRef, ElementRef, OnDestroy, OnInit, ViewChild, comput
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ReactiveFormsModule, FormBuilder } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { interval } from 'rxjs';
+import { forkJoin, interval } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -17,6 +17,8 @@ import { EmptyStateComponent } from '../../shared/components/empty-state/empty-s
 import { LoadingSpinnerComponent } from '../../shared/components/loading-spinner/loading-spinner.component';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 import { StatusChipComponent } from '../../shared/components/status-chip/status-chip.component';
+import { SecureImageComponent } from '../../shared/components/secure-image/secure-image.component';
+import { ImageLightboxComponent } from '../../shared/components/image-lightbox/image-lightbox.component';
 
 @Component({
   selector: 'app-visitor-list',
@@ -34,7 +36,9 @@ import { StatusChipComponent } from '../../shared/components/status-chip/status-
     SearchableSelectComponent,
     StatusChipComponent,
     LoadingSpinnerComponent,
-    EmptyStateComponent
+    EmptyStateComponent,
+    SecureImageComponent,
+    ImageLightboxComponent
   ],
   template: `
     <app-page-header title="Visitors"></app-page-header>
@@ -57,6 +61,9 @@ import { StatusChipComponent } from '../../shared/components/status-chip/status-
           <div>
             <h3>Visitor history</h3>
             <p>Search by visitor name, resident, date, or status.</p>
+            @if (isDefaultFilterState()) {
+              <p class="filters-card__hint">Showing all pending visitors and the 10 most recent. Filter or export CSV for the full history.</p>
+            }
           </div>
           @if (canManageVisitors()) {
             <button mat-stroked-button color="primary" type="button" (click)="exportCsv()">
@@ -143,7 +150,8 @@ import { StatusChipComponent } from '../../shared/components/status-chip/status-
           @if (verifiedVisitor()) {
             <div class="verify-card__result">
               @if (verifiedVisitor()!.visitorImageUrl) {
-                <img [src]="verifiedVisitor()!.visitorImageUrl" alt="Visitor photo" class="verify-card__photo">
+                <app-secure-image [src]="verifiedVisitor()!.visitorImageUrl!" alt="Visitor photo" imgClass="verify-card__photo"
+                  [clickable]="true" (imageClick)="lightboxSrc.set(verifiedVisitor()!.visitorImageUrl!)"></app-secure-image>
               }
               <div>
                 <strong>{{ verifiedVisitor()!.visitorName }}</strong>
@@ -170,7 +178,8 @@ import { StatusChipComponent } from '../../shared/components/status-chip/status-
             <div class="visitor-card">
               <div class="vc-avatar-wrap">
                 @if (visitor.visitorImageUrl) {
-                  <img [src]="visitor.visitorImageUrl" alt="Visitor photo" class="vc-avatar-img">
+                  <app-secure-image [src]="visitor.visitorImageUrl" alt="Visitor photo" imgClass="vc-avatar-img"
+                    [clickable]="true" (imageClick)="lightboxSrc.set(visitor.visitorImageUrl!)"></app-secure-image>
                 } @else {
                   <div class="vc-avatar">{{ visitor.visitorName[0] }}</div>
                 }
@@ -214,7 +223,9 @@ import { StatusChipComponent } from '../../shared/components/status-chip/status-
 
                 <div class="vc-actions">
                   @if (visitor.status === 'Pending' && canModerate(visitor)) {
-                    <button mat-stroked-button color="primary" type="button" (click)="approve(visitor)">Approve</button>
+                    @if (canApprove(visitor)) {
+                      <button mat-stroked-button color="primary" type="button" (click)="approve(visitor)">Approve</button>
+                    }
                     <button mat-stroked-button color="warn" type="button" (click)="deny(visitor)">Deny</button>
                   }
 
@@ -233,11 +244,14 @@ import { StatusChipComponent } from '../../shared/components/status-chip/status-
        [attr.aria-label]="canManageVisitors() ? 'Register visitor' : 'Pre-approve visitor'">
       <mat-icon>person_add</mat-icon>
     </a>
+
+    <app-image-lightbox [open]="!!lightboxSrc()" [src]="lightboxSrc() ?? ''" (closed)="lightboxSrc.set(null)"></app-image-lightbox>
   `,
   styleUrl: './visitors.scss'
 })
 export class VisitorListComponent implements OnInit, OnDestroy {
   @ViewChild('scannerVideo') scannerVideoRef?: ElementRef<HTMLVideoElement>;
+  readonly lightboxSrc = signal<string | null>(null);
 
   private readonly visitorService = inject(VisitorService);
   private readonly auth = inject(AuthService);
@@ -330,9 +344,39 @@ export class VisitorListComponent implements OnInit, OnDestroy {
     this.loading.set(true);
     this.errorMessage.set('');
 
+    if (this.isDefaultFilterState()) {
+      this.loadDefaultView(societyId);
+      return;
+    }
+
     this.visitorService.list(societyId, 1, 100, this.buildFilters()).subscribe({
       next: response => {
         this.items.set(response.items ?? []);
+        this.loading.set(false);
+      },
+      error: error => {
+        this.errorMessage.set(error?.error?.message ?? 'Unable to load visitors right now.');
+        this.loading.set(false);
+      }
+    });
+  }
+
+  /** No filter applied — show every Pending visitor plus the 10 most recent overall, not the whole history. Use Export CSV for more. */
+  isDefaultFilterState(): boolean {
+    const f = this.filtersForm.getRawValue();
+    return !f.search && !f.residentName && !f.status && !f.fromDate && !f.toDate;
+  }
+
+  private loadDefaultView(societyId: string) {
+    const pending$ = this.visitorService.list(societyId, 1, 200, { ...this.buildFilters(), status: 'Pending' });
+    const recent$ = this.visitorService.list(societyId, 1, 10, this.buildFilters());
+
+    forkJoin([pending$, recent$]).subscribe({
+      next: ([pendingRes, recentRes]) => {
+        const merged = new Map<string, Visitor>();
+        for (const visitor of pendingRes.items ?? []) merged.set(visitor.id, visitor);
+        for (const visitor of recentRes.items ?? []) if (!merged.has(visitor.id)) merged.set(visitor.id, visitor);
+        this.items.set([...merged.values()]);
         this.loading.set(false);
       },
       error: error => {
@@ -439,6 +483,12 @@ export class VisitorListComponent implements OnInit, OnDestroy {
 
   canModerate(visitor: Visitor) {
     if (this.canManageVisitors()) return true;
+    const apartmentId = this.residentApartmentId();
+    return !!apartmentId && apartmentId === visitor.hostApartmentId;
+  }
+
+  /** Only the host resident can approve a visitor — SUAdmin, HQAdmin and SUSecurity may deny but not approve. */
+  canApprove(visitor: Visitor) {
     const apartmentId = this.residentApartmentId();
     return !!apartmentId && apartmentId === visitor.hostApartmentId;
   }

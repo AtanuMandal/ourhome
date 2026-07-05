@@ -461,4 +461,28 @@ public class GetApartmentsBySocietyQueryHandlerTests
         result.Value.Items[0].Status.Should().Be("UnderMaintenance");
         _apartmentRepoMock.Verify(r => r.GetAllAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
+
+    [Fact]
+    public async Task Handle_WithMixedFloorOrder_ReturnsApartmentsOrderedByFloorDescending()
+    {
+        var societyId = "society-001";
+        var apartments = new List<Apartment>
+        {
+            Apartment.Create(societyId, "A101", "A", 1, 3, [], 500, 600, 700),
+            Apartment.Create(societyId, "A305", "A", 3, 3, [], 500, 600, 700),
+            Apartment.Create(societyId, "A202", "A", 2, 3, [], 500, 600, 700),
+            Apartment.Create(societyId, "A301", "A", 3, 3, [], 500, 600, 700)
+        };
+
+        _apartmentRepoMock
+            .Setup(r => r.GetAllAsync(societyId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(apartments);
+
+        var query = new GetApartmentsBySocietyQuery(societyId, new PaginationParams { Page = 1, PageSize = 20 }, null, null);
+
+        var result = await CreateHandler().Handle(query, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Items.Select(a => a.ApartmentNumber).Should().ContainInOrder("A301", "A305", "A202", "A101");
+    }
 }

@@ -11,7 +11,7 @@ export async function compressAndUpload(uri: string, societyId: string): Promise
     { compress: 0.75, format: ImageManipulator.SaveFormat.JPEG }
   );
 
-  const uploadUrl = `${BASE_URL}/societies/${societyId}/files/upload`;
+  const uploadUrl = `${BASE_URL}/societies/${societyId}/visitors/images/upload`;
 
   const response = await FileSystem.uploadAsync(uploadUrl, manipulated.uri, {
     httpMethod: 'POST',
@@ -24,6 +24,13 @@ export async function compressAndUpload(uri: string, societyId: string): Promise
     throw new Error(`Upload failed with status ${response.status}`);
   }
 
-  const body = JSON.parse(response.body) as { url: string };
-  return body.url;
+  // Backend returns an app-relative path (e.g. "files/visitor-images/soc-1/abc.jpg") — served
+  // through the secure file-proxy endpoint rather than a raw blob/SAS URL.
+  const body = JSON.parse(response.body) as { imageUrl: string };
+  return body.imageUrl;
+}
+
+/** Resolves an app-relative file path (as stored on visitor/maintenance/vendor records) to an absolute URL. */
+export function resolveFileUrl(relativePath: string): string {
+  return `${BASE_URL}/${relativePath}`;
 }

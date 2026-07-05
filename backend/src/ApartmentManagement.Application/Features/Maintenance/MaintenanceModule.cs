@@ -331,9 +331,11 @@ public sealed class UploadMaintenanceProofCommandHandler(
             var blobName = $"{request.SocietyId}/{actor.Id}/{Guid.NewGuid():N}{extension}";
 
             await using var stream = new MemoryStream(request.Content, writable: false);
-            var fileUrl = await fileStorageService.UploadAsync(stream, blobName, request.ContentType, ContainerName, ct);
+            await fileStorageService.UploadAsync(stream, blobName, request.ContentType, ContainerName, ct);
 
-            return Result<MaintenanceProofUploadResponse>.Success(new MaintenanceProofUploadResponse(request.FileName, fileUrl));
+            // Store an app-relative path (served via GetFileQuery) instead of a raw blob/SAS URL.
+            var appUrl = $"files/{ContainerName}/{blobName}";
+            return Result<MaintenanceProofUploadResponse>.Success(new MaintenanceProofUploadResponse(request.FileName, appUrl));
         }
         catch (ForbiddenException ex)
         {

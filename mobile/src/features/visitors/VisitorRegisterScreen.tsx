@@ -19,8 +19,12 @@ import { useApartmentList } from '../apartments/hooks/useApartments';
 import { AppHeader } from '../../shared/components/AppHeader';
 import { LoadingOverlay } from '../../shared/components/LoadingOverlay';
 import { SearchableSelect } from '../../shared/components/SearchableSelect';
+import { AutocompleteTextInput } from '../../shared/components/AutocompleteTextInput';
+import { ImageZoomModal } from '../../shared/components/ImageZoomModal';
 import { useCamera } from '../../camera/useCamera';
 import { useImagePicker } from '../../camera/useImagePicker';
+import { resolveFileUrl } from '../../camera/imageUpload';
+import { useVisitorLookups } from './hooks/useVisitors';
 import { normalizeError } from '../../shared/utils/errors';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
@@ -50,6 +54,7 @@ export function VisitorRegisterScreen() {
   const { pickFromGallery, pickFromCamera } = useImagePicker();
   // Only fetch apartment list for admin/security who need to select a unit
   const { data: apartments } = useApartmentList(canSelectApartment ? societyId : '');
+  const { data: lookups } = useVisitorLookups(societyId);
 
   const [visitorName, setVisitorName] = useState('');
   const [visitorPhone, setVisitorPhone] = useState('');
@@ -60,6 +65,7 @@ export function VisitorRegisterScreen() {
   const [validityHours, setValidityHours] = useState('');
   const [selectedApartmentId, setSelectedApartmentId] = useState('');
   const [photoUrl, setPhotoUrl] = useState<string | undefined>(undefined);
+  const [photoZoomVisible, setPhotoZoomVisible] = useState(false);
 
   const apartmentOptions = (apartments ?? []).map((a) => ({
     label: formatApartmentLabel(a.blockName, a.floorNumber, a.apartmentNumber),
@@ -137,7 +143,9 @@ export function VisitorRegisterScreen() {
       <LoadingOverlay visible={isPending || isUploading} />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {photoUrl != null && (
-          <Image source={{ uri: photoUrl }} style={styles.photo} />
+          <TouchableOpacity onPress={() => setPhotoZoomVisible(true)} accessibilityLabel="View visitor photo">
+            <Image source={{ uri: resolveFileUrl(photoUrl) }} style={styles.photo} />
+          </TouchableOpacity>
         )}
         <TouchableOpacity style={styles.photoButton} onPress={() => void handlePickPhoto()}>
           <Text style={styles.photoButtonText}>
@@ -159,13 +167,14 @@ export function VisitorRegisterScreen() {
           keyboardType="email-address" autoCapitalize="none" />
 
         <Text style={styles.label}>Company / Organization</Text>
-        <TextInput style={styles.input} value={companyName} onChangeText={setCompanyName}
-          placeholder="Company name (optional)" placeholderTextColor={colors.text.disabled} />
+        <AutocompleteTextInput style={styles.input} value={companyName} onChangeText={setCompanyName}
+          suggestions={lookups?.companies ?? []}
+          placeholder="Company name (optional)" />
 
         <Text style={styles.label}>Purpose of Visit *</Text>
-        <TextInput style={[styles.input, styles.multiline]} value={purpose} onChangeText={setPurpose}
-          placeholder="e.g. Delivery, Guest, Plumber..." placeholderTextColor={colors.text.disabled}
-          multiline numberOfLines={3} textAlignVertical="top" />
+        <AutocompleteTextInput style={[styles.input, styles.multiline]} value={purpose} onChangeText={setPurpose}
+          suggestions={lookups?.purposes ?? []}
+          placeholder="e.g. Delivery, Guest, Plumber..." multiline numberOfLines={3} />
 
         <Text style={styles.label}>Vehicle Number</Text>
         <TextInput style={styles.input} value={vehicleNumber} onChangeText={setVehicleNumber}
@@ -188,6 +197,14 @@ export function VisitorRegisterScreen() {
           <Text style={styles.submitButtonText}>Register Visitor</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {photoUrl != null && (
+        <ImageZoomModal
+          visible={photoZoomVisible}
+          uri={resolveFileUrl(photoUrl)}
+          onClose={() => setPhotoZoomVisible(false)}
+        />
+      )}
     </SafeAreaView>
   );
 }

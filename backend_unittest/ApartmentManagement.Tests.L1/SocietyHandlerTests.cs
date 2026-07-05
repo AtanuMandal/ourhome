@@ -1,6 +1,8 @@
 using ApartmentManagement.Application.Commands.Society;
+using ApartmentManagement.Application.DTOs;
 using ApartmentManagement.Application.Interfaces;
 using ApartmentManagement.Domain.Entities;
+using ApartmentManagement.Domain.Enums;
 using ApartmentManagement.Domain.Repositories;
 using ApartmentManagement.Domain.ValueObjects;
 using ApartmentManagement.Shared.Constants;
@@ -121,5 +123,96 @@ public class PublishSocietyCommandHandlerTests
         // Assert
         result.IsFailure.Should().BeTrue();
         result.ErrorCode.Should().Be(ErrorCodes.SocietyNotFound);
+    }
+}
+
+// ─── UpdateSocietyCommandHandler committee validation Tests ────────────────────
+
+public class UpdateSocietyCommandHandlerCommitteeTests
+{
+    private readonly Mock<ISocietyRepository> _societyRepoMock = new();
+    private readonly Mock<IUserRepository> _userRepoMock = new();
+    private readonly Mock<ICurrentUserService> _currentUserServiceMock = new();
+    private readonly Mock<ILogger<UpdateSocietyCommandHandler>> _loggerMock = new();
+
+    private UpdateSocietyCommandHandler CreateHandler() =>
+        new(_societyRepoMock.Object, _userRepoMock.Object, _currentUserServiceMock.Object, _loggerMock.Object);
+
+    private (Society society, User admin) SeedSociety()
+    {
+        var address = new Address("123 Main St", "Mumbai", "Maharashtra", "400001", "India");
+        var society = Society.Create("GV", address, "admin@gv.com", "+91-9876543210", 2, 40);
+        var admin = User.Create(society.Id, "Admin", "admin@gv.com", "+91-9000000000", UserRole.SUAdmin, ResidentType.SocietyAdmin);
+
+        _currentUserServiceMock.Setup(s => s.UserId).Returns(admin.Id);
+        _userRepoMock
+            .Setup(r => r.GetByIdAsync(admin.Id, society.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(admin);
+        _societyRepoMock
+            .Setup(r => r.GetByIdAsync(society.Id, society.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(society);
+        _societyRepoMock
+            .Setup(r => r.UpdateAsync(It.IsAny<Society>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Society s, CancellationToken _) => s);
+
+        return (society, admin);
+    }
+
+    private static UpdateSocietyCommand CommandWithCommittees(string societyId, IReadOnlyList<SocietyCommitteeRequest> committees) => new(
+        societyId, "GV", "admin@gv.com", "+91-9876543210", 2, 40, 5, [], committees);
+
+    [Fact]
+    public async Task Handle_SameUserAcrossTwoCommittees_ReturnsUserAlreadyOnCommittee()
+    {
+        // Arrange
+        var (society, _) = SeedSociety();
+        var bob = User.Create(society.Id, "Bob Jones", "bob@gv.com", "+91-9111111111", UserRole.SUUser, ResidentType.Owner);
+        _userRepoMock
+            .Setup(r => r.GetByEmailAsync(society.Id, "bob@gv.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(bob);
+
+        var command = CommandWithCommittees(society.Id, [
+            new SocietyCommitteeRequest("Managing Committee", [new SocietyUserAssignmentRequest("bob@gv.com", "Chairman")]),
+            new SocietyCommitteeRequest("Cultural Committee", [new SocietyUserAssignmentRequest("bob@gv.com", "Coordinator")]),
+        ]);
+
+        var handler = CreateHandler();
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.UserAlreadyOnCommittee);
+        _societyRepoMock.Verify(r => r.UpdateAsync(It.IsAny<Society>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_DistinctUsersAcrossCommittees_Succeeds()
+    {
+        // Arrange
+        var (society, _) = SeedSociety();
+        var bob = User.Create(society.Id, "Bob Jones", "bob@gv.com", "+91-9111111111", UserRole.SUUser, ResidentType.Owner);
+        var carol = User.Create(society.Id, "Carol White", "carol@gv.com", "+91-9222222222", UserRole.SUUser, ResidentType.Owner);
+        _userRepoMock
+            .Setup(r => r.GetByEmailAsync(society.Id, "bob@gv.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(bob);
+        _userRepoMock
+            .Setup(r => r.GetByEmailAsync(society.Id, "carol@gv.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(carol);
+
+        var command = CommandWithCommittees(society.Id, [
+            new SocietyCommitteeRequest("Managing Committee", [new SocietyUserAssignmentRequest("bob@gv.com", "Chairman")]),
+            new SocietyCommitteeRequest("Cultural Committee", [new SocietyUserAssignmentRequest("carol@gv.com", "Coordinator")]),
+        ]);
+
+        var handler = CreateHandler();
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Committees.Should().HaveCount(2);
     }
 }

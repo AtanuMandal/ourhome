@@ -27,6 +27,8 @@ const MENU_SUADMIN: MenuItem[] = [
   { name: 'Maintenance',     icon: 'receipt-long',    label: 'Maintenance' },
   { name: 'FinancialReport', icon: 'bar-chart',       label: 'Financial Reports' },
   { name: 'VendorPayments',  icon: 'payments',        label: 'Vendor Payments' },
+  { name: 'Committee',       icon: 'groups',          label: 'Society Committee' },
+  { name: 'ContactUs',       icon: 'support-agent',   label: 'Contact Us' },
   { name: 'Profile',         icon: 'manage-accounts', label: 'My Profile' },
 ];
 
@@ -38,6 +40,7 @@ const MENU_SUUSER: MenuItem[] = [
   { name: 'Amenities',       icon: 'event-available', label: 'Amenities' },
   { name: 'Maintenance',     icon: 'receipt-long',    label: 'Maintenance' },
   { name: 'FinancialReport', icon: 'bar-chart',       label: 'My Statement' },
+  { name: 'ContactUs',       icon: 'support-agent',   label: 'Contact Us' },
   { name: 'Profile',         icon: 'manage-accounts', label: 'My Profile' },
 ];
 
@@ -47,6 +50,7 @@ const MENU_SECURITY: MenuItem[] = [
   { name: 'Residents',  icon: 'people',          label: 'Residents' },
   { name: 'Complaints', icon: 'report-problem',  label: 'Complaints' },
   { name: 'Notices',    icon: 'notifications',   label: 'Notices' },
+  { name: 'ContactUs',  icon: 'support-agent',   label: 'Contact Us' },
   { name: 'Profile',    icon: 'manage-accounts', label: 'My Profile' },
 ];
 
@@ -61,6 +65,8 @@ const MENU_HQ: MenuItem[] = [
   { name: 'Maintenance',     icon: 'receipt-long',    label: 'Maintenance' },
   { name: 'FinancialReport', icon: 'bar-chart',       label: 'Financial Reports' },
   { name: 'VendorPayments',  icon: 'payments',        label: 'Vendor Payments' },
+  { name: 'Committee',       icon: 'groups',          label: 'Society Committee' },
+  { name: 'ContactUs',       icon: 'support-agent',   label: 'Contact Us' },
   { name: 'Profile',         icon: 'manage-accounts', label: 'My Profile' },
 ];
 

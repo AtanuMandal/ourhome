@@ -13,7 +13,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSocietyId } from '../../shared/hooks/useSocietyId';
 import { useAuthStore } from '../../store/authStore';
-import { useVisitorList, useApproveVisitor, useDenyVisitor, useCheckOutVisitor } from './hooks/useVisitors';
+import { useVisitorList, useVisitorDefaultView, useApproveVisitor, useDenyVisitor, useCheckOutVisitor } from './hooks/useVisitors';
 import { useDebounce } from '../../shared/hooks/useDebounce';
 import { AppHeader } from '../../shared/components/AppHeader';
 import { StatusChip } from '../../shared/components/StatusChip';
@@ -52,8 +52,18 @@ export function VisitorListScreen() {
   if (debouncedSearch) params.search = debouncedSearch;
   if (statusFilter) params.status = statusFilter;
 
-  const { data, isLoading, fetchNextPage, hasNextPage, refetch } =
-    useVisitorList(societyId, Object.keys(params).length > 0 ? params : undefined);
+  // No filter applied — show all Pending visitors plus the 10 most recent, not the whole
+  // history. Applying any search/status switches to the normal paginated filtered list.
+  const isDefaultView = !debouncedSearch && !statusFilter;
+
+  const filteredList = useVisitorList(societyId, Object.keys(params).length > 0 ? params : undefined, !isDefaultView);
+  const defaultView = useVisitorDefaultView(societyId, isDefaultView);
+
+  const data = isDefaultView ? (defaultView.data ?? []) : filteredList.data;
+  const isLoading = isDefaultView ? defaultView.isLoading : filteredList.isLoading;
+  const hasNextPage = isDefaultView ? false : filteredList.hasNextPage;
+  const fetchNextPage = isDefaultView ? async () => undefined : filteredList.fetchNextPage;
+  const refetch = isDefaultView ? defaultView.refetch : filteredList.refetch;
 
   const { mutate: approve } = useApproveVisitor(societyId);
   const { mutate: deny } = useDenyVisitor(societyId);
@@ -61,7 +71,8 @@ export function VisitorListScreen() {
 
   function canApprove(item: Visitor): boolean {
     if (item.status !== 'Pending') return false;
-    return canModerate || item.hostApartmentId === myApartmentId;
+    // Only the host resident can approve a visitor — SUAdmin and SUSecurity may deny but not approve.
+    return item.hostApartmentId === myApartmentId;
   }
 
   function canCheckOut(item: Visitor): boolean {
@@ -143,6 +154,9 @@ export function VisitorListScreen() {
           />
         </View>
       </View>
+      {isDefaultView && (
+        <Text style={styles.hint}>Showing all pending visitors and the 10 most recent. Search or filter for more.</Text>
+      )}
       <FlatList
         data={data}
         keyExtractor={(item) => item.id}
@@ -194,6 +208,13 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   statusFilter: { marginTop: spacing.xs },
+  hint: {
+    fontSize: typography.fontSize.xs,
+    color: colors.primary,
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.xs,
+    backgroundColor: colors.surface,
+  },
   item: {
     padding: spacing.md,
     backgroundColor: colors.surface,

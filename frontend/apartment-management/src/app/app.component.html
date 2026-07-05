@@ -1,6 +1,7 @@
 @if (isLoggedIn() && !isAuthRoute()) {
   <mat-sidenav-container class="app-container" autosize>
-    <mat-sidenav class="side-nav" mode="side" opened fixedInViewport>
+    <mat-sidenav #sidenav class="side-nav" [mode]="sidenavMode()" [opened]="sidenavOpened()"
+                 (openedChange)="onSidenavOpenedChange($event)" fixedInViewport>
       <div class="side-nav__brand">
         <img src="assets/branding/logo.png" alt="Aptiq" class="brand-logo">
       </div>
@@ -15,7 +16,8 @@
       <mat-nav-list class="side-nav__list">
         @for (item of visibleNav(); track item.path) {
           <a mat-list-item [routerLink]="item.path" routerLinkActive="active-link"
-             [routerLinkActiveOptions]="{ exact: item.path === '/dashboard' }">
+             [routerLinkActiveOptions]="{ exact: item.path === '/dashboard' }"
+             (click)="closeMobileMenu()">
             <mat-icon matListItemIcon>{{ item.icon }}</mat-icon>
             <span matListItemTitle>{{ item.label }}</span>
           </a>
@@ -30,6 +32,14 @@
       </div>
     </mat-sidenav>
     <mat-sidenav-content class="main-content">
+      @if (isMobile()) {
+        <div class="mobile-topbar">
+          <button mat-icon-button (click)="toggleMobileMenu()" aria-label="Open menu">
+            <mat-icon>menu</mat-icon>
+          </button>
+          <span class="mobile-topbar__title">Aptiq</span>
+        </div>
+      }
       @if (push.shouldPrompt && push.isBrowserSupported) {
         <div class="notif-banner">
           <mat-icon class="notif-banner__icon">notifications</mat-icon>

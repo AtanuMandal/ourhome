@@ -45,6 +45,24 @@ public sealed class BlobFileStorageService(IOptions<InfrastructureSettings> sett
         return Task.FromResult(GenerateReadUri(blobClient, expiry).ToString());
     }
 
+    public async Task<(Stream Content, string ContentType)> DownloadAsync(string containerName, string blobName, CancellationToken ct = default)
+    {
+        var client = CreateContainerClient(containerName);
+        var blobClient = client.GetBlobClient(blobName);
+        try
+        {
+            var download = await blobClient.DownloadStreamingAsync(cancellationToken: ct);
+            var contentType = string.IsNullOrWhiteSpace(download.Value.Details.ContentType)
+                ? "application/octet-stream"
+                : download.Value.Details.ContentType;
+            return (download.Value.Content, contentType);
+        }
+        catch (Azure.RequestFailedException ex) when (ex.Status == 404)
+        {
+            throw new FileNotFoundException($"Blob '{blobName}' was not found in container '{containerName}'.");
+        }
+    }
+
     private BlobContainerClient CreateContainerClient(string containerName)
     {
         if (string.IsNullOrWhiteSpace(_settings.BlobStorageConnectionString))

@@ -1,7 +1,9 @@
 import { Component, inject, computed, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { RouterOutlet, RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
-import { filter } from 'rxjs';
+import { filter, map } from 'rxjs';
 import { take } from 'rxjs/operators';
+import { BreakpointObserver } from '@angular/cdk/layout';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatListModule } from '@angular/material/list';
@@ -13,6 +15,8 @@ import { AuthService } from './core/services/auth.service';
 import { PushNotificationService } from './core/services/push-notification.service';
 import { SwUpdate, VersionReadyEvent } from '@angular/service-worker';
 import { MatSnackBar } from '@angular/material/snack-bar';
+
+const MOBILE_BREAKPOINT = '(max-width: 767px)';
 
 interface SideNavItem { path: string; icon: string; label: string; }
 
@@ -33,11 +37,25 @@ export class AppComponent {
   private readonly router   = inject(Router);
   private readonly sw       = inject(SwUpdate, { optional: true });
   private readonly snackBar = inject(MatSnackBar);
+  private readonly breakpointObserver = inject(BreakpointObserver);
   readonly push             = inject(PushNotificationService);
 
   readonly isLoggedIn = this.auth.isLoggedIn;
   readonly user       = this.auth.user;
   readonly isAuthRoute = signal(false);
+
+  readonly isMobile = toSignal(
+    this.breakpointObserver.observe(MOBILE_BREAKPOINT).pipe(map(state => state.matches)),
+    { initialValue: false }
+  );
+  readonly sidenavMode = computed<'over' | 'side'>(() => this.isMobile() ? 'over' : 'side');
+
+  private readonly mobileMenuOpen = signal(false);
+  readonly sidenavOpened = computed(() => this.isMobile() ? this.mobileMenuOpen() : true);
+
+  toggleMobileMenu() { this.mobileMenuOpen.update(v => !v); }
+  closeMobileMenu()  { this.mobileMenuOpen.set(false); }
+  onSidenavOpenedChange(opened: boolean) { this.mobileMenuOpen.set(opened); }
 
   private static readonly NAV_SUUSER: SideNavItem[] = [
     { path: '/dashboard',                        icon: 'home',            label: 'Dashboard' },
@@ -53,6 +71,7 @@ export class AppComponent {
     { path: '/financial-report/society-summary', icon: 'pie_chart',       label: 'Society Finances' },
     { path: '/rewards',                          icon: 'emoji_events',    label: 'Rewards' },
     { path: '/services',                         icon: 'build',           label: 'Services' },
+    { path: '/contact-us',                       icon: 'contact_support', label: 'Contact Us' },
     { path: '/profile',                          icon: 'manage_accounts', label: 'My Profile' },
   ];
 
@@ -70,6 +89,7 @@ export class AppComponent {
     { path: '/services',        icon: 'build',           label: 'Services' },
     { path: '/vendor-payments', icon: 'payments',        label: 'Vendor Payments' },
     { path: '/society',         icon: 'location_city',   label: 'Society' },
+    { path: '/contact-us',      icon: 'contact_support', label: 'Contact Us' },
     { path: '/profile',         icon: 'manage_accounts', label: 'My Profile' },
   ];
 
@@ -79,6 +99,7 @@ export class AppComponent {
     { path: '/residents',  icon: 'people',          label: 'Residents' },
     { path: '/complaints', icon: 'report_problem',  label: 'Complaints' },
     { path: '/notices',    icon: 'notifications',   label: 'Notices' },
+    { path: '/contact-us', icon: 'contact_support', label: 'Contact Us' },
     { path: '/profile',    icon: 'manage_accounts', label: 'My Profile' },
   ];
 
@@ -96,6 +117,7 @@ export class AppComponent {
     { path: '/services',        icon: 'build',           label: 'Services' },
     { path: '/vendor-payments', icon: 'payments',        label: 'Vendor Payments' },
     { path: '/society',         icon: 'location_city',   label: 'Society' },
+    { path: '/contact-us',      icon: 'contact_support', label: 'Contact Us' },
     { path: '/profile',         icon: 'manage_accounts', label: 'My Profile' },
   ];
 

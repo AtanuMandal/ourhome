@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -28,6 +28,16 @@ export function ApartmentListScreen() {
   const { data, isLoading, fetchNextPage, hasNextPage, refetch } =
     useApartmentList(societyId, debouncedSearch ? { search: debouncedSearch } : undefined);
 
+  const sortedData = useMemo(
+    () =>
+      [...data].sort(
+        (a, b) =>
+          b.floorNumber - a.floorNumber ||
+          a.apartmentNumber.localeCompare(b.apartmentNumber)
+      ),
+    [data]
+  );
+
   function renderItem({ item }: { item: Apartment }) {
     const label = formatApartmentLabel(item.blockName, item.floorNumber, item.apartmentNumber);
     return (
@@ -56,10 +66,10 @@ export function ApartmentListScreen() {
         />
       </View>
       <FlatList
-        data={data}
+        data={sortedData}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
-        contentContainerStyle={data.length === 0 ? styles.emptyContainer : undefined}
+        contentContainerStyle={sortedData.length === 0 ? styles.emptyContainer : undefined}
         refreshControl={
           <RefreshControl
             refreshing={isLoading}

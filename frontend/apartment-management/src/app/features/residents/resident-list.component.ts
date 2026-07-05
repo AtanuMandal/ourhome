@@ -1,7 +1,10 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
@@ -11,17 +14,34 @@ import { UserService } from '../../core/services/apartment.service';
 import { AuthService } from '../../core/services/auth.service';
 import { User } from '../../core/models/user.model';
 
+const ROLE_ORDER: string[] = ['SUAdmin', 'HQAdmin', 'HQUser', 'SUSecurity', 'SUUser'];
+const ROLE_LABELS: Record<string, string> = {
+  SUAdmin: 'Society Admins',
+  HQAdmin: 'HQ Admins',
+  HQUser: 'HQ Viewers',
+  SUSecurity: 'Security',
+  SUUser: 'Residents',
+};
+
+interface RoleGroup { role: string; label: string; users: User[]; }
+
 @Component({
   selector: 'app-resident-list',
   standalone: true,
-  imports: [RouterLink, MatButtonModule, MatIconModule,
+  imports: [RouterLink, FormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule,
             PageHeaderComponent, LoadingSpinnerComponent, EmptyStateComponent],
   template: `
-    <app-page-header title="Residents"></app-page-header>
+    <app-page-header title="Users"></app-page-header>
     <div class="page-content">
       @if (loading()) {
         <app-loading-spinner></app-loading-spinner>
       } @else {
+
+        <mat-form-field appearance="outline" class="search-field">
+          <mat-label>Search by name, email, phone or apartment</mat-label>
+          <mat-icon matPrefix>search</mat-icon>
+          <input matInput [ngModel]="search()" (ngModelChange)="search.set($event)" placeholder="Search users…">
+        </mat-form-field>
 
         @if (isAdmin() && pendingRequests().length > 0) {
           <div class="section-title pending-title">Pending Apartment Requests ({{ pendingRequests().length }})</div>
@@ -63,26 +83,37 @@ import { User } from '../../core/models/user.model';
           </div>
         }
 
-        @if (items().length === 0) {
-          <app-empty-state icon="people" title="No residents" message="No residents found.">
+        @if (filtered().length === 0) {
+          <app-empty-state icon="people" title="No users" message="No users found.">
             @if (isAdmin()) {
               <a routerLink="new" mat-stroked-button color="primary" style="margin-top:16px">Add Resident</a>
             }
           </app-empty-state>
         } @else {
-          <div class="resident-list">
-            @for (r of items(); track r.id) {
-              <a [routerLink]="[r.id]" class="resident-card">
-                <div class="avatar">{{ (r.fullName ?? r.name ?? '?')[0] }}</div>
-                <div class="rc-info">
-                  <span class="rc-name">{{ r.fullName ?? r.name }}</span>
-                  <span class="rc-email">Apartments: {{ apartmentNamesFor(r) }}</span>
-                  @if (isAdmin() && r.email) { <span class="rc-email">{{ r.email }}</span> }
-                  @if (isAdmin() && r.phone) { <span class="rc-phone">{{ r.phone }}</span> }
+          @for (group of groupedByRole(); track group.role) {
+            <div class="section-title">{{ group.label }} ({{ group.users.length }})</div>
+            <div class="resident-list">
+              @for (r of group.users; track r.id) {
+                <div class="resident-card">
+                  <a [routerLink]="[r.id]" class="resident-card-link">
+                    <div class="avatar">{{ (r.fullName ?? r.name ?? '?')[0] }}</div>
+                    <div class="rc-info">
+                      <span class="rc-name">{{ r.fullName ?? r.name }}</span>
+                      <span class="rc-email">Apartments: {{ apartmentNamesFor(r) }}</span>
+                      @if (isAdmin() && r.email) { <span class="rc-email">{{ r.email }}</span> }
+                      @if (isAdmin() && r.phone) { <span class="rc-phone">{{ r.phone }}</span> }
+                    </div>
+                  </a>
+                  @if (isAdmin()) {
+                    <button mat-icon-button type="button" aria-label="Delete user"
+                            [disabled]="deleting() === r.id" (click)="deleteUser(r)">
+                      <mat-icon>delete_outline</mat-icon>
+                    </button>
+                  }
                 </div>
-              </a>
-            }
-          </div>
+              }
+            </div>
+          }
         }
       }
     </div>
@@ -102,6 +133,10 @@ import { User } from '../../core/models/user.model';
       border-radius:8px; padding:8px 12px; }
     .invite-url { font-size:12px; font-family:monospace; color:var(--text-secondary); word-break:break-all; flex:1; }
     .rc-name { font-weight:500; font-size:14px; }
+    .search-field { width:100%; margin-bottom:12px; }
+    .section-title { font-size:14px; font-weight:600; color:var(--text-secondary); margin:16px 0 8px; text-transform:uppercase; letter-spacing:.02em; }
+    .resident-card { display:flex; align-items:center; gap:4px; }
+    .resident-card-link { flex:1; min-width:0; }
   `],
   styleUrl: './residents.scss',
 })
@@ -114,16 +149,45 @@ export class ResidentListComponent implements OnInit {
   readonly loading = signal(true);
   readonly actioning = signal(false);
   readonly generatingLink = signal(false);
+  readonly deleting = signal<string | null>(null);
   readonly items   = signal<User[]>([]);
   readonly pendingRequests = signal<User[]>([]);
   readonly inviteUrl = signal<string | null>(null);
   readonly isAdmin = this.auth.isAdmin;
+  readonly search = signal('');
+
+  readonly filtered = computed<User[]>(() => {
+    const term = this.search().trim().toLowerCase();
+    const list = this.items();
+    if (!term) return list;
+    return list.filter(r =>
+      (r.fullName ?? r.name ?? '').toLowerCase().includes(term) ||
+      (r.email ?? '').toLowerCase().includes(term) ||
+      (r.phone ?? '').toLowerCase().includes(term) ||
+      this.apartmentNamesFor(r).toLowerCase().includes(term)
+    );
+  });
+
+  readonly groupedByRole = computed<RoleGroup[]>(() => {
+    const byRole = new Map<string, User[]>();
+    for (const user of this.filtered()) {
+      const role = user.role ?? 'SUUser';
+      if (!byRole.has(role)) byRole.set(role, []);
+      byRole.get(role)!.push(user);
+    }
+    const roles = [...byRole.keys()].sort((a, b) => {
+      const ia = ROLE_ORDER.indexOf(a);
+      const ib = ROLE_ORDER.indexOf(b);
+      return (ia === -1 ? ROLE_ORDER.length : ia) - (ib === -1 ? ROLE_ORDER.length : ib);
+    });
+    return roles.map(role => ({ role, label: ROLE_LABELS[role] ?? role, users: byRole.get(role)! }));
+  });
 
   ngOnInit() {
     const sid = this.auth.societyId();
     if (!sid) { this.loading.set(false); return; }
 
-    this.userSvc.list(sid).subscribe({
+    this.userSvc.list(sid, 1, 500).subscribe({
       next: residents => {
         this.items.set(residents.items ?? []);
         this.loading.set(false);
@@ -142,6 +206,24 @@ export class ResidentListComponent implements OnInit {
   apartmentNamesFor(resident: User) {
     if (!resident.apartments?.length) return 'Not assigned';
     return resident.apartments.map(apartment => `${apartment.name} (${apartment.residentType})`).join(', ');
+  }
+
+  deleteUser(user: User) {
+    const sid = this.auth.societyId();
+    if (!sid) return;
+    if (!confirm(`Delete ${user.fullName ?? user.name}? This cannot be undone.`)) return;
+
+    this.deleting.set(user.id);
+    this.userSvc.delete(sid, user.id).subscribe({
+      next: () => {
+        this.items.update(list => list.filter(u => u.id !== user.id));
+        this.deleting.set(null);
+        this.snackBar.open('User deleted.', 'Dismiss', { duration: 3000 });
+      },
+      // The global error interceptor already surfaces the backend's specific
+      // validation message (apartment mapping / pending dues) as a snackbar.
+      error: () => this.deleting.set(null),
+    });
   }
 
   generateInviteLink() {

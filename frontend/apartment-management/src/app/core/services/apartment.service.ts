@@ -76,8 +76,12 @@ export class UserService {
     return this.api.post<User>(`societies/${societyId}/users`, dto);
   }
 
-  list(societyId: string, page = 1, pageSize = 20) {
-    return this.api.getPaged<User>(`societies/${societyId}/users`, page, pageSize);
+  list(societyId: string, page = 1, pageSize = 20, search?: string) {
+    return this.api.getPaged<User>(`societies/${societyId}/users`, page, pageSize, search ? { search } : undefined);
+  }
+
+  delete(societyId: string, id: string) {
+    return this.api.delete<void>(`societies/${societyId}/users/${id}`);
   }
 
   addApartment(societyId: string, userId: string, dto: { apartmentId: string; residentType: 'Owner' | 'Tenant' }) {

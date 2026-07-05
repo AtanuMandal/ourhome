@@ -131,6 +131,8 @@ public record RequestOtpByEmailRequest(string Email);
 public record RequestOtpByEmailResponse(string UserId);
 public record PasswordResetRequest(string Email, string? SelectedUserId = null);
 public record PasswordResetRequestResponse(bool RequiresSelection, string? UserId, IReadOnlyList<LoginOptionDto> Options);
+public record PhoneLoginOtpRequest(string Phone, string? SelectedUserId = null);
+public record PhoneLoginOtpResponse(bool RequiresSelection, string? UserId, IReadOnlyList<LoginOptionDto> Options);
 public record ConfirmPasswordResetRequest(string SocietyId, string UserId, string OtpCode, string NewPassword);
 public record TransferApartmentOwnershipRequest(string ApartmentId, string FullName, string Email, string Phone);
 public record TransferApartmentTenancyRequest(string ApartmentId, string FullName, string Email, string Phone);

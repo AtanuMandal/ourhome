@@ -14,4 +14,7 @@ export const residentsApi = {
     api
       .get<User>(`/societies/${societyId}/users/${id}`)
       .then((r) => r.data),
+
+  deleteResident: (societyId: string, id: string) =>
+    api.delete<void>(`/societies/${societyId}/users/${id}`).then((r) => r.data),
 };

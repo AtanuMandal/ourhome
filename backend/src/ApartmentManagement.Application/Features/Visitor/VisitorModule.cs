@@ -139,7 +139,6 @@ public record ApproveVisitorCommand(string SocietyId, string VisitorLogId, strin
 
 public sealed class ApproveVisitorCommandHandler(
     IVisitorLogRepository visitorRepository,
-    ICurrentUserService currentUser,
     ILogger<ApproveVisitorCommandHandler> logger)
     : IRequestHandler<ApproveVisitorCommand, Result<bool>>
 {
@@ -150,10 +149,10 @@ public sealed class ApproveVisitorCommandHandler(
             var log = await visitorRepository.GetByIdAsync(request.VisitorLogId, request.SocietyId, ct)
                 ?? throw new NotFoundException("VisitorLog", request.VisitorLogId);
 
+            // Only the host resident can approve a visitor — SUAdmin, HQAdmin and SUSecurity may deny but not approve.
             bool isHost = log.HostUserId == request.UserId;
-            bool isAdmin = currentUser.IsInRoles("SUAdmin", "HQAdmin", "SUSecurity");
-            if (!isHost && !isAdmin)
-                throw new ForbiddenException("Only the host or an admin can approve a visitor.");
+            if (!isHost)
+                throw new ForbiddenException("Only the host resident can approve a visitor.");
 
             log.Approve();
             await visitorRepository.UpdateAsync(log, ct);
@@ -300,9 +299,11 @@ public sealed class UploadVisitorImageCommandHandler(
             var blobName = $"{request.SocietyId}/{Guid.NewGuid():N}{extension}";
 
             await using var stream = new IO.MemoryStream(request.Content, writable: false);
-            var fileUrl = await fileStorageService.UploadAsync(stream, blobName, request.ContentType, ContainerName, ct);
+            await fileStorageService.UploadAsync(stream, blobName, request.ContentType, ContainerName, ct);
 
-            return Result<VisitorImageUploadResponse>.Success(new VisitorImageUploadResponse(request.FileName, fileUrl));
+            // Store an app-relative path (served via GetFileQuery) instead of a raw blob/SAS URL.
+            var appUrl = $"files/{ContainerName}/{blobName}";
+            return Result<VisitorImageUploadResponse>.Success(new VisitorImageUploadResponse(request.FileName, appUrl));
         }
         catch (Exception ex)
         {
@@ -452,6 +453,44 @@ public sealed class GetActiveVisitorsQueryHandler(IVisitorLogRepository visitorR
         catch (Exception ex)
         {
             return Result<IReadOnlyList<VisitorResponse>>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
+public record VisitorLookupsResponse(IReadOnlyList<string> Companies, IReadOnlyList<string> Purposes);
+
+public record GetVisitorLookupsQuery(string SocietyId) : IRequest<Result<VisitorLookupsResponse>>;
+
+public sealed class GetVisitorLookupsQueryHandler(IVisitorLogRepository visitorRepository)
+    : IRequestHandler<GetVisitorLookupsQuery, Result<VisitorLookupsResponse>>
+{
+    public async Task<Result<VisitorLookupsResponse>> Handle(GetVisitorLookupsQuery request, CancellationToken ct)
+    {
+        try
+        {
+            var visitors = await visitorRepository.GetAllAsync(request.SocietyId, ct);
+
+            var companies = visitors
+                .Select(v => v.CompanyName)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Select(name => name!.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var purposes = visitors
+                .Select(v => v.Purpose)
+                .Where(purpose => !string.IsNullOrWhiteSpace(purpose))
+                .Select(purpose => purpose.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(purpose => purpose, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            return Result<VisitorLookupsResponse>.Success(new VisitorLookupsResponse(companies, purposes));
+        }
+        catch (Exception ex)
+        {
+            return Result<VisitorLookupsResponse>.Failure(ErrorCodes.InternalError, ex.Message);
         }
     }
 }

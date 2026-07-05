@@ -157,6 +157,20 @@ public class UserTests
     }
 
     [Fact]
+    public void MarkDeleted_SetsIsDeletedAndDeactivates()
+    {
+        // Arrange
+        var user = User.Create(SocietyId, "Alice", "alice@example.com", "+91-9876543210", UserRole.SUUser, ResidentType.SocietyAdmin);
+
+        // Act
+        user.MarkDeleted();
+
+        // Assert
+        user.IsDeleted.Should().BeTrue();
+        user.IsActive.Should().BeFalse();
+    }
+
+    [Fact]
     public void SetExternalAuthId_SetsExternalId()
     {
         // Arrange

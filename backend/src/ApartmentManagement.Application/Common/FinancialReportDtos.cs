@@ -16,7 +16,10 @@ public sealed record FinancialDashboardDto(
     decimal VendorOutstanding,
     decimal NetPosition,
     IReadOnlyList<OverdueApartmentDto> TopOverdueApartments,
-    IReadOnlyList<UpcomingVendorDueDto> UpcomingVendorDues);
+    IReadOnlyList<UpcomingVendorDueDto> UpcomingVendorDues,
+    IReadOnlyList<UpcomingChargeDto> UpcomingCharges,
+    decimal UpcomingCashInflow,
+    decimal UpcomingCashOutflow);
 
 public sealed record OverdueApartmentDto(
     string ApartmentId,
@@ -27,6 +30,13 @@ public sealed record OverdueApartmentDto(
 public sealed record UpcomingVendorDueDto(
     string VendorId,
     string VendorName,
+    decimal Amount,
+    DateTime DueDate,
+    int DaysUntilDue);
+
+public sealed record UpcomingChargeDto(
+    string ApartmentId,
+    string ApartmentLabel,
     decimal Amount,
     DateTime DueDate,
     int DaysUntilDue);
@@ -69,6 +79,13 @@ public sealed record LedgerEntryDto(
     decimal? Debit,
     decimal? Credit,
     decimal Balance);
+
+// ─── Society Ledger (overall society view, all apartments + vendor charges) ──
+
+public sealed record SocietyLedgerDto(
+    string SocietyId,
+    decimal CurrentBalance,
+    IReadOnlyList<LedgerEntryDto> Entries);
 
 // ─── Society Summary (SUUser transparency view) ───────────────────────────────
 

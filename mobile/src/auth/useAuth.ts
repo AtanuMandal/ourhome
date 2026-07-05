@@ -1,14 +1,30 @@
 import { useAuthStore } from '../store/authStore';
 import * as tokenStore from './tokenStore';
 import { authApi } from '../api/endpoints/auth';
-import type { User, ResidentType } from '../api/types';
+import type { User, ResidentType, AuthUserDto } from '../api/types';
 
 interface UseAuthReturn {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
   login: (email: string, password: string, selectedUserId?: string) => Promise<void>;
+  loginWithOtp: (societyId: string, userId: string, otpCode: string) => Promise<void>;
   logout: () => Promise<void>;
+}
+
+function toUser(dto: AuthUserDto): User {
+  return {
+    id: dto.id,
+    societyId: dto.societyId,
+    fullName: dto.name,
+    email: dto.email,
+    phone: dto.phone ?? '',
+    role: dto.role,
+    residentType: (dto.residentType as ResidentType) ?? 'Owner',
+    apartmentId: dto.apartmentId ?? undefined,
+    isVerified: dto.isVerified,
+    isActive: true,
+  };
 }
 
 export function useAuth(): UseAuthReturn {
@@ -25,20 +41,13 @@ export function useAuth(): UseAuthReturn {
     }
 
     await tokenStore.setToken(response.token);
+    setUser(toUser(response.user), response.token);
+  }
 
-    const userObj: User = {
-      id: response.user.id,
-      societyId: response.user.societyId,
-      fullName: response.user.name,
-      email: response.user.email,
-      phone: response.user.phone ?? '',
-      role: response.user.role,
-      residentType: (response.user.residentType as ResidentType) ?? 'Owner',
-      apartmentId: response.user.apartmentId ?? undefined,
-      isVerified: response.user.isVerified,
-      isActive: true,
-    };
-    setUser(userObj, response.token);
+  async function loginWithOtp(societyId: string, userId: string, otpCode: string): Promise<void> {
+    const response = await authApi.verifyOtpLogin(societyId, userId, otpCode);
+    await tokenStore.setToken(response.accessToken);
+    setUser(toUser(response.user), response.accessToken);
   }
 
   async function logout(): Promise<void> {
@@ -46,5 +55,5 @@ export function useAuth(): UseAuthReturn {
     clearAuth();
   }
 
-  return { user, token, isAuthenticated, login, logout };
+  return { user, token, isAuthenticated, login, loginWithOtp, logout };
 }

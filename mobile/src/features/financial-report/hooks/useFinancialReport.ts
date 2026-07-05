@@ -24,3 +24,11 @@ export function usePersonalStatement(societyId: string, apartmentId: string, yea
     enabled: !!societyId && !!apartmentId,
   });
 }
+
+export function useSocietyLedger(societyId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['society-ledger', societyId],
+    queryFn: () => financialReportApi.getSocietyLedger(societyId),
+    enabled: !!societyId && enabled,
+  });
+}

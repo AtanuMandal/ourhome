@@ -21,6 +21,8 @@ import { VendorPaymentListScreen } from '../features/vendor-payments/VendorPayme
 import { AmenityListScreen } from '../features/amenities/AmenityListScreen';
 import { AmenityBookingScreen } from '../features/amenities/AmenityBookingScreen';
 import { ProfileScreen } from '../features/profile/ProfileScreen';
+import { CommitteeScreen } from '../features/society/CommitteeScreen';
+import { ContactUsScreen } from '../features/society/ContactUsScreen';
 import { colors } from '../theme/colors';
 
 const Drawer = createDrawerNavigator();
@@ -118,6 +120,8 @@ export function AppDrawer() {
       <Drawer.Screen name="FinancialReport" component={FinancialReportScreen} />
       <Drawer.Screen name="VendorPayments"  component={VendorPaymentListScreen} />
       <Drawer.Screen name="Amenities"       component={AmenitiesStack} />
+      <Drawer.Screen name="Committee"       component={CommitteeScreen} />
+      <Drawer.Screen name="ContactUs"       component={ContactUsScreen} />
       <Drawer.Screen name="Profile"         component={ProfileScreen} />
     </Drawer.Navigator>
   );

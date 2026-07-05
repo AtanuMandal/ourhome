@@ -12,6 +12,7 @@ import { useNavigation, DrawerActions } from '@react-navigation/native';
 import { useAuthStore } from '../../store/authStore';
 import { useDashboard } from './useDashboard';
 import { AppHeader } from '../../shared/components/AppHeader';
+import { CurrencyText } from '../../shared/components/CurrencyText';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing } from '../../theme/spacing';
@@ -105,6 +106,7 @@ export function DashboardScreen() {
   const { data, isLoading, refetch } = useDashboard();
 
   const greeting = getGreeting();
+  const isAdmin = user?.role === 'SUAdmin' || user?.role === 'HQAdmin';
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -143,6 +145,23 @@ export function DashboardScreen() {
           />
         </View>
 
+        {isAdmin && (
+          <>
+            <Text style={[styles.sectionTitle, { marginTop: spacing.lg }]}>Financial Outlook</Text>
+            <View style={styles.financeCards}>
+              <View style={[styles.financeCard, { borderLeftColor: colors.success }]}>
+                <Text style={styles.financeCardLabel}>Upcoming Cash Inflow (7d)</Text>
+                <CurrencyText amount={data?.upcomingCashInflow ?? 0} style={styles.financeCardValue} />
+                <Text style={styles.financeCardMeta}>{data?.upcomingCharges.length ?? 0} charge(s) due</Text>
+              </View>
+              <View style={[styles.financeCard, { borderLeftColor: colors.error }]}>
+                <Text style={styles.financeCardLabel}>Upcoming Cash Outflow (7d)</Text>
+                <CurrencyText amount={data?.upcomingCashOutflow ?? 0} style={styles.financeCardValue} />
+              </View>
+            </View>
+          </>
+        )}
+
         <Text style={[styles.sectionTitle, { marginTop: spacing.lg }]}>Quick Actions</Text>
         <QuickActionGrid role={user?.role ?? 'SUUser'} />
       </ScrollView>
@@ -179,6 +198,21 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   cards: { gap: spacing.sm },
+  financeCards: { flexDirection: 'row', gap: spacing.sm },
+  financeCard: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: spacing.md,
+    borderLeftWidth: 4,
+  },
+  financeCardLabel: { fontSize: typography.fontSize.xs, color: colors.text.secondary },
+  financeCardValue: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.bold,
+    marginTop: 4,
+  },
+  financeCardMeta: { fontSize: typography.fontSize.xs, color: colors.text.disabled, marginTop: 2 },
   card: {
     backgroundColor: colors.surface,
     borderRadius: 12,

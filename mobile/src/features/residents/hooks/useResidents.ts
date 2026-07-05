@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useInfiniteList } from '../../../shared/hooks/useInfiniteList';
 import { residentsApi } from '../../../api/endpoints/residents';
 import type { User } from '../../../api/types';
@@ -20,5 +20,15 @@ export function useResident(societyId: string, id: string) {
     queryKey: ['resident', societyId, id],
     queryFn: () => residentsApi.getResident(societyId, id),
     enabled: !!societyId && !!id,
+  });
+}
+
+export function useDeleteResident(societyId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => residentsApi.deleteResident(societyId, id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['residents', societyId] });
+    },
   });
 }

@@ -25,7 +25,7 @@ public class ApartmentFunctions(ISender mediator)
 
     [Function("GetApartment")]
     public async Task<IActionResult> GetApartment(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "societies/{societyId}/apartments/{id}")] HttpRequest req,
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "societies/{societyId}/apartments/{id:guid}")] HttpRequest req,
         string societyId, string id, CancellationToken ct)
     {
         var result = await mediator.Send(new GetApartmentQuery(societyId, id), ct);
@@ -54,7 +54,7 @@ public class ApartmentFunctions(ISender mediator)
 
     [Function("UpdateApartment")]
     public async Task<IActionResult> UpdateApartment(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "put", Route = "societies/{societyId}/apartments/{id}")] HttpRequest req,
+        [HttpTrigger(AuthorizationLevel.Anonymous, "put", Route = "societies/{societyId}/apartments/{id:guid}")] HttpRequest req,
         string societyId, string id, CancellationToken ct)
     {
         var command = await req.DeserializeAsync<UpdateApartmentCommand>(ct);
@@ -65,7 +65,7 @@ public class ApartmentFunctions(ISender mediator)
 
     [Function("DeleteApartment")]
     public async Task<IActionResult> DeleteApartment(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "delete", Route = "societies/{societyId}/apartments/{id}")] HttpRequest req,
+        [HttpTrigger(AuthorizationLevel.Anonymous, "delete", Route = "societies/{societyId}/apartments/{id:guid}")] HttpRequest req,
         string societyId, string id, CancellationToken ct)
     {
         var result = await mediator.Send(new DeleteApartmentCommand(societyId, id), ct);

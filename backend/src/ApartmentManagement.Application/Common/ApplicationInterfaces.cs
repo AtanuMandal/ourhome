@@ -44,6 +44,7 @@ public interface IFileStorageService
     Task<string> UploadAsync(Stream content, string fileName, string contentType, string containerName, CancellationToken ct = default);
     Task DeleteAsync(string fileUrl, CancellationToken ct = default);
     Task<string> GetUrlAsync(string blobName, string containerName, TimeSpan? expiry = null, CancellationToken ct = default);
+    Task<(Stream Content, string ContentType)> DownloadAsync(string containerName, string blobName, CancellationToken ct = default);
 }
 
 public interface IQrCodeService

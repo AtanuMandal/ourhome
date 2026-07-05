@@ -48,4 +48,9 @@ export const visitorsApi = {
     api
       .post<Visitor>(`/societies/${societyId}/visitors/${id}/checkout`)
       .then((r) => r.data),
+
+  getLookups: (societyId: string) =>
+    api
+      .get<{ companies: string[]; purposes: string[] }>(`/societies/${societyId}/visitors/lookups`)
+      .then((r) => r.data),
 };

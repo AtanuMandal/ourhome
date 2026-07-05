@@ -1,5 +1,5 @@
 import api from '../client';
-import type { LoginRequest, LoginResponse } from '../types';
+import type { LoginRequest, LoginResponse, AuthUserDto } from '../types';
 
 export interface PasswordResetOption {
   userId: string;
@@ -12,6 +12,17 @@ export interface PasswordResetOption {
 export interface PasswordResetRequestResponse {
   requiresSelection: boolean;
   options: PasswordResetOption[];
+}
+
+export interface PhoneLoginOtpResponse {
+  requiresSelection: boolean;
+  userId: string | null;
+  options: PasswordResetOption[];
+}
+
+export interface VerifyOtpLoginResponse {
+  accessToken: string;
+  user: AuthUserDto;
 }
 
 export interface ConfirmPasswordResetRequest {
@@ -32,6 +43,12 @@ export interface SelfRegisterRequest {
 export const authApi = {
   login: (data: LoginRequest) =>
     api.post<LoginResponse>('/auth/login', data).then((r) => r.data),
+
+  requestOtpLogin: (phone: string, selectedUserId?: string) =>
+    api.post<PhoneLoginOtpResponse>('/auth/otp-login/request', { phone, selectedUserId }).then((r) => r.data),
+
+  verifyOtpLogin: (societyId: string, userId: string, otpCode: string) =>
+    api.post<VerifyOtpLoginResponse>(`/societies/${societyId}/users/${userId}/verify-otp`, { otpCode }).then((r) => r.data),
 
   requestPasswordReset: (email: string) =>
     api.post<PasswordResetRequestResponse>('/auth/password-reset/request', { email }).then((r) => r.data),

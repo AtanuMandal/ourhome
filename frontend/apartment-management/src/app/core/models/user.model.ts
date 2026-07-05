@@ -95,3 +95,11 @@ export interface PasswordResetRequestResponse {
   userId?: string;
   options: LoginOption[];
 }
+
+export interface PhoneLoginOtpResponse {
+  requiresSelection: boolean;
+  userId?: string;
+  options: LoginOption[];
+}
+
+export type LoginMethod = 'phone' | 'email';
