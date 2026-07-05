@@ -1,3 +1,31 @@
-1. society diagram
-2. postions like - presendient , secretary, cashier etc..
-2. 
+# Society Structure — Committees and Contact Us
+
+## Overview
+This covers how a society's leadership/organisational structure (president, secretary, treasurer, etc.) is recorded and how residents can look it up, alongside the society's general contact information.
+
+---
+
+## Society Committees (Admin-Configured)
+
+- `SUAdmin` edits the society's committees from the Society settings page (`PUT /api/societies/{id}`, `committees` field).
+- Each committee has a name (e.g., "Managing Committee", "Sports Committee") and a list of members; each member is an **existing registered user** picked from a searchable dropdown (not free-text email) plus a free-text role title (e.g., "President", "Secretary", "Treasurer/Cashier").
+- **One committee role per user, society-wide:** a user already assigned to a role on any committee cannot be assigned to another — the dropdown pre-filters already-assigned users client-side, and the backend independently rejects any submission that would assign the same `userId` to more than one committee role (error code `USER_ALREADY_ON_COMMITTEE`).
+- A committee member must already be a registered user of the society (resolved by email); the backend rejects an unrecognised email with a validation error.
+- Available on both web (Society settings page) and mobile (dedicated "Society Committee" screen, `SUAdmin`/HQ roles only).
+
+---
+
+## Contact Us (Read-Only, All Roles)
+
+- A read-only "Contact Us" page shows the society's contact email/phone ("Society Office") and the full committee list with each member's name and role title.
+- No edit controls — editing committees/contact info stays on the admin-only Society settings page.
+- Reuses the existing society details query (`GET /api/societies/{id}`); no dedicated backend endpoint.
+- Reachable from navigation for **every role** (SUAdmin, SUUser, SUSecurity, HQAdmin, HQUser) on both web (`/contact-us` route) and mobile ("Contact Us" drawer entry).
+
+---
+
+## Acceptance Criteria
+- A user can hold at most one committee role across all committees in a society.
+- Committee member selection is a dropdown of existing users, not free-text.
+- Contact Us is visible to every role and has no edit affordances.
+- Contact Us and Society Committee data always match what `SUAdmin` last saved in Society settings.

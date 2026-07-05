@@ -1,19 +1,28 @@
 # Login and Authentication
 
 ## Overview
-The login module handles user authentication, multi-tenancy selection, and session management. It supports two login methods: **OTP-based login** (primary) and **password-based login**. Multi-society and multi-apartment users are handled with a selection step after credential verification.
+The login module handles user authentication, multi-tenancy selection, and session management. It supports three login methods: **phone + OTP** (default), **email + OTP**, and **password-based login**. Multi-society and multi-apartment users are handled with a selection step after credential verification.
 
 ---
 
 ## Login Methods
 
-### Method 1: OTP Login (Primary)
+The web and mobile apps default to **phone + OTP** and let the user switch to email/password; the chosen method is cached so returning users land on their preferred method automatically — `localStorage` key `am_login_method` on web, `expo-secure-store` key `ourhome_login_method` on mobile (defaults to `phone` if unset).
+
+### Method 1: Phone + OTP Login (Default)
+1. User enters their **phone number**.
+2. `POST /api/auth/otp-login/request` resolves the phone number to a user account across all societies and sends a **6-digit OTP** via SMS.
+   - If the phone number matches more than one active user across societies, the response returns `requiresSelection: true` with a list of candidate accounts (`LoginOptionDto`-shaped) instead of sending an OTP immediately; the client re-submits the request with the chosen `selectedUserId`.
+3. User enters the OTP within the expiry window; verification reuses the same `verify-otp` endpoint as email-OTP login (see Method 2).
+4. On success, a **JWT token** is issued and returned with the user's profile.
+
+### Method 2: Email + OTP Login
 1. User enters their **email address**.
 2. System sends a **6-digit OTP** via SMS to the registered phone number.
 3. User enters the OTP within the expiry window.
 4. On success, a **JWT token** is issued and returned with the user's profile.
 
-### Method 2: Password Login
+### Method 3: Password Login
 1. User enters **email** and **password**.
 2. If credentials are valid, a JWT token is issued.
 3. If the user belongs to multiple societies, a **selection step** is returned (see Multi-Society Handling below).

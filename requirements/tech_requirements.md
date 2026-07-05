@@ -614,10 +614,10 @@ Triggers on merge to `main` or manual dispatch:
 | Push notifications | ✅ VAPID | ✅ FCM + APNs |
 | Visitor registration + QR | ✅ | ✅ |
 | Camera capture (visitor photo) | ✅ Browser | ✅ Native |
-| Payment proof upload | ✅ Browser | ✅ Native |
-| Maintenance charges | ✅ | ✅ |
-| Financial reports | ✅ | ✅ |
-| Vendor payments | ✅ | ✅ |
+| Payment proof upload/preview | ✅ Browser | ❌ Not implemented — mobile maintenance screen is a read-only charge/status list with no proof upload or preview |
+| Maintenance charges | ✅ | ✅ View only (no proof upload) |
+| Financial reports | ✅ incl. Society Ledger | ✅ incl. Society Ledger |
+| Vendor payments | ✅ (charges only; picture/contract upload has no preview) | ✅ View only (no document/picture display) |
 | Notices | ✅ | ✅ |
 | Complaints | ✅ | ✅ |
 | Amenity booking | ✅ | ✅ |

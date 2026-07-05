@@ -11,13 +11,13 @@ The maintenance module supports the following payment workflow:
 
 ### 1. Resident Payment Actions
 - Residents can view their maintenance charges broken down by year and month, with status: `Pending`, `Submitted`, `Paid`, `Overdue`.
-- Residents can upload a payment proof image/document via `POST /societies/{id}/maintenance/payments/proof/upload` — returns a Blob Storage URL.
-- Residents can submit a payment proof for **one or multiple charges simultaneously** via `POST /societies/{id}/maintenance/payments/proof`, linking the uploaded document URL to one or more charge IDs.
+- Residents can upload a payment proof image/document via `POST /societies/{id}/maintenance/payments/proof/upload` — returns an app-relative, authenticated file path (served via the shared secure file endpoint) rather than a raw Blob Storage URL.
+- Residents can submit a payment proof for **one or multiple charges simultaneously** via `POST /societies/{id}/maintenance/payments/proof`, linking the uploaded document path to one or more charge IDs.
 - After proof submission, charge status changes to `Submitted` and the admin is notified for approval.
 
 ### 2. Admin Payment Management
 - `SUAdmin` can view the society-wide payment grid (apartments × months) showing `Pending`, `Submitted`, and `Paid` status per cell.
-- Admin can view the uploaded proof document in a popup within the grid.
+- Admin can view the uploaded proof document in a full-screen zoom popup (zoom in/out, 100%–400%) within the grid, before approving or marking as paid.
 - `SUAdmin` can mark a charge as `Paid` via `POST /societies/{id}/maintenance/charges/{id}/mark-paid` with payment method, transaction reference, receipt URL, and date.
 - `SUAdmin` can approve a submitted proof via `POST /societies/{id}/maintenance/charges/{id}/approve`.
 - `SUAdmin` can add penalty charges per apartment for late payment via `POST /societies/{id}/maintenance/charges/penalty`.
