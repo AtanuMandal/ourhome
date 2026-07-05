@@ -11,12 +11,15 @@ import { VisitorRegisterScreen } from '../features/visitors/VisitorRegisterScree
 import { VisitorPassScreen } from '../features/visitors/VisitorPassScreen';
 import { NoticeListScreen } from '../features/notices/NoticeListScreen';
 import { NoticeDetailScreen } from '../features/notices/NoticeDetailScreen';
+import { NoticeCreateScreen } from '../features/notices/NoticeCreateScreen';
 import { ComplaintListScreen } from '../features/complaints/ComplaintListScreen';
 import { ComplaintCreateScreen } from '../features/complaints/ComplaintCreateScreen';
+import { ComplaintDetailScreen } from '../features/complaints/ComplaintDetailScreen';
 import { MaintenanceScreen } from '../features/maintenance/MaintenanceScreen';
 import { FinancialReportScreen } from '../features/financial-report/FinancialReportScreen';
 import { VendorPaymentListScreen } from '../features/vendor-payments/VendorPaymentListScreen';
 import { AmenityListScreen } from '../features/amenities/AmenityListScreen';
+import { AmenityBookingScreen } from '../features/amenities/AmenityBookingScreen';
 import { ProfileScreen } from '../features/profile/ProfileScreen';
 import { colors } from '../theme/colors';
 
@@ -44,6 +47,7 @@ function VisitorsStack() {
 type NoticesParams = {
   NoticeList: undefined;
   NoticeDetail: { id: string };
+  NoticeCreate: undefined;
 };
 const NS = createNativeStackNavigator<NoticesParams>();
 function NoticesStack() {
@@ -51,6 +55,7 @@ function NoticesStack() {
     <NS.Navigator screenOptions={noHeader}>
       <NS.Screen name="NoticeList"   component={NoticeListScreen} />
       <NS.Screen name="NoticeDetail" component={NoticeDetailScreen} />
+      <NS.Screen name="NoticeCreate" component={NoticeCreateScreen} />
     </NS.Navigator>
   );
 }
@@ -58,6 +63,7 @@ function NoticesStack() {
 type ComplaintsParams = {
   ComplaintList: undefined;
   ComplaintCreate: undefined;
+  ComplaintDetail: { id: string };
 };
 const CS = createNativeStackNavigator<ComplaintsParams>();
 function ComplaintsStack() {
@@ -65,11 +71,26 @@ function ComplaintsStack() {
     <CS.Navigator screenOptions={noHeader}>
       <CS.Screen name="ComplaintList"   component={ComplaintListScreen} />
       <CS.Screen name="ComplaintCreate" component={ComplaintCreateScreen} />
+      <CS.Screen name="ComplaintDetail" component={ComplaintDetailScreen} />
     </CS.Navigator>
   );
 }
 
-// ── Main Drawer Navigator ─────────────────────────────────────────────────────
+type AmenitiesParams = {
+  AmenityList: undefined;
+  AmenityBooking: { amenityId: string; amenityName: string };
+};
+const AS = createNativeStackNavigator<AmenitiesParams>();
+function AmenitiesStack() {
+  return (
+    <AS.Navigator screenOptions={noHeader}>
+      <AS.Screen name="AmenityList"    component={AmenityListScreen} />
+      <AS.Screen name="AmenityBooking" component={AmenityBookingScreen} />
+    </AS.Navigator>
+  );
+}
+
+// ── Main Drawer Navigator ───────────────────────────────────────��─────────────
 
 function renderDrawer(props: DrawerContentComponentProps) {
   return <CustomDrawer {...props} />;
@@ -96,7 +117,7 @@ export function AppDrawer() {
       <Drawer.Screen name="Maintenance"     component={MaintenanceScreen} />
       <Drawer.Screen name="FinancialReport" component={FinancialReportScreen} />
       <Drawer.Screen name="VendorPayments"  component={VendorPaymentListScreen} />
-      <Drawer.Screen name="Amenities"       component={AmenityListScreen} />
+      <Drawer.Screen name="Amenities"       component={AmenitiesStack} />
       <Drawer.Screen name="Profile"         component={ProfileScreen} />
     </Drawer.Navigator>
   );

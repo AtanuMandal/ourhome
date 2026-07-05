@@ -3,10 +3,12 @@ import {
   View,
   Text,
   ScrollView,
+  TouchableOpacity,
   RefreshControl,
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation, DrawerActions } from '@react-navigation/native';
 import { useAuthStore } from '../../store/authStore';
 import { useDashboard } from './useDashboard';
 import { AppHeader } from '../../shared/components/AppHeader';
@@ -25,6 +27,75 @@ function SummaryCard({ title, value, accent }: SummaryCardProps) {
     <View style={[styles.card, { borderLeftColor: accent }]}>
       <Text style={styles.cardValue}>{value}</Text>
       <Text style={styles.cardTitle}>{title}</Text>
+    </View>
+  );
+}
+
+interface QuickAction {
+  icon: string;
+  label: string;
+  screen: string;
+}
+
+const QUICK_ACTIONS: Record<string, QuickAction[]> = {
+  SUAdmin: [
+    { icon: '👥', label: 'Residents', screen: 'Residents' },
+    { icon: '🏢', label: 'Apartments', screen: 'Apartments' },
+    { icon: '📝', label: 'Complaints', screen: 'Complaints' },
+    { icon: '🚪', label: 'Visitors', screen: 'Visitors' },
+    { icon: '📢', label: 'Notices', screen: 'Notices' },
+    { icon: '💰', label: 'Payments', screen: 'VendorPayments' },
+  ],
+  SUSecurity: [
+    { icon: '🚪', label: 'Visitors', screen: 'Visitors' },
+    { icon: '👥', label: 'Residents', screen: 'Residents' },
+    { icon: '📝', label: 'Complaint', screen: 'Complaints' },
+    { icon: '📢', label: 'Notices', screen: 'Notices' },
+    { icon: '🏊', label: 'Amenities', screen: 'Amenities' },
+    { icon: '👤', label: 'Profile', screen: 'Profile' },
+  ],
+  SUUser: [
+    { icon: '🏢', label: 'My Apt', screen: 'Apartments' },
+    { icon: '📝', label: 'Complaint', screen: 'Complaints' },
+    { icon: '📢', label: 'Notices', screen: 'Notices' },
+    { icon: '🏊', label: 'Amenities', screen: 'Amenities' },
+    { icon: '🚪', label: 'Visitors', screen: 'Visitors' },
+    { icon: '👤', label: 'Profile', screen: 'Profile' },
+  ],
+  HQAdmin: [
+    { icon: '👥', label: 'Residents', screen: 'Residents' },
+    { icon: '🏢', label: 'Apartments', screen: 'Apartments' },
+    { icon: '📝', label: 'Complaints', screen: 'Complaints' },
+    { icon: '🚪', label: 'Visitors', screen: 'Visitors' },
+    { icon: '💰', label: 'Payments', screen: 'VendorPayments' },
+    { icon: '👤', label: 'Profile', screen: 'Profile' },
+  ],
+  HQUser: [
+    { icon: '📝', label: 'Complaints', screen: 'Complaints' },
+    { icon: '🏊', label: 'Book', screen: 'Amenities' },
+    { icon: '🚪', label: 'Visitors', screen: 'Visitors' },
+    { icon: '📢', label: 'Notices', screen: 'Notices' },
+    { icon: '🏢', label: 'Apartments', screen: 'Apartments' },
+    { icon: '👤', label: 'Profile', screen: 'Profile' },
+  ],
+};
+
+function QuickActionGrid({ role }: { role: string }) {
+  const navigation = useNavigation<any>(); // eslint-disable-line @typescript-eslint/no-explicit-any
+  const actions = QUICK_ACTIONS[role] ?? QUICK_ACTIONS['SUUser'];
+
+  return (
+    <View style={styles.grid}>
+      {actions.map((action) => (
+        <TouchableOpacity
+          key={action.screen}
+          style={styles.tile}
+          onPress={() => navigation.navigate(action.screen)}
+        >
+          <Text style={styles.tileIcon}>{action.icon}</Text>
+          <Text style={styles.tileLabel}>{action.label}</Text>
+        </TouchableOpacity>
+      ))}
     </View>
   );
 }
@@ -71,6 +142,9 @@ export function DashboardScreen() {
             accent={colors.error}
           />
         </View>
+
+        <Text style={[styles.sectionTitle, { marginTop: spacing.lg }]}>Quick Actions</Text>
+        <QuickActionGrid role={user?.role ?? 'SUUser'} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -124,5 +198,29 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.sm,
     color: colors.text.secondary,
     marginTop: 2,
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  tile: {
+    width: '30%',
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    aspectRatio: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  tileIcon: { fontSize: 28, marginBottom: spacing.xs },
+  tileLabel: {
+    fontSize: typography.fontSize.xs,
+    color: colors.text.secondary,
+    textAlign: 'center',
   },
 });

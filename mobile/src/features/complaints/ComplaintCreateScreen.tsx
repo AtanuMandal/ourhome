@@ -22,28 +22,40 @@ import { spacing } from '../../theme/spacing';
 const CATEGORIES = [
   { label: 'Plumbing', value: 'Plumbing' },
   { label: 'Electrical', value: 'Electrical' },
-  { label: 'Noise', value: 'Noise' },
-  { label: 'Cleanliness', value: 'Cleanliness' },
+  { label: 'Cleaning', value: 'Cleaning' },
   { label: 'Security', value: 'Security' },
+  { label: 'Noise', value: 'Noise' },
+  { label: 'Parking', value: 'Parking' },
   { label: 'Other', value: 'Other' },
+];
+
+const PRIORITIES = [
+  { label: 'Low', value: 'Low' },
+  { label: 'Medium', value: 'Medium' },
+  { label: 'High', value: 'High' },
+  { label: 'Critical', value: 'Critical' },
 ];
 
 export function ComplaintCreateScreen() {
   const societyId = useSocietyId();
   const { mutateAsync: createComplaint, isPending } = useCreateComplaint(societyId);
 
+  const [title, setTitle] = useState('');
   const [category, setCategory] = useState('');
+  const [priority, setPriority] = useState<'Low' | 'Medium' | 'High' | 'Critical'>('Low');
   const [description, setDescription] = useState('');
 
   async function handleSubmit(): Promise<void> {
-    if (!category || !description) {
-      Alert.alert('Validation', 'Category and description are required.');
+    if (!title.trim() || !category || !description.trim()) {
+      Alert.alert('Validation', 'Title, category and description are required.');
       return;
     }
     try {
-      await createComplaint({ category, description });
+      await createComplaint({ title: title.trim(), category, priority, description: description.trim() });
       Alert.alert('Success', 'Complaint submitted successfully.');
+      setTitle('');
       setCategory('');
+      setPriority('Low');
       setDescription('');
     } catch (e) {
       Alert.alert('Error', normalizeError(e));
@@ -55,6 +67,16 @@ export function ComplaintCreateScreen() {
       <AppHeader title="New Complaint" showBack />
       <LoadingOverlay visible={isPending} />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <Text style={styles.label}>Title *</Text>
+        <TextInput
+          style={styles.input}
+          value={title}
+          onChangeText={setTitle}
+          placeholder="Brief title of the issue"
+          placeholderTextColor={colors.text.disabled}
+          returnKeyType="next"
+        />
+
         <Text style={styles.label}>Category *</Text>
         <SearchableSelect
           options={CATEGORIES}
@@ -62,6 +84,21 @@ export function ComplaintCreateScreen() {
           onChange={setCategory}
           placeholder="Select a category"
         />
+
+        <Text style={styles.label}>Priority</Text>
+        <View style={styles.chips}>
+          {PRIORITIES.map((p) => (
+            <TouchableOpacity
+              key={p.value}
+              style={[styles.chip, priority === p.value && styles.chipSelected]}
+              onPress={() => setPriority(p.value as typeof priority)}
+            >
+              <Text style={[styles.chipText, priority === p.value && styles.chipTextSelected]}>
+                {p.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
         <Text style={styles.label}>Description *</Text>
         <TextInput
@@ -72,6 +109,7 @@ export function ComplaintCreateScreen() {
           placeholderTextColor={colors.text.disabled}
           multiline
           numberOfLines={5}
+          textAlignVertical="top"
         />
 
         <TouchableOpacity
@@ -106,6 +144,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   multiline: { minHeight: 120, textAlignVertical: 'top' },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
+  chip: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  chipSelected: { borderColor: colors.primary, backgroundColor: colors.primary },
+  chipText: { fontSize: typography.fontSize.sm, color: colors.text.secondary },
+  chipTextSelected: { color: '#FFF', fontWeight: typography.fontWeight.medium },
   submitButton: {
     backgroundColor: colors.primary,
     borderRadius: 8,

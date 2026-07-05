@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useInfiniteList } from '../../../shared/hooks/useInfiniteList';
-import { complaintsApi, type ResolveComplaintRequest } from '../../../api/endpoints/complaints';
+import { complaintsApi, type ResolveComplaintRequest, type CreateComplaintRequest } from '../../../api/endpoints/complaints';
 import type { Complaint } from '../../../api/types';
 
 export function useComplaintList(
@@ -26,7 +26,7 @@ export function useComplaint(societyId: string, id: string) {
 export function useCreateComplaint(societyId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: Partial<Complaint>) =>
+    mutationFn: (data: CreateComplaintRequest) =>
       complaintsApi.createComplaint(societyId, data),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['complaints', societyId] });

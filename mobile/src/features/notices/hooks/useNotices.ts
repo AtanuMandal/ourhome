@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useInfiniteList } from '../../../shared/hooks/useInfiniteList';
-import { noticesApi } from '../../../api/endpoints/notices';
+import { noticesApi, type CreateNoticeRequest } from '../../../api/endpoints/notices';
 import type { Notice } from '../../../api/types';
 
 export function useNoticeList(
@@ -27,6 +27,16 @@ export function useMarkNoticeRead(societyId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => noticesApi.markNoticeRead(societyId, id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['notices', societyId] });
+    },
+  });
+}
+
+export function useCreateNotice(societyId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: CreateNoticeRequest) => noticesApi.createNotice(societyId, data),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['notices', societyId] });
     },

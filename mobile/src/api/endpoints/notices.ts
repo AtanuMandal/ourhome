@@ -1,6 +1,14 @@
 import api from '../client';
 import type { Notice, PaginatedResponse } from '../types';
 
+export interface CreateNoticeRequest {
+  title: string;
+  content: string;
+  category: 'General' | 'Maintenance' | 'Event' | 'Emergency' | 'Financial' | 'Bylaw';
+  publishAt?: string;
+  expiresAt?: string;
+}
+
 export const noticesApi = {
   getNotices: (
     societyId: string,
@@ -19,5 +27,10 @@ export const noticesApi = {
   markNoticeRead: (societyId: string, id: string) =>
     api
       .patch(`/societies/${societyId}/notices/${id}/read`, { isRead: true })
+      .then((r) => r.data),
+
+  createNotice: (societyId: string, data: CreateNoticeRequest) =>
+    api
+      .post<Notice>(`/societies/${societyId}/notices`, data)
       .then((r) => r.data),
 };

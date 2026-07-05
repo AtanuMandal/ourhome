@@ -1,6 +1,13 @@
 import api from '../client';
 import type { Complaint, PaginatedResponse } from '../types';
 
+export interface CreateComplaintRequest {
+  title: string;
+  category: string;
+  priority: 'Low' | 'Medium' | 'High' | 'Critical';
+  description: string;
+}
+
 export interface ResolveComplaintRequest {
   status: 'InProgress' | 'Resolved' | 'Closed' | 'Rejected';
   assignedToUserId?: string;
@@ -21,7 +28,7 @@ export const complaintsApi = {
       .get<Complaint>(`/societies/${societyId}/complaints/${id}`)
       .then((r) => r.data),
 
-  createComplaint: (societyId: string, data: Partial<Complaint>) =>
+  createComplaint: (societyId: string, data: CreateComplaintRequest) =>
     api
       .post<Complaint>(`/societies/${societyId}/complaints`, data)
       .then((r) => r.data),

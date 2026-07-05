@@ -12,11 +12,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSocietyId } from '../../shared/hooks/useSocietyId';
-import { useVisitorList } from './hooks/useVisitors';
+import { useAuthStore } from '../../store/authStore';
+import { useVisitorList, useApproveVisitor, useDenyVisitor, useCheckOutVisitor } from './hooks/useVisitors';
 import { useDebounce } from '../../shared/hooks/useDebounce';
 import { AppHeader } from '../../shared/components/AppHeader';
 import { StatusChip } from '../../shared/components/StatusChip';
 import { EmptyState } from '../../shared/components/EmptyState';
+import { SearchableSelect } from '../../shared/components/SearchableSelect';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing } from '../../theme/spacing';
@@ -25,36 +27,106 @@ import type { Visitor } from '../../api/types';
 
 type VisitorsNav = NativeStackNavigationProp<{ VisitorList: undefined; VisitorRegister: undefined; VisitorDetail: { id: string } }>;
 
+const STATUS_OPTIONS = [
+  { label: 'All', value: '' },
+  { label: 'Pending', value: 'Pending' },
+  { label: 'Approved', value: 'Approved' },
+  { label: 'Denied', value: 'Denied' },
+  { label: 'Checked In', value: 'CheckedIn' },
+  { label: 'Checked Out', value: 'CheckedOut' },
+];
+
 export function VisitorListScreen() {
   const navigation = useNavigation<VisitorsNav>();
   const societyId = useSocietyId();
+  const role = useAuthStore((s) => s.user?.role ?? '');
+  const myApartmentId = useAuthStore((s) => s.user?.apartmentId ?? '');
+
+  const canModerate = role === 'SUAdmin' || role === 'SUSecurity';
+
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
   const debouncedSearch = useDebounce(search);
 
+  const params: Record<string, string | number> = {};
+  if (debouncedSearch) params.search = debouncedSearch;
+  if (statusFilter) params.status = statusFilter;
+
   const { data, isLoading, fetchNextPage, hasNextPage, refetch } =
-    useVisitorList(societyId, debouncedSearch ? { search: debouncedSearch } : undefined);
+    useVisitorList(societyId, Object.keys(params).length > 0 ? params : undefined);
+
+  const { mutate: approve } = useApproveVisitor(societyId);
+  const { mutate: deny } = useDenyVisitor(societyId);
+  const { mutate: checkOut } = useCheckOutVisitor(societyId);
+
+  function canApprove(item: Visitor): boolean {
+    if (item.status !== 'Pending') return false;
+    return canModerate || item.hostApartmentId === myApartmentId;
+  }
+
+  function canCheckOut(item: Visitor): boolean {
+    return canModerate && item.status === 'CheckedIn';
+  }
 
   function renderItem({ item }: { item: Visitor }) {
     return (
-      <View style={styles.item}>
-        <View style={styles.itemLeft}>
-          <Text style={styles.visitorName}>{item.visitorName}</Text>
-          <Text style={styles.meta}>
-            {item.hostResidentName} • {item.purpose}
-          </Text>
-          {item.checkInTime != null && (
-            <Text style={styles.time}>{formatDateTime(item.checkInTime)}</Text>
-          )}
+      <TouchableOpacity
+        style={styles.item}
+        onPress={() => navigation.navigate('VisitorDetail', { id: item.id })}
+      >
+        <View style={styles.itemTop}>
+          <View style={styles.itemLeft}>
+            <Text style={styles.visitorName}>{item.visitorName}</Text>
+            {item.companyName != null && item.companyName !== '' && (
+              <Text style={styles.company}>{item.companyName}</Text>
+            )}
+            <Text style={styles.meta}>
+              {item.hostResidentName} • {item.hostBlockName} {item.hostFloorNumber}-{item.hostFlatNumber}
+            </Text>
+            <Text style={styles.purpose}>{item.purpose}</Text>
+            {item.checkInTime != null && (
+              <Text style={styles.time}>{formatDateTime(item.checkInTime)}</Text>
+            )}
+          </View>
+          <StatusChip status={item.status} />
         </View>
-        <StatusChip status={item.status} />
-      </View>
+
+        {(canApprove(item) || canCheckOut(item) || (canModerate && item.status === 'Pending')) && (
+          <View style={styles.actions}>
+            {canApprove(item) && (
+              <TouchableOpacity
+                style={[styles.actionBtn, styles.approveBtn]}
+                onPress={(e) => { e.stopPropagation(); approve(item.id); }}
+              >
+                <Text style={styles.actionBtnText}>Approve</Text>
+              </TouchableOpacity>
+            )}
+            {(canModerate && item.status === 'Pending') && (
+              <TouchableOpacity
+                style={[styles.actionBtn, styles.denyBtn]}
+                onPress={(e) => { e.stopPropagation(); deny(item.id); }}
+              >
+                <Text style={styles.actionBtnText}>Deny</Text>
+              </TouchableOpacity>
+            )}
+            {canCheckOut(item) && (
+              <TouchableOpacity
+                style={[styles.actionBtn, styles.checkOutBtn]}
+                onPress={(e) => { e.stopPropagation(); checkOut(item.id); }}
+              >
+                <Text style={styles.actionBtnText}>Check Out</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+      </TouchableOpacity>
     );
   }
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <AppHeader title="Visitors" showMenu />
-      <View style={styles.searchBar}>
+      <View style={styles.filters}>
         <TextInput
           style={styles.searchInput}
           placeholder="Search visitors..."
@@ -62,6 +134,14 @@ export function VisitorListScreen() {
           value={search}
           onChangeText={setSearch}
         />
+        <View style={styles.statusFilter}>
+          <SearchableSelect
+            options={STATUS_OPTIONS}
+            value={statusFilter}
+            onChange={setStatusFilter}
+            placeholder="All statuses"
+          />
+        </View>
       </View>
       <FlatList
         data={data}
@@ -99,20 +179,29 @@ export function VisitorListScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  searchBar: { padding: spacing.sm, backgroundColor: colors.surface },
+  filters: {
+    padding: spacing.sm,
+    backgroundColor: colors.surface,
+    gap: spacing.xs,
+  },
   searchInput: {
     backgroundColor: colors.background,
     borderRadius: 8,
     padding: spacing.sm,
     fontSize: typography.fontSize.base,
     color: colors.text.primary,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
+  statusFilter: { marginTop: spacing.xs },
   item: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     padding: spacing.md,
     backgroundColor: colors.surface,
+  },
+  itemTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
   },
   itemLeft: { flex: 1, marginRight: spacing.sm },
   visitorName: {
@@ -120,8 +209,20 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.semibold,
     color: colors.text.primary,
   },
+  company: { fontSize: typography.fontSize.xs, color: colors.text.disabled, marginTop: 1 },
   meta: { fontSize: typography.fontSize.sm, color: colors.text.secondary, marginTop: 2 },
+  purpose: { fontSize: typography.fontSize.xs, color: colors.text.disabled, marginTop: 2 },
   time: { fontSize: typography.fontSize.xs, color: colors.text.disabled, marginTop: 2 },
+  actions: { flexDirection: 'row', gap: spacing.xs, marginTop: spacing.sm },
+  actionBtn: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: 6,
+  },
+  approveBtn: { backgroundColor: '#059669' },
+  denyBtn: { backgroundColor: colors.error },
+  checkOutBtn: { backgroundColor: colors.primary },
+  actionBtnText: { color: '#FFF', fontSize: typography.fontSize.xs, fontWeight: typography.fontWeight.semibold },
   separator: { height: 1, backgroundColor: colors.border },
   emptyContainer: { flex: 1 },
   fab: {
