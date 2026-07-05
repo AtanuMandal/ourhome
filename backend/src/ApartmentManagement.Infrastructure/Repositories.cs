@@ -132,6 +132,13 @@ public class UserRepository(CosmosClient client, string dbName, ILogger<UserRepo
         return (await ExecuteQueryAsync(q, societyId, ct)).FirstOrDefault();
     }
 
+    public async Task<IReadOnlyList<DomainUser>> GetByPhoneAcrossSocietiesAsync(string phone, CancellationToken ct = default)
+    {
+        var q = new QueryDefinition("SELECT * FROM c WHERE c.phone = @phone")
+            .WithParameter("@phone", phone);
+        return await ExecuteCrossPartitionQueryAsync(q, ct);
+    }
+
     public async Task<DomainUser?> GetByExternalAuthIdAsync(string externalAuthId, CancellationToken ct = default)
     {
         var q = new QueryDefinition("SELECT * FROM c WHERE c.externalAuthId = @ext")

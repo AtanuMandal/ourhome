@@ -203,8 +203,9 @@ public class NoticeVisitorServiceProviderIntegrationTests : IntegrationTestBase
     }
 
     [Fact]
-    public async Task ApproveVisitor_BySUSecurity_Succeeds()
+    public async Task ApproveVisitor_ByNonHostSUSecurity_ReturnsForbidden()
     {
+        // Only the host resident can approve a visitor — SUSecurity may deny but not approve.
         var (apartmentId, _, _) = await SeedVisitorContextAsync();
 
         CurrentUserService.Role = "SUAdmin";
@@ -222,7 +223,8 @@ public class NoticeVisitorServiceProviderIntegrationTests : IntegrationTestBase
         CurrentUserService.Role = "SUSecurity";
         var approve = await Mediator.Send(new ApproveVisitorCommand(SocietyId, visitor.Id, "security-guard-001"));
 
-        approve.IsSuccess.Should().BeTrue();
+        approve.IsFailure.Should().BeTrue();
+        approve.ErrorCode.Should().Be(ErrorCodes.Forbidden);
     }
 
     [Fact]
@@ -244,6 +246,51 @@ public class NoticeVisitorServiceProviderIntegrationTests : IntegrationTestBase
 
         CurrentUserService.Role = "SUSecurity";
         var deny = await Mediator.Send(new DenyVisitorCommand(SocietyId, visitor.Id, "security-guard-001"));
+
+        deny.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ApproveVisitor_ByNonHostSUAdmin_ReturnsForbidden()
+    {
+        var (apartmentId, _, _) = await SeedVisitorContextAsync();
+
+        CurrentUserService.Role = "SUAdmin";
+        var visitor = (await Mediator.Send(new RegisterVisitorCommand(
+            SocietyId,
+            "SUAdmin Approve Visitor",
+            "+91-9800033333",
+            null,
+            "Delivery",
+            apartmentId,
+            null,
+            null,
+            false))).Value!;
+
+        var approve = await Mediator.Send(new ApproveVisitorCommand(SocietyId, visitor.Id, "some-suadmin-user"));
+
+        approve.IsFailure.Should().BeTrue();
+        approve.ErrorCode.Should().Be(ErrorCodes.Forbidden);
+    }
+
+    [Fact]
+    public async Task DenyVisitor_ByNonHostSUAdmin_Succeeds()
+    {
+        var (apartmentId, _, _) = await SeedVisitorContextAsync();
+
+        CurrentUserService.Role = "SUAdmin";
+        var visitor = (await Mediator.Send(new RegisterVisitorCommand(
+            SocietyId,
+            "SUAdmin Deny Visitor",
+            "+91-9800044444",
+            null,
+            "Delivery",
+            apartmentId,
+            null,
+            null,
+            false))).Value!;
+
+        var deny = await Mediator.Send(new DenyVisitorCommand(SocietyId, visitor.Id, "some-suadmin-user"));
 
         deny.IsSuccess.Should().BeTrue();
     }

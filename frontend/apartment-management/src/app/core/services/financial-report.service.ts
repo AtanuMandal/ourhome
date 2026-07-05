@@ -5,6 +5,7 @@ import {
   CashFlow,
   FinancialDashboard,
   PersonalStatement,
+  SocietyLedger,
   SocietySummary,
 } from '../models/financial-report.model';
 
@@ -42,6 +43,16 @@ export class FinancialReportService {
     if (toYear)   params['toYear']   = toYear;
     return this.api.get<ApartmentLedger>(
       `societies/${societyId}/apartments/${apartmentId}/financial-report/ledger`,
+      params
+    );
+  }
+
+  getSocietyLedger(societyId: string, from?: string, to?: string) {
+    const params: Record<string, string> = {};
+    if (from) params['from'] = from;
+    if (to)   params['to']   = to;
+    return this.api.get<SocietyLedger>(
+      `societies/${societyId}/financial-report/society-ledger`,
       params
     );
   }

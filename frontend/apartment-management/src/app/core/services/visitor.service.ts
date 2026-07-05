@@ -58,4 +58,8 @@ export class VisitorService {
   sharePass(societyId: string, visitorId: string, request: ShareVisitorPassRequest) {
     return this.api.post<boolean>(`societies/${societyId}/visitors/${visitorId}/share`, request);
   }
+
+  getLookups(societyId: string) {
+    return this.api.get<{ companies: string[]; purposes: string[] }>(`societies/${societyId}/visitors/lookups`);
+  }
 }

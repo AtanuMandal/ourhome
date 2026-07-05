@@ -9,9 +9,11 @@ The visitor log module maintains a real-time record of all visitors entering and
 
 | Role | Can Do |
 |------|--------|
-| `SUAdmin` | Full access — register, approve, deny, check-in, check-out, list all visitors |
-| `SUSecurity` | Register walk-in visitors, scan QR for check-in/check-out, view all visitors |
-| `SUUser` (resident) | Pre-approve visitors for their own apartment only; view their own apartment's visitor history |
+| `SUAdmin` | Register, deny, check-in, check-out, list all visitors — **cannot approve** a pending visitor |
+| `SUSecurity` | Register walk-in visitors, deny visitors, scan QR for check-in/check-out, view all visitors — **cannot approve** a pending visitor |
+| `SUUser` (resident) | Pre-approve visitors for their own apartment only; **approve or deny a pending visitor hosted by their own apartment**; view their own apartment's visitor history |
+
+> Only the host resident of the apartment being visited can approve a `Pending` visitor. `SUAdmin`, `HQAdmin`, and `SUSecurity` may deny a pending visitor but are deliberately excluded from approving one — approval is a resident-only decision, by design.
 
 ---
 
@@ -49,8 +51,8 @@ The visitor log module maintains a real-time record of all visitors entering and
 - Pre-approved visitors do **not** require a second approval upon arrival — gate security can check them in directly.
 
 ### 5. Approval / Denial Workflow
-- Any authenticated user (resident, SUAdmin, SUSecurity) can approve or deny a visitor request.
-- Only residents of the host apartment or admins can approve — the command handler enforces this.
+- Only the host resident of the visited apartment can approve a `Pending` visitor request — the backend `ApproveVisitorCommandHandler` enforces this and rejects `SUAdmin`, `HQAdmin`, and `SUSecurity` attempts with a `Forbidden` result, even via a push-notification action button or deep link.
+- `SUAdmin`, `HQAdmin`, `SUSecurity`, or the host resident can deny a visitor request.
 - On approval, visitor status changes from `Pending` → `Approved`.
 - On denial, visitor status changes to `Denied`.
 - The visitor list auto-refreshes every 30 seconds to reflect near-real-time status changes.
@@ -85,8 +87,21 @@ The visitor log module maintains a real-time record of all visitors entering and
 
 ### 11. Visitor Image Upload
 - A visitor photo can be uploaded before or during registration.
-- Upload goes directly to Azure Blob Storage via a dedicated upload endpoint.
+- Upload goes to Azure Blob Storage via a dedicated upload endpoint; the response is an app-relative, authenticated path (not a raw long-lived SAS URL) except on the public pass page, which intentionally keeps a directly loadable image URL since it has no login.
+- The image is fetched through the authenticated `ApiService`/`app-secure-image` component (web) — a direct unauthenticated request to the underlying path returns 401/403.
 - The image URL is stored in the visitor log and shown in list cards, push notifications, and the public pass page.
+
+### 12. Visitor Image Zoom Preview
+- On web, clicking a visitor's photo (in the visitor list avatar or the QR-verify result card) opens a full-screen zoom popup (`app-image-lightbox`) with zoom in/out buttons (100%–400%) and mouse-wheel zoom — the same lightbox pattern used for maintenance payment proofs.
+- On mobile, tapping the captured photo preview in visitor registration opens an equivalent full-screen zoom modal with zoom in/out buttons (100%–400%).
+
+### 13. Company / Purpose Autocomplete
+- `GET /api/societies/{id}/visitors/lookups` returns the distinct, non-empty `companyName` and `purpose` values previously used across the society's visitor logs.
+- The visitor registration form (web `mat-autocomplete`, mobile `SearchableSelect`) suggests these previously-used values while still accepting free-text entry for a new company or purpose.
+
+### 14. Visitor List Default View
+- With no filters applied, the visitor list shows all `Pending` visitors plus the 10 most recently updated non-pending visitors (merged and de-duplicated by ID), instead of the full unfiltered history — this keeps the default view focused on visitors needing action.
+- Applying any search or status filter switches to the normal paginated, fully-filtered list.
 
 ---
 
@@ -107,6 +122,7 @@ The visitor log module maintains a real-time record of all visitors entering and
 | `POST` | `/api/societies/{id}/visitors/{id}/share` | Authenticated | Share pass via email/SMS |
 | `GET` | `/api/societies/{id}/visitors/export` | SUAdmin, SUSecurity | CSV export |
 | `POST` | `/api/societies/{id}/visitors/images/upload` | Authenticated | Upload visitor photo |
+| `GET` | `/api/societies/{id}/visitors/lookups` | Authenticated | Distinct company/purpose values for autocomplete |
 
 ---
 
@@ -135,6 +151,8 @@ Pending → Approved → CheckedIn → CheckedOut
 - SUUser listing is always scoped to their apartment — the backend enforces this regardless of query parameters sent.
 - Push notification is sent with approve/deny deep links only for non-pre-approved visitors.
 - QR scan check-in works via the device camera in the browser (BarcodeDetector API).
+- Only the host resident can approve a pending visitor; SUAdmin, HQAdmin, and SUSecurity are rejected with `Forbidden` even if they call the approve action directly (e.g. via a crafted deep link or notification action).
+- Visitor photo zoom popup opens on tap/click on both web and mobile, with working zoom in/out controls.
 
 ---
 

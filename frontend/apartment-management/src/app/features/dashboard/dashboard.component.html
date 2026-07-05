@@ -21,6 +21,48 @@
       </div>
     </section>
 
+    <!-- Financial summary (SUAdmin / HQAdmin only) -->
+    @if (isAdmin() && financialSummary()) {
+      <section class="section">
+        <div class="section-header">
+          <h2 class="section-title">Financial Outlook</h2>
+          <a [routerLink]="'/financial-report'" class="see-all">See all</a>
+        </div>
+        <div class="finance-cards">
+          <div class="finance-card">
+            <span class="material-icons finance-card__icon finance-card__icon--in">trending_up</span>
+            <div class="finance-card__content">
+              <span class="finance-card__label">Upcoming Cash Inflow (7d)</span>
+              <span class="finance-card__value">{{ financialSummary()!.upcomingCashInflow | currency:'INR':'symbol':'1.0-0' }}</span>
+              <span class="finance-card__meta">{{ financialSummary()!.upcomingCharges.length }} charge(s) due</span>
+            </div>
+          </div>
+          <div class="finance-card">
+            <span class="material-icons finance-card__icon finance-card__icon--out">trending_down</span>
+            <div class="finance-card__content">
+              <span class="finance-card__label">Upcoming Cash Outflow (7d)</span>
+              <span class="finance-card__value">{{ financialSummary()!.upcomingCashOutflow | currency:'INR':'symbol':'1.0-0' }}</span>
+              <span class="finance-card__meta">{{ financialSummary()!.upcomingVendorDues.length }} vendor due(s)</span>
+            </div>
+          </div>
+        </div>
+
+        @if (financialSummary()!.upcomingCharges.length > 0) {
+          <div class="upcoming-charges-list">
+            @for (charge of financialSummary()!.upcomingCharges; track charge.apartmentId + charge.dueDate) {
+              <div class="upcoming-charge-row">
+                <span class="upcoming-charge-row__apt">{{ charge.apartmentLabel }}</span>
+                <span class="upcoming-charge-row__amount">{{ charge.amount | currency:'INR':'symbol':'1.0-0' }}</span>
+                <span class="upcoming-charge-row__due">
+                  {{ charge.daysUntilDue === 0 ? 'Due today' : 'Due in ' + charge.daysUntilDue + 'd' }}
+                </span>
+              </div>
+            }
+          </div>
+        }
+      </section>
+    }
+
     <!-- Recent Complaints -->
     <section class="section">
       <div class="section-header">

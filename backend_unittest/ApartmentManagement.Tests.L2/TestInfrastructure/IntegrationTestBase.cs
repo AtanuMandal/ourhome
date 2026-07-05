@@ -68,6 +68,15 @@ public sealed class FakeNotificationService : INotificationService
         => Task.CompletedTask;
 
     public string GetVapidPublicKey() => "test-vapid-public-key";
+
+    public Task SaveMobilePushTokenAsync(string userId, string societyId, string platform, string token, string? appVersion, CancellationToken ct = default)
+        => Task.CompletedTask;
+
+    public Task DeleteMobilePushTokenAsync(string userId, string societyId, string token, CancellationToken ct = default)
+        => Task.CompletedTask;
+
+    public Task SendMobilePushNotificationAsync(string userId, string societyId, string title, string body, CancellationToken ct = default, IReadOnlyDictionary<string, string>? data = null)
+        => Task.CompletedTask;
 }
 
 public sealed class FakeEventPublisher : IEventPublisher
@@ -98,13 +107,30 @@ public sealed class FakeQrCodeService : IQrCodeService
 
 public sealed class FakeFileStorageService : IFileStorageService
 {
-    public Task<string> UploadAsync(Stream content, string fileName, string contentType, string containerName, CancellationToken ct = default)
-        => Task.FromResult($"https://fake-storage/{containerName}/{fileName}");
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, (byte[] Content, string ContentType)> _store = new();
+
+    public async Task<string> UploadAsync(Stream content, string fileName, string contentType, string containerName, CancellationToken ct = default)
+    {
+        using var buffer = new MemoryStream();
+        await content.CopyToAsync(buffer, ct);
+        _store[Key(containerName, fileName)] = (buffer.ToArray(), string.IsNullOrWhiteSpace(contentType) ? "application/octet-stream" : contentType);
+        return $"https://fake-storage/{containerName}/{fileName}";
+    }
 
     public Task DeleteAsync(string fileUrl, CancellationToken ct = default) => Task.CompletedTask;
 
     public Task<string> GetUrlAsync(string blobName, string containerName, TimeSpan? expiry = null, CancellationToken ct = default)
         => Task.FromResult($"https://fake-storage/{containerName}/{blobName}");
+
+    public Task<(Stream Content, string ContentType)> DownloadAsync(string containerName, string blobName, CancellationToken ct = default)
+    {
+        if (!_store.TryGetValue(Key(containerName, blobName), out var entry))
+            throw new FileNotFoundException($"Blob '{blobName}' was not found in container '{containerName}'.");
+
+        return Task.FromResult<(Stream, string)>((new MemoryStream(entry.Content, writable: false), entry.ContentType));
+    }
+
+    private static string Key(string containerName, string blobName) => $"{containerName}::{blobName}";
 }
 
 public sealed class FakeAuthService : IAuthService

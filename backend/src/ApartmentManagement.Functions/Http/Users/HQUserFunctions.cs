@@ -39,7 +39,7 @@ public class HQUserFunctions(ISender mediator)
 
     [Function("GetHQUser")]
     public async Task<IActionResult> GetHQUser(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "hq/users/{id}")] HttpRequest req,
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "hq/users/{id:guid}")] HttpRequest req,
         string id, CancellationToken ct)
     {
         var result = await mediator.Send(new GetUserQuery(HqConstants.PartitionKey, id), ct);

@@ -15,6 +15,8 @@ import { EmptyStateComponent } from '../../shared/components/empty-state/empty-s
 import { LoadingSpinnerComponent } from '../../shared/components/loading-spinner/loading-spinner.component';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 import { StatusChipComponent } from '../../shared/components/status-chip/status-chip.component';
+import { SecureImageComponent } from '../../shared/components/secure-image/secure-image.component';
+import { ImageLightboxComponent } from '../../shared/components/image-lightbox/image-lightbox.component';
 import { CHARGE_STATUS_OPTIONS, MAINTENANCE_PAGE_STYLES, MONTH_OPTIONS } from './maintenance-shared';
 
 @Component({
@@ -33,6 +35,8 @@ import { CHARGE_STATUS_OPTIONS, MAINTENANCE_PAGE_STYLES, MONTH_OPTIONS } from '.
     EmptyStateComponent,
     StatusChipComponent,
     SearchableSelectComponent,
+    SecureImageComponent,
+    ImageLightboxComponent,
   ],
   template: `
     <app-page-header
@@ -296,7 +300,8 @@ import { CHARGE_STATUS_OPTIONS, MAINTENANCE_PAGE_STYLES, MONTH_OPTIONS } from '.
                 <span class="proof-list__title">Proof uploads</span>
                 @for (proof of selectedCharge.proofs; track proof.proofUrl + proof.submittedAt) {
                   <div class="proof-item">
-                    <a [href]="proof.proofUrl" target="_blank" rel="noreferrer">{{ proof.proofUrl }}</a>
+                    <app-secure-image [src]="proof.proofUrl" alt="Payment proof" imgClass="proof-thumb"
+                      [clickable]="true" (imageClick)="lightboxSrc.set(proof.proofUrl)"></app-secure-image>
                     <span>{{ proof.submittedAt | date:'medium' }}</span>
                     @if (proof.notes) {
                       <span>{{ proof.notes }}</span>
@@ -311,8 +316,11 @@ import { CHARGE_STATUS_OPTIONS, MAINTENANCE_PAGE_STYLES, MONTH_OPTIONS } from '.
         </div>
       }
     </div>
+
+    <app-image-lightbox [open]="!!lightboxSrc()" [src]="lightboxSrc() ?? ''" (closed)="lightboxSrc.set(null)"></app-image-lightbox>
   `,
   styles: [MAINTENANCE_PAGE_STYLES + `
+    .proof-thumb { width: 64px; height: 64px; border-radius: 8px; object-fit: cover; }
     .grid-shell {
       overflow-x: auto;
       overflow-y: scroll;
@@ -369,6 +377,7 @@ export class MaintenanceAdminGridComponent {
   readonly creatingPenalty = signal(false);
   readonly grid = signal<MaintenanceChargeGrid | null>(null);
   readonly proofCharge = signal<MaintenanceGridCharge | null>(null);
+  readonly lightboxSrc = signal<string | null>(null);
   readonly chargeStatusSelectOptions = [
     { value: null as MaintenanceChargeStatus | null, label: 'All statuses' },
     ...CHARGE_STATUS_OPTIONS.map(s => ({ value: s as MaintenanceChargeStatus | null, label: s })),

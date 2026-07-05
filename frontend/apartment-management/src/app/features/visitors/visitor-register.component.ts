@@ -3,11 +3,14 @@ import { RouterLink } from '@angular/router';
 import { DatePipe } from '@angular/common';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { environment } from '../../../environments/environment';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { startWith } from 'rxjs';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { Apartment, formatApartmentLabel } from '../../core/models/apartment.model';
 import { SearchableSelectComponent } from '../../shared/components/searchable-select/searchable-select.component';
 import { Visitor } from '../../core/models/visitor.model';
@@ -27,6 +30,7 @@ import { StatusChipComponent } from '../../shared/components/status-chip/status-
     ReactiveFormsModule,
     MatFormFieldModule,
     MatInputModule,
+    MatAutocompleteModule,
     MatButtonModule,
     MatIconModule,
     MatProgressBarModule,
@@ -115,13 +119,25 @@ import { StatusChipComponent } from '../../shared/components/status-chip/status-
 
             <mat-form-field appearance="fill" class="full-width">
               <mat-label>Company / service type</mat-label>
-              <input matInput formControlName="companyName" placeholder="Amazon, Swiggy, Personal, Courier">
+              <input matInput formControlName="companyName" placeholder="Amazon, Swiggy, Personal, Courier"
+                [matAutocomplete]="companyAuto">
+              <mat-autocomplete #companyAuto="matAutocomplete">
+                @for (option of filteredCompanies(); track option) {
+                  <mat-option [value]="option">{{ option }}</mat-option>
+                }
+              </mat-autocomplete>
             </mat-form-field>
           </div>
 
           <mat-form-field appearance="fill" class="full-width">
             <mat-label>Purpose</mat-label>
-            <input matInput formControlName="purpose" placeholder="Delivery, guest visit, electrician, etc.">
+            <input matInput formControlName="purpose" placeholder="Delivery, guest visit, electrician, etc."
+              [matAutocomplete]="purposeAuto">
+            <mat-autocomplete #purposeAuto="matAutocomplete">
+              @for (option of filteredPurposes(); track option) {
+                <mat-option [value]="option">{{ option }}</mat-option>
+              }
+            </mat-autocomplete>
             @if (form.get('purpose')?.invalid && form.get('purpose')?.touched) {
               <mat-error>Purpose is required</mat-error>
             }
@@ -258,6 +274,9 @@ export class VisitorRegisterComponent implements OnInit {
     this.apartments().map(a => ({ value: a.id, label: formatApartmentLabel(a) }))
   );
 
+  readonly companies = signal<string[]>([]);
+  readonly purposes = signal<string[]>([]);
+
   private _selectedImageFile: File | null = null;
 
   readonly residentApartmentLabel = computed(() => {
@@ -285,7 +304,36 @@ export class VisitorRegisterComponent implements OnInit {
     validityHours: [null as number | null]
   });
 
+  private readonly companyInput = toSignal(
+    this.form.controls.companyName.valueChanges.pipe(startWith(this.form.controls.companyName.value)),
+    { initialValue: '' }
+  );
+  private readonly purposeInput = toSignal(
+    this.form.controls.purpose.valueChanges.pipe(startWith(this.form.controls.purpose.value)),
+    { initialValue: '' }
+  );
+
+  readonly filteredCompanies = computed(() => this.filterOptions(this.companies(), this.companyInput()));
+  readonly filteredPurposes = computed(() => this.filterOptions(this.purposes(), this.purposeInput()));
+
+  private filterOptions(options: string[], query: string | null): string[] {
+    const term = (query ?? '').trim().toLowerCase();
+    if (!term) return options;
+    return options.filter(option => option.toLowerCase().includes(term));
+  }
+
   ngOnInit(): void {
+    const societyIdForLookups = this.auth.societyId();
+    if (societyIdForLookups) {
+      this.visitorService.getLookups(societyIdForLookups).subscribe({
+        next: lookups => {
+          this.companies.set(lookups.companies ?? []);
+          this.purposes.set(lookups.purposes ?? []);
+        },
+        error: () => {},
+      });
+    }
+
     if (!this.canManageVisitors()) {
       this.form.controls.apartmentId.clearValidators();
       this.form.controls.apartmentId.updateValueAndValidity({ emitEvent: false });

@@ -11,7 +11,7 @@ describe('ResidentFormComponent', () => {
   function setup(user: { role: string; residentType: string }) {
     const apartmentServiceStub = { list: jasmine.createSpy().and.returnValue(of({ items: [] })) };
     const userServiceStub = { findByEmail: jasmine.createSpy(), register: jasmine.createSpy() };
-    const authServiceStub = { societyId: () => 'soc-1', user: () => user };
+    const authServiceStub = { societyId: () => 'soc-1', user: () => user, isAdmin: () => user.role === 'SUAdmin' || user.role === 'HQAdmin' };
     const snackBarStub = { open: jasmine.createSpy() };
 
     TestBed.configureTestingModule({

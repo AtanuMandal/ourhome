@@ -36,6 +36,14 @@ This module defines the role hierarchy, user lifecycle management, apartment ass
 - `SUAdmin` can update user name and phone.
 - `SUAdmin` can activate or deactivate a user account (`POST /societies/{id}/users/{id}/activate` / `deactivate`).
 - Each user has a profile section where they can update their own name, phone, and change their password.
+- The Residents list is grouped by role for easier scanning, and can be searched by name, email, phone, or apartment label. `GET /societies/{id}/users` supports a server-side `?search=` parameter; the mobile app uses it directly (server-side, paginated), while the web app currently loads a page of up to 500 users and filters/groups client-side without sending `search` to the API.
+
+### Delete User (Soft Delete)
+- `SUAdmin`/`HQAdmin` can delete a user via `DELETE /societies/{id}/users/{id}`. This is a soft delete — `User.IsDeleted` is set and the record is excluded from all subsequent list/search/lookup queries, but the row is never physically removed.
+- Deletion is blocked (with a specific error so the UI can explain why) in two cases:
+  - The user still has an active apartment mapping (primary apartment or any household membership) — error code `USER_HAS_APARTMENT_MAPPING`. The admin must remove all apartment links first via `RemoveResidentApartment`.
+  - Any of the user's linked apartments has a maintenance charge for the current month or earlier that is not `Paid`/`Cancelled` — error code `USER_HAS_PENDING_DUES`.
+  - Deleting an already-deleted user returns the standard "user not found" error.
 
 ---
 
@@ -117,12 +125,13 @@ This module defines the role hierarchy, user lifecycle management, apartment ass
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|
 | `POST` | `/api/societies/{id}/users` | SUAdmin | Create user |
-| `GET` | `/api/societies/{id}/users` | SUAdmin, SUSecurity | List users |
+| `GET` | `/api/societies/{id}/users` | SUAdmin, SUSecurity | List/search users (`?search=`), grouped by role in the UI |
 | `GET` | `/api/societies/{id}/users/{id}` | Authenticated | Get user profile |
 | `PUT` | `/api/societies/{id}/users/{id}` | SUAdmin, Self | Update name and phone |
 | `POST` | `/api/societies/{id}/users/{id}/deactivate` | SUAdmin | Deactivate user |
 | `POST` | `/api/societies/{id}/users/{id}/activate` | SUAdmin | Activate user |
 | `POST` | `/api/societies/{id}/users/{id}/assign-role` | SUAdmin | Change user role |
+| `DELETE` | `/api/societies/{id}/users/{id}` | SUAdmin, HQAdmin | Soft-delete user (blocked if apartment-mapped or has pending dues) |
 | `POST` | `/api/societies/{id}/users/{id}/change-password` | Self | Change own password |
 | `POST` | `/api/societies/{id}/users/invite-link` | SUAdmin, SUUser | Generate invite link |
 | `POST` | `/api/societies/{id}/auth/register` | Public | Self-register via invite link |

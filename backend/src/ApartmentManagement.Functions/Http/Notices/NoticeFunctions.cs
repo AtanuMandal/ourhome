@@ -43,7 +43,7 @@ public class NoticeFunctions(ISender mediator, ICurrentUserService currentUser)
 
     [Function("GetNotice")]
     public async Task<IActionResult> GetNotice(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "societies/{societyId}/notices/{id}")] HttpRequest req,
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "societies/{societyId}/notices/{id:guid}")] HttpRequest req,
         string societyId, string id, CancellationToken ct)
     {
         var result = await mediator.Send(new GetNoticeQuery(societyId, id, currentUser.UserId), ct);

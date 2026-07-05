@@ -344,12 +344,13 @@ public class UploadVisitorImageCommandHandlerTests
         new(_fileStorageMock.Object, _loggerMock.Object);
 
     [Fact]
-    public async Task Handle_WithValidFile_UploadsAndReturnsUrl()
+    public async Task Handle_WithValidFile_UploadsAndReturnsAppRelativeSecureUrl()
     {
-        const string expectedUrl = "https://storage.example.com/visitor-images/soc-001/abc.jpg";
+        // The response must be an app-relative path served through GetFileQuery — never the
+        // raw blob/SAS URL that UploadAsync happens to return internally.
         _fileStorageMock
             .Setup(s => s.UploadAsync(It.IsAny<System.IO.Stream>(), It.IsAny<string>(), "image/jpeg", "visitor-images", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(expectedUrl);
+            .ReturnsAsync("https://storage.example.com/visitor-images/soc-001/abc.jpg?sas-token-should-not-leak");
 
         var content = new byte[] { 1, 2, 3, 4, 5 };
         var result = await CreateHandler().Handle(
@@ -357,7 +358,8 @@ public class UploadVisitorImageCommandHandlerTests
             CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        result.Value!.ImageUrl.Should().Be(expectedUrl);
+        result.Value!.ImageUrl.Should().StartWith("files/visitor-images/soc-001/").And.EndWith(".jpg");
+        result.Value!.ImageUrl.Should().NotContain("sas-token-should-not-leak").And.NotContain("https://");
         result.Value.FileName.Should().Be("visitor.jpg");
     }
 
@@ -380,11 +382,10 @@ public class UploadVisitorImageCommandHandlerTests
 public class ApproveVisitorCommandHandlerTests
 {
     private readonly Mock<IVisitorLogRepository> _visitorRepoMock = new();
-    private readonly Mock<ICurrentUserService> _currentUserMock = new();
     private readonly Mock<ILogger<ApproveVisitorCommandHandler>> _loggerMock = new();
 
     private ApproveVisitorCommandHandler CreateHandler() =>
-        new(_visitorRepoMock.Object, _currentUserMock.Object, _loggerMock.Object);
+        new(_visitorRepoMock.Object, _loggerMock.Object);
 
     [Fact]
     public async Task Handle_ByHostUser_ApprovesSuccessfully()
@@ -393,7 +394,6 @@ public class ApproveVisitorCommandHandlerTests
 
         _visitorRepoMock.Setup(r => r.GetByIdAsync(log.Id, "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync(log);
         _visitorRepoMock.Setup(r => r.UpdateAsync(It.IsAny<VisitorLog>(), It.IsAny<CancellationToken>())).ReturnsAsync((VisitorLog l, CancellationToken _) => l);
-        _currentUserMock.Setup(x => x.IsInRoles(It.IsAny<string[]>())).Returns(false);
 
         var result = await CreateHandler().Handle(new ApproveVisitorCommand("soc-001", log.Id, "host-001"), CancellationToken.None);
 
@@ -402,32 +402,45 @@ public class ApproveVisitorCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_ByAdmin_ApprovesSuccessfully()
+    public async Task Handle_ByNonHostSUAdmin_ReturnsForbidden()
     {
-        var log = VisitorLog.Create("soc-001", "Jane", "+91-9222222222", null, null, "Guest", "apt-001", "host-001", "Host", "A", 1, "A-101", false);
+        // SUAdmin may deny a visitor but must not be able to approve one.
+        var log = VisitorLog.Create("soc-001", "Jane", "+91-9299999999", null, null, "Guest", "apt-001", "host-001", "Host", "A", 1, "A-101", false);
 
         _visitorRepoMock.Setup(r => r.GetByIdAsync(log.Id, "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync(log);
-        _visitorRepoMock.Setup(r => r.UpdateAsync(It.IsAny<VisitorLog>(), It.IsAny<CancellationToken>())).ReturnsAsync((VisitorLog l, CancellationToken _) => l);
-        _currentUserMock.Setup(x => x.IsInRoles(It.IsAny<string[]>())).Returns(true);
 
-        var result = await CreateHandler().Handle(new ApproveVisitorCommand("soc-001", log.Id, "admin-001"), CancellationToken.None);
+        var result = await CreateHandler().Handle(new ApproveVisitorCommand("soc-001", log.Id, "suadmin-001"), CancellationToken.None);
 
-        result.IsSuccess.Should().BeTrue();
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.Forbidden);
     }
 
     [Fact]
-    public async Task Handle_BySecurityRole_ApprovesSuccessfully()
+    public async Task Handle_ByNonHostSUSecurity_ReturnsForbidden()
     {
+        // SUSecurity may deny a visitor but must not be able to approve one — only the host resident can.
         var log = VisitorLog.Create("soc-001", "Jane", "+91-9288888888", null, null, "Guest", "apt-001", "host-001", "Host", "A", 1, "A-101", false);
 
         _visitorRepoMock.Setup(r => r.GetByIdAsync(log.Id, "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync(log);
-        _visitorRepoMock.Setup(r => r.UpdateAsync(It.IsAny<VisitorLog>(), It.IsAny<CancellationToken>())).ReturnsAsync((VisitorLog l, CancellationToken _) => l);
-        _currentUserMock.Setup(x => x.IsInRoles("SUAdmin", "HQAdmin", "SUSecurity")).Returns(true);
 
         var result = await CreateHandler().Handle(new ApproveVisitorCommand("soc-001", log.Id, "security-001"), CancellationToken.None);
 
-        result.IsSuccess.Should().BeTrue();
-        log.Status.Should().Be(VisitorStatus.Approved);
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.Forbidden);
+        log.Status.Should().Be(VisitorStatus.Pending);
+    }
+
+    [Fact]
+    public async Task Handle_ByNonHostHQAdmin_ReturnsForbidden()
+    {
+        var log = VisitorLog.Create("soc-001", "Jane", "+91-9277777777", null, null, "Guest", "apt-001", "host-001", "Host", "A", 1, "A-101", false);
+
+        _visitorRepoMock.Setup(r => r.GetByIdAsync(log.Id, "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync(log);
+
+        var result = await CreateHandler().Handle(new ApproveVisitorCommand("soc-001", log.Id, "hqadmin-001"), CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.Forbidden);
     }
 
     [Fact]
@@ -436,7 +449,6 @@ public class ApproveVisitorCommandHandlerTests
         var log = VisitorLog.Create("soc-001", "Jane", "+91-9333333333", null, null, "Guest", "apt-001", "host-001", "Host", "A", 1, "A-101", false);
 
         _visitorRepoMock.Setup(r => r.GetByIdAsync(log.Id, "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync(log);
-        _currentUserMock.Setup(x => x.IsInRoles(It.IsAny<string[]>())).Returns(false);
 
         var result = await CreateHandler().Handle(new ApproveVisitorCommand("soc-001", log.Id, "stranger-001"), CancellationToken.None);
 
@@ -448,7 +460,6 @@ public class ApproveVisitorCommandHandlerTests
     public async Task Handle_VisitorNotFound_ReturnsNotFound()
     {
         _visitorRepoMock.Setup(r => r.GetByIdAsync("missing", "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync((VisitorLog?)null);
-        _currentUserMock.Setup(x => x.IsInRoles(It.IsAny<string[]>())).Returns(false);
 
         var result = await CreateHandler().Handle(new ApproveVisitorCommand("soc-001", "missing", "host-001"), CancellationToken.None);
 
@@ -491,6 +502,22 @@ public class DenyVisitorCommandHandlerTests
         _currentUserMock.Setup(x => x.IsInRoles("SUAdmin", "HQAdmin", "SUSecurity")).Returns(true);
 
         var result = await CreateHandler().Handle(new DenyVisitorCommand("soc-001", log.Id, "security-001"), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        log.Status.Should().Be(VisitorStatus.Denied);
+    }
+
+    [Fact]
+    public async Task Handle_BySUAdminRole_DeniesSuccessfully()
+    {
+        // Unlike approve, SUAdmin retains the ability to deny a visitor.
+        var log = VisitorLog.Create("soc-001", "Jake", "+91-9499999999", null, null, "Salesman", "apt-001", "host-001", "Host", "A", 1, "A-101", false);
+
+        _visitorRepoMock.Setup(r => r.GetByIdAsync(log.Id, "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync(log);
+        _visitorRepoMock.Setup(r => r.UpdateAsync(It.IsAny<VisitorLog>(), It.IsAny<CancellationToken>())).ReturnsAsync((VisitorLog l, CancellationToken _) => l);
+        _currentUserMock.Setup(x => x.IsInRoles("SUAdmin", "HQAdmin", "SUSecurity")).Returns(true);
+
+        var result = await CreateHandler().Handle(new DenyVisitorCommand("soc-001", log.Id, "suadmin-001"), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         log.Status.Should().Be(VisitorStatus.Denied);
@@ -887,5 +914,52 @@ public class MarkMaintenanceChargePaidCommandHandlerTests
         charge.Status.Should().Be(PaymentStatus.Paid);
         charge.TransactionReference.Should().Be("TXN123");
         _eventPublisherMock.Verify(e => e.PublishAsync(It.IsAny<IDomainEvent>(), It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+    }
+}
+
+// ─── GetVisitorLookupsQueryHandler Tests ──────────────────────────────────────
+
+public class GetVisitorLookupsQueryHandlerTests
+{
+    private readonly Mock<IVisitorLogRepository> _visitorRepoMock = new();
+
+    private GetVisitorLookupsQueryHandler CreateHandler() => new(_visitorRepoMock.Object);
+
+    private static VisitorLog MakeLog(string? companyName, string purpose) =>
+        VisitorLog.Create("soc-001", "Visitor", "+91-9000000000", null, companyName, purpose,
+            "apt-001", "host-001", "Host", "A", 1, "A-101", false);
+
+    [Fact]
+    public async Task Handle_ReturnsDistinctCaseInsensitiveSortedCompaniesAndPurposes()
+    {
+        _visitorRepoMock
+            .Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<VisitorLog>)[
+                MakeLog("Swiggy", "Delivery"),
+                MakeLog("swiggy", "delivery"),
+                MakeLog("Amazon", "Delivery"),
+                MakeLog(null, "Guest visit"),
+                MakeLog("  ", "Electrician"),
+            ]);
+
+        var result = await CreateHandler().Handle(new GetVisitorLookupsQuery("soc-001"), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Companies.Should().Equal("Amazon", "Swiggy");
+        result.Value!.Purposes.Should().Equal("Delivery", "Electrician", "Guest visit");
+    }
+
+    [Fact]
+    public async Task Handle_EmptySociety_ReturnsEmptyLookups()
+    {
+        _visitorRepoMock
+            .Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<VisitorLog>)[]);
+
+        var result = await CreateHandler().Handle(new GetVisitorLookupsQuery("soc-001"), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Companies.Should().BeEmpty();
+        result.Value!.Purposes.Should().BeEmpty();
     }
 }

@@ -367,6 +367,66 @@ public sealed class ActivateUserCommandHandler(
     }
 }
 
+// ─── Delete User ────────────────────────────────────────────────────────────────
+
+public record DeleteUserCommand(string SocietyId, string UserId) : IRequest<Result<bool>>;
+
+public sealed class DeleteUserCommandHandler(
+    IUserRepository userRepository,
+    IMaintenanceChargeRepository maintenanceChargeRepository,
+    ILogger<DeleteUserCommandHandler> logger)
+    : IRequestHandler<DeleteUserCommand, Result<bool>>
+{
+    public async Task<Result<bool>> Handle(DeleteUserCommand request, CancellationToken ct)
+    {
+        try
+        {
+            var user = await userRepository.GetByIdAsync(request.UserId, request.SocietyId, ct)
+                ?? throw new NotFoundException("User", request.UserId);
+
+            if (user.IsDeleted)
+                return Result<bool>.Failure(ErrorCodes.UserNotFound, "This user has already been deleted.");
+
+            var apartmentIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (!string.IsNullOrWhiteSpace(user.ApartmentId)) apartmentIds.Add(user.ApartmentId);
+            foreach (var membership in user.Apartments) apartmentIds.Add(membership.ApartmentId);
+
+            var now = DateTime.UtcNow;
+            var currentPeriod = new DateTime(now.Year, now.Month, 1);
+            foreach (var apartmentId in apartmentIds)
+            {
+                var charges = await maintenanceChargeRepository.GetByApartmentAsync(
+                    request.SocietyId, apartmentId, 1, int.MaxValue, null, null, ct);
+
+                var hasPendingDues = charges.Any(c =>
+                    c.Status is not (PaymentStatus.Paid or PaymentStatus.Cancelled) &&
+                    new DateTime(c.ChargeYear, c.ChargeMonth, 1) <= currentPeriod);
+
+                if (hasPendingDues)
+                    return Result<bool>.Failure(ErrorCodes.UserHasPendingDues,
+                        "This user's apartment has maintenance dues outstanding through the current month. Clear all dues before deleting.");
+            }
+
+            if (apartmentIds.Count > 0)
+                return Result<bool>.Failure(ErrorCodes.UserHasApartmentMapping,
+                    "This user is still mapped to an apartment. Remove the apartment mapping before deleting the user.");
+
+            user.MarkDeleted();
+            await userRepository.UpdateAsync(user, ct);
+            return Result<bool>.Success(true);
+        }
+        catch (NotFoundException ex)
+        {
+            return Result<bool>.Failure(ErrorCodes.UserNotFound, ex.Message);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to delete user {UserId}", request.UserId);
+            return Result<bool>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
 // ─── Change Password (self-service) ────────────────────────────────────────────
 
 public record ChangePasswordCommand(string SocietyId, string UserId, string CurrentPassword, string NewPassword)
@@ -564,6 +624,62 @@ public sealed class LoginCommandHandler(
         {
             logger.LogError(ex, "Failed password login for {Email}", request.Email);
             return Result<LoginResponse>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
+// ─── Phone + OTP Login (request step) ───────────────────────────────────────────
+
+public record RequestPhoneLoginOtpCommand(string Phone, string? SelectedUserId = null)
+    : IRequest<Result<PhoneLoginOtpResponse>>;
+
+public sealed class RequestPhoneLoginOtpCommandHandler(
+    IUserRepository userRepository,
+    ISocietyRepository societyRepository,
+    IApartmentRepository apartmentRepository,
+    INotificationService notificationService,
+    ILogger<RequestPhoneLoginOtpCommandHandler> logger)
+    : IRequestHandler<RequestPhoneLoginOtpCommand, Result<PhoneLoginOtpResponse>>
+{
+    public async Task<Result<PhoneLoginOtpResponse>> Handle(RequestPhoneLoginOtpCommand request, CancellationToken ct)
+    {
+        try
+        {
+            var candidates = (await userRepository.GetByPhoneAcrossSocietiesAsync(request.Phone, ct))
+                .Where(u => u.IsActive)
+                .OrderBy(u => u.SocietyId)
+                .ThenBy(u => u.ApartmentId)
+                .ToList();
+
+            if (candidates.Count == 0)
+                return Result<PhoneLoginOtpResponse>.Failure(ErrorCodes.UserNotFound, $"No account found for {request.Phone}.");
+
+            if (string.IsNullOrWhiteSpace(request.SelectedUserId) && candidates.Count > 1)
+            {
+                var options = await UserLoginOptionMapper.BuildLoginOptionsAsync(candidates, societyRepository, apartmentRepository, ct);
+                return Result<PhoneLoginOtpResponse>.Success(new PhoneLoginOtpResponse(true, null, options));
+            }
+
+            var selected = string.IsNullOrWhiteSpace(request.SelectedUserId)
+                ? candidates[0]
+                : candidates.FirstOrDefault(c => c.Id == request.SelectedUserId);
+
+            if (selected is null)
+                return Result<PhoneLoginOtpResponse>.Failure(ErrorCodes.UserNotFound, "The selected account could not be found.");
+
+            var selectedOption = await UserLoginOptionMapper.BuildLoginOptionsAsync([selected], societyRepository, apartmentRepository, ct);
+
+            selected.GenerateOtp();
+            await userRepository.UpdateAsync(selected, ct);
+            await notificationService.SendSmsAsync(selected.Phone,
+                $"Your OTP is: {selected.OtpCode}. Valid for 10 minutes.", ct);
+
+            return Result<PhoneLoginOtpResponse>.Success(new PhoneLoginOtpResponse(false, selected.Id, selectedOption));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to start phone OTP login for {Phone}", request.Phone);
+            return Result<PhoneLoginOtpResponse>.Failure(ErrorCodes.InternalError, ex.Message);
         }
     }
 }
@@ -1043,7 +1159,7 @@ public sealed class FindUserByEmailQueryHandler(IUserRepository userRepository, 
     }
 }
 
-public record GetUsersBySocietyQuery(string SocietyId, PaginationParams Pagination, UserRole? RoleFilter)
+public record GetUsersBySocietyQuery(string SocietyId, PaginationParams Pagination, UserRole? RoleFilter, string? SearchText = null)
     : IRequest<Result<PagedResult<UserResponse>>>;
 
 public sealed class GetUsersBySocietyQueryHandler(IUserRepository userRepository, IApartmentRepository apartmentRepository)
@@ -1066,11 +1182,23 @@ public sealed class GetUsersBySocietyQueryHandler(IUserRepository userRepository
             }
 
             var items = new List<UserResponse>(users.Count);
-            foreach (var user in users)
+            foreach (var user in users.Where(u => !u.IsDeleted))
             {
                 var apartments = await UserQueryMapping.GetResidentApartmentsAsync(user, apartmentRepository, ct);
                 items.Add(user.ToResponse(apartments));
             }
+
+            if (!string.IsNullOrWhiteSpace(request.SearchText))
+            {
+                var term = request.SearchText.Trim();
+                items = items.Where(i =>
+                    i.FullName.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                    i.Email.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                    i.Phone.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                    i.Apartments.Any(a => a.Name.Contains(term, StringComparison.OrdinalIgnoreCase))
+                ).ToList();
+            }
+
             return Result<PagedResult<UserResponse>>.Success(
                 new PagedResult<UserResponse>(items, items.Count, request.Pagination.Page, request.Pagination.PageSize));
         }

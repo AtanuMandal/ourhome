@@ -1,4 +1,4 @@
-import { CurrencyPipe, DatePipe, NgClass, PercentPipe } from '@angular/common';
+import { CurrencyPipe, DatePipe, NgClass, NgTemplateOutlet, PercentPipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -8,7 +8,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { RouterLink } from '@angular/router';
 import { Apartment, formatApartmentLabel } from '../../core/models/apartment.model';
-import { ApartmentLedger, CashFlow, CashFlowMonth, FinancialDashboard } from '../../core/models/financial-report.model';
+import { ApartmentLedger, CashFlow, CashFlowMonth, FinancialDashboard, SocietyLedger } from '../../core/models/financial-report.model';
 import { ApartmentService } from '../../core/services/apartment.service';
 import { AuthService } from '../../core/services/auth.service';
 import { FinancialReportService } from '../../core/services/financial-report.service';
@@ -17,7 +17,7 @@ import { LoadingSpinnerComponent } from '../../shared/components/loading-spinner
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 import { SearchableSelectComponent } from '../../shared/components/searchable-select/searchable-select.component';
 
-type Tab = 'dashboard' | 'cashflow' | 'ledger';
+type Tab = 'dashboard' | 'cashflow' | 'ledger' | 'society-ledger';
 
 const STYLES = `
   .page-content { max-width: 1200px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; gap: 20px; }
@@ -66,7 +66,7 @@ const STYLES = `
   selector: 'app-financial-report',
   standalone: true,
   imports: [
-    CurrencyPipe, DatePipe, NgClass, ReactiveFormsModule, RouterLink,
+    CurrencyPipe, DatePipe, NgClass, NgTemplateOutlet, ReactiveFormsModule, RouterLink,
     MatButtonModule, MatFormFieldModule, MatIconModule, MatInputModule, MatProgressBarModule,
     PageHeaderComponent, LoadingSpinnerComponent, EmptyStateComponent, SearchableSelectComponent,
   ],
@@ -90,6 +90,8 @@ const STYLES = `
           (click)="setTab('cashflow')">Cash Flow</button>
         <button class="tab-btn" [class.active]="activeTab() === 'ledger'"
           (click)="setTab('ledger')">Apartment Ledger</button>
+        <button class="tab-btn" [class.active]="activeTab() === 'society-ledger'"
+          (click)="setTab('society-ledger')">Society Ledger</button>
       </div>
 
       @if (error()) {
@@ -349,39 +351,9 @@ const STYLES = `
                 Outstanding: {{ ledger()!.currentOutstanding | currency:'INR':'symbol':'1.0-0' }}
               </span>
             </div>
-            <div class="table-shell">
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Description</th>
-                    <th style="text-align:right">Debit (₹)</th>
-                    <th style="text-align:right">Credit (₹)</th>
-                    <th style="text-align:right">Balance (₹)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (entry of ledger()!.entries; track entry.date + entry.description) {
-                    <tr>
-                      <td style="white-space:nowrap">{{ entry.date | date:'dd MMM yyyy' }}</td>
-                      <td>{{ entry.description }}</td>
-                      <td class="num ledger-debit">
-                        {{ entry.debit != null ? (entry.debit | currency:'INR':'symbol':'1.0-0') : '—' }}
-                      </td>
-                      <td class="num ledger-credit">
-                        {{ entry.credit != null ? (entry.credit | currency:'INR':'symbol':'1.0-0') : '—' }}
-                      </td>
-                      <td class="num" [ngClass]="entry.balance > 0 ? 'text-red' : 'text-green'">
-                        {{ entry.balance | currency:'INR':'symbol':'1.0-0' }}
-                      </td>
-                    </tr>
-                  }
-                </tbody>
-                @if (ledger()!.entries.length === 0) {
-                  <tbody><tr><td colspan="5" class="empty-hint">No transactions found for this apartment.</td></tr></tbody>
-                }
-              </table>
-            </div>
+            <ng-container [ngTemplateOutlet]="ledgerTable"
+              [ngTemplateOutletContext]="{ entries: ledger()!.entries, emptyMessage: 'No transactions found for this apartment.' }">
+            </ng-container>
           </div>
         } @else if (!loading()) {
           <app-empty-state
@@ -391,7 +363,74 @@ const STYLES = `
           </app-empty-state>
         }
       }
+
+      <!-- ── SOCIETY LEDGER TAB ───────────────────────────────────── -->
+      @if (activeTab() === 'society-ledger') {
+        @if (societyLedger()) {
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:16px">
+              <p class="card-title" style="margin:0">Overall Society Ledger</p>
+              <span class="outstanding-chip" [ngClass]="societyLedger()!.currentBalance === 0 ? 'zero' : ''">
+                Balance: {{ societyLedger()!.currentBalance | currency:'INR':'symbol':'1.0-0' }}
+              </span>
+            </div>
+            <ng-container [ngTemplateOutlet]="ledgerTable"
+              [ngTemplateOutletContext]="{ entries: societyLedger()!.entries, emptyMessage: 'No transactions found for this society.' }">
+            </ng-container>
+          </div>
+        } @else if (!loading()) {
+          <app-empty-state
+            icon="receipt_long"
+            title="No ledger loaded"
+            message="Click Load Ledger to view the society-wide transaction history.">
+          </app-empty-state>
+        }
+        <div class="card">
+          <form class="filter-row" (ngSubmit)="loadSocietyLedger()">
+            <button mat-flat-button color="primary" type="submit" [disabled]="loading()">
+              <mat-icon>refresh</mat-icon> Load Ledger
+            </button>
+          </form>
+        </div>
+      }
     </div>
+
+    <!-- Shared ledger entries table — used by both Apartment Ledger and Society Ledger tabs -->
+    <ng-template #ledgerTable let-entries="entries" let-emptyMessage="emptyMessage">
+      <div class="table-shell">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Description</th>
+              <th style="text-align:right">Debit (₹)</th>
+              <th style="text-align:right">Credit (₹)</th>
+              <th style="text-align:right">Balance (₹)</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (entry of entries; track entry.date + entry.description) {
+              <tr>
+                <td style="white-space:nowrap">{{ entry.date | date:'dd MMM yyyy' }}</td>
+                <td>{{ entry.description }}</td>
+                <td class="num ledger-debit">
+                  {{ entry.debit != null ? (entry.debit | currency:'INR':'symbol':'1.0-0') : '—' }}
+                </td>
+                <td class="num ledger-credit">
+                  {{ entry.credit != null ? (entry.credit | currency:'INR':'symbol':'1.0-0') : '—' }}
+                </td>
+                <td class="num" [ngClass]="entry.balance > 0 ? 'text-red' : 'text-green'">
+                  {{ entry.balance | currency:'INR':'symbol':'1.0-0' }}
+                </td>
+              </tr>
+            }
+          </tbody>
+          @if (entries.length === 0) {
+            <tbody><tr><td colspan="5" class="empty-hint">{{ emptyMessage }}</td></tr></tbody>
+          }
+        </table>
+      </div>
+    </ng-template>
   `,
 })
 export class FinancialReportComponent implements OnInit {
@@ -404,9 +443,10 @@ export class FinancialReportComponent implements OnInit {
   readonly loading   = signal(false);
   readonly error     = signal<string | null>(null);
 
-  readonly dashboard = signal<FinancialDashboard | null>(null);
-  readonly cashFlow  = signal<CashFlow | null>(null);
-  readonly ledger    = signal<ApartmentLedger | null>(null);
+  readonly dashboard     = signal<FinancialDashboard | null>(null);
+  readonly cashFlow      = signal<CashFlow | null>(null);
+  readonly ledger        = signal<ApartmentLedger | null>(null);
+  readonly societyLedger = signal<SocietyLedger | null>(null);
 
   private readonly apartments = signal<Apartment[]>([]);
   readonly apartmentOptions = computed(() =>
@@ -440,6 +480,7 @@ export class FinancialReportComponent implements OnInit {
   setTab(tab: Tab) {
     this.activeTab.set(tab);
     if (tab === 'dashboard' && !this.dashboard()) this.loadDashboard();
+    if (tab === 'society-ledger' && !this.societyLedger()) this.loadSocietyLedger();
   }
 
   loadDashboard() {
@@ -479,6 +520,16 @@ export class FinancialReportComponent implements OnInit {
     ).subscribe({
       next: d  => { this.ledger.set(d); this.loading.set(false); },
       error: () => { this.error.set('Failed to load apartment ledger.'); this.loading.set(false); },
+    });
+  }
+
+  loadSocietyLedger() {
+    if (!this.societyId) return;
+    this.loading.set(true);
+    this.error.set(null);
+    this.service.getSocietyLedger(this.societyId).subscribe({
+      next: d  => { this.societyLedger.set(d); this.loading.set(false); },
+      error: () => { this.error.set('Failed to load society ledger.'); this.loading.set(false); },
     });
   }
 

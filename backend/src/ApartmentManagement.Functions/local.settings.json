@@ -31,7 +31,6 @@
   },
   "Host": {
     "LocalHttpPort": 7071,
-    "CORS": "http://localhost:4200",
-    "CORSCredentials": true
+    "CORS": "*"
   }
 }

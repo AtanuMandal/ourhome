@@ -25,6 +25,9 @@ public static class ErrorCodes
     public const string OtpInvalid = "OTP_INVALID";
     public const string OtpExpired = "OTP_EXPIRED";
     public const string UserNotVerified = "USER_NOT_VERIFIED";
+    public const string UserHasApartmentMapping = "USER_HAS_APARTMENT_MAPPING";
+    public const string UserHasPendingDues = "USER_HAS_PENDING_DUES";
+    public const string UserAlreadyOnCommittee = "USER_ALREADY_ON_COMMITTEE";
 
     public const string AmenityNotFound = "AMENITY_NOT_FOUND";
     public const string BookingConflict = "BOOKING_CONFLICT";

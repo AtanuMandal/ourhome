@@ -435,7 +435,11 @@ public sealed class GetApartmentsBySocietyQueryHandler(IApartmentRepository apar
                 ? apartments
                 : apartments.Where(a => a.BlockName.Equals(request.BlockFilter, StringComparison.OrdinalIgnoreCase)).ToList();
 
-            var items = filtered.Select(a => a.ToResponse()).ToList();
+            var items = filtered
+                .OrderByDescending(a => a.FloorNumber)
+                .ThenBy(a => a.ApartmentNumber)
+                .Select(a => a.ToResponse())
+                .ToList();
             return Result<PagedResult<ApartmentResponse>>.Success(
                 new PagedResult<ApartmentResponse>(items, items.Count, request.Pagination.Page, request.Pagination.PageSize));
         }

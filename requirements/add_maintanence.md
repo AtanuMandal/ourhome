@@ -91,7 +91,9 @@
   - **Each cell:** Charge status for that apartment + month (`Pending`, `Submitted`, `Paid`, `Overdue`, no charge)
 - **Grid filters:** `status` (pending / submitted / paid), `apartmentId`, `block`, `floor`, `fromMonth/Year`, `toMonth/Year`
 - **Grid header summary:** For each month column, show total paid amount, total submitted amount, and total pending amount.
-- Admin can click a cell to view the uploaded proof document in a popup and then approve or mark as paid.
+- Admin can click a cell to view the uploaded proof document; the proof thumbnail opens in a full-screen zoom popup (zoom in/out buttons, 100%–400%, plus mouse-wheel zoom on web) before approving or marking as paid.
+- Proof images/documents are served through an authenticated file endpoint (not a raw, long-lived Blob Storage URL) — a direct request without a valid session is rejected.
+- ⚠️ **Gap:** Mobile has no maintenance screen support for viewing or uploading payment proof images at all; the mobile maintenance screen is a read-only charge/status list only (proof upload and the zoom preview are web-only today).
 
 ### Approve Payment
 - `POST /api/societies/{id}/maintenance/charges/{id}/approve` — admin approves submitted proof; charge status → `Paid`.
@@ -149,5 +151,7 @@
 > 🔜 **Admin notification on proof submission** — verify and complete the domain event handler that sends a push notification to `SUAdmin` when a resident submits payment proof.
 
 > 🔜 **Receipt PDF generation** — on marking a charge as paid or approving proof, generate a PDF receipt and populate the `ReceiptUrl` field so residents can download a formal receipt.
+
+> 🔜 **Mobile payment proof upload and preview** — add a maintenance proof upload flow and a zoom-capable proof preview to the mobile app, matching the web experience; today mobile only shows charge status, not proof documents.
 
 > 🔜 **Automated payment gateway integration** — see `recurring_fee_payment.md` for the planned automated deduction and payment gateway phase.

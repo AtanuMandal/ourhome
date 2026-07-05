@@ -13,6 +13,14 @@ export interface UpcomingVendorDue {
   daysUntilDue: number;
 }
 
+export interface UpcomingCharge {
+  apartmentId: string;
+  apartmentLabel: string;
+  amount: number;
+  dueDate: string;
+  daysUntilDue: number;
+}
+
 export interface FinancialDashboard {
   month: number;
   year: number;
@@ -28,6 +36,9 @@ export interface FinancialDashboard {
   netPosition: number;
   topOverdueApartments: OverdueApartment[];
   upcomingVendorDues: UpcomingVendorDue[];
+  upcomingCharges: UpcomingCharge[];
+  upcomingCashInflow: number;
+  upcomingCashOutflow: number;
 }
 
 export interface CashFlowMonth {
@@ -55,7 +66,7 @@ export interface CashFlow {
 export interface LedgerEntry {
   date: string;
   description: string;
-  type: 'Charge' | 'Payment';
+  type: 'Charge' | 'Payment' | 'VendorBill' | 'VendorPayment';
   debit: number | null;
   credit: number | null;
   balance: number;
@@ -66,6 +77,12 @@ export interface ApartmentLedger {
   apartmentLabel: string;
   primaryResidentName: string | null;
   currentOutstanding: number;
+  entries: LedgerEntry[];
+}
+
+export interface SocietyLedger {
+  societyId: string;
+  currentBalance: number;
   entries: LedgerEntry[];
 }
 

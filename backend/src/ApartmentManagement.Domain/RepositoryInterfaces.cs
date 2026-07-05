@@ -42,6 +42,7 @@ public interface IUserRepository : IRepository<User>
     Task<User?> GetByEmailAsync(string societyId, string email, CancellationToken ct = default);
     Task<IReadOnlyList<User>> GetByEmailAcrossSocietiesAsync(string email, CancellationToken ct = default);
     Task<User?> GetByPhoneAsync(string societyId, string phone, CancellationToken ct = default);
+    Task<IReadOnlyList<User>> GetByPhoneAcrossSocietiesAsync(string phone, CancellationToken ct = default);
     Task<User?> GetByExternalAuthIdAsync(string externalAuthId, CancellationToken ct = default);
     Task<IReadOnlyList<User>> GetByRoleAsync(string societyId, UserRole role, int page, int pageSize, CancellationToken ct = default);
 }

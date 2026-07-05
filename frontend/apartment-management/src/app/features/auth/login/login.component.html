@@ -17,35 +17,88 @@
       </div>
     }
 
-    <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
-      <mat-form-field appearance="fill" class="full-width">
-        <mat-label>Email Address</mat-label>
-        <mat-icon matPrefix>email</mat-icon>
-        <input matInput type="email" formControlName="email" placeholder="you@example.com" autocomplete="email">
-        @if (form.get('email')?.invalid && form.get('email')?.touched) {
-          <mat-error>Valid email is required</mat-error>
+    @if (method() === 'phone') {
+      <form [formGroup]="phoneForm" (ngSubmit)="phoneStep() === 'enter-otp' ? verifyPhoneOtp() : (phoneStep() === 'select-account' ? confirmAccountSelection() : requestPhoneOtp())" novalidate>
+        @if (phoneStep() === 'enter-phone') {
+          <mat-form-field appearance="fill" class="full-width">
+            <mat-label>Mobile Number</mat-label>
+            <mat-icon matPrefix>phone_iphone</mat-icon>
+            <input matInput type="tel" formControlName="phone" placeholder="+91 98765 43210" autocomplete="tel">
+            @if (phoneForm.get('phone')?.invalid && phoneForm.get('phone')?.touched) {
+              <mat-error>A valid mobile number is required</mat-error>
+            }
+          </mat-form-field>
         }
-      </mat-form-field>
 
-      <mat-form-field appearance="fill" class="full-width">
-        <mat-label>Password</mat-label>
-        <mat-icon matPrefix>lock</mat-icon>
-        <input matInput type="password" formControlName="password" autocomplete="current-password">
-        @if (form.get('password')?.invalid && form.get('password')?.touched) {
-          <mat-error>Password must be at least 8 characters</mat-error>
+        @if (phoneStep() === 'select-account') {
+          <app-searchable-select label="Select your account" formControlName="selectedUserId"
+            [options]="loginSelectOptions()"></app-searchable-select>
         }
-      </mat-form-field>
 
-      @if (options().length > 0) {
-        <app-searchable-select label="Select your account" formControlName="selectedUserId"
-          [options]="loginSelectOptions()"></app-searchable-select>
-      }
+        @if (phoneStep() === 'enter-otp') {
+          <p class="otp-hint">Enter the 6-digit code sent to {{ phoneForm.getRawValue().phone }}</p>
+          <mat-form-field appearance="fill" class="full-width">
+            <mat-label>OTP Code</mat-label>
+            <mat-icon matPrefix>lock_clock</mat-icon>
+            <input matInput inputmode="numeric" maxlength="6" formControlName="otp" autocomplete="one-time-code">
+            @if (phoneForm.get('otp')?.invalid && phoneForm.get('otp')?.touched) {
+              <mat-error>Enter the 6-digit OTP</mat-error>
+            }
+          </mat-form-field>
+        }
 
-      <button mat-raised-button color="primary" type="submit"
-              class="full-width submit-btn" [disabled]="loading() || form.invalid">
-        @if (loading()) { Signing in… } @else if (options().length > 0) { Continue } @else { Sign in }
+        <button mat-raised-button color="primary" type="submit"
+                class="full-width submit-btn" [disabled]="loading()">
+          @if (loading()) {
+            Please wait…
+          } @else if (phoneStep() === 'enter-otp') {
+            Verify &amp; Sign in
+          } @else if (phoneStep() === 'select-account') {
+            Send OTP
+          } @else {
+            Send OTP
+          }
+        </button>
+      </form>
+
+      <button type="button" class="method-switch" (click)="switchMethod('email')">
+        Use email &amp; password instead
       </button>
-    </form>
+    } @else {
+      <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+        <mat-form-field appearance="fill" class="full-width">
+          <mat-label>Email Address</mat-label>
+          <mat-icon matPrefix>email</mat-icon>
+          <input matInput type="email" formControlName="email" placeholder="you@example.com" autocomplete="email">
+          @if (form.get('email')?.invalid && form.get('email')?.touched) {
+            <mat-error>Valid email is required</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="fill" class="full-width">
+          <mat-label>Password</mat-label>
+          <mat-icon matPrefix>lock</mat-icon>
+          <input matInput type="password" formControlName="password" autocomplete="current-password">
+          @if (form.get('password')?.invalid && form.get('password')?.touched) {
+            <mat-error>Password must be at least 8 characters</mat-error>
+          }
+        </mat-form-field>
+
+        @if (options().length > 0) {
+          <app-searchable-select label="Select your account" formControlName="selectedUserId"
+            [options]="loginSelectOptions()"></app-searchable-select>
+        }
+
+        <button mat-raised-button color="primary" type="submit"
+                class="full-width submit-btn" [disabled]="loading() || form.invalid">
+          @if (loading()) { Signing in… } @else if (options().length > 0) { Continue } @else { Sign in }
+        </button>
+      </form>
+
+      <button type="button" class="method-switch" (click)="switchMethod('phone')">
+        Use mobile number instead
+      </button>
+    }
 
     <a routerLink="/auth/verify-otp" class="forgot-link">Forgot password?</a>
   </div>

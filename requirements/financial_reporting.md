@@ -27,6 +27,7 @@ All reports derive from existing data already stored in Cosmos DB (maintenance c
 | Monthly P&L Statement | ✅ | ❌ |
 | Cash Flow Statement | ✅ Date range selectable | ❌ |
 | Apartment Ledger | ✅ Any apartment | ✅ Own apartment only |
+| Society Ledger (all apartments + vendor charges combined) | ✅ | ❌ |
 | Penalty Report | ✅ Society-wide | ❌ |
 | Vendor Payment Due Report | ✅ | ❌ |
 | Annual Financial Summary | ✅ | ❌ |
@@ -61,6 +62,11 @@ All reports derive from existing data already stored in Cosmos DB (maintenance c
 #### Quick Action Panels
 - **Top 5 Overdue Apartments** — apartment number, resident name, overdue amount, days overdue. Each row links to the apartment ledger.
 - **Upcoming Vendor Payments (next 7 days)** — vendor name, amount, due date. Each row links to the vendor cost record.
+
+#### Upcoming Cash Inflow / Outflow (implemented, both web and mobile dashboards)
+- **Upcoming Cash Inflow (7 days)** — total and per-apartment breakdown of `Pending`/`Overdue` maintenance charges due within the next 7 days (`UpcomingChargeDto`: apartment, amount, due date, days until due).
+- **Upcoming Cash Outflow (7 days)** — the existing Upcoming Vendor Payments total, now also surfaced as a headline card alongside inflow.
+- Both totals (`UpcomingCashInflow`, `UpcomingCashOutflow`) are computed fields on the dashboard response so admins can see net expected cash movement for the week at a glance.
 
 **Filters:** None (always reflects current month / running totals).
 
@@ -304,11 +310,28 @@ GET /api/societies/{id}/reports/cash-flow
 
 **Export:** PDF. The PDF is formatted as an official "Account Statement" with society header — suitable for emailing to the resident or presenting at a committee meeting.
 
-**API Endpoints:**
+**API Endpoint (actual current route — differs from the `/reports/...` prefix used elsewhere in this document):**
 ```
-GET /api/societies/{id}/apartments/{aptId}/reports/ledger
-  ?fromMonth=&fromYear=&toMonth=&toYear=
-  &format=pdf
+GET /api/societies/{id}/financial-report/ledger?apartmentId=
+```
+
+---
+
+### 7b. Society Ledger
+
+**Purpose:** The same running-balance ledger as the Apartment Ledger, but aggregated across every apartment in the society plus all vendor charges — a single combined debit/credit view of all society-wide financial activity, chronologically ordered.
+
+**Input:** Optional date range filter (`from`/`to`).
+
+**Columns:** Same shape as the Apartment Ledger (Date, Description, Type, Debit, Credit, Balance), spanning all apartments' maintenance charges and all vendor charges instead of one apartment.
+
+**Access:** `SUAdmin` / `HQAdmin` / `HQUser` only.
+
+**Accessible from:** A "Society Ledger" tab on the Financial Report page (web) alongside Dashboard / Cash Flow / Apartment Ledger; a "Society Ledger" tab on the mobile Financial Report screen.
+
+**API Endpoint:**
+```
+GET /api/societies/{id}/financial-report/society-ledger?from=&to=
 ```
 
 ---
@@ -504,7 +527,8 @@ GET /api/societies/{id}/apartments/{aptId}/reports/annual-statement
 | `GET` | `/api/societies/{id}/reports/expenses` | SUAdmin | Expense report |
 | `GET` | `/api/societies/{id}/reports/profit-loss` | SUAdmin | Monthly P&L |
 | `GET` | `/api/societies/{id}/reports/cash-flow` | SUAdmin | Cash flow statement |
-| `GET` | `/api/societies/{id}/apartments/{aptId}/reports/ledger` | SUAdmin | Apartment ledger |
+| `GET` | `/api/societies/{id}/financial-report/ledger?apartmentId=` | SUAdmin | Apartment ledger (actual route uses `/financial-report/`, not `/reports/`) |
+| `GET` | `/api/societies/{id}/financial-report/society-ledger` | SUAdmin | Society-wide ledger (all apartments + vendor charges) |
 | `GET` | `/api/societies/{id}/reports/penalties` | SUAdmin | Penalty report |
 | `GET` | `/api/societies/{id}/reports/vendor-dues` | SUAdmin | Vendor payment due report |
 | `GET` | `/api/societies/{id}/reports/annual-summary` | SUAdmin | Annual financial summary |
@@ -539,6 +563,8 @@ All export endpoints accept `?format=csv` or `?format=pdf` where applicable. PDF
 - `SUUser` personal statement shows only their own apartment's charges; requesting another apartment's data returns `403`.
 - Society Financial Summary shows no individual apartment name, resident name, or individual payment amount.
 - All PDF exports download without server error and display the society name and report period in the document header.
+- Society Ledger's total entries equal the sum of every apartment's ledger entries plus every vendor charge, in one chronological running-balance view; only `SUAdmin`/`HQAdmin`/`HQUser` can access it.
+- Dashboard Upcoming Cash Inflow and Upcoming Cash Outflow cards both reflect the same 7-day window and are present on both web and mobile.
 
 ---
 

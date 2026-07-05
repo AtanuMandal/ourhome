@@ -125,12 +125,18 @@ export class ApartmentListComponent implements OnInit {
 
   readonly filtered = computed(() => {
     const q = this.search().toLowerCase();
-    return this.items().filter(a =>
-      !q || a.apartmentNumber.toLowerCase().includes(q) ||
-      this.formatApartmentLabel(a).toLowerCase().includes(q) ||
-      (a.blockName ?? '').toLowerCase().includes(q) ||
-      String(a.floorNumber).includes(q)
-    );
+    return this.items()
+      .filter(a =>
+        !q || a.apartmentNumber.toLowerCase().includes(q) ||
+        this.formatApartmentLabel(a).toLowerCase().includes(q) ||
+        (a.blockName ?? '').toLowerCase().includes(q) ||
+        String(a.floorNumber).includes(q)
+      )
+      .slice()
+      .sort((a, b) =>
+        b.floorNumber - a.floorNumber ||
+        a.apartmentNumber.localeCompare(b.apartmentNumber)
+      );
   });
 
   formatApartmentLabel(apartment: Apartment) {

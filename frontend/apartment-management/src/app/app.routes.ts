@@ -41,6 +41,12 @@ export const routes: Routes = [
   },
 
   {
+    path: 'contact-us',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/contact-us/contact-us.component').then(m => m.ContactUsComponent),
+  },
+
+  {
     path: 'amenities',
     canActivate: [authGuard],
     loadChildren: () => import('./features/amenities/amenities.routes').then(m => m.AMENITY_ROUTES),
