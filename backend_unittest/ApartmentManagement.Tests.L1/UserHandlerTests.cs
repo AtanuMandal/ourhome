@@ -742,9 +742,10 @@ public class GetUsersBySocietyQueryHandlerSearchTests
 {
     private readonly Mock<IUserRepository> _userRepoMock = new();
     private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
+    private readonly Mock<ICurrentUserService> _currentUserServiceMock = new();
 
     private GetUsersBySocietyQueryHandler CreateHandler() =>
-        new(_userRepoMock.Object, _apartmentRepoMock.Object);
+        new(_userRepoMock.Object, _apartmentRepoMock.Object, _currentUserServiceMock.Object);
 
     [Fact]
     public async Task Handle_WithSearchText_FiltersByNameEmailOrPhone()
@@ -782,6 +783,150 @@ public class GetUsersBySocietyQueryHandlerSearchTests
         result.IsSuccess.Should().BeTrue();
         result.Value!.Items.Should().ContainSingle();
         result.Value!.Items.Should().NotContain(u => u.FullName == "Alice Smith");
+    }
+}
+
+// ─── GetUsersBySocietyQueryHandler / GetUserQueryHandler contact-masking Tests ─
+
+public class GetUsersBySocietyQueryHandlerMaskingTests
+{
+    private readonly Mock<IUserRepository> _userRepoMock = new();
+    private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
+    private readonly Mock<ICurrentUserService> _currentUserServiceMock = new();
+
+    private GetUsersBySocietyQueryHandler CreateHandler() =>
+        new(_userRepoMock.Object, _apartmentRepoMock.Object, _currentUserServiceMock.Object);
+
+    [Fact]
+    public async Task Handle_SUUserViewer_MasksOtherResidentsContactInfo()
+    {
+        var alice = User.Create("soc-001", "Alice Smith", "alice@example.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
+        var bob = User.Create("soc-001", "Bob Jones", "bob@example.com", "+91-1112223333", UserRole.SUUser, ResidentType.Owner);
+        _userRepoMock
+            .Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<User>)[alice, bob]);
+        _currentUserServiceMock.Setup(c => c.UserId).Returns(alice.Id);
+        _currentUserServiceMock.Setup(c => c.Role).Returns("SUUser");
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(
+            new GetUsersBySocietyQuery("soc-001", new PaginationParams { Page = 1, PageSize = 20 }, null),
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        var bobResponse = result.Value!.Items.Single(u => u.FullName == "Bob Jones");
+        bobResponse.Email.Should().NotBe("bob@example.com");
+        bobResponse.Email.Should().Contain("***");
+        bobResponse.Phone.Should().NotBe("+91-1112223333");
+        bobResponse.Phone.Should().Contain("X");
+    }
+
+    [Fact]
+    public async Task Handle_SUUserViewer_DoesNotMaskOwnRecord()
+    {
+        var alice = User.Create("soc-001", "Alice Smith", "alice@example.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
+        _userRepoMock
+            .Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<User>)[alice]);
+        _currentUserServiceMock.Setup(c => c.UserId).Returns(alice.Id);
+        _currentUserServiceMock.Setup(c => c.Role).Returns("SUUser");
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(
+            new GetUsersBySocietyQuery("soc-001", new PaginationParams { Page = 1, PageSize = 20 }, null),
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        var aliceResponse = result.Value!.Items.Single();
+        aliceResponse.Email.Should().Be("alice@example.com");
+        aliceResponse.Phone.Should().Be("+91-9876543210");
+    }
+
+    [Theory]
+    [InlineData("SUAdmin")]
+    [InlineData("SUSecurity")]
+    public async Task Handle_AdminOrSecurityViewer_DoesNotMaskAnyResident(string viewerRole)
+    {
+        var alice = User.Create("soc-001", "Alice Smith", "alice@example.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
+        var bob = User.Create("soc-001", "Bob Jones", "bob@example.com", "+91-1112223333", UserRole.SUUser, ResidentType.Owner);
+        _userRepoMock
+            .Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<User>)[alice, bob]);
+        _currentUserServiceMock.Setup(c => c.UserId).Returns("some-admin-id");
+        _currentUserServiceMock.Setup(c => c.Role).Returns(viewerRole);
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(
+            new GetUsersBySocietyQuery("soc-001", new PaginationParams { Page = 1, PageSize = 20 }, null),
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Items.Should().Contain(u => u.Email == "alice@example.com" && u.Phone == "+91-9876543210");
+        result.Value!.Items.Should().Contain(u => u.Email == "bob@example.com" && u.Phone == "+91-1112223333");
+    }
+}
+
+public class GetUserQueryHandlerTests
+{
+    private readonly Mock<IUserRepository> _userRepoMock = new();
+    private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
+    private readonly Mock<ICurrentUserService> _currentUserServiceMock = new();
+
+    private GetUserQueryHandler CreateHandler() =>
+        new(_userRepoMock.Object, _apartmentRepoMock.Object, _currentUserServiceMock.Object);
+
+    [Fact]
+    public async Task Handle_SUUserViewingOtherResident_ReturnsMaskedContactInfo()
+    {
+        var bob = User.Create("soc-001", "Bob Jones", "bob@example.com", "+91-1112223333", UserRole.SUUser, ResidentType.Owner);
+        _userRepoMock
+            .Setup(r => r.GetByIdAsync(bob.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(bob);
+        _currentUserServiceMock.Setup(c => c.UserId).Returns("viewer-alice-id");
+        _currentUserServiceMock.Setup(c => c.Role).Returns("SUUser");
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(new GetUserQuery("soc-001", bob.Id), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Email.Should().Contain("***");
+        result.Value!.Phone.Should().Contain("X");
+    }
+
+    [Fact]
+    public async Task Handle_SUUserViewingOwnRecord_ReturnsUnmaskedContactInfo()
+    {
+        var alice = User.Create("soc-001", "Alice Smith", "alice@example.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
+        _userRepoMock
+            .Setup(r => r.GetByIdAsync(alice.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(alice);
+        _currentUserServiceMock.Setup(c => c.UserId).Returns(alice.Id);
+        _currentUserServiceMock.Setup(c => c.Role).Returns("SUUser");
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(new GetUserQuery("soc-001", alice.Id), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Email.Should().Be("alice@example.com");
+        result.Value!.Phone.Should().Be("+91-9876543210");
+    }
+
+    [Fact]
+    public async Task Handle_SUAdminViewingResident_ReturnsUnmaskedContactInfo()
+    {
+        var bob = User.Create("soc-001", "Bob Jones", "bob@example.com", "+91-1112223333", UserRole.SUUser, ResidentType.Owner);
+        _userRepoMock
+            .Setup(r => r.GetByIdAsync(bob.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(bob);
+        _currentUserServiceMock.Setup(c => c.UserId).Returns("admin-id");
+        _currentUserServiceMock.Setup(c => c.Role).Returns("SUAdmin");
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(new GetUserQuery("soc-001", bob.Id), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Email.Should().Be("bob@example.com");
+        result.Value!.Phone.Should().Be("+91-1112223333");
     }
 }
 

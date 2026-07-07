@@ -102,6 +102,70 @@ public static class MappingExtensions
             user.PendingApartmentId,
             user.PendingResidentType);
 
+    /// <summary>
+    /// Masks phone/email when a SUUser views another resident's record. The viewer's own record,
+    /// and every other role (SUAdmin, SUSecurity, HQAdmin, HQUser), are always returned unmasked.
+    /// </summary>
+    public static UserResponse ApplyContactMasking(this UserResponse response, string? viewerUserId, string? viewerRole)
+    {
+        if (!string.Equals(viewerRole, "SUUser", StringComparison.OrdinalIgnoreCase))
+            return response;
+        if (!string.IsNullOrEmpty(viewerUserId) && string.Equals(response.Id, viewerUserId, StringComparison.Ordinal))
+            return response;
+
+        return response with { Phone = MaskPhone(response.Phone), Email = MaskEmail(response.Email) };
+    }
+
+    /// <summary>
+    /// Masks the middle of the trailing digit run (the subscriber number), keeping any leading
+    /// country-code digit group (e.g. the "91" in "+91-...") fully visible along with the first
+    /// and last 2 digits of the number itself, e.g. "+91-9876543210" -&gt; "+91-98XXXXXX10".
+    /// </summary>
+    private static string MaskPhone(string phone)
+    {
+        if (string.IsNullOrEmpty(phone)) return phone;
+
+        var runStart = -1;
+        var runEnd = -1;
+        var i = 0;
+        while (i < phone.Length)
+        {
+            if (!char.IsDigit(phone[i])) { i++; continue; }
+            var start = i;
+            while (i < phone.Length && char.IsDigit(phone[i])) i++;
+            runStart = start;
+            runEnd = i;
+        }
+        if (runStart < 0) return phone;
+
+        var runLength = runEnd - runStart;
+        var chars = phone.ToCharArray();
+        if (runLength <= 4)
+        {
+            for (var idx = runStart; idx < runEnd; idx++) chars[idx] = 'X';
+        }
+        else
+        {
+            for (var idx = runStart + 2; idx < runEnd - 2; idx++) chars[idx] = 'X';
+        }
+        return new string(chars);
+    }
+
+    private static string MaskEmail(string email)
+    {
+        if (string.IsNullOrEmpty(email)) return email;
+
+        var atIndex = email.IndexOf('@');
+        if (atIndex <= 0) return "***";
+
+        var local = email[..atIndex];
+        var visibleLocal = local.Length <= 2 ? local : local[..2];
+        var domain = email[(atIndex + 1)..];
+        var lastDot = domain.LastIndexOf('.');
+        var tld = lastDot >= 0 ? domain[lastDot..] : string.Empty;
+        return $"{visibleLocal}***@***{tld}";
+    }
+
     public static ResidentApartmentDto ToResidentApartmentResponse(this Apartment apartment, Domain.Enums.ResidentType residentType) =>
         new(
             apartment.Id,

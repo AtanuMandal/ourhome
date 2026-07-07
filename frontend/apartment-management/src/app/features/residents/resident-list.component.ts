@@ -100,8 +100,8 @@ interface RoleGroup { role: string; label: string; users: User[]; }
                     <div class="rc-info">
                       <span class="rc-name">{{ r.fullName ?? r.name }}</span>
                       <span class="rc-email">Apartments: {{ apartmentNamesFor(r) }}</span>
-                      @if (isAdmin() && r.email) { <span class="rc-email">{{ r.email }}</span> }
-                      @if (isAdmin() && r.phone) { <span class="rc-phone">{{ r.phone }}</span> }
+                      @if (r.email) { <span class="rc-email">{{ r.email }}</span> }
+                      @if (r.phone) { <span class="rc-phone">{{ r.phone }}</span> }
                     </div>
                   </a>
                   @if (isAdmin()) {
