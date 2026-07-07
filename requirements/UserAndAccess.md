@@ -96,8 +96,9 @@ This module defines the role hierarchy, user lifecycle management, apartment ass
 
 - After self-registration, users **cannot** add an apartment to their name until the admin approves — no self-linking before approval.
 - `SUUser` **cannot** see admin actions in the Apartments section.
-- `SUUser` viewing the Residents page sees **only other residents' names** — phone numbers and email addresses are **masked/hidden**.
-  - ⚠️ **Gap:** Phone and email masking for `SUUser` is a documented requirement but **not yet implemented** in `GetUsersBySocietyQuery`. `UserResponse` returns full contact details to all callers.
+- `SUUser` viewing the Residents page sees **only other residents' names** — phone numbers and email addresses are **masked/hidden**, e.g. `+91-98XXXXXX10` and `ra***@***.com`, showing just enough to confirm identity without exposing the full contact detail.
+  - A resident's **own** record is never masked to themselves, and `SUAdmin`/`SUSecurity` always see full contact details since gate operations and administration depend on it.
+  - ⚠️ **Gap:** Phone and email masking for `SUUser` is a documented requirement but **not yet implemented** in `GetUsersBySocietyQuery`, nor in the single-user `GET /societies/{id}/users/{id}` lookup. `UserResponse` returns full contact details to all callers on both endpoints today.
 - `SUSecurity` can view the resident directory (names and apartment) but has limited access to financial and administrative features.
 - `HQAdmin` and `HQUser` do not have access to individual society-level features (notices, complaints, maintenance, visitors).
 
@@ -159,7 +160,7 @@ This module defines the role hierarchy, user lifecycle management, apartment ass
 
 ## Future / Planned
 
-> 🔜 **Phone and email masking** — enforce contact detail masking in `GetUsersBySocietyQuery` when the caller's role is `SUUser`; return `null` or masked strings for other residents' phone and email.
+> 🔜 **Phone and email masking** — enforce contact detail masking in `GetUsersBySocietyQuery` and the single-user lookup when the caller's role is `SUUser`; return masked strings (partial digits/characters) for other residents' phone and email, while leaving the caller's own record and any `SUAdmin`/`SUSecurity` caller unaffected.
 
 > 🔜 **Bulk resident CSV import** — `POST /societies/{id}/users/import-csv` for batch-creating resident accounts (similar to the existing apartment CSV import); currently only apartments support bulk import.
 

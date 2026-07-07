@@ -1111,7 +1111,7 @@ internal static class UserQueryMapping
 
 public record GetUserQuery(string SocietyId, string UserId) : IRequest<Result<UserResponse>>;
 
-public sealed class GetUserQueryHandler(IUserRepository userRepository, IApartmentRepository apartmentRepository)
+public sealed class GetUserQueryHandler(IUserRepository userRepository, IApartmentRepository apartmentRepository, ICurrentUserService currentUserService)
     : IRequestHandler<GetUserQuery, Result<UserResponse>>
 {
     public async Task<Result<UserResponse>> Handle(GetUserQuery request, CancellationToken ct)
@@ -1121,7 +1121,8 @@ public sealed class GetUserQueryHandler(IUserRepository userRepository, IApartme
             var user = await userRepository.GetByIdAsync(request.UserId, request.SocietyId, ct)
                 ?? throw new NotFoundException("User", request.UserId);
             var apartments = await UserQueryMapping.GetResidentApartmentsAsync(user, apartmentRepository, ct);
-            return Result<UserResponse>.Success(user.ToResponse(apartments));
+            var response = user.ToResponse(apartments).ApplyContactMasking(currentUserService.UserId, currentUserService.Role);
+            return Result<UserResponse>.Success(response);
         }
         catch (NotFoundException ex)
         {
@@ -1162,7 +1163,7 @@ public sealed class FindUserByEmailQueryHandler(IUserRepository userRepository, 
 public record GetUsersBySocietyQuery(string SocietyId, PaginationParams Pagination, UserRole? RoleFilter, string? SearchText = null)
     : IRequest<Result<PagedResult<UserResponse>>>;
 
-public sealed class GetUsersBySocietyQueryHandler(IUserRepository userRepository, IApartmentRepository apartmentRepository)
+public sealed class GetUsersBySocietyQueryHandler(IUserRepository userRepository, IApartmentRepository apartmentRepository, ICurrentUserService currentUserService)
     : IRequestHandler<GetUsersBySocietyQuery, Result<PagedResult<UserResponse>>>
 {
     public async Task<Result<PagedResult<UserResponse>>> Handle(GetUsersBySocietyQuery request, CancellationToken ct)
@@ -1198,6 +1199,10 @@ public sealed class GetUsersBySocietyQueryHandler(IUserRepository userRepository
                     i.Apartments.Any(a => a.Name.Contains(term, StringComparison.OrdinalIgnoreCase))
                 ).ToList();
             }
+
+            // Masking is applied last, after full-text search over the raw phone/email has already run,
+            // so a SUUser can still find a resident by phone/email even though the result they see is masked.
+            items = items.ConvertAll(i => i.ApplyContactMasking(currentUserService.UserId, currentUserService.Role));
 
             return Result<PagedResult<UserResponse>>.Success(
                 new PagedResult<UserResponse>(items, items.Count, request.Pagination.Page, request.Pagination.PageSize));

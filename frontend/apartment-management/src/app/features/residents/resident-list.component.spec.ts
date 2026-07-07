@@ -51,7 +51,7 @@ describe('ResidentListComponent', () => {
 
     const fixture = TestBed.createComponent(ResidentListComponent);
     fixture.detectChanges();
-    return { component: fixture.componentInstance, userServiceStub };
+    return { component: fixture.componentInstance, userServiceStub, fixture };
   }
 
   it('groups users by role, admins first', () => {
@@ -112,5 +112,17 @@ describe('ResidentListComponent', () => {
     component.deleteUser(component.items()[0]);
 
     expect(userServiceStub.delete).not.toHaveBeenCalled();
+  });
+
+  it('renders whatever contact info the backend returns, including a masked value, without hiding it client-side', () => {
+    // Contact masking is enforced server-side (see UserAndAccess.md); the component must not
+    // additionally gate email/phone display by role, or a masked value would never reach the user.
+    const { fixture } = setup([
+      user({ id: '1', fullName: 'Bob Jones', email: 'bo***@***.com', phone: '+91-98XXXXXX10' }),
+    ]);
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('bo***@***.com');
+    expect(text).toContain('+91-98XXXXXX10');
   });
 });

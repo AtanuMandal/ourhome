@@ -47,11 +47,11 @@ type ResidentApartmentType = 'Owner' | 'Tenant';
         </div>
 
         <div class="card" style="margin-top:16px">
-          @if (isAdmin()) {
+          @if (user()!.email) {
             <div class="row"><span class="label">Email</span><span>{{ user()!.email }}</span></div>
-            @if (user()!.phone) {
-              <div class="row"><span class="label">Phone</span><span>{{ user()!.phone }}</span></div>
-            }
+          }
+          @if (user()!.phone) {
+            <div class="row"><span class="label">Phone</span><span>{{ user()!.phone }}</span></div>
           }
           <div class="row"><span class="label">Resident Type</span><span>{{ user()!.residentType }}</span></div>
           <div class="row"><span class="label">Primary Apartment</span><span>{{ primaryApartmentLabel() }}</span></div>
