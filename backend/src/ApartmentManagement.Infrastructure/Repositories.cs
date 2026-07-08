@@ -628,6 +628,43 @@ public class SosAlertRepository(CosmosClient client, string dbName, ILogger<SosA
     }
 }
 
+public class PollRepository(CosmosClient client, string dbName, ILogger<PollRepository> logger)
+    : CosmosDbRepository<Poll>(client, dbName, "polls", logger), IPollRepository
+{
+    // ClosedAt is unset (missing/null) for both Scheduled and Open polls, and only ever set on Close —
+    // a reliable proxy for "not yet closed" that avoids filtering on the raw enum-as-int status value.
+    public async Task<IReadOnlyList<Poll>> GetOpenOrScheduledAcrossSocietiesAsync(CancellationToken ct = default)
+    {
+        var q = new QueryDefinition(
+            "SELECT * FROM c WHERE NOT IS_DEFINED(c.closedAt) OR IS_NULL(c.closedAt)");
+        return await ExecuteCrossPartitionQueryAsync(q, ct);
+    }
+}
+
+public class PollVoteRepository(CosmosClient client, string dbName, ILogger<PollVoteRepository> logger)
+    : CosmosDbRepository<PollVote>(client, dbName, "poll-votes", logger), IPollVoteRepository
+{
+    public async Task<IReadOnlyList<PollVote>> GetByPollAsync(string societyId, string pollId, CancellationToken ct = default)
+    {
+        var q = new QueryDefinition("SELECT * FROM c WHERE c.societyId = @sid AND c.pollId = @pollId")
+            .WithParameter("@sid", societyId).WithParameter("@pollId", pollId);
+        return await ExecuteQueryAsync(q, societyId, ct);
+    }
+
+    public async Task<PollVote?> GetByPollAndEligibleUnitAsync(string societyId, string pollId, string eligibleUnitId, CancellationToken ct = default)
+    {
+        var q = new QueryDefinition(
+            "SELECT * FROM c WHERE c.societyId = @sid AND c.pollId = @pollId AND c.eligibleUnitId = @unit")
+            .WithParameter("@sid", societyId).WithParameter("@pollId", pollId).WithParameter("@unit", eligibleUnitId);
+        return (await ExecuteQueryAsync(q, societyId, ct)).FirstOrDefault();
+    }
+}
+
+public class AgmSessionRepository(CosmosClient client, string dbName, ILogger<AgmSessionRepository> logger)
+    : CosmosDbRepository<AgmSession>(client, dbName, "agm-sessions", logger), IAgmSessionRepository
+{
+}
+
 public class OutboxRepository(CosmosClient client, string dbName, ILogger<OutboxRepository> logger)
     : CosmosDbRepository<OutboxRecord>(client, dbName, "outbox", logger), IOutboxRepository
 {

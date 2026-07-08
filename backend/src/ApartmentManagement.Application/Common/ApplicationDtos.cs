@@ -571,6 +571,47 @@ public record SosAlertReportResponse(
     DateTime FromDate, DateTime ToDate, int TotalAlerts, int FalseAlarmCount, double FalseAlarmRatePercent,
     double? AverageAcknowledgeSeconds, double? AverageResolveSeconds, IReadOnlyList<SosCategoryBreakdown> ByCategory);
 
+// ─── Polls & AGM E-Voting ─────────────────────────────────────────────────────
+
+public sealed record CreatePollRequest(
+    string Title, string Description, PollType Type, IReadOnlyList<string> Options,
+    DateTime OpensAt, DateTime ClosesAt, PollEligibilityUnit EligibilityUnit, PollAnonymity Anonymity,
+    PollVisibility Visibility, string? LinkedNoticeId, double? QuorumThresholdPercent,
+    bool IsAgmResolution, bool AllowVoteChange, string? AgmSessionId = null,
+    PollTargetAudience TargetAudience = PollTargetAudience.FullSociety, IReadOnlyList<string>? TargetBlockNames = null);
+
+public sealed record CastVoteRequest(IReadOnlyList<string> SelectedOptionIds);
+
+public record PollOptionResponse(string Id, string Text);
+public record PollOptionTallyResponse(string Id, string Text, int VoteCount);
+
+public record PollResponse(
+    string Id, string SocietyId, string Title, string Description, string Type,
+    IReadOnlyList<PollOptionResponse> Options, DateTime OpensAt, DateTime ClosesAt,
+    string EligibilityUnit, string Anonymity, string Visibility, string? LinkedNoticeId,
+    double? QuorumThresholdPercent, bool IsAgmResolution, bool AllowVoteChange,
+    string Status, DateTime? ClosedAt, bool ResultsPublished, string? Outcome,
+    string CreatedByUserId, DateTime CreatedAt,
+    IReadOnlyList<PollOptionTallyResponse>? Tally, int? EligibleCount, int? ParticipantCount,
+    bool HasVoted, IReadOnlyList<string>? MySelectedOptionIds, string? AgmSessionId,
+    string TargetAudience, IReadOnlyList<string> TargetBlockNames);
+
+public record PollSummaryResponse(
+    string Id, string Title, string Type, DateTime OpensAt, DateTime ClosesAt,
+    string Status, bool IsAgmResolution, bool ResultsPublished);
+
+public record PollVoteResponse(string PollId, IReadOnlyList<string> SelectedOptionIds, DateTime VotedAt);
+
+// ─── AGM Sessions ─────────────────────────────────────────────────────────────
+
+public sealed record CreateAgmSessionRequest(string Title, string Description, DateTime SessionDate);
+
+public record AgmSessionSummaryResponse(string Id, string Title, DateTime SessionDate, int ResolutionCount);
+
+public record AgmSessionDetailResponse(
+    string Id, string SocietyId, string Title, string Description, DateTime SessionDate,
+    string CreatedByUserId, DateTime CreatedAt, IReadOnlyList<PollResponse> Resolutions);
+
 // ─── Dev / Test Data Seeding ──────────────────────────────────────────────────
 
 public sealed record SeedTestDataRequest(int? ApartmentCount = null);

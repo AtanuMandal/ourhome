@@ -1,18 +1,20 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DatePipe } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 import { LoadingSpinnerComponent } from '../../shared/components/loading-spinner/loading-spinner.component';
 import { NoticeService } from '../../core/services/notice.service';
+import { PollService } from '../../core/services/poll.service';
 import { AuthService } from '../../core/services/auth.service';
 import { Notice } from '../../core/models/notice.model';
+import { PollSummary } from '../../core/models/poll.model';
 
 @Component({
   selector: 'app-notice-detail',
   standalone: true,
-  imports: [DatePipe, MatButtonModule, MatIconModule, PageHeaderComponent, LoadingSpinnerComponent],
+  imports: [RouterLink, DatePipe, MatButtonModule, MatIconModule, PageHeaderComponent, LoadingSpinnerComponent],
   template: `
     <app-page-header [title]="item()?.title ?? 'Notice'" [showBack]="true"></app-page-header>
     <div class="page-content">
@@ -33,6 +35,13 @@ import { Notice } from '../../core/models/notice.model';
             </div>
           }
         </div>
+
+        @if (linkedPoll(); as poll) {
+          <a [routerLink]="['/polls', poll.id]" class="linked-poll-banner">
+            <span class="material-icons">how_to_vote</span>
+            <span>This notice has an associated poll: <strong>{{ poll.title }}</strong> — tap to view or vote</span>
+          </a>
+        }
       }
     </div>
   `,
@@ -44,15 +53,21 @@ import { Notice } from '../../core/models/notice.model';
     .notice-body { font-size:15px; line-height:1.7; white-space:pre-wrap; }
     .notice-author { display:flex; align-items:center; gap:6px; margin-top:16px; font-size:13px; color:var(--text-secondary); }
     .notice-author .material-icons { font-size:16px; }
+    .linked-poll-banner {
+      display:flex; align-items:center; gap:10px; margin-top:16px; padding:12px 16px;
+      border-radius:12px; background:#ede7f6; color:#4527a0; text-decoration:none; font-size:14px;
+    }
   `],
 })
 export class NoticeDetailComponent implements OnInit {
-  private readonly svc   = inject(NoticeService);
-  private readonly auth  = inject(AuthService);
-  private readonly route = inject(ActivatedRoute);
+  private readonly svc     = inject(NoticeService);
+  private readonly pollSvc = inject(PollService);
+  private readonly auth    = inject(AuthService);
+  private readonly route   = inject(ActivatedRoute);
 
-  readonly loading = signal(true);
-  readonly item    = signal<Notice | null>(null);
+  readonly loading    = signal(true);
+  readonly item       = signal<Notice | null>(null);
+  readonly linkedPoll = signal<PollSummary | null>(null);
 
   ngOnInit() {
     const sid = this.auth.societyId()!;
@@ -66,6 +81,11 @@ export class NoticeDetailComponent implements OnInit {
         }
       },
       error: () => this.loading.set(false),
+    });
+
+    this.pollSvc.list(sid, 1, 1, id).subscribe({
+      next: response => this.linkedPoll.set(response.items?.[0] ?? null),
+      error: () => {},
     });
   }
 }

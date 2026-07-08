@@ -11,6 +11,7 @@ using ApartmentManagement.Application.Commands.ServiceProvider;
 using ApartmentManagement.Application.Commands.Staff;
 using ApartmentManagement.Application.Commands.Dev;
 using ApartmentManagement.Application.Commands.Sos;
+using ApartmentManagement.Application.Commands.Poll;
 using ApartmentManagement.Domain.Enums;
 using FluentValidation;
 
@@ -480,5 +481,56 @@ public sealed class TriggerSosAlertCommandValidator : AbstractValidator<TriggerS
         RuleFor(x => x.TriggeredByUserId).NotEmpty();
         RuleFor(x => x.Category).IsInEnum();
         RuleFor(x => x.Note).MaximumLength(500);
+    }
+}
+
+// ─── Polls & AGM E-Voting ─────────────────────────────────────────────────────
+
+public sealed class CreatePollCommandValidator : AbstractValidator<CreatePollCommand>
+{
+    public CreatePollCommandValidator()
+    {
+        RuleFor(x => x.SocietyId).NotEmpty();
+        RuleFor(x => x.CreatedByUserId).NotEmpty();
+        RuleFor(x => x.Title).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.Description).MaximumLength(2000);
+        RuleFor(x => x.Type).IsInEnum();
+        RuleFor(x => x.OptionTexts).Must(o => o.Count >= 2).WithMessage("A poll requires at least 2 options.");
+        RuleFor(x => x.ClosesAt).GreaterThan(x => x.OpensAt).WithMessage("closesAt must be after opensAt.");
+        RuleFor(x => x.EligibilityUnit).IsInEnum();
+        RuleFor(x => x.Anonymity).IsInEnum();
+        RuleFor(x => x.Visibility).IsInEnum();
+        RuleFor(x => x.QuorumThresholdPercent).InclusiveBetween(0, 100).When(x => x.QuorumThresholdPercent.HasValue);
+        RuleFor(x => x.TargetAudience).IsInEnum();
+        RuleFor(x => x.TargetBlockNames)
+            .Must(b => b != null && b.Count(name => !string.IsNullOrWhiteSpace(name)) == 1)
+            .WithMessage("PerBlock target audience requires exactly one block.")
+            .When(x => x.TargetAudience == PollTargetAudience.PerBlock);
+        RuleFor(x => x.TargetBlockNames)
+            .Must(b => b != null && b.Any(name => !string.IsNullOrWhiteSpace(name)))
+            .WithMessage("MultipleBlock target audience requires at least one block.")
+            .When(x => x.TargetAudience == PollTargetAudience.MultipleBlock);
+    }
+}
+
+public sealed class CastVoteCommandValidator : AbstractValidator<CastVoteCommand>
+{
+    public CastVoteCommandValidator()
+    {
+        RuleFor(x => x.SocietyId).NotEmpty();
+        RuleFor(x => x.PollId).NotEmpty();
+        RuleFor(x => x.VoterUserId).NotEmpty();
+        RuleFor(x => x.SelectedOptionIds).Must(o => o.Count > 0).WithMessage("At least one option must be selected.");
+    }
+}
+
+public sealed class CreateAgmSessionCommandValidator : AbstractValidator<CreateAgmSessionCommand>
+{
+    public CreateAgmSessionCommandValidator()
+    {
+        RuleFor(x => x.SocietyId).NotEmpty();
+        RuleFor(x => x.CreatedByUserId).NotEmpty();
+        RuleFor(x => x.Title).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.Description).MaximumLength(2000);
     }
 }

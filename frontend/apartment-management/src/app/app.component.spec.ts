@@ -127,4 +127,24 @@ describe('AppComponent — role-based side nav visibility', () => {
     const component = setupWithRole('HQAdmin');
     expect(component.visibleNav().some(item => item.path === '/sos-alerts')).toBeFalse();
   });
+
+  it('shows Polls to SUAdmin', () => {
+    const component = setupWithRole('SUAdmin');
+    expect(component.visibleNav().some(item => item.path === '/polls')).toBeTrue();
+  });
+
+  it('shows Polls to SUUser', () => {
+    const component = setupWithRole('SUUser');
+    expect(component.visibleNav().some(item => item.path === '/polls')).toBeTrue();
+  });
+
+  it('shows Polls to SUSecurity', () => {
+    const component = setupWithRole('SUSecurity');
+    expect(component.visibleNav().some(item => item.path === '/polls')).toBeTrue();
+  });
+
+  it('hides Polls from HQ roles', () => {
+    const component = setupWithRole('HQAdmin');
+    expect(component.visibleNav().some(item => item.path === '/polls')).toBeFalse();
+  });
 });

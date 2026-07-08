@@ -26,6 +26,7 @@ const MENU_SUADMIN: MenuItem[] = [
   { name: 'Visitors',        icon: 'badge',           label: 'Visitors' },
   { name: 'Staff',           icon: 'work',            label: 'Staff' },
   { name: 'SosAlerts',       icon: 'emergency',       label: 'SOS Alerts' },
+  { name: 'Polls',           icon: 'how-to-vote',     label: 'Polls' },
   { name: 'Maintenance',     icon: 'receipt-long',    label: 'Maintenance' },
   { name: 'FinancialReport', icon: 'bar-chart',       label: 'Financial Reports' },
   { name: 'VendorPayments',  icon: 'payments',        label: 'Vendor Payments' },
@@ -37,6 +38,7 @@ const MENU_SUADMIN: MenuItem[] = [
 const MENU_SUUSER: MenuItem[] = [
   { name: 'Dashboard',       icon: 'home',            label: 'Dashboard' },
   { name: 'Visitors',        icon: 'badge',           label: 'Visitors' },
+  { name: 'Polls',           icon: 'how-to-vote',     label: 'Polls' },
   { name: 'Notices',         icon: 'notifications',   label: 'Notices' },
   { name: 'Complaints',      icon: 'report-problem',  label: 'Complaints' },
   { name: 'Amenities',       icon: 'event-available', label: 'Amenities' },
@@ -52,6 +54,7 @@ const MENU_SECURITY: MenuItem[] = [
   { name: 'Residents',  icon: 'people',          label: 'Residents' },
   { name: 'Staff',      icon: 'work',            label: 'Staff' },
   { name: 'SosAlerts',  icon: 'emergency',       label: 'SOS Alerts' },
+  { name: 'Polls',      icon: 'how-to-vote',     label: 'Polls' },
   { name: 'Complaints', icon: 'report-problem',  label: 'Complaints' },
   { name: 'Notices',    icon: 'notifications',   label: 'Notices' },
   { name: 'ContactUs',  icon: 'support-agent',   label: 'Contact Us' },

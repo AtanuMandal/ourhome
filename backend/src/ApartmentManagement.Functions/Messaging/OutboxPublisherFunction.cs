@@ -20,10 +20,9 @@ public class OutboxPublisherFunction(
     IConfiguration configuration,
     ILogger<OutboxPublisherFunction> logger)
 {
-    // The outbox/outbox-leases containers live in the "Platform" database (see CosmosDatabaseGroup).
     // "%...%" resolves the database name from configuration at bind time — the CosmosDBTrigger
     // attribute requires a compile-time constant, so it can't read IOptions<InfrastructureSettings> directly.
-    private const string DbNameSetting = "%Infrastructure:CosmosDbPlatformDatabaseName%";
+    private const string DbNameSetting = "%Infrastructure:CosmosDbDatabaseName%";
     private const string ContainerName = "outbox";
 
     [Function(nameof(OutboxPublisherFunction))]
@@ -47,7 +46,7 @@ public class OutboxPublisherFunction(
             return;
         }
 
-        var dbName = configuration["Infrastructure:CosmosDbPlatformDatabaseName"] ?? new InfrastructureSettings().CosmosDbPlatformDatabaseName;
+        var dbName = configuration["Infrastructure:CosmosDbDatabaseName"] ?? new InfrastructureSettings().CosmosDbDatabaseName;
         var egClient = new EventGridPublisherClient(new Uri(endpoint), new AzureKeyCredential(key));
         var container = cosmosClient.GetContainer(dbName, ContainerName);
 
