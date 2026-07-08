@@ -553,6 +553,24 @@ public record StaffAttendanceReportEntry(
 public record StaffAttendanceReportResponse(
     DateTime FromDate, DateTime ToDate, IReadOnlyList<StaffAttendanceReportEntry> Entries);
 
+// ─── SOS Emergency Alerts ─────────────────────────────────────────────────────
+
+public sealed record TriggerSosAlertRequest(SosCategory Category, string? Note = null);
+
+public record SosAlertResponse(
+    string Id, string SocietyId, string ApartmentId, string ApartmentLabel,
+    string TriggeredByUserId, string TriggeredByUserName, string Category, string? Note,
+    string Status, DateTime TriggeredAt,
+    DateTime? AcknowledgedAt, string? AcknowledgedByUserId, string? AcknowledgedByUserName,
+    DateTime? ResolvedAt, string? ResolvedByUserId, string? ResolvedByUserName,
+    int EscalationCount);
+
+public record SosCategoryBreakdown(string Category, int Count);
+
+public record SosAlertReportResponse(
+    DateTime FromDate, DateTime ToDate, int TotalAlerts, int FalseAlarmCount, double FalseAlarmRatePercent,
+    double? AverageAcknowledgeSeconds, double? AverageResolveSeconds, IReadOnlyList<SosCategoryBreakdown> ByCategory);
+
 // ─── Dev / Test Data Seeding ──────────────────────────────────────────────────
 
 public sealed record SeedTestDataRequest(int? ApartmentCount = null);

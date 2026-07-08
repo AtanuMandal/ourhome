@@ -2,6 +2,7 @@ using ApartmentManagement.Application.Commands.Maintenance;
 using ApartmentManagement.Application.Commands.Notice;
 using ApartmentManagement.Application.Commands.Gamification;
 using ApartmentManagement.Application.Commands.Staff;
+using ApartmentManagement.Application.Commands.Sos;
 using MediatR;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
@@ -89,6 +90,22 @@ public class TimerFunctions(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error in MarkAbsentStaff timer");
+        }
+    }
+
+    /// <summary>Runs every minute — re-notifies responders for SOS alerts that have gone unacknowledged past their escalation window.</summary>
+    [Function("EscalateSosAlerts")]
+    public async Task EscalateSosAlerts(
+        [TimerTrigger("0 * * * * *")] TimerInfo timer, CancellationToken ct)
+    {
+        logger.LogInformation("EscalateSosAlerts timer triggered");
+        try
+        {
+            await mediator.Send(new EscalateSosAlertsCommand(), ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error in EscalateSosAlerts timer");
         }
     }
 

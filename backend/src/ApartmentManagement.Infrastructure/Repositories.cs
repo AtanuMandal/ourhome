@@ -610,6 +610,24 @@ public class StaffAttendanceRepository(CosmosClient client, string dbName, ILogg
     }
 }
 
+public class SosAlertRepository(CosmosClient client, string dbName, ILogger<SosAlertRepository> logger)
+    : CosmosDbRepository<SosAlert>(client, dbName, "sos_alerts", logger), ISosAlertRepository
+{
+    // "Active" (still Triggered) is identified via acknowledgedAt/resolvedAt being unset rather than
+    // comparing the status enum — the Cosmos serializer uses NullValueHandling.Ignore, so a null
+    // acknowledgedAt/resolvedAt is never written to the document (missing, not JSON null), and a
+    // missing property compared with `= <value>` evaluates to Undefined (excluded from the WHERE
+    // clause). IS_DEFINED/IS_NULL correctly matches both "missing" and "explicit null".
+    public async Task<IReadOnlyList<SosAlert>> GetActiveAcrossSocietiesAsync(CancellationToken ct = default)
+    {
+        var q = new QueryDefinition(
+            "SELECT * FROM c WHERE " +
+            "(NOT IS_DEFINED(c.acknowledgedAt) OR IS_NULL(c.acknowledgedAt)) AND " +
+            "(NOT IS_DEFINED(c.resolvedAt) OR IS_NULL(c.resolvedAt))");
+        return await ExecuteCrossPartitionQueryAsync(q, ct);
+    }
+}
+
 public class OutboxRepository(CosmosClient client, string dbName, ILogger<OutboxRepository> logger)
     : CosmosDbRepository<OutboxRecord>(client, dbName, "outbox", logger), IOutboxRepository
 {

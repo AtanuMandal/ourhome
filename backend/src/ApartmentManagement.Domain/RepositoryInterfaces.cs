@@ -185,6 +185,14 @@ public interface IStaffAttendanceRepository : IRepository<StaffAttendance>
     Task<bool> HasRecordForDateAsync(string societyId, string staffId, DateTime attendanceDate, CancellationToken ct = default);
 }
 
+// ─── SOS Alert ────────────────────────────────────────────────────────────────
+
+public interface ISosAlertRepository : IRepository<SosAlert>
+{
+    /// <summary>Cross-partition — used by the escalation timer, which runs society-agnostic.</summary>
+    Task<IReadOnlyList<SosAlert>> GetActiveAcrossSocietiesAsync(CancellationToken ct = default);
+}
+
 // ─── Outbox ───────────────────────────────────────────────────────────────────
 
 public interface IOutboxRepository : IRepository<OutboxRecord>

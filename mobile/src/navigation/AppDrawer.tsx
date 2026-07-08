@@ -26,6 +26,8 @@ import { ContactUsScreen } from '../features/society/ContactUsScreen';
 import { StaffListScreen } from '../features/staff/StaffListScreen';
 import { StaffFormScreen } from '../features/staff/StaffFormScreen';
 import { StaffAttendanceReportScreen } from '../features/staff/StaffAttendanceReportScreen';
+import { SosAlertListScreen } from '../features/sos/SosAlertListScreen';
+import { SosAlertReportScreen } from '../features/sos/SosAlertReportScreen';
 import { colors } from '../theme/colors';
 
 const Drawer = createDrawerNavigator();
@@ -111,6 +113,20 @@ function StaffStack() {
   );
 }
 
+type SosParams = {
+  SosAlertList: undefined;
+  SosAlertReport: undefined;
+};
+const SosNav = createNativeStackNavigator<SosParams>();
+function SosStack() {
+  return (
+    <SosNav.Navigator screenOptions={noHeader}>
+      <SosNav.Screen name="SosAlertList" component={SosAlertListScreen} />
+      <SosNav.Screen name="SosAlertReport" component={SosAlertReportScreen} />
+    </SosNav.Navigator>
+  );
+}
+
 // ── Main Drawer Navigator ───────────────────────────────────────��─────────────
 
 function renderDrawer(props: DrawerContentComponentProps) {
@@ -140,6 +156,7 @@ export function AppDrawer() {
       <Drawer.Screen name="VendorPayments"  component={VendorPaymentListScreen} />
       <Drawer.Screen name="Amenities"       component={AmenitiesStack} />
       <Drawer.Screen name="Staff"           component={StaffStack} />
+      <Drawer.Screen name="SosAlerts"       component={SosStack} />
       <Drawer.Screen name="Committee"       component={CommitteeScreen} />
       <Drawer.Screen name="ContactUs"       component={ContactUsScreen} />
       <Drawer.Screen name="Profile"         component={ProfileScreen} />
