@@ -31,6 +31,7 @@ public static class CosmosDbInitializer
         new("complaints",       "/societyId", CosmosDatabaseGroup.Operations),
         new("notices",          "/societyId", CosmosDatabaseGroup.Operations),
         new("visitor-logs",     "/societyId", CosmosDatabaseGroup.Operations),
+        new("sos_alerts",       "/societyId", CosmosDatabaseGroup.Operations),
 
         // ── Staff — workforce roster, shifts, and attendance ───────────────────────────
         new("shifts",           "/societyId", CosmosDatabaseGroup.Staff),

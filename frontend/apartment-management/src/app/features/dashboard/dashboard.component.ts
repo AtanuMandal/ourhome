@@ -17,6 +17,7 @@ import { FinancialReportService } from '../../core/services/financial-report.ser
 import { Complaint } from '../../core/models/complaint.model';
 import { Notice } from '../../core/models/notice.model';
 import { FinancialDashboard } from '../../core/models/financial-report.model';
+import { SosTriggerComponent } from '../sos/sos-trigger.component';
 
 interface QuickAction { icon: string; label: string; route: string; color: string; }
 
@@ -57,6 +58,7 @@ const ROLE_ACTIONS: Partial<Record<string, QuickAction[]>> = {
   imports: [
     RouterLink, MatCardModule, MatButtonModule, MatIconModule, MatBadgeModule,
     CurrencyPipe, DatePipe, NgClass, PageHeaderComponent, StatusChipComponent, LoadingSpinnerComponent,
+    SosTriggerComponent,
   ],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss',
@@ -70,6 +72,7 @@ export class DashboardComponent implements OnInit {
   readonly user      = this.auth.user;
   readonly societyId = this.auth.societyId;
   readonly isAdmin   = this.auth.isAdmin;
+  readonly isResident = computed(() => this.user()?.role === 'SUUser');
 
   readonly loading          = signal(true);
   readonly recentComplaints = signal<Complaint[]>([]);

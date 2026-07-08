@@ -10,6 +10,7 @@ using ApartmentManagement.Application.Commands.Gamification;
 using ApartmentManagement.Application.Commands.ServiceProvider;
 using ApartmentManagement.Application.Commands.Staff;
 using ApartmentManagement.Application.Commands.Dev;
+using ApartmentManagement.Application.Commands.Sos;
 using ApartmentManagement.Domain.Enums;
 using FluentValidation;
 
@@ -466,5 +467,18 @@ public sealed class SeedTestDataCommandValidator : AbstractValidator<SeedTestDat
         RuleFor(x => x.SocietyId).NotEmpty();
         RuleFor(x => x.ApartmentCount).InclusiveBetween(1, 20)
             .WithMessage("Apartment count must be between 1 and 20.");
+    }
+}
+
+// ─── SOS Emergency Alerts ─────────────────────────────────────────────────────
+
+public sealed class TriggerSosAlertCommandValidator : AbstractValidator<TriggerSosAlertCommand>
+{
+    public TriggerSosAlertCommandValidator()
+    {
+        RuleFor(x => x.SocietyId).NotEmpty();
+        RuleFor(x => x.TriggeredByUserId).NotEmpty();
+        RuleFor(x => x.Category).IsInEnum();
+        RuleFor(x => x.Note).MaximumLength(500);
     }
 }

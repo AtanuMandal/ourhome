@@ -6,6 +6,11 @@
     <app-loading-spinner></app-loading-spinner>
   } @else {
 
+    <!-- SOS emergency trigger (residents only) -->
+    @if (isResident()) {
+      <app-sos-trigger></app-sos-trigger>
+    }
+
     <!-- Quick actions -->
     <section class="section">
       <h2 class="section-title">Quick Actions</h2>

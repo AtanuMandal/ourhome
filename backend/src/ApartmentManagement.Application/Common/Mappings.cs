@@ -439,4 +439,13 @@ public static class MappingExtensions
             attendance.Id, attendance.SocietyId, attendance.StaffId, attendance.StaffName, attendance.ShiftId,
             attendance.AttendanceDate, attendance.CheckInTime, attendance.CheckOutTime, attendance.IsLate,
             attendance.Status.ToString());
+
+    public static SosAlertResponse ToResponse(this SosAlert alert, string apartmentLabel) =>
+        new(
+            alert.Id, alert.SocietyId, alert.ApartmentId, apartmentLabel,
+            alert.TriggeredByUserId, alert.TriggeredByUserName, alert.Category.ToString(), alert.Note,
+            alert.Status.ToString(), alert.CreatedAt,
+            alert.AcknowledgedAt, alert.AcknowledgedByUserId, alert.AcknowledgedByUserName,
+            alert.ResolvedAt, alert.ResolvedByUserId, alert.ResolvedByUserName,
+            alert.EscalationCount);
 }

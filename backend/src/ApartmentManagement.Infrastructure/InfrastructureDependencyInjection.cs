@@ -79,6 +79,11 @@ public static class InfrastructureDependencyInjection
             DbName(sp, CosmosDatabaseGroup.Operations),
             sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<VisitorLogRepository>>()));
 
+        services.AddScoped<ISosAlertRepository>(sp => new SosAlertRepository(
+            sp.GetRequiredService<CosmosClient>(),
+            DbName(sp, CosmosDatabaseGroup.Operations),
+            sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<SosAlertRepository>>()));
+
         // Repositories — Staff database (shifts, staff roster, attendance)
         services.AddScoped<IShiftRepository>(sp => new ShiftRepository(
             sp.GetRequiredService<CosmosClient>(),

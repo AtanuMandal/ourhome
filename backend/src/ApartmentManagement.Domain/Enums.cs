@@ -27,3 +27,5 @@ public enum ServiceRequestStatus { Open, Accepted, InProgress, Completed, Cancel
 public enum StaffCategory { Security, Housekeeping, Gardener, Plumber, Electrician, Other }
 public enum StaffEmploymentType { OnPayroll, Contractor }
 public enum StaffAttendanceStatus { CheckedIn, CheckedOut, Absent, OnLeave }
+public enum SosCategory { Fire, Medical, SecurityIntrusion, Other }
+public enum SosAlertStatus { Triggered, Acknowledged, Resolved, FalseAlarm }

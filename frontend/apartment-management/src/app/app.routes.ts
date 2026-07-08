@@ -77,6 +77,12 @@ export const routes: Routes = [
   },
 
   {
+    path: 'sos-alerts',
+    canActivate: [staffGuard],
+    loadChildren: () => import('./features/sos/sos.routes').then(m => m.SOS_ROUTES),
+  },
+
+  {
     path: 'maintenance',
     canActivate: [authGuard],
     loadChildren: () => import('./features/maintenance/maintenance.routes').then(m => m.MAINTENANCE_ROUTES),

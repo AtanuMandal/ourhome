@@ -69,4 +69,8 @@ public static class ErrorCodes
     public const string ShiftNotFound = "SHIFT_NOT_FOUND";
     public const string StaffAlreadyCheckedIn = "STAFF_ALREADY_CHECKED_IN";
     public const string StaffNotCheckedIn = "STAFF_NOT_CHECKED_IN";
+
+    public const string SosAlertNotFound = "SOS_ALERT_NOT_FOUND";
+    public const string SosAlertAlreadySettled = "SOS_ALERT_ALREADY_SETTLED";
+    public const string UserHasNoApartment = "USER_HAS_NO_APARTMENT";
 }

@@ -1,0 +1,68 @@
+@if (activeAlert(); as alert) {
+  <div class="sos-status" [ngClass]="'sos-status--' + alert.status.toLowerCase()">
+    <span class="material-icons sos-status__icon">
+      {{ alert.status === 'Resolved' || alert.status === 'FalseAlarm' ? 'check_circle' : 'emergency' }}
+    </span>
+    <div class="sos-status__content">
+      <span class="sos-status__title">SOS: {{ categoryLabel(alert.category) }} — {{ alert.status }}</span>
+      @if (alert.status === 'Triggered') {
+        <span class="sos-status__meta">Waiting for security/admin to acknowledge…</span>
+      } @else if (alert.status === 'Acknowledged') {
+        <span class="sos-status__meta">Acknowledged by {{ alert.acknowledgedByUserName }}</span>
+      } @else if (alert.status === 'Resolved') {
+        <span class="sos-status__meta">Resolved by {{ alert.resolvedByUserName }}</span>
+      } @else {
+        <span class="sos-status__meta">Marked as a false alarm</span>
+      }
+    </div>
+    @if (alert.status === 'Triggered' || alert.status === 'Acknowledged') {
+      <button mat-stroked-button (click)="markFalseAlarm()">False Alarm</button>
+    } @else {
+      <button mat-icon-button (click)="dismiss()" aria-label="Dismiss">
+        <span class="material-icons">close</span>
+      </button>
+    }
+  </div>
+} @else {
+  <button class="sos-button" (click)="openDialog()">
+    <span class="material-icons">emergency</span>
+    <span>SOS</span>
+  </button>
+}
+
+@if (showDialog()) {
+  <div class="sos-overlay" (click)="closeDialog()">
+    <div class="sos-dialog" (click)="$event.stopPropagation()">
+      <h2>Raise an SOS Alert</h2>
+      <p class="sos-dialog__hint">Security and the society admin will be notified immediately with your apartment details.</p>
+
+      <label class="sos-field-label">Category</label>
+      <div class="sos-category-grid">
+        @for (c of categories; track c.value) {
+          <button
+            type="button"
+            class="sos-category-option"
+            [class.sos-category-option--selected]="category() === c.value"
+            (click)="category.set(c.value)">
+            {{ c.label }}
+          </button>
+        }
+      </div>
+
+      <label class="sos-field-label" for="sos-note">Note (optional)</label>
+      <textarea id="sos-note" rows="3" [ngModel]="note()" (ngModelChange)="note.set($event)"
+        placeholder="Anything responders should know right away"></textarea>
+
+      @if (error()) {
+        <p class="sos-error">{{ error() }}</p>
+      }
+
+      <div class="sos-dialog__actions">
+        <button mat-button (click)="closeDialog()" [disabled]="submitting()">Cancel</button>
+        <button mat-raised-button color="warn" (click)="confirmTrigger()" [disabled]="submitting()">
+          {{ submitting() ? 'Sending…' : 'Trigger SOS' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

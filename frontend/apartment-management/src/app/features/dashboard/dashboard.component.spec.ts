@@ -7,6 +7,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { ComplaintService } from '../../core/services/complaint.service';
 import { NoticeService } from '../../core/services/notice.service';
 import { FinancialReportService } from '../../core/services/financial-report.service';
+import { SosService } from '../../core/services/sos.service';
 import { FinancialDashboard } from '../../core/models/financial-report.model';
 
 describe('DashboardComponent', () => {
@@ -36,6 +37,11 @@ describe('DashboardComponent', () => {
       societyId: () => 'soc-1',
       isAdmin: () => isAdmin,
     };
+    const sosServiceStub = {
+      trigger: jasmine.createSpy(),
+      get: jasmine.createSpy(),
+      markFalseAlarm: jasmine.createSpy(),
+    };
 
     TestBed.configureTestingModule({
       imports: [DashboardComponent, NoopAnimationsModule],
@@ -45,6 +51,7 @@ describe('DashboardComponent', () => {
         { provide: NoticeService, useValue: noticeServiceStub },
         { provide: FinancialReportService, useValue: financialReportServiceStub },
         { provide: AuthService, useValue: authServiceStub },
+        { provide: SosService, useValue: sosServiceStub },
       ],
     });
 
@@ -83,5 +90,19 @@ describe('DashboardComponent', () => {
 
     expect(text).not.toContain('Upcoming Cash Inflow');
     expect(text).not.toContain('Upcoming Cash Outflow');
+  });
+
+  it('renders the SOS trigger widget for a resident (SUUser) role', () => {
+    const { fixture, component } = setup(false);
+
+    expect(component.isResident()).toBeTrue();
+    expect(fixture.nativeElement.querySelector('app-sos-trigger')).not.toBeNull();
+  });
+
+  it('does not render the SOS trigger widget for an admin role', () => {
+    const { fixture, component } = setup(true);
+
+    expect(component.isResident()).toBeFalse();
+    expect(fixture.nativeElement.querySelector('app-sos-trigger')).toBeNull();
   });
 });
