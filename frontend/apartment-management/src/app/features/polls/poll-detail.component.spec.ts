@@ -13,6 +13,7 @@ describe('PollDetailComponent', () => {
       id: 'p1', societyId: 'soc-1', title: 'Repaint the gate?', description: 'desc',
       type: 'SingleChoice', options: [{ id: 'o1', text: 'Yes' }, { id: 'o2', text: 'No' }],
       opensAt: '2026-01-01T00:00:00Z', closesAt: '2026-01-10T00:00:00Z',
+      targetAudience: 'FullSociety', targetBlockNames: [],
       eligibilityUnit: 'PerResident', anonymity: 'Anonymous', visibility: 'Immediately',
       isAgmResolution: false, allowVoteChange: true, status: 'Open',
       resultsPublished: false, createdByUserId: 'admin-1', createdAt: '2026-01-01T00:00:00Z',
@@ -112,5 +113,20 @@ describe('PollDetailComponent', () => {
   it('does not permit voting for SUSecurity', () => {
     const { component } = setup(makePoll(), 'SUSecurity');
     expect(component.canVote()).toBeFalse();
+  });
+
+  it('labels a FullSociety poll target audience', () => {
+    const { component } = setup(makePoll({ targetAudience: 'FullSociety', targetBlockNames: [] }), 'SUUser');
+    expect(component.targetAudienceLabel(component.poll()!)).toBe('Full Society');
+  });
+
+  it('labels a PerBlock poll target audience with the block name', () => {
+    const { component } = setup(makePoll({ targetAudience: 'PerBlock', targetBlockNames: ['BLOCK A'] }), 'SUUser');
+    expect(component.targetAudienceLabel(component.poll()!)).toBe('Block: BLOCK A');
+  });
+
+  it('labels a MultipleBlock poll target audience with all block names', () => {
+    const { component } = setup(makePoll({ targetAudience: 'MultipleBlock', targetBlockNames: ['BLOCK A', 'BLOCK B'] }), 'SUUser');
+    expect(component.targetAudienceLabel(component.poll()!)).toBe('Blocks: BLOCK A, BLOCK B');
   });
 });

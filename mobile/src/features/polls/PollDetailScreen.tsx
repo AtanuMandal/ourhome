@@ -10,7 +10,7 @@ import { normalizeError } from '../../shared/utils/errors';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing } from '../../theme/spacing';
-import type { PollOption, PollOptionTally } from '../../api/types';
+import type { Poll, PollOption, PollOptionTally } from '../../api/types';
 
 interface PollDetailScreenProps {
   route: { params: { id: string } };
@@ -22,6 +22,11 @@ function outcomeStyle(outcome: string) {
     case 'Failed': return { backgroundColor: '#FFEBEE', color: '#C62828' };
     default: return { backgroundColor: '#FFF3E0', color: '#E65100' };
   }
+}
+
+function targetAudienceLabel(poll: Poll): string {
+  if (poll.targetAudience === 'FullSociety') return 'Full Society';
+  return `${poll.targetAudience === 'PerBlock' ? 'Block' : 'Blocks'}: ${poll.targetBlockNames.join(', ')}`;
 }
 
 export function PollDetailScreen({ route }: PollDetailScreenProps) {
@@ -105,6 +110,7 @@ export function PollDetailScreen({ route }: PollDetailScreenProps) {
         <Text style={styles.meta}>
           Opens {new Date(poll.opensAt).toLocaleString()} · Closes {new Date(poll.closesAt).toLocaleString()} · {poll.status}
         </Text>
+        <Text style={styles.meta}>Target: {targetAudienceLabel(poll)}</Text>
 
         {poll.outcome && (
           <View style={[styles.outcomeBanner, { backgroundColor: outcomeStyle(poll.outcome).backgroundColor }]}>

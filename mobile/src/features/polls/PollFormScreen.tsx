@@ -3,14 +3,14 @@ import { View, Text, TextInput, TouchableOpacity, ScrollView, Switch, Alert, Sty
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useSocietyId } from '../../shared/hooks/useSocietyId';
-import { useCreatePoll } from './hooks/usePolls';
+import { useCreatePoll, useSocietyBlockNames } from './hooks/usePolls';
 import { AppHeader } from '../../shared/components/AppHeader';
 import { LoadingOverlay } from '../../shared/components/LoadingOverlay';
 import { normalizeError } from '../../shared/utils/errors';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing } from '../../theme/spacing';
-import type { PollAnonymity, PollEligibilityUnit, PollType, PollVisibility } from '../../api/types';
+import type { PollAnonymity, PollEligibilityUnit, PollTargetAudience, PollType, PollVisibility } from '../../api/types';
 
 function OptionRow<T extends string>({
   options, value, onChange,
@@ -38,6 +38,7 @@ export function PollFormScreen({ route }: PollFormScreenProps = {}) {
   const navigation = useNavigation<any>(); // eslint-disable-line @typescript-eslint/no-explicit-any
   const societyId = useSocietyId();
   const { mutateAsync: createPoll, isPending } = useCreatePoll(societyId);
+  const { data: blockOptions = [] } = useSocietyBlockNames(societyId);
   const agmSessionId = route?.params?.agmSessionId;
 
   const [title, setTitle] = useState('');
@@ -46,12 +47,24 @@ export function PollFormScreen({ route }: PollFormScreenProps = {}) {
   const [optionsText, setOptionsText] = useState('Yes\nNo');
   const [opensAt, setOpensAt] = useState('');
   const [closesAt, setClosesAt] = useState('');
+  const [targetAudience, setTargetAudience] = useState<PollTargetAudience>('FullSociety');
+  const [targetBlockNames, setTargetBlockNames] = useState<string[]>([]);
   const [eligibilityUnit, setEligibilityUnit] = useState<PollEligibilityUnit>('PerResident');
   const [anonymity, setAnonymity] = useState<PollAnonymity>('Anonymous');
   const [visibility, setVisibility] = useState<PollVisibility>('Immediately');
   const [quorumThresholdPercent, setQuorumThresholdPercent] = useState('');
   const [isAgmResolution, setIsAgmResolution] = useState(!!agmSessionId);
   const [allowVoteChange, setAllowVoteChange] = useState(true);
+
+  function toggleBlock(block: string): void {
+    setTargetBlockNames((prev) => (prev.includes(block) ? prev.filter((b) => b !== block) : [...prev, block]));
+  }
+
+  function targetBlockError(): string | null {
+    if (targetAudience === 'PerBlock' && targetBlockNames.length !== 1) return 'Select exactly one block.';
+    if (targetAudience === 'MultipleBlock' && targetBlockNames.length < 1) return 'Select at least one block.';
+    return null;
+  }
 
   async function handleCreate(): Promise<void> {
     const options = optionsText.split('\n').map((o) => o.trim()).filter((o) => o.length > 0);
@@ -67,6 +80,11 @@ export function PollFormScreen({ route }: PollFormScreenProps = {}) {
       Alert.alert('Validation', 'Opens At and Closes At are required.');
       return;
     }
+    const blockError = targetBlockError();
+    if (blockError) {
+      Alert.alert('Validation', blockError);
+      return;
+    }
 
     try {
       await createPoll({
@@ -76,6 +94,8 @@ export function PollFormScreen({ route }: PollFormScreenProps = {}) {
         options,
         opensAt: new Date(opensAt).toISOString(),
         closesAt: new Date(closesAt).toISOString(),
+        targetAudience,
+        targetBlockNames: targetAudience === 'FullSociety' ? undefined : targetBlockNames,
         eligibilityUnit,
         anonymity,
         visibility,
@@ -119,6 +139,35 @@ export function PollFormScreen({ route }: PollFormScreenProps = {}) {
 
         <Text style={styles.label}>Closes At *</Text>
         <TextInput style={styles.input} value={closesAt} onChangeText={setClosesAt} placeholder="2026-07-17T09:00" placeholderTextColor={colors.text.disabled} autoCapitalize="none" />
+
+        <Text style={styles.label}>Target Audience</Text>
+        <OptionRow
+          value={targetAudience}
+          onChange={setTargetAudience}
+          options={[
+            { value: 'FullSociety', label: 'Full Society' },
+            { value: 'PerBlock', label: 'Per Block' },
+            { value: 'MultipleBlock', label: 'Multiple Blocks' },
+          ]}
+        />
+
+        {targetAudience !== 'FullSociety' && (
+          <>
+            <Text style={styles.label}>{targetAudience === 'PerBlock' ? 'Block' : 'Blocks'}</Text>
+            <View style={styles.optionRow}>
+              {blockOptions.map((b: string) => (
+                <TouchableOpacity
+                  key={b}
+                  style={[styles.optionChip, targetBlockNames.includes(b) && styles.optionChipSelected]}
+                  onPress={() => toggleBlock(b)}
+                >
+                  <Text style={targetBlockNames.includes(b) ? styles.optionTextSelected : styles.optionText}>{b}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            {targetBlockError() && <Text style={styles.errorText}>{targetBlockError()}</Text>}
+          </>
+        )}
 
         <Text style={styles.label}>Eligibility</Text>
         <OptionRow
@@ -177,6 +226,7 @@ const styles = StyleSheet.create({
   optionChipSelected: { borderColor: colors.primary, backgroundColor: '#EFF6FF' },
   optionText: { color: colors.text.primary, fontSize: typography.fontSize.sm },
   optionTextSelected: { color: colors.primary, fontWeight: typography.fontWeight.semibold, fontSize: typography.fontSize.sm },
+  errorText: { color: colors.error, fontSize: typography.fontSize.xs, marginTop: spacing.xs },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.md },
   createButton: { backgroundColor: colors.primary, borderRadius: 8, padding: spacing.md, alignItems: 'center', marginTop: spacing.lg },
   createButtonText: { color: '#FFF', fontSize: typography.fontSize.base, fontWeight: typography.fontWeight.semibold },

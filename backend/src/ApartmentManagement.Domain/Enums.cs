@@ -30,6 +30,7 @@ public enum StaffAttendanceStatus { CheckedIn, CheckedOut, Absent, OnLeave }
 public enum SosCategory { Fire, Medical, SecurityIntrusion, Other }
 public enum SosAlertStatus { Triggered, Acknowledged, Resolved, FalseAlarm }
 public enum PollType { SingleChoice, MultipleChoice }
+public enum PollTargetAudience { FullSociety, PerBlock, MultipleBlock }
 public enum PollEligibilityUnit { PerApartment, PerResident }
 public enum PollAnonymity { Anonymous, Identified }
 public enum PollVisibility { Immediately, AfterClose, AdminOnly }

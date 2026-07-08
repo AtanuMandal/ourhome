@@ -10,8 +10,9 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 import { PollService } from '../../core/services/poll.service';
 import { AgmSessionService } from '../../core/services/agm-session.service';
+import { ApartmentService } from '../../core/services/apartment.service';
 import { AuthService } from '../../core/services/auth.service';
-import { AgmSessionSummary, PollAnonymity, PollEligibilityUnit, PollType, PollVisibility } from '../../core/models/poll.model';
+import { AgmSessionSummary, PollAnonymity, PollEligibilityUnit, PollTargetAudience, PollType, PollVisibility } from '../../core/models/poll.model';
 
 @Component({
   selector: 'app-poll-form',
@@ -67,6 +68,29 @@ import { AgmSessionSummary, PollAnonymity, PollEligibilityUnit, PollType, PollVi
           </mat-form-field>
 
           <mat-form-field appearance="fill" class="full-width">
+            <mat-label>Target Audience</mat-label>
+            <mat-select formControlName="targetAudience">
+              <mat-option value="FullSociety">Full Society (all apartments)</mat-option>
+              <mat-option value="PerBlock">Per Block (one block)</mat-option>
+              <mat-option value="MultipleBlock">Multiple Blocks</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          @if (form.controls.targetAudience.value !== 'FullSociety') {
+            <mat-form-field appearance="fill" class="full-width">
+              <mat-label>{{ form.controls.targetAudience.value === 'PerBlock' ? 'Block' : 'Blocks' }}</mat-label>
+              <mat-select formControlName="targetBlockNames" multiple>
+                @for (b of blockOptions(); track b) {
+                  <mat-option [value]="b">{{ b }}</mat-option>
+                }
+              </mat-select>
+              @if (targetBlockError()) {
+                <mat-error>{{ targetBlockError() }}</mat-error>
+              }
+            </mat-form-field>
+          }
+
+          <mat-form-field appearance="fill" class="full-width">
             <mat-label>Eligibility</mat-label>
             <mat-select formControlName="eligibilityUnit">
               <mat-option value="PerApartment">Per Apartment (owner votes)</mat-option>
@@ -116,7 +140,7 @@ import { AgmSessionSummary, PollAnonymity, PollEligibilityUnit, PollType, PollVi
 
           <button mat-raised-button color="primary" type="submit"
                   class="full-width" style="height:48px;margin-top:16px"
-                  [disabled]="saving() || form.invalid || !!optionCountError()">
+                  [disabled]="saving() || form.invalid || !!optionCountError() || !!targetBlockError()">
             Create Poll
           </button>
         </form>
@@ -128,6 +152,7 @@ export class PollFormComponent implements OnInit {
   private readonly fb = inject(FormBuilder).nonNullable;
   private readonly pollSvc = inject(PollService);
   private readonly agmSessionSvc = inject(AgmSessionService);
+  private readonly apartmentSvc = inject(ApartmentService);
   private readonly auth = inject(AuthService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -135,6 +160,7 @@ export class PollFormComponent implements OnInit {
 
   readonly saving = signal(false);
   readonly agmSessions = signal<AgmSessionSummary[]>([]);
+  readonly blockOptions = signal<string[]>([]);
 
   readonly form = this.fb.group({
     title: ['', Validators.required],
@@ -143,6 +169,8 @@ export class PollFormComponent implements OnInit {
     optionsText: ['Yes\nNo', Validators.required],
     opensAt: ['', Validators.required],
     closesAt: ['', Validators.required],
+    targetAudience: ['FullSociety' as PollTargetAudience, Validators.required],
+    targetBlockNames: [[] as string[]],
     eligibilityUnit: ['PerResident' as PollEligibilityUnit, Validators.required],
     anonymity: ['Anonymous' as PollAnonymity, Validators.required],
     visibility: ['Immediately' as PollVisibility, Validators.required],
@@ -160,12 +188,27 @@ export class PollFormComponent implements OnInit {
         next: response => this.agmSessions.set(response.items ?? []),
         error: () => {},
       });
+      this.apartmentSvc.list(sid, 1, 500).subscribe({
+        next: response => {
+          const blocks = new Set((response.items ?? []).map(a => a.blockName).filter(Boolean));
+          this.blockOptions.set([...blocks].sort());
+        },
+        error: () => {},
+      });
     }
 
     const agmSessionId = this.route.snapshot.queryParamMap.get('agmSessionId');
     if (agmSessionId) {
       this.form.patchValue({ agmSessionId, isAgmResolution: true });
     }
+  }
+
+  targetBlockError(): string | null {
+    const audience = this.form.controls.targetAudience.value;
+    const count = this.form.controls.targetBlockNames.value.length;
+    if (audience === 'PerBlock' && count !== 1) return 'Select exactly one block.';
+    if (audience === 'MultipleBlock' && count < 1) return 'Select at least one block.';
+    return null;
   }
 
   optionCountError(): string | null {
@@ -181,7 +224,7 @@ export class PollFormComponent implements OnInit {
   }
 
   submit() {
-    if (this.form.invalid || this.optionCountError()) return;
+    if (this.form.invalid || this.optionCountError() || this.targetBlockError()) return;
     const sid = this.auth.societyId();
     if (!sid) return;
 
@@ -195,6 +238,8 @@ export class PollFormComponent implements OnInit {
       options: this.parsedOptions(),
       opensAt: new Date(value.opensAt).toISOString(),
       closesAt: new Date(value.closesAt).toISOString(),
+      targetAudience: value.targetAudience,
+      targetBlockNames: value.targetAudience === 'FullSociety' ? undefined : value.targetBlockNames,
       eligibilityUnit: value.eligibilityUnit,
       anonymity: value.anonymity,
       visibility: value.visibility,

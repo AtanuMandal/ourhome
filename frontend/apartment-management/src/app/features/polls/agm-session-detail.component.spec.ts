@@ -19,6 +19,8 @@ describe('AgmSessionDetailComponent', () => {
       options: [{ id: 'o1', text: 'Yes' }, { id: 'o2', text: 'No' }],
       opensAt: '2026-01-01T00:00:00Z',
       closesAt: '2026-01-10T00:00:00Z',
+      targetAudience: 'FullSociety',
+      targetBlockNames: [],
       eligibilityUnit: 'PerResident',
       anonymity: 'Anonymous',
       visibility: 'Immediately',
@@ -116,5 +118,14 @@ describe('AgmSessionDetailComponent', () => {
     component.publishResolution(component.session()!.resolutions[0]);
 
     expect(pollServiceStub.publishResults).toHaveBeenCalledWith('soc-1', 'r1');
+  });
+
+  it('labels a block-targeted resolution', () => {
+    const { component } = setup(
+      makeSession([makeResolution({ id: 'r1', targetAudience: 'PerBlock', targetBlockNames: ['BLOCK A'] })]),
+      'SUUser',
+    );
+
+    expect(component.targetAudienceLabel(component.session()!.resolutions[0])).toBe('Block: BLOCK A');
   });
 });

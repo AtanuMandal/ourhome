@@ -40,6 +40,7 @@ import { AgmSessionDetail, Poll } from '../../core/models/poll.model';
               Closes {{ r.closesAt | date:'medium' }}
               · <span class="status-chip" [class]="'status-chip--' + r.status.toLowerCase()">{{ r.status }}</span>
             </p>
+            <p class="poll-meta">Target: {{ targetAudienceLabel(r) }}</p>
 
             @if (r.outcome) {
               <p class="outcome-banner" [class]="'outcome-banner--' + r.outcome.toLowerCase()">
@@ -167,6 +168,11 @@ export class AgmSessionDetailComponent implements OnInit {
   myVoteLabels(resolution: Poll): string {
     if (!resolution.mySelectedOptionIds) return '';
     return resolution.options.filter(o => resolution.mySelectedOptionIds!.includes(o.id)).map(o => o.text).join(', ');
+  }
+
+  targetAudienceLabel(resolution: Poll): string {
+    if (resolution.targetAudience === 'FullSociety') return 'Full Society';
+    return `${resolution.targetAudience === 'PerBlock' ? 'Block' : 'Blocks'}: ${resolution.targetBlockNames.join(', ')}`;
   }
 
   singleSelection(pollId: string): string | null {

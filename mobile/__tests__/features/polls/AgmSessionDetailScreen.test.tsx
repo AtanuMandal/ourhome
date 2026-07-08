@@ -31,6 +31,7 @@ function makeResolution(overrides: Partial<Poll>): Poll {
     id: overrides.id ?? 'r1', societyId: 'soc-1', title: overrides.title ?? 'Resolution 1', description: 'desc',
     type: 'SingleChoice', options: [{ id: 'o1', text: 'Yes' }, { id: 'o2', text: 'No' }],
     opensAt: '2026-01-01T00:00:00Z', closesAt: '2026-01-10T00:00:00Z',
+    targetAudience: 'FullSociety', targetBlockNames: [],
     eligibilityUnit: 'PerResident', anonymity: 'Anonymous', visibility: 'Immediately',
     isAgmResolution: true, allowVoteChange: true, status: overrides.status ?? 'Open',
     resultsPublished: overrides.resultsPublished ?? false, createdByUserId: 'admin-1', createdAt: '2026-01-01T00:00:00Z',
@@ -131,5 +132,14 @@ describe('AgmSessionDetailScreen', () => {
 
     await waitFor(() => expect(screen.getByText('AGM 2026')).toBeTruthy());
     expect(screen.getByText('+ Add Resolution')).toBeTruthy();
+  });
+
+  test('shows the target audience for a block-scoped resolution', async () => {
+    setUser('SUUser');
+    mockSession = makeSession([makeResolution({ id: 'r1', targetAudience: 'PerBlock', targetBlockNames: ['BLOCK A'] })]);
+
+    renderScreen();
+
+    await waitFor(() => expect(screen.getByText(/Target: Block: BLOCK A/)).toBeTruthy());
   });
 });

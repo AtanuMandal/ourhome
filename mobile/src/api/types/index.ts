@@ -300,6 +300,7 @@ export interface SosAlertReport {
 }
 
 export type PollType = 'SingleChoice' | 'MultipleChoice';
+export type PollTargetAudience = 'FullSociety' | 'PerBlock' | 'MultipleBlock';
 export type PollEligibilityUnit = 'PerApartment' | 'PerResident';
 export type PollAnonymity = 'Anonymous' | 'Identified';
 export type PollVisibility = 'Immediately' | 'AfterClose' | 'AdminOnly';
@@ -326,6 +327,8 @@ export interface Poll {
   options: PollOption[];
   opensAt: string;
   closesAt: string;
+  targetAudience: PollTargetAudience;
+  targetBlockNames: string[];
   eligibilityUnit: PollEligibilityUnit;
   anonymity: PollAnonymity;
   visibility: PollVisibility;

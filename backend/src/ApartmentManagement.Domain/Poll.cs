@@ -17,6 +17,11 @@ public sealed class Poll : BaseEntity
 
     public DateTime OpensAt { get; private set; }
     public DateTime ClosesAt { get; private set; }
+    public PollTargetAudience TargetAudience { get; private set; }
+
+    /// <summary>Block names this poll is scoped to. Empty when TargetAudience is FullSociety.</summary>
+    public IReadOnlyList<string> TargetBlockNames { get; private set; } = [];
+
     public PollEligibilityUnit EligibilityUnit { get; private set; }
     public PollAnonymity Anonymity { get; private set; }
     public PollVisibility Visibility { get; private set; }
@@ -45,7 +50,8 @@ public sealed class Poll : BaseEntity
         IReadOnlyList<string> optionTexts, DateTime opensAt, DateTime closesAt,
         PollEligibilityUnit eligibilityUnit, PollAnonymity anonymity, PollVisibility visibility,
         string? linkedNoticeId, double? quorumThresholdPercent, bool isAgmResolution, bool allowVoteChange,
-        string? agmSessionId = null)
+        string? agmSessionId = null,
+        PollTargetAudience targetAudience = PollTargetAudience.FullSociety, IReadOnlyList<string>? targetBlockNames = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(societyId, nameof(societyId));
         ArgumentException.ThrowIfNullOrWhiteSpace(createdByUserId, nameof(createdByUserId));
@@ -57,6 +63,17 @@ public sealed class Poll : BaseEntity
         if (quorumThresholdPercent is < 0 or > 100)
             throw new ArgumentException("Quorum threshold must be between 0 and 100.", nameof(quorumThresholdPercent));
 
+        var normalizedBlockNames = (targetBlockNames ?? [])
+            .Where(b => !string.IsNullOrWhiteSpace(b))
+            .Select(b => b.Trim().ToUpperInvariant())
+            .Distinct()
+            .ToList();
+
+        if (targetAudience == PollTargetAudience.PerBlock && normalizedBlockNames.Count != 1)
+            throw new ArgumentException("PerBlock target audience requires exactly one block.", nameof(targetBlockNames));
+        if (targetAudience == PollTargetAudience.MultipleBlock && normalizedBlockNames.Count < 1)
+            throw new ArgumentException("MultipleBlock target audience requires at least one block.", nameof(targetBlockNames));
+
         var poll = new Poll
         {
             SocietyId = societyId,
@@ -66,6 +83,8 @@ public sealed class Poll : BaseEntity
             Type = type,
             OpensAt = opensAt,
             ClosesAt = closesAt,
+            TargetAudience = targetAudience,
+            TargetBlockNames = targetAudience == PollTargetAudience.FullSociety ? [] : normalizedBlockNames,
             EligibilityUnit = eligibilityUnit,
             Anonymity = anonymity,
             Visibility = visibility,

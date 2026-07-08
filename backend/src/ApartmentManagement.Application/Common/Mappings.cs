@@ -464,7 +464,8 @@ public static class MappingExtensions
             poll.IsAgmResolution, poll.AllowVoteChange,
             poll.Status.ToString(), poll.ClosedAt, poll.ResultsPublished, poll.Outcome?.ToString(),
             poll.CreatedByUserId, poll.CreatedAt,
-            tally, eligibleCount, participantCount, hasVoted, mySelectedOptionIds, poll.AgmSessionId);
+            tally, eligibleCount, participantCount, hasVoted, mySelectedOptionIds, poll.AgmSessionId,
+            poll.TargetAudience.ToString(), poll.TargetBlockNames);
 
     public static PollSummaryResponse ToSummaryResponse(this Poll poll) =>
         new(poll.Id, poll.Title, poll.Type.ToString(), poll.OpensAt, poll.ClosesAt,

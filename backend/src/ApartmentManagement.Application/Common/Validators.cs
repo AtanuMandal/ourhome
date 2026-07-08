@@ -501,6 +501,15 @@ public sealed class CreatePollCommandValidator : AbstractValidator<CreatePollCom
         RuleFor(x => x.Anonymity).IsInEnum();
         RuleFor(x => x.Visibility).IsInEnum();
         RuleFor(x => x.QuorumThresholdPercent).InclusiveBetween(0, 100).When(x => x.QuorumThresholdPercent.HasValue);
+        RuleFor(x => x.TargetAudience).IsInEnum();
+        RuleFor(x => x.TargetBlockNames)
+            .Must(b => b != null && b.Count(name => !string.IsNullOrWhiteSpace(name)) == 1)
+            .WithMessage("PerBlock target audience requires exactly one block.")
+            .When(x => x.TargetAudience == PollTargetAudience.PerBlock);
+        RuleFor(x => x.TargetBlockNames)
+            .Must(b => b != null && b.Any(name => !string.IsNullOrWhiteSpace(name)))
+            .WithMessage("MultipleBlock target audience requires at least one block.")
+            .When(x => x.TargetAudience == PollTargetAudience.MultipleBlock);
     }
 }
 

@@ -7,14 +7,16 @@ import {
   useCastVote,
   useClosePoll,
   usePublishPollResults,
+  useSocietyBlockNames,
 } from '../../../src/features/polls/hooks/usePolls';
-import type { PaginatedResponse, Poll, PollSummary, PollVoteResult } from '../../../src/api/types';
+import type { Apartment, PaginatedResponse, Poll, PollSummary, PollVoteResult } from '../../../src/api/types';
 
 const mockGetPolls = jest.fn<Promise<PaginatedResponse<PollSummary>>, unknown[]>();
 const mockCreate = jest.fn<Promise<Poll>, unknown[]>();
 const mockVote = jest.fn<Promise<PollVoteResult>, unknown[]>();
 const mockClose = jest.fn<Promise<Poll>, unknown[]>();
 const mockPublishResults = jest.fn<Promise<Poll>, unknown[]>();
+const mockGetApartments = jest.fn<Promise<PaginatedResponse<Apartment>>, unknown[]>();
 
 jest.mock('../../../src/api/endpoints/poll', () => ({
   pollApi: {
@@ -24,6 +26,12 @@ jest.mock('../../../src/api/endpoints/poll', () => ({
     vote: (...args: unknown[]) => mockVote(...args),
     close: (...args: unknown[]) => mockClose(...args),
     publishResults: (...args: unknown[]) => mockPublishResults(...args),
+  },
+}));
+
+jest.mock('../../../src/api/endpoints/apartments', () => ({
+  apartmentsApi: {
+    getApartments: (...args: unknown[]) => mockGetApartments(...args),
   },
 }));
 
@@ -55,6 +63,7 @@ function makePoll(): Poll {
     id: 'p1', societyId: 'soc1', title: 'Repaint the gate?', description: 'desc',
     type: 'SingleChoice', options: [{ id: 'o1', text: 'Yes' }, { id: 'o2', text: 'No' }],
     opensAt: '2026-01-01T00:00:00Z', closesAt: '2026-01-10T00:00:00Z',
+    targetAudience: 'FullSociety', targetBlockNames: [],
     eligibilityUnit: 'PerResident', anonymity: 'Anonymous', visibility: 'Immediately',
     isAgmResolution: false, allowVoteChange: true, status: 'Open',
     resultsPublished: false, createdByUserId: 'admin1', createdAt: '2026-01-01T00:00:00Z',
@@ -83,6 +92,7 @@ describe('usePolls', () => {
     result.current.mutate({
       title: 'Repaint the gate?', description: '', type: 'SingleChoice', options: ['Yes', 'No'],
       opensAt: '2026-01-01T00:00:00Z', closesAt: '2026-01-10T00:00:00Z',
+      targetAudience: 'FullSociety',
       eligibilityUnit: 'PerResident', anonymity: 'Anonymous', visibility: 'Immediately',
       isAgmResolution: false, allowVoteChange: true,
     });
@@ -118,5 +128,21 @@ describe('usePolls', () => {
     result.current.mutate('p1');
 
     await waitFor(() => expect(result.current.isError).toBe(true));
+  });
+
+  test('useSocietyBlockNames returns distinct sorted block names', async () => {
+    mockGetApartments.mockResolvedValue({
+      items: [
+        { blockName: 'Block B' } as Apartment,
+        { blockName: 'Block A' } as Apartment,
+        { blockName: 'Block A' } as Apartment,
+      ],
+      total: 3, page: 1, pageSize: 500,
+    });
+
+    const { result } = renderHook(() => useSocietyBlockNames('soc1'), { wrapper: createWrapper() });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual(['Block A', 'Block B']);
   });
 });

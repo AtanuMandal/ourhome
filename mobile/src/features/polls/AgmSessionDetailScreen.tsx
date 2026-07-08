@@ -26,6 +26,11 @@ function outcomeStyle(outcome: string) {
   }
 }
 
+function targetAudienceLabel(poll: Poll): string {
+  if (poll.targetAudience === 'FullSociety') return 'Full Society';
+  return `${poll.targetAudience === 'PerBlock' ? 'Block' : 'Blocks'}: ${poll.targetBlockNames.join(', ')}`;
+}
+
 function ResolutionCard({
   resolution, canVote, selected, onToggleOption, onSubmitVote, voting, isAdmin, onClose, onPublish, actioning,
 }: {
@@ -47,6 +52,7 @@ function ResolutionCard({
       <Text style={styles.resolutionTitle}>{resolution.title}</Text>
       <Text style={styles.resolutionDesc}>{resolution.description}</Text>
       <Text style={styles.meta}>Closes {new Date(resolution.closesAt).toLocaleString()} · {resolution.status}</Text>
+      <Text style={styles.meta}>Target: {targetAudienceLabel(resolution)}</Text>
 
       {resolution.outcome && (
         <View style={[styles.outcomeBanner, { backgroundColor: outcomeStyle(resolution.outcome).backgroundColor }]}>

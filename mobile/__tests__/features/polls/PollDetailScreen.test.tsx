@@ -28,6 +28,7 @@ function makePoll(overrides: Partial<Poll> = {}): Poll {
     id: 'p1', societyId: 'soc-1', title: 'Repaint the gate?', description: 'desc',
     type: 'SingleChoice', options: [{ id: 'o1', text: 'Yes' }, { id: 'o2', text: 'No' }],
     opensAt: '2026-01-01T00:00:00Z', closesAt: '2026-01-10T00:00:00Z',
+    targetAudience: 'FullSociety', targetBlockNames: [],
     eligibilityUnit: 'PerResident', anonymity: 'Anonymous', visibility: 'Immediately',
     isAgmResolution: false, allowVoteChange: true, status: 'Open',
     resultsPublished: false, createdByUserId: 'admin-1', createdAt: '2026-01-01T00:00:00Z',
@@ -141,5 +142,14 @@ describe('PollDetailScreen', () => {
 
     await waitFor(() => expect(screen.getByText('5')).toBeTruthy());
     expect(screen.getByText('2')).toBeTruthy();
+  });
+
+  test('shows the target audience for a block-scoped poll', async () => {
+    setUser('SUUser');
+    mockPoll = makePoll({ targetAudience: 'PerBlock', targetBlockNames: ['BLOCK A'] });
+
+    renderScreen();
+
+    await waitFor(() => expect(screen.getByText(/Target: Block: BLOCK A/)).toBeTruthy());
   });
 });

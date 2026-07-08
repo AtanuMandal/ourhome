@@ -1,7 +1,21 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useInfiniteList } from '../../../shared/hooks/useInfiniteList';
 import { pollApi, CreatePollRequest, CastVoteRequest } from '../../../api/endpoints/poll';
+import { apartmentsApi } from '../../../api/endpoints/apartments';
 import type { PollSummary } from '../../../api/types';
+
+/** Distinct block names for the society, used to populate the Target Audience block picker. */
+export function useSocietyBlockNames(societyId: string) {
+  return useQuery({
+    queryKey: ['society-block-names', societyId],
+    queryFn: async () => {
+      const response = await apartmentsApi.getApartments(societyId, { page: 1, pageSize: 500 });
+      const blocks = new Set((response.items ?? []).map((a) => a.blockName).filter(Boolean));
+      return [...blocks].sort();
+    },
+    enabled: !!societyId,
+  });
+}
 
 export function usePollList(societyId: string) {
   return useInfiniteList<PollSummary>({

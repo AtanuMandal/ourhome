@@ -47,6 +47,87 @@ public class PollTests
     }
 
     [Fact]
+    public void Create_DefaultsToFullSocietyTargetAudienceWithNoBlocks()
+    {
+        var poll = CreatePoll();
+        poll.TargetAudience.Should().Be(PollTargetAudience.FullSociety);
+        poll.TargetBlockNames.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Create_WithPerBlockAndOneBlock_SetsNormalizedTargetBlockNames()
+    {
+        var poll = Poll.Create(
+            SocietyId, AdminUserId, "Title", "desc", PollType.SingleChoice, ["Yes", "No"],
+            DateTime.UtcNow.AddDays(-1), DateTime.UtcNow.AddDays(1), PollEligibilityUnit.PerResident,
+            PollAnonymity.Anonymous, PollVisibility.Immediately, null, null, false, true,
+            targetAudience: PollTargetAudience.PerBlock, targetBlockNames: [" block a "]);
+
+        poll.TargetAudience.Should().Be(PollTargetAudience.PerBlock);
+        poll.TargetBlockNames.Should().ContainSingle().Which.Should().Be("BLOCK A");
+    }
+
+    [Fact]
+    public void Create_WithPerBlockAndNoBlocks_ThrowsArgumentException()
+    {
+        var act = () => Poll.Create(
+            SocietyId, AdminUserId, "Title", "desc", PollType.SingleChoice, ["Yes", "No"],
+            DateTime.UtcNow.AddDays(-1), DateTime.UtcNow.AddDays(1), PollEligibilityUnit.PerResident,
+            PollAnonymity.Anonymous, PollVisibility.Immediately, null, null, false, true,
+            targetAudience: PollTargetAudience.PerBlock, targetBlockNames: []);
+
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void Create_WithPerBlockAndMultipleBlocks_ThrowsArgumentException()
+    {
+        var act = () => Poll.Create(
+            SocietyId, AdminUserId, "Title", "desc", PollType.SingleChoice, ["Yes", "No"],
+            DateTime.UtcNow.AddDays(-1), DateTime.UtcNow.AddDays(1), PollEligibilityUnit.PerResident,
+            PollAnonymity.Anonymous, PollVisibility.Immediately, null, null, false, true,
+            targetAudience: PollTargetAudience.PerBlock, targetBlockNames: ["Block A", "Block B"]);
+
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void Create_WithMultipleBlockAndNoBlocks_ThrowsArgumentException()
+    {
+        var act = () => Poll.Create(
+            SocietyId, AdminUserId, "Title", "desc", PollType.SingleChoice, ["Yes", "No"],
+            DateTime.UtcNow.AddDays(-1), DateTime.UtcNow.AddDays(1), PollEligibilityUnit.PerResident,
+            PollAnonymity.Anonymous, PollVisibility.Immediately, null, null, false, true,
+            targetAudience: PollTargetAudience.MultipleBlock, targetBlockNames: []);
+
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void Create_WithMultipleBlockAndSeveralBlocks_SetsDistinctNormalizedTargetBlockNames()
+    {
+        var poll = Poll.Create(
+            SocietyId, AdminUserId, "Title", "desc", PollType.SingleChoice, ["Yes", "No"],
+            DateTime.UtcNow.AddDays(-1), DateTime.UtcNow.AddDays(1), PollEligibilityUnit.PerResident,
+            PollAnonymity.Anonymous, PollVisibility.Immediately, null, null, false, true,
+            targetAudience: PollTargetAudience.MultipleBlock, targetBlockNames: ["Block A", "block a", "Block B"]);
+
+        poll.TargetBlockNames.Should().BeEquivalentTo(["BLOCK A", "BLOCK B"]);
+    }
+
+    [Fact]
+    public void Create_WithFullSocietyButBlocksProvided_ClearsTargetBlockNames()
+    {
+        var poll = Poll.Create(
+            SocietyId, AdminUserId, "Title", "desc", PollType.SingleChoice, ["Yes", "No"],
+            DateTime.UtcNow.AddDays(-1), DateTime.UtcNow.AddDays(1), PollEligibilityUnit.PerResident,
+            PollAnonymity.Anonymous, PollVisibility.Immediately, null, null, false, true,
+            targetAudience: PollTargetAudience.FullSociety, targetBlockNames: ["Block A"]);
+
+        poll.TargetBlockNames.Should().BeEmpty();
+    }
+
+    [Fact]
     public void Create_WithOpensAtInFuture_ReturnsScheduledPoll()
     {
         var poll = CreatePoll(opensAt: DateTime.UtcNow.AddDays(1), closesAt: DateTime.UtcNow.AddDays(2));

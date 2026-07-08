@@ -5,6 +5,7 @@ import type {
   PollAnonymity,
   PollEligibilityUnit,
   PollSummary,
+  PollTargetAudience,
   PollType,
   PollVisibility,
   PollVoteResult,
@@ -17,6 +18,8 @@ export interface CreatePollRequest {
   options: string[];
   opensAt: string;
   closesAt: string;
+  targetAudience: PollTargetAudience;
+  targetBlockNames?: string[];
   eligibilityUnit: PollEligibilityUnit;
   anonymity: PollAnonymity;
   visibility: PollVisibility;

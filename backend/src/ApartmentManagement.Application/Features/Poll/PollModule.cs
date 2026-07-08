@@ -22,20 +22,44 @@ internal static class PollNotificationHelper
     /// <summary>Eligible voting unit paired with the user id to push-notify for it.</summary>
     public sealed record EligibleUnit(string EligibleUnitId, string NotifyUserId);
 
+    /// <summary>
+    /// Scopes eligible apartments to the poll's target audience (requirements/polls_and_voting.md —
+    /// Feature #1: Target Audience). null means FullSociety — no scoping.
+    /// </summary>
+    private static HashSet<string>? TargetBlockNameSet(DomainPoll poll) =>
+        poll.TargetAudience == PollTargetAudience.FullSociety
+            ? null
+            : new HashSet<string>(poll.TargetBlockNames, StringComparer.OrdinalIgnoreCase);
+
     public static async Task<IReadOnlyList<EligibleUnit>> ResolveEligibleUnitsAsync(
         DomainPoll poll, IApartmentRepository apartmentRepository, IUserRepository userRepository, CancellationToken ct)
     {
+        var targetBlockNames = TargetBlockNameSet(poll);
+
         if (poll.EligibilityUnit == PollEligibilityUnit.PerApartment)
         {
             var apartments = await apartmentRepository.GetAllAsync(poll.SocietyId, ct);
-            return apartments
+            var scoped = targetBlockNames is null ? apartments : apartments.Where(a => targetBlockNames.Contains(a.BlockName));
+            return scoped
                 .Where(a => !string.IsNullOrEmpty(a.OwnerId))
                 .Select(a => new EligibleUnit(a.Id, a.OwnerId!))
                 .ToList();
         }
 
         var users = await userRepository.GetByRoleAsync(poll.SocietyId, UserRole.SUUser, 1, 500, ct);
-        return users.Where(u => u.IsActive).Select(u => new EligibleUnit(u.Id, u.Id)).ToList();
+        if (targetBlockNames is null)
+            return users.Where(u => u.IsActive).Select(u => new EligibleUnit(u.Id, u.Id)).ToList();
+
+        var apartmentsForResidentScope = await apartmentRepository.GetAllAsync(poll.SocietyId, ct);
+        var eligibleApartmentIds = apartmentsForResidentScope
+            .Where(a => targetBlockNames.Contains(a.BlockName))
+            .Select(a => a.Id)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return users
+            .Where(u => u.IsActive && u.ApartmentId != null && eligibleApartmentIds.Contains(u.ApartmentId))
+            .Select(u => new EligibleUnit(u.Id, u.Id))
+            .ToList();
     }
 
     public static async Task NotifyUsersAsync(
@@ -142,7 +166,8 @@ public record CreatePollCommand(
     IReadOnlyList<string> OptionTexts, DateTime OpensAt, DateTime ClosesAt,
     PollEligibilityUnit EligibilityUnit, PollAnonymity Anonymity, PollVisibility Visibility,
     string? LinkedNoticeId, double? QuorumThresholdPercent, bool IsAgmResolution, bool AllowVoteChange,
-    string? AgmSessionId = null)
+    string? AgmSessionId = null,
+    PollTargetAudience TargetAudience = PollTargetAudience.FullSociety, IReadOnlyList<string>? TargetBlockNames = null)
     : IRequest<Result<PollResponse>>;
 
 public sealed class CreatePollCommandHandler(
@@ -168,7 +193,7 @@ public sealed class CreatePollCommandHandler(
                 request.SocietyId, request.CreatedByUserId, request.Title, request.Description, request.Type,
                 request.OptionTexts, request.OpensAt, request.ClosesAt, request.EligibilityUnit, request.Anonymity,
                 request.Visibility, request.LinkedNoticeId, request.QuorumThresholdPercent, request.IsAgmResolution,
-                request.AllowVoteChange, request.AgmSessionId);
+                request.AllowVoteChange, request.AgmSessionId, request.TargetAudience, request.TargetBlockNames);
 
             var created = await pollRepository.CreateAsync(poll, ct);
 
@@ -199,6 +224,7 @@ public record CastVoteCommand(string SocietyId, string PollId, string VoterUserI
 public sealed class CastVoteCommandHandler(
     IPollRepository pollRepository,
     IPollVoteRepository pollVoteRepository,
+    IApartmentRepository apartmentRepository,
     IUserRepository userRepository,
     ILogger<CastVoteCommandHandler> logger)
     : IRequestHandler<CastVoteCommand, Result<PollVoteResponse>>
@@ -234,6 +260,18 @@ public sealed class CastVoteCommandHandler(
             else
             {
                 eligibleUnitId = voter.Id;
+            }
+
+            if (poll.TargetAudience != PollTargetAudience.FullSociety)
+            {
+                var voterApartmentId = poll.EligibilityUnit == PollEligibilityUnit.PerApartment ? eligibleUnitId : voter.ApartmentId;
+                if (string.IsNullOrWhiteSpace(voterApartmentId))
+                    return Result<PollVoteResponse>.Failure(ErrorCodes.NotEligibleToVote, "You must be linked to an apartment to vote in this poll.");
+
+                var voterApartment = await apartmentRepository.GetByIdAsync(voterApartmentId, request.SocietyId, ct);
+                var targetBlockNames = new HashSet<string>(poll.TargetBlockNames, StringComparer.OrdinalIgnoreCase);
+                if (voterApartment is null || !targetBlockNames.Contains(voterApartment.BlockName))
+                    return Result<PollVoteResponse>.Failure(ErrorCodes.NotEligibleToVote, "This poll is not open to residents of your block.");
             }
 
             var existing = await pollVoteRepository.GetByPollAndEligibleUnitAsync(request.SocietyId, request.PollId, eligibleUnitId, ct);

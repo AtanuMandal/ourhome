@@ -9,6 +9,7 @@ const mockCreateMutate = jest.fn();
 
 jest.mock('../../../src/features/polls/hooks/usePolls', () => ({
   useCreatePoll: () => ({ mutateAsync: mockCreateMutate, isPending: false }),
+  useSocietyBlockNames: () => ({ data: ['Block A', 'Block B'] }),
 }));
 
 jest.mock('@expo/vector-icons', () => {
@@ -75,5 +76,49 @@ describe('PollFormScreen', () => {
 
     await waitFor(() => expect(mockCreateMutate).toHaveBeenCalled());
     expect(mockCreateMutate).toHaveBeenCalledWith(expect.objectContaining({ agmSessionId: 'agm-1' }));
+  });
+
+  test('defaults to FullSociety target audience with no block picker shown', () => {
+    renderScreen();
+    expect(screen.queryByText('Block A')).toBeNull();
+  });
+
+  test('shows the block picker once PerBlock is selected', () => {
+    renderScreen();
+    fireEvent.press(screen.getByText('Per Block'));
+    expect(screen.getByText('Block A')).toBeTruthy();
+    expect(screen.getByText('Block B')).toBeTruthy();
+  });
+
+  test('validates exactly one block for PerBlock target audience', async () => {
+    renderScreen();
+
+    fireEvent.changeText(screen.getByPlaceholderText('Repaint the gate?'), 'Repaint the gate?');
+    fireEvent.changeText(screen.getByPlaceholderText('2026-07-10T09:00'), '2026-07-10T09:00');
+    fireEvent.changeText(screen.getByPlaceholderText('2026-07-17T09:00'), '2026-07-17T09:00');
+    fireEvent.press(screen.getByText('Per Block'));
+    fireEvent.press(screen.getAllByText('Create Poll').at(-1)!);
+
+    await waitFor(() => expect(Alert.alert).toHaveBeenCalledWith('Validation', 'Select exactly one block.'));
+    expect(mockCreateMutate).not.toHaveBeenCalled();
+  });
+
+  test('submits the selected target audience and block names', async () => {
+    mockCreateMutate.mockResolvedValue(undefined);
+    renderScreen();
+
+    fireEvent.changeText(screen.getByPlaceholderText('Repaint the gate?'), 'Repaint the gate?');
+    fireEvent.changeText(screen.getByPlaceholderText('2026-07-10T09:00'), '2026-07-10T09:00');
+    fireEvent.changeText(screen.getByPlaceholderText('2026-07-17T09:00'), '2026-07-17T09:00');
+    fireEvent.press(screen.getByText('Multiple Blocks'));
+    fireEvent.press(screen.getByText('Block A'));
+    fireEvent.press(screen.getByText('Block B'));
+    fireEvent.press(screen.getAllByText('Create Poll').at(-1)!);
+
+    await waitFor(() => expect(mockCreateMutate).toHaveBeenCalled());
+    expect(mockCreateMutate).toHaveBeenCalledWith(expect.objectContaining({
+      targetAudience: 'MultipleBlock',
+      targetBlockNames: ['Block A', 'Block B'],
+    }));
   });
 });

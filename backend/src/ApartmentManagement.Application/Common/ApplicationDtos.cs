@@ -577,7 +577,8 @@ public sealed record CreatePollRequest(
     string Title, string Description, PollType Type, IReadOnlyList<string> Options,
     DateTime OpensAt, DateTime ClosesAt, PollEligibilityUnit EligibilityUnit, PollAnonymity Anonymity,
     PollVisibility Visibility, string? LinkedNoticeId, double? QuorumThresholdPercent,
-    bool IsAgmResolution, bool AllowVoteChange, string? AgmSessionId = null);
+    bool IsAgmResolution, bool AllowVoteChange, string? AgmSessionId = null,
+    PollTargetAudience TargetAudience = PollTargetAudience.FullSociety, IReadOnlyList<string>? TargetBlockNames = null);
 
 public sealed record CastVoteRequest(IReadOnlyList<string> SelectedOptionIds);
 
@@ -592,7 +593,8 @@ public record PollResponse(
     string Status, DateTime? ClosedAt, bool ResultsPublished, string? Outcome,
     string CreatedByUserId, DateTime CreatedAt,
     IReadOnlyList<PollOptionTallyResponse>? Tally, int? EligibleCount, int? ParticipantCount,
-    bool HasVoted, IReadOnlyList<string>? MySelectedOptionIds, string? AgmSessionId);
+    bool HasVoted, IReadOnlyList<string>? MySelectedOptionIds, string? AgmSessionId,
+    string TargetAudience, IReadOnlyList<string> TargetBlockNames);
 
 public record PollSummaryResponse(
     string Id, string Title, string Type, DateTime OpensAt, DateTime ClosesAt,

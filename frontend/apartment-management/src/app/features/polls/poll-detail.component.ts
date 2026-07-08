@@ -29,6 +29,7 @@ import { Poll } from '../../core/models/poll.model';
             Opens {{ p.opensAt | date:'medium' }} · Closes {{ p.closesAt | date:'medium' }}
             · <span class="status-chip" [class]="'status-chip--' + p.status.toLowerCase()">{{ p.status }}</span>
           </p>
+          <p class="poll-meta">Target: {{ targetAudienceLabel(p) }}</p>
 
           @if (p.outcome) {
             <p class="outcome-banner" [class]="'outcome-banner--' + p.outcome.toLowerCase()">
@@ -135,6 +136,11 @@ export class PollDetailComponent implements OnInit {
     if (!p?.mySelectedOptionIds) return '';
     return p.options.filter(o => p.mySelectedOptionIds!.includes(o.id)).map(o => o.text).join(', ');
   });
+
+  targetAudienceLabel(poll: Poll): string {
+    if (poll.targetAudience === 'FullSociety') return 'Full Society';
+    return `${poll.targetAudience === 'PerBlock' ? 'Block' : 'Blocks'}: ${poll.targetBlockNames.join(', ')}`;
+  }
 
   ngOnInit() {
     this.load();

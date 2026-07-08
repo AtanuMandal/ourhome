@@ -29,7 +29,7 @@ public class PollFunctions(ISender mediator, ICurrentUserService currentUser)
             societyId, currentUser.UserId, request.Title, request.Description, request.Type, request.Options,
             request.OpensAt, request.ClosesAt, request.EligibilityUnit, request.Anonymity, request.Visibility,
             request.LinkedNoticeId, request.QuorumThresholdPercent, request.IsAgmResolution, request.AllowVoteChange,
-            request.AgmSessionId), ct);
+            request.AgmSessionId, request.TargetAudience, request.TargetBlockNames), ct);
         return result.ToActionResult(201);
     }
 

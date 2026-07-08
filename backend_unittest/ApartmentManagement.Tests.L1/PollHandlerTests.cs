@@ -105,6 +105,25 @@ public class CreatePollCommandHandlerTests
         result.IsFailure.Should().BeTrue();
         result.ErrorCode.Should().Be(ErrorCodes.NotFound);
     }
+
+    [Fact]
+    public async Task Handle_WithMultipleBlockTargetAudience_SetsTargetAudienceAndBlockNamesOnResponse()
+    {
+        _pollRepoMock.Setup(r => r.CreateAsync(It.IsAny<Poll>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Poll p, CancellationToken _) => p);
+        _apartmentRepoMock.Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<Apartment>)[]);
+
+        var result = await CreateHandler().Handle(new CreatePollCommand(
+            "soc-001", "admin-001", "Resolution", "desc", PollType.SingleChoice, ["Yes", "No"],
+            DateTime.UtcNow.AddMinutes(-1), DateTime.UtcNow.AddDays(1), PollEligibilityUnit.PerApartment,
+            PollAnonymity.Identified, PollVisibility.AfterClose, null, null, false, true,
+            TargetAudience: PollTargetAudience.MultipleBlock, TargetBlockNames: ["Block A", "Block B"]), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.TargetAudience.Should().Be("MultipleBlock");
+        result.Value.TargetBlockNames.Should().BeEquivalentTo(["BLOCK A", "BLOCK B"]);
+    }
 }
 
 // ─── CastVoteCommandHandler Tests ───────────────────────────────────────────────
@@ -113,11 +132,12 @@ public class CastVoteCommandHandlerTests
 {
     private readonly Mock<IPollRepository> _pollRepoMock = new();
     private readonly Mock<IPollVoteRepository> _voteRepoMock = new();
+    private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
     private readonly Mock<IUserRepository> _userRepoMock = new();
     private readonly Mock<ILogger<CastVoteCommandHandler>> _loggerMock = new();
 
     private CastVoteCommandHandler CreateHandler() =>
-        new(_pollRepoMock.Object, _voteRepoMock.Object, _userRepoMock.Object, _loggerMock.Object);
+        new(_pollRepoMock.Object, _voteRepoMock.Object, _apartmentRepoMock.Object, _userRepoMock.Object, _loggerMock.Object);
 
     private static Poll OpenPerResidentPoll(bool allowVoteChange = true) =>
         Poll.Create("soc-001", "admin-001", "Poll", "desc", PollType.SingleChoice, ["Yes", "No"],
@@ -214,6 +234,65 @@ public class CastVoteCommandHandlerTests
 
         result.IsSuccess.Should().BeTrue();
         _voteRepoMock.Verify(r => r.CreateAsync(It.Is<PollVote>(v => v.EligibleUnitId == "apt-1"), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_PerBlockPollByResidentInTargetBlock_Succeeds()
+    {
+        var poll = Poll.Create("soc-001", "admin-001", "Poll", "desc", PollType.SingleChoice, ["Yes", "No"],
+            DateTime.UtcNow.AddDays(-1), DateTime.UtcNow.AddDays(1), PollEligibilityUnit.PerResident,
+            PollAnonymity.Anonymous, PollVisibility.Immediately, null, null, false, true,
+            targetAudience: PollTargetAudience.PerBlock, targetBlockNames: ["Block A"]);
+        var apartment = Apartment.Create("soc-001", "A-101", "Block A", 1, 3, [], 500, 600, 700);
+        var voter = User.Create("soc-001", "Jane Resident", "jane@test.com", "+91-9876543210", UserRole.SUUser, ResidentType.Tenant, apartment.Id);
+
+        _pollRepoMock.Setup(r => r.GetByIdAsync(poll.Id, "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync(poll);
+        _userRepoMock.Setup(r => r.GetByIdAsync(voter.Id, "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync(voter);
+        _apartmentRepoMock.Setup(r => r.GetByIdAsync(apartment.Id, "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync(apartment);
+        _voteRepoMock.Setup(r => r.GetByPollAndEligibleUnitAsync("soc-001", poll.Id, voter.Id, It.IsAny<CancellationToken>())).ReturnsAsync((PollVote?)null);
+        _voteRepoMock.Setup(r => r.CreateAsync(It.IsAny<PollVote>(), It.IsAny<CancellationToken>())).ReturnsAsync((PollVote v, CancellationToken _) => v);
+
+        var result = await CreateHandler().Handle(new CastVoteCommand("soc-001", poll.Id, voter.Id, [poll.Options[0].Id]), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Handle_PerBlockPollByResidentOutsideTargetBlock_ReturnsNotEligibleToVote()
+    {
+        var poll = Poll.Create("soc-001", "admin-001", "Poll", "desc", PollType.SingleChoice, ["Yes", "No"],
+            DateTime.UtcNow.AddDays(-1), DateTime.UtcNow.AddDays(1), PollEligibilityUnit.PerResident,
+            PollAnonymity.Anonymous, PollVisibility.Immediately, null, null, false, true,
+            targetAudience: PollTargetAudience.PerBlock, targetBlockNames: ["Block A"]);
+        var apartment = Apartment.Create("soc-001", "B-101", "Block B", 1, 3, [], 500, 600, 700);
+        var voter = User.Create("soc-001", "Jane Resident", "jane@test.com", "+91-9876543210", UserRole.SUUser, ResidentType.Tenant, apartment.Id);
+
+        _pollRepoMock.Setup(r => r.GetByIdAsync(poll.Id, "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync(poll);
+        _userRepoMock.Setup(r => r.GetByIdAsync(voter.Id, "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync(voter);
+        _apartmentRepoMock.Setup(r => r.GetByIdAsync(apartment.Id, "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync(apartment);
+
+        var result = await CreateHandler().Handle(new CastVoteCommand("soc-001", poll.Id, voter.Id, [poll.Options[0].Id]), CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.NotEligibleToVote);
+    }
+
+    [Fact]
+    public async Task Handle_PerBlockPollByResidentWithNoApartment_ReturnsNotEligibleToVote()
+    {
+        var poll = Poll.Create("soc-001", "admin-001", "Poll", "desc", PollType.SingleChoice, ["Yes", "No"],
+            DateTime.UtcNow.AddDays(-1), DateTime.UtcNow.AddDays(1), PollEligibilityUnit.PerResident,
+            PollAnonymity.Anonymous, PollVisibility.Immediately, null, null, false, true,
+            targetAudience: PollTargetAudience.PerBlock, targetBlockNames: ["Block A"]);
+        var voter = User.Create("soc-001", "Jane Resident", "jane@test.com", "+91-9876543210", UserRole.SUUser, ResidentType.Tenant);
+
+        _pollRepoMock.Setup(r => r.GetByIdAsync(poll.Id, "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync(poll);
+        _userRepoMock.Setup(r => r.GetByIdAsync(voter.Id, "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync(voter);
+
+        var result = await CreateHandler().Handle(new CastVoteCommand("soc-001", poll.Id, voter.Id, [poll.Options[0].Id]), CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.NotEligibleToVote);
     }
 
     [Fact]
@@ -531,6 +610,31 @@ public class GetPollQueryHandlerTests
 
         result.IsFailure.Should().BeTrue();
         result.ErrorCode.Should().Be(ErrorCodes.PollNotFound);
+    }
+
+    [Fact]
+    public async Task Handle_PerBlockPoll_EligibleCountOnlyCountsTargetBlockResidents()
+    {
+        var poll = Poll.Create("soc-001", "admin-001", "Poll", "desc", PollType.SingleChoice, ["Yes", "No"],
+            DateTime.UtcNow.AddDays(-1), DateTime.UtcNow.AddDays(1), PollEligibilityUnit.PerResident,
+            PollAnonymity.Anonymous, PollVisibility.Immediately, null, null, false, true,
+            targetAudience: PollTargetAudience.PerBlock, targetBlockNames: ["Block A"]);
+
+        var apartmentA = Apartment.Create("soc-001", "A-101", "Block A", 1, 3, [], 500, 600, 700);
+        var apartmentB = Apartment.Create("soc-001", "B-101", "Block B", 1, 3, [], 500, 600, 700);
+        var residentInBlockA = User.Create("soc-001", "In Block A", "a@test.com", "+91-1111111111", UserRole.SUUser, ResidentType.Tenant, apartmentA.Id);
+        var residentInBlockB = User.Create("soc-001", "In Block B", "b@test.com", "+91-2222222222", UserRole.SUUser, ResidentType.Tenant, apartmentB.Id);
+
+        SetupPoll(poll);
+        _apartmentRepoMock.Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<Apartment>)[apartmentA, apartmentB]);
+        _userRepoMock.Setup(r => r.GetByRoleAsync("soc-001", UserRole.SUUser, 1, 500, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<User>)[residentInBlockA, residentInBlockB]);
+
+        var result = await CreateHandler().Handle(new GetPollQuery("soc-001", poll.Id, "admin-001", "SUAdmin"), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.EligibleCount.Should().Be(1);
     }
 }
 
