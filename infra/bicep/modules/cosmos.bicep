@@ -25,35 +25,43 @@ param tags object
 var cosmosAccountName = '${resourcePrefix}-cosmos-${uniqueString(resourceGroup().id)}'
 var databaseName = 'apartment-management'
 
-// All domain containers + outbox containers for Transactional Outbox pattern
+// All domain containers + outbox containers for Transactional Outbox pattern.
+// Names must match ApartmentManagement.Infrastructure/CosmosDbInitializer.cs.
 var containers = [
   { name: 'societies',           partitionKey: '/societyId' }
   { name: 'apartments',          partitionKey: '/societyId' }
   { name: 'users',               partitionKey: '/societyId' }
   { name: 'amenities',           partitionKey: '/societyId' }
-  { name: 'amenity-bookings',    partitionKey: '/societyId' }
+  { name: 'amenity_bookings',    partitionKey: '/societyId' }
   { name: 'complaints',          partitionKey: '/societyId' }
   { name: 'notices',             partitionKey: '/societyId' }
   { name: 'visitor-logs',        partitionKey: '/societyId' }
+  { name: 'sos_alerts',          partitionKey: '/societyId' }
+  { name: 'shifts',              partitionKey: '/societyId' }
+  { name: 'staff',               partitionKey: '/societyId' }
+  { name: 'staff_attendance',    partitionKey: '/societyId' }
+  { name: 'maintenance_schedules',         partitionKey: '/societyId' }
+  { name: 'maintenance_charges',           partitionKey: '/societyId' }
+  { name: 'maintenance_charge_grid_views', partitionKey: '/societyId' }
   { name: 'fee-schedules',       partitionKey: '/societyId' }
   { name: 'fee-payments',        partitionKey: '/societyId' }
+  { name: 'vendors',                    partitionKey: '/societyId' }
+  { name: 'vendor_recurring_schedules', partitionKey: '/societyId' }
+  { name: 'vendor_charges',             partitionKey: '/societyId' }
   { name: 'competitions',        partitionKey: '/societyId' }
-  { name: 'competition-entries', partitionKey: '/societyId' }
-  { name: 'reward-points',       partitionKey: '/societyId' }
-  { name: 'service-providers',   partitionKey: '/societyId' }
-  { name: 'service-requests',    partitionKey: '/societyId' }
-  { name: 'maintenance_charge_grid_views', partitionKey: '/societyId' }
-  { name: 'shifts',              partitionKey: '/societyId' }
-  { name: 'staff',                partitionKey: '/societyId' }
-  { name: 'staff_attendance',     partitionKey: '/societyId' }
-  { name: 'sos_alerts',           partitionKey: '/societyId' }
-  { name: 'polls',                partitionKey: '/societyId' }
-  { name: 'poll-votes',           partitionKey: '/societyId' }
-  { name: 'agm-sessions',         partitionKey: '/societyId' }
+  { name: 'competition_entries', partitionKey: '/societyId' }
+  { name: 'reward_points',       partitionKey: '/societyId' }
+  { name: 'service_providers',   partitionKey: '/societyId' }
+  { name: 'service_requests',    partitionKey: '/societyId' }
+  { name: 'polls',               partitionKey: '/societyId' }
+  { name: 'poll-votes',          partitionKey: '/societyId' }
+  { name: 'agm-sessions',        partitionKey: '/societyId' }
   // Outbox: written atomically with business data; Change Feed publishes to Event Grid
   { name: 'outbox',              partitionKey: '/societyId' }
   // Lease container for the Cosmos DB Change Feed trigger in Azure Functions
   { name: 'outbox-leases',       partitionKey: '/id' }
+  { name: 'push-subscriptions',  partitionKey: '/societyId' }
+  { name: 'mobile-push-tokens',  partitionKey: '/societyId' }
 ]
 
 resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2023-11-15' = {

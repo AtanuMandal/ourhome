@@ -70,10 +70,13 @@ This key is the same for every installation — it is not a secret.
 
 ### Step 3 — Create the Cosmos DB database
 
-Open the Emulator Explorer at `https://localhost:8081/_explorer/index.html` and create:
+The app creates the database and every container automatically at startup (see
+`ApartmentManagement.Infrastructure/CosmosDbInitializer.cs`) — no manual setup is required.
+If you'd rather create them ahead of time in the Emulator Explorer
+(`https://localhost:8081/_explorer/index.html`), the layout is:
 
 - **Database:** `apartment-management`
-- **Containers** *(all with `/societyId` as partition key, except `outbox-leases`)*:
+- **Containers** *(all with `/societyId` as partition key, except `outbox-leases`, which uses `/id`)*:
 
 | Container | Partition Key |
 |-----------|--------------|
@@ -81,24 +84,34 @@ Open the Emulator Explorer at `https://localhost:8081/_explorer/index.html` and 
 | `apartments` | `/societyId` |
 | `users` | `/societyId` |
 | `amenities` | `/societyId` |
-| `amenity-bookings` | `/societyId` |
+| `amenity_bookings` | `/societyId` |
 | `complaints` | `/societyId` |
 | `notices` | `/societyId` |
-| `visitor_logs` | `/societyId` |
+| `visitor-logs` | `/societyId` |
+| `sos_alerts` | `/societyId` |
+| `shifts` | `/societyId` |
+| `staff` | `/societyId` |
+| `staff_attendance` | `/societyId` |
+| `maintenance_schedules` | `/societyId` |
+| `maintenance_charges` | `/societyId` |
+| `maintenance_charge_grid_views` | `/societyId` |
 | `fee-schedules` | `/societyId` |
 | `fee-payments` | `/societyId` |
+| `vendors` | `/societyId` |
+| `vendor_recurring_schedules` | `/societyId` |
+| `vendor_charges` | `/societyId` |
 | `competitions` | `/societyId` |
-| `competition-entries` | `/societyId` |
-| `reward-points` | `/societyId` |
-| `service-providers` | `/societyId` |
-| `service-requests` | `/societyId` |
+| `competition_entries` | `/societyId` |
+| `reward_points` | `/societyId` |
+| `service_providers` | `/societyId` |
+| `service_requests` | `/societyId` |
+| `polls` | `/societyId` |
+| `poll-votes` | `/societyId` |
+| `agm-sessions` | `/societyId` |
 | `outbox` | `/societyId` |
 | `outbox-leases` | `/id` |
-| `maintenance_charges` | `/societyId` |
-| `maintenance_schedules` | `/societyId` |
-| `vendor_charges` | `/societyId` |
-| `vendor_recurring_schedules` | `/societyId` |
-| `vendors` | `/societyId` |
+| `push-subscriptions` | `/societyId` |
+| `mobile-push-tokens` | `/societyId` |
 
 ### Step 4 — Review `local.settings.json`
 
@@ -112,15 +125,9 @@ File: `backend/src/ApartmentManagement.Functions/local.settings.json`
     "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
 
     // Cosmos DB Emulator (pre-filled — no changes needed). One account/connection string,
-    // split into several databases (max ~10 containers each) grouped by domain — see
-    // ApartmentManagement.Infrastructure/CosmosDatabaseGroup.cs for what lives where.
+    // one database — every container lives here.
     "Infrastructure:CosmosDbConnectionString": "AccountEndpoint=https://localhost:8081/;AccountKey=C2y6y...",
-    "Infrastructure:CosmosDbIdentityDatabaseName": "apartment-management-identity",
-    "Infrastructure:CosmosDbOperationsDatabaseName": "apartment-management-operations",
-    "Infrastructure:CosmosDbStaffDatabaseName": "apartment-management-staff",
-    "Infrastructure:CosmosDbFinanceDatabaseName": "apartment-management-finance",
-    "Infrastructure:CosmosDbEngagementDatabaseName": "apartment-management-engagement",
-    "Infrastructure:CosmosDbPlatformDatabaseName": "apartment-management-platform",
+    "Infrastructure:CosmosDbDatabaseName": "apartment-management",
 
     // Required by the Outbox Change Feed trigger (same value as above, different key name)
     "CosmosDbConnection": "AccountEndpoint=https://localhost:8081/;AccountKey=C2y6y...",
