@@ -9,17 +9,19 @@ import { NoticeListScreen } from '../features/notices/NoticeListScreen';
 import { NoticeDetailScreen } from '../features/notices/NoticeDetailScreen';
 import { ComplaintListScreen } from '../features/complaints/ComplaintListScreen';
 import { ProfileScreen } from '../features/profile/ProfileScreen';
+import { StaffListScreen } from '../features/staff/StaffListScreen';
 
 const opts = { headerShown: false };
 
 // ── Tab 1: Home ───────────────────────────────────────────────────────────────
-type HomeParams = { Home: undefined; Profile: undefined };
+type HomeParams = { Home: undefined; Profile: undefined; StaffList: undefined };
 const SHome = createNativeStackNavigator<HomeParams>();
 export function SecurityHomeStack() {
   return (
     <SHome.Navigator screenOptions={opts}>
       <SHome.Screen name="Home" component={DashboardScreen} />
       <SHome.Screen name="Profile" component={ProfileScreen} />
+      <SHome.Screen name="StaffList" component={StaffListScreen} />
     </SHome.Navigator>
   );
 }

@@ -8,6 +8,8 @@ using ApartmentManagement.Application.Commands.Visitor;
 using ApartmentManagement.Application.Commands.Maintenance;
 using ApartmentManagement.Application.Commands.Gamification;
 using ApartmentManagement.Application.Commands.ServiceProvider;
+using ApartmentManagement.Application.Commands.Staff;
+using ApartmentManagement.Application.Commands.Dev;
 using ApartmentManagement.Domain.Enums;
 using FluentValidation;
 
@@ -417,5 +419,52 @@ public sealed class RegisterServiceProviderCommandValidator : AbstractValidator<
         RuleFor(x => x.ProviderName).NotEmpty();
         RuleFor(x => x.Email).NotEmpty().EmailAddress();
         RuleFor(x => x.ServiceTypes).NotEmpty().WithMessage("At least one service type is required.");
+    }
+}
+
+// ─── Staff Attendance ─────────────────────────────────────────────────────────
+
+public sealed class CreateShiftCommandValidator : AbstractValidator<CreateShiftCommand>
+{
+    public CreateShiftCommandValidator()
+    {
+        RuleFor(x => x.SocietyId).NotEmpty();
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(100);
+        RuleFor(x => x.GraceMinutes).InclusiveBetween(0, 240);
+    }
+}
+
+public sealed class CreateStaffCommandValidator : AbstractValidator<CreateStaffCommand>
+{
+    public CreateStaffCommandValidator()
+    {
+        RuleFor(x => x.SocietyId).NotEmpty();
+        RuleFor(x => x.FullName).NotEmpty().MaximumLength(150);
+        RuleFor(x => x.Phone).NotEmpty().MaximumLength(30);
+        RuleFor(x => x.Category).IsInEnum();
+        RuleFor(x => x.EmploymentType).IsInEnum();
+    }
+}
+
+public sealed class UpdateStaffCommandValidator : AbstractValidator<UpdateStaffCommand>
+{
+    public UpdateStaffCommandValidator()
+    {
+        RuleFor(x => x.SocietyId).NotEmpty();
+        RuleFor(x => x.StaffId).NotEmpty();
+        RuleFor(x => x.FullName).NotEmpty().MaximumLength(150);
+        RuleFor(x => x.Phone).NotEmpty().MaximumLength(30);
+    }
+}
+
+// ─── Dev / Test Data Seeding ──────────────────────────────────────────────────
+
+public sealed class SeedTestDataCommandValidator : AbstractValidator<SeedTestDataCommand>
+{
+    public SeedTestDataCommandValidator()
+    {
+        RuleFor(x => x.SocietyId).NotEmpty();
+        RuleFor(x => x.ApartmentCount).InclusiveBetween(1, 20)
+            .WithMessage("Apartment count must be between 1 and 20.");
     }
 }

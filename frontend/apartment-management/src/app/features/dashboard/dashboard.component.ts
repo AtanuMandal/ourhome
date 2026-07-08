@@ -40,13 +40,14 @@ const A = {
   reports:      { icon: 'bar_chart',       label: 'Reports',      route: '/financial-report',                 color: '#00897b' },
   myStatement:  { icon: 'bar_chart',       label: 'My Statement', route: '/financial-report/my-statement',    color: '#00897b' },
   societySummary: { icon: 'pie_chart',     label: 'Soc. Finances',route: '/financial-report/society-summary', color: '#00897b' },
+  staff:        { icon: 'badge',           label: 'Staff',        route: '/staff',                            color: '#5e35b1' },
 } satisfies Record<string, QuickAction>;
 
 // Role → ordered quick-action list; 'default' covers HQAdmin / HQUser.
 const ROLE_ACTIONS: Partial<Record<string, QuickAction[]>> = {
   SUUser:     [A.myApt,        A.newComplaint, A.notices,     A.myStatement,  A.societySummary, A.rewards     ],
-  SUAdmin:    [A.users,        A.apartments,   A.complaints,  A.visitors,     A.maintenance,    A.reports     ],
-  SUSecurity: [A.visitors,     A.residents,    A.newComplaint,A.notices,      A.maintenance,    A.rewards     ],
+  SUAdmin:    [A.users,        A.apartments,   A.complaints,  A.visitors,     A.maintenance,    A.reports,   A.staff],
+  SUSecurity: [A.visitors,     A.residents,    A.newComplaint,A.notices,      A.maintenance,    A.rewards,   A.staff],
   default:    [A.newComplaint, A.book,         A.newVisitor,  A.maintenance,  A.service,        A.rewards     ],
 };
 

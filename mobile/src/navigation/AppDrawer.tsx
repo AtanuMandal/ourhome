@@ -23,6 +23,9 @@ import { AmenityBookingScreen } from '../features/amenities/AmenityBookingScreen
 import { ProfileScreen } from '../features/profile/ProfileScreen';
 import { CommitteeScreen } from '../features/society/CommitteeScreen';
 import { ContactUsScreen } from '../features/society/ContactUsScreen';
+import { StaffListScreen } from '../features/staff/StaffListScreen';
+import { StaffFormScreen } from '../features/staff/StaffFormScreen';
+import { StaffAttendanceReportScreen } from '../features/staff/StaffAttendanceReportScreen';
 import { colors } from '../theme/colors';
 
 const Drawer = createDrawerNavigator();
@@ -92,6 +95,22 @@ function AmenitiesStack() {
   );
 }
 
+type StaffParams = {
+  StaffList: undefined;
+  StaffForm: { id?: string };
+  StaffAttendanceReport: undefined;
+};
+const StaffNav = createNativeStackNavigator<StaffParams>();
+function StaffStack() {
+  return (
+    <StaffNav.Navigator screenOptions={noHeader}>
+      <StaffNav.Screen name="StaffList" component={StaffListScreen} />
+      <StaffNav.Screen name="StaffForm" component={StaffFormScreen} />
+      <StaffNav.Screen name="StaffAttendanceReport" component={StaffAttendanceReportScreen} />
+    </StaffNav.Navigator>
+  );
+}
+
 // ── Main Drawer Navigator ───────────────────────────────────────��─────────────
 
 function renderDrawer(props: DrawerContentComponentProps) {
@@ -120,6 +139,7 @@ export function AppDrawer() {
       <Drawer.Screen name="FinancialReport" component={FinancialReportScreen} />
       <Drawer.Screen name="VendorPayments"  component={VendorPaymentListScreen} />
       <Drawer.Screen name="Amenities"       component={AmenitiesStack} />
+      <Drawer.Screen name="Staff"           component={StaffStack} />
       <Drawer.Screen name="Committee"       component={CommitteeScreen} />
       <Drawer.Screen name="ContactUs"       component={ContactUsScreen} />
       <Drawer.Screen name="Profile"         component={ProfileScreen} />

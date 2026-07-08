@@ -46,6 +46,7 @@ const QUICK_ACTIONS: Record<string, QuickAction[]> = {
     { icon: '🚪', label: 'Visitors', screen: 'Visitors' },
     { icon: '📢', label: 'Notices', screen: 'Notices' },
     { icon: '💰', label: 'Payments', screen: 'VendorPayments' },
+    { icon: '👷', label: 'Staff', screen: 'Staff' },
   ],
   SUSecurity: [
     { icon: '🚪', label: 'Visitors', screen: 'Visitors' },
@@ -53,6 +54,7 @@ const QUICK_ACTIONS: Record<string, QuickAction[]> = {
     { icon: '📝', label: 'Complaint', screen: 'Complaints' },
     { icon: '📢', label: 'Notices', screen: 'Notices' },
     { icon: '🏊', label: 'Amenities', screen: 'Amenities' },
+    { icon: '👷', label: 'Staff', screen: 'Staff' },
     { icon: '👤', label: 'Profile', screen: 'Profile' },
   ],
   SUUser: [

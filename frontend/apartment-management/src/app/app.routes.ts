@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authGuard, guestGuard, adminGuard, visitorGuard } from './core/guards/auth.guard';
+import { authGuard, guestGuard, adminGuard, visitorGuard, staffGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
   { path: '', redirectTo: '/dashboard', pathMatch: 'full' },
@@ -68,6 +68,12 @@ export const routes: Routes = [
     path: 'visitors',
     canActivate: [visitorGuard],
     loadChildren: () => import('./features/visitors/visitors.routes').then(m => m.VISITOR_ROUTES),
+  },
+
+  {
+    path: 'staff',
+    canActivate: [staffGuard],
+    loadChildren: () => import('./features/staff/staff.routes').then(m => m.STAFF_ROUTES),
   },
 
   {

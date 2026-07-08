@@ -158,6 +158,33 @@ public interface IServiceProviderRequestRepository : IRepository<ServiceProvider
     Task<IReadOnlyList<ServiceProviderRequest>> GetByProviderAsync(string societyId, string providerId, int page, int pageSize, CancellationToken ct = default);
 }
 
+// ─── Shift ────────────────────────────────────────────────────────────────────
+
+public interface IShiftRepository : IRepository<Shift>
+{
+}
+
+// ─── Staff ────────────────────────────────────────────────────────────────────
+
+public interface IStaffRepository : IRepository<Staff>
+{
+    Task<IReadOnlyList<Staff>> GetActiveAsync(string societyId, CancellationToken ct = default);
+
+    /// <summary>Cross-partition — used by the missing-check-in grace-period timer, which runs society-agnostic.</summary>
+    Task<IReadOnlyList<Staff>> GetActiveWithShiftsAcrossSocietiesAsync(CancellationToken ct = default);
+}
+
+// ─── Staff Attendance ─────────────────────────────────────────────────────────
+
+public interface IStaffAttendanceRepository : IRepository<StaffAttendance>
+{
+    Task<IReadOnlyList<StaffAttendance>> GetOnDutyAsync(string societyId, CancellationToken ct = default);
+    Task<StaffAttendance?> GetOpenAttendanceAsync(string societyId, string staffId, CancellationToken ct = default);
+    Task<IReadOnlyList<StaffAttendance>> GetByStaffAsync(string societyId, string staffId, DateTime fromUtc, DateTime toUtc, CancellationToken ct = default);
+    Task<IReadOnlyList<StaffAttendance>> GetBySocietyAndDateRangeAsync(string societyId, DateTime fromUtc, DateTime toUtc, CancellationToken ct = default);
+    Task<bool> HasRecordForDateAsync(string societyId, string staffId, DateTime attendanceDate, CancellationToken ct = default);
+}
+
 // ─── Outbox ───────────────────────────────────────────────────────────────────
 
 public interface IOutboxRepository : IRepository<OutboxRecord>
