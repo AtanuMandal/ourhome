@@ -54,6 +54,9 @@ public static class CosmosDbInitializer
         new("reward_points",       "/societyId", CosmosDatabaseGroup.Engagement),
         new("service_providers",   "/societyId", CosmosDatabaseGroup.Engagement),
         new("service_requests",    "/societyId", CosmosDatabaseGroup.Engagement),
+        new("polls",               "/societyId", CosmosDatabaseGroup.Engagement),
+        new("poll-votes",          "/societyId", CosmosDatabaseGroup.Engagement),
+        new("agm-sessions",        "/societyId", CosmosDatabaseGroup.Engagement),
 
         // ── Platform — cross-cutting messaging/notification infrastructure ────────────
         new("outbox",             "/societyId", CosmosDatabaseGroup.Platform),

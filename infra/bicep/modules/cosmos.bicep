@@ -47,6 +47,9 @@ var containers = [
   { name: 'staff',                partitionKey: '/societyId' }
   { name: 'staff_attendance',     partitionKey: '/societyId' }
   { name: 'sos_alerts',           partitionKey: '/societyId' }
+  { name: 'polls',                partitionKey: '/societyId' }
+  { name: 'poll-votes',           partitionKey: '/societyId' }
+  { name: 'agm-sessions',         partitionKey: '/societyId' }
   // Outbox: written atomically with business data; Change Feed publishes to Event Grid
   { name: 'outbox',              partitionKey: '/societyId' }
   // Lease container for the Cosmos DB Change Feed trigger in Azure Functions

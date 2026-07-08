@@ -29,3 +29,9 @@ public enum StaffEmploymentType { OnPayroll, Contractor }
 public enum StaffAttendanceStatus { CheckedIn, CheckedOut, Absent, OnLeave }
 public enum SosCategory { Fire, Medical, SecurityIntrusion, Other }
 public enum SosAlertStatus { Triggered, Acknowledged, Resolved, FalseAlarm }
+public enum PollType { SingleChoice, MultipleChoice }
+public enum PollEligibilityUnit { PerApartment, PerResident }
+public enum PollAnonymity { Anonymous, Identified }
+public enum PollVisibility { Immediately, AfterClose, AdminOnly }
+public enum PollStatus { Scheduled, Open, Closed }
+public enum PollOutcome { Passed, Failed, NoQuorum }

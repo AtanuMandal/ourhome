@@ -3,6 +3,7 @@ using ApartmentManagement.Application.Commands.Notice;
 using ApartmentManagement.Application.Commands.Gamification;
 using ApartmentManagement.Application.Commands.Staff;
 using ApartmentManagement.Application.Commands.Sos;
+using ApartmentManagement.Application.Commands.Poll;
 using MediatR;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
@@ -106,6 +107,38 @@ public class TimerFunctions(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error in EscalateSosAlerts timer");
+        }
+    }
+
+    /// <summary>Runs every minute — activates scheduled polls whose opensAt has arrived and closes open polls past closesAt.</summary>
+    [Function("UpdatePollStatuses")]
+    public async Task UpdatePollStatuses(
+        [TimerTrigger("0 * * * * *")] TimerInfo timer, CancellationToken ct)
+    {
+        logger.LogInformation("UpdatePollStatuses timer triggered");
+        try
+        {
+            await mediator.Send(new UpdatePollStatusesCommand(), ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error in UpdatePollStatuses timer");
+        }
+    }
+
+    /// <summary>Runs every 30 minutes — reminds residents who haven't voted as a poll's closesAt approaches.</summary>
+    [Function("SendPollVotingReminders")]
+    public async Task SendPollVotingReminders(
+        [TimerTrigger("0 */30 * * * *")] TimerInfo timer, CancellationToken ct)
+    {
+        logger.LogInformation("SendPollVotingReminders timer triggered");
+        try
+        {
+            await mediator.Send(new SendPollVotingRemindersCommand(), ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error in SendPollVotingReminders timer");
         }
     }
 

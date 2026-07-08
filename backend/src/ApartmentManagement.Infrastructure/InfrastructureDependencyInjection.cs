@@ -157,6 +157,21 @@ public static class InfrastructureDependencyInjection
             DbName(sp, CosmosDatabaseGroup.Engagement),
             sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<ServiceProviderRequestRepository>>()));
 
+        services.AddScoped<IPollRepository>(sp => new PollRepository(
+            sp.GetRequiredService<CosmosClient>(),
+            DbName(sp, CosmosDatabaseGroup.Engagement),
+            sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<PollRepository>>()));
+
+        services.AddScoped<IPollVoteRepository>(sp => new PollVoteRepository(
+            sp.GetRequiredService<CosmosClient>(),
+            DbName(sp, CosmosDatabaseGroup.Engagement),
+            sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<PollVoteRepository>>()));
+
+        services.AddScoped<IAgmSessionRepository>(sp => new AgmSessionRepository(
+            sp.GetRequiredService<CosmosClient>(),
+            DbName(sp, CosmosDatabaseGroup.Engagement),
+            sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<AgmSessionRepository>>()));
+
         // Repositories — Platform database (outbox, push/mobile notification registrations)
         services.AddScoped<IOutboxRepository>(sp => new OutboxRepository(
             sp.GetRequiredService<CosmosClient>(),
