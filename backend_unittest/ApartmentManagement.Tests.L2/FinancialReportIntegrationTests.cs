@@ -227,6 +227,77 @@ public class FinancialReportIntegrationTests : IntegrationTestBase
         result.Value.Entries.Should().HaveCount(1);
     }
 
+    // ── Society Ledger ─────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetSocietyLedger_WithMultipleApartmentsAndVendorCharges_AggregatesAcrossSociety()
+    {
+        var (society, _, apt) = await SeedBaseAsync();
+        var schedule = CreateSchedule(society.Id);
+        await MaintenanceScheduleRepo.CreateAsync(schedule);
+
+        var apt2 = Apartment.Create(society.Id, "102", "A", 1, 2, [], 500, 600, 700);
+        await ApartmentRepo.CreateAsync(apt2);
+
+        var now = DateTime.UtcNow;
+        var dueDate = new DateTime(now.Year, now.Month, 10, 0, 0, 0, DateTimeKind.Utc);
+
+        var c1 = MaintenanceCharge.Create(society.Id, apt.Id, schedule.Id, "Monthly Maintenance", 5000m, dueDate);
+        c1.MarkPaid("UPI", null, null);
+        await MaintenanceChargeRepo.CreateAsync(c1);
+
+        var c2 = MaintenanceCharge.Create(society.Id, apt2.Id, schedule.Id, "Monthly Maintenance", 3000m, dueDate.AddDays(2));
+        await MaintenanceChargeRepo.CreateAsync(c2);
+
+        var vendor = Vendor.Create(
+            society.Id, "CleanCo",
+            new Address("1 Clean St", "Mumbai", "MH", "400001", "India"),
+            null, "John", "Doe", "9999999999", "j@clean.com",
+            "Cleaning services", DateTime.UtcNow.AddYears(1), 7,
+            null, "Cleaning", null);
+        await VendorRepo.CreateAsync(vendor);
+
+        var vendorCharge = VendorCharge.CreateAdHoc(
+            society.Id, vendor.Id, vendor.Name, 2000m, dueDate, 7, "Monthly cleaning");
+        vendorCharge.MarkPaid(dueDate.AddDays(1), "Cash", null, "https://receipt.example.com", null);
+        await VendorChargeRepo.CreateAsync(vendorCharge);
+
+        var result = await Mediator.Send(new GetSocietyLedgerQuery(society.Id));
+
+        result.IsSuccess.Should().BeTrue();
+        var ledger = result.Value!;
+
+        ledger.Entries.Should().HaveCount(5);
+        ledger.Entries.Where(e => e.Type == "Charge").Should().HaveCount(2);
+        ledger.Entries.Where(e => e.Type == "Payment").Should().HaveCount(1);
+        ledger.Entries.Where(e => e.Type == "VendorBill").Should().HaveCount(1);
+        ledger.Entries.Where(e => e.Type == "VendorPayment").Should().HaveCount(1);
+        ledger.CurrentBalance.Should().Be(3000m); // apt2's pending charge is the only unmatched debit
+    }
+
+    [Fact]
+    public async Task GetSocietyLedger_WithNoCharges_ReturnsEmptyLedger()
+    {
+        var (society, _, _) = await SeedBaseAsync();
+
+        var result = await Mediator.Send(new GetSocietyLedgerQuery(society.Id));
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Entries.Should().BeEmpty();
+        result.Value.CurrentBalance.Should().Be(0m);
+    }
+
+    [Fact]
+    public async Task GetSocietyLedger_AsSUUser_ReturnsForbidden()
+    {
+        var (society, _, _) = await SeedBaseAsync();
+        CurrentUserService.Role = "SUUser";
+
+        var result = await Mediator.Send(new GetSocietyLedgerQuery(society.Id));
+
+        result.IsSuccess.Should().BeFalse();
+    }
+
     // ── Personal Statement ─────────────────────────────────────────────────────
 
     [Fact]

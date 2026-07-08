@@ -1,4 +1,5 @@
 using ApartmentManagement.Domain.Entities;
+using ApartmentManagement.Infrastructure;
 using Azure;
 using Azure.Messaging;
 using Azure.Messaging.EventGrid;
@@ -19,13 +20,16 @@ public class OutboxPublisherFunction(
     IConfiguration configuration,
     ILogger<OutboxPublisherFunction> logger)
 {
-    private const string DbName = "apartment-management";
+    // The outbox/outbox-leases containers live in the "Platform" database (see CosmosDatabaseGroup).
+    // "%...%" resolves the database name from configuration at bind time — the CosmosDBTrigger
+    // attribute requires a compile-time constant, so it can't read IOptions<InfrastructureSettings> directly.
+    private const string DbNameSetting = "%Infrastructure:CosmosDbPlatformDatabaseName%";
     private const string ContainerName = "outbox";
 
     [Function(nameof(OutboxPublisherFunction))]
     public async Task Run(
         [CosmosDBTrigger(
-            databaseName: DbName,
+            databaseName: DbNameSetting,
             containerName: ContainerName,
             Connection = "CosmosDbConnection",
             LeaseContainerName = "outbox-leases",
@@ -43,8 +47,9 @@ public class OutboxPublisherFunction(
             return;
         }
 
+        var dbName = configuration["Infrastructure:CosmosDbPlatformDatabaseName"] ?? new InfrastructureSettings().CosmosDbPlatformDatabaseName;
         var egClient = new EventGridPublisherClient(new Uri(endpoint), new AzureKeyCredential(key));
-        var container = cosmosClient.GetContainer(DbName, ContainerName);
+        var container = cosmosClient.GetContainer(dbName, ContainerName);
 
         foreach (var record in records)
         {

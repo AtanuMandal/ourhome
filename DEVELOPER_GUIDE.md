@@ -111,9 +111,16 @@ File: `backend/src/ApartmentManagement.Functions/local.settings.json`
     "AzureWebJobsStorage": "UseDevelopmentStorage=true",          // Azurite
     "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
 
-    // Cosmos DB Emulator (pre-filled — no changes needed)
+    // Cosmos DB Emulator (pre-filled — no changes needed). One account/connection string,
+    // split into several databases (max ~10 containers each) grouped by domain — see
+    // ApartmentManagement.Infrastructure/CosmosDatabaseGroup.cs for what lives where.
     "Infrastructure:CosmosDbConnectionString": "AccountEndpoint=https://localhost:8081/;AccountKey=C2y6y...",
-    "Infrastructure:CosmosDbDatabaseName": "apartment-management",
+    "Infrastructure:CosmosDbIdentityDatabaseName": "apartment-management-identity",
+    "Infrastructure:CosmosDbOperationsDatabaseName": "apartment-management-operations",
+    "Infrastructure:CosmosDbStaffDatabaseName": "apartment-management-staff",
+    "Infrastructure:CosmosDbFinanceDatabaseName": "apartment-management-finance",
+    "Infrastructure:CosmosDbEngagementDatabaseName": "apartment-management-engagement",
+    "Infrastructure:CosmosDbPlatformDatabaseName": "apartment-management-platform",
 
     // Required by the Outbox Change Feed trigger (same value as above, different key name)
     "CosmosDbConnection": "AccountEndpoint=https://localhost:8081/;AccountKey=C2y6y...",

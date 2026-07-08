@@ -67,3 +67,21 @@ form {
   margin-top: 8px;
   border-radius: var(--radius-sm) !important;
 }
+
+.otp-hint {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0 0 4px;
+}
+
+.method-switch {
+  display: block;
+  width: 100%;
+  text-align: center;
+  background: none;
+  border: none;
+  color: var(--primary-light);
+  font-size: 13px;
+  padding: 12px 0 0;
+  cursor: pointer;
+}

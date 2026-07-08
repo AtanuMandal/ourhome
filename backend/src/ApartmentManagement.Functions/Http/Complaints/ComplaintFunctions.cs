@@ -24,7 +24,7 @@ public class ComplaintFunctions(ISender mediator)
 
     [Function("GetComplaint")]
     public async Task<IActionResult> GetComplaint(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "societies/{societyId}/complaints/{id}")] HttpRequest req,
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "societies/{societyId}/complaints/{id:guid}")] HttpRequest req,
         string societyId, string id, CancellationToken ct)
     {
         var result = await mediator.Send(new GetComplaintQuery(societyId, id), ct);

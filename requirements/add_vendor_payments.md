@@ -30,7 +30,8 @@
 - ⚠️ **Gap:** No `GET /vendor-payments/vendors/{vendorId}` endpoint to fetch a single vendor's detail. Only the list endpoint exists.
 
 ### File Upload
-- `POST /api/societies/{id}/vendor-payments/uploads/{documentType}` — upload a vendor picture or contract file to Azure Blob Storage. Returns a URL to be stored on the vendor.
+- `POST /api/societies/{id}/vendor-payments/uploads/{documentType}` — upload a vendor picture or contract file to Azure Blob Storage. Returns an app-relative, authenticated file path (served via the shared authenticated file endpoint, not a raw long-lived SAS URL) to be stored on the vendor.
+- ⚠️ **Gap:** Unlike maintenance payment proofs, the uploaded vendor picture/contract has **no preview or zoom popup** on web — the admin UI only shows a "Picture ready" / "Contract ready" text chip after upload, with no way to view the actual file inline. Mobile has no vendor-payments screen that displays a picture/contract or document at all (the mobile vendor-payments screen is a read-only charge list only).
 
 ---
 
@@ -143,3 +144,5 @@
 > 🔜 **Monthly/annual equivalent on DTOs** — include `MonthlyEquivalent` and `AnnualEquivalent` fields in `VendorRecurringScheduleDto` so the frontend can display computed cost summaries without local calculation.
 
 > 🔜 **Overdue payment notification** — push/email notification to `SUAdmin` when a vendor charge remains unpaid past its payment due date. Trigger via a daily timer-triggered Azure Function.
+
+> 🔜 **Vendor picture/contract preview with zoom** — reuse the same secure-image + zoom-lightbox pattern already used for maintenance proofs so admins can view the uploaded vendor picture/contract inline instead of only a "ready" chip; extend to a mobile vendor-payments document view as well (mobile currently has no vendor document display).

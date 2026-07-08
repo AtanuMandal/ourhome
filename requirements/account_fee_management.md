@@ -41,8 +41,8 @@
 After onboarding, `SUAdmin` can update:
 
 - **Maintenance Overdue Threshold Days** — number of days after a charge's due date before it is flagged as overdue (1–90 days). Controls red highlighting and overdue notifications.
-- **Society Committees** — named committees (e.g., "Maintenance Committee", "Sports Committee") with member assignments for display purposes.
-- **Society User Role Titles** — custom role titles for society members (e.g., "Treasurer", "Secretary", "Chairman").
+- **Society Committees** — named committees (e.g., "Managing Committee", "Sports Committee"). Each member is picked from a dropdown of existing registered users (not free-text email) plus a free-text role title (e.g., "President", "Secretary", "Treasurer"). A user can hold at most one committee role society-wide — assigning an already-assigned user is rejected (`USER_ALREADY_ON_COMMITTEE`). See `new requirements/society-structure` for the full behaviour, including the resident-facing read-only "Contact Us" page that displays this committee list and the society's contact info to every role.
+- **Society User Role Titles** — custom role titles for society members (e.g., "Treasurer", "Secretary", "Chairman") — set as part of the committee member's role title above.
 
 ---
 

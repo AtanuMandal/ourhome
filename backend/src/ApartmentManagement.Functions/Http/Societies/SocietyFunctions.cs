@@ -26,7 +26,8 @@ public class SocietyFunctions(ISender mediator)
 
     [Function("GetSociety")]
     public async Task<IActionResult> GetSociety(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "societies/{id}")] HttpRequest req,
+        // Constrained to :guid so any future literal sibling route (e.g. societies/summary) can't bind here as "id".
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "societies/{id:guid}")] HttpRequest req,
         string id, CancellationToken ct)
     {
         var result = await mediator.Send(new GetSocietyQuery(id), ct);
@@ -46,7 +47,7 @@ public class SocietyFunctions(ISender mediator)
 
     [Function("UpdateSociety")]
     public async Task<IActionResult> UpdateSociety(
-        [HttpTrigger(AuthorizationLevel.User, "put", Route = "societies/{id}")] HttpRequest req,
+        [HttpTrigger(AuthorizationLevel.User, "put", Route = "societies/{id:guid}")] HttpRequest req,
         string id, CancellationToken ct)
     {
         var body = await req.DeserializeAsync<UpdateSocietyRequest>(ct);

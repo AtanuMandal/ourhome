@@ -131,6 +131,8 @@ public record RequestOtpByEmailRequest(string Email);
 public record RequestOtpByEmailResponse(string UserId);
 public record PasswordResetRequest(string Email, string? SelectedUserId = null);
 public record PasswordResetRequestResponse(bool RequiresSelection, string? UserId, IReadOnlyList<LoginOptionDto> Options);
+public record PhoneLoginOtpRequest(string Phone, string? SelectedUserId = null);
+public record PhoneLoginOtpResponse(bool RequiresSelection, string? UserId, IReadOnlyList<LoginOptionDto> Options);
 public record ConfirmPasswordResetRequest(string SocietyId, string UserId, string OtpCode, string NewPassword);
 public record TransferApartmentOwnershipRequest(string ApartmentId, string FullName, string Email, string Phone);
 public record TransferApartmentTenancyRequest(string ApartmentId, string FullName, string Email, string Phone);
@@ -522,6 +524,50 @@ public record ServiceRequestResponse(
     int? Rating, string? ReviewComment, DateTime CreatedAt);
 
 public record AddReviewRequest(int Rating, string Comment);
+
+// ─── Staff Attendance ─────────────────────────────────────────────────────────
+
+public sealed record CreateShiftRequest(string Name, TimeSpan StartTime, TimeSpan EndTime, int GraceMinutes = 30);
+
+public record ShiftResponse(string Id, string SocietyId, string Name, TimeSpan StartTime, TimeSpan EndTime, int GraceMinutes);
+
+public sealed record CreateStaffRequest(
+    string FullName, string Phone, StaffCategory Category, StaffEmploymentType EmploymentType,
+    string? PhotoUrl = null, string? VendorId = null, string? ShiftId = null);
+
+public sealed record UpdateStaffRequest(string FullName, string Phone, string? PhotoUrl, string? ShiftId);
+
+public record StaffResponse(
+    string Id, string SocietyId, string FullName, string Phone, string? PhotoUrl,
+    string Category, string EmploymentType, string? VendorId, string? ShiftId, string? ShiftName,
+    bool IsActive, DateTime CreatedAt);
+
+public record StaffAttendanceResponse(
+    string Id, string SocietyId, string StaffId, string StaffName, string? ShiftId,
+    DateTime AttendanceDate, DateTime? CheckInTime, DateTime? CheckOutTime, bool IsLate, string Status);
+
+public record StaffAttendanceReportEntry(
+    string StaffId, string StaffName, string Category,
+    int PresentDays, int AbsentDays, int LateDays, int OnLeaveDays);
+
+public record StaffAttendanceReportResponse(
+    DateTime FromDate, DateTime ToDate, IReadOnlyList<StaffAttendanceReportEntry> Entries);
+
+// ─── Dev / Test Data Seeding ──────────────────────────────────────────────────
+
+public sealed record SeedTestDataRequest(int? ApartmentCount = null);
+
+public record SeededApartmentInfo(
+    string ApartmentId, string ApartmentLabel,
+    string OwnerId, string OwnerEmail,
+    string TenantId, string TenantEmail,
+    IReadOnlyList<string> ChargeIds);
+
+public record SeedTestDataResponse(
+    int ApartmentsCreated,
+    int Failed,
+    IReadOnlyList<SeededApartmentInfo> Apartments,
+    IReadOnlyList<string> Errors);
 
 // ─── Common ───────────────────────────────────────────────────────────────────
 

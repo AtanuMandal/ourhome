@@ -47,6 +47,7 @@
 
 ### List Apartments
 - `GET /api/societies/{id}/apartments` — paginated list of apartments with their current status and linked owner/tenant names.
+- Results are ordered by **floor number descending, then apartment number ascending** — enforced authoritatively by the query handler; web and mobile both redundantly re-apply the same ordering client-side after any local search/filtering.
 - ⚠️ **Gap:** No `block`, `floor`, or `status` filter query parameters are accepted at the HTTP function layer. `ListApartments` returns all apartments without server-side filtering by these attributes. Filtering is done client-side on the frontend.
 
 ### Get Single Apartment
@@ -101,6 +102,7 @@
 - Status changes are immediate and reflected in the apartment list.
 - Apartment cannot be deleted while it has active residents.
 - Resident history is never deleted — only superseded by new entries.
+- Apartment list is sorted by floor descending, then apartment number ascending, on backend, web, and mobile.
 
 ---
 

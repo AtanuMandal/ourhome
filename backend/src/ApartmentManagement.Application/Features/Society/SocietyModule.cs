@@ -112,12 +112,19 @@ public sealed class UpdateSocietyCommandHandler(
                 request.TotalBlocks, request.TotalApartments, request.MaintenanceOverdueThresholdDays);
             var societyUsers = await ResolveSocietyUsersAsync(request.SocietyId, request.SocietyUsers ?? [], userRepository, ct);
             var committees = new List<Domain.Entities.Society.SocietyCommittee>((request.Committees ?? []).Count);
+            var userIdsOnCommittees = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var committee in request.Committees ?? [])
             {
                 if (string.IsNullOrWhiteSpace(committee.Name))
                     return Result<SocietyResponse>.Failure(ErrorCodes.ValidationFailed, "Committee name is required.");
 
                 var members = await ResolveSocietyUsersAsync(request.SocietyId, committee.Members ?? [], userRepository, ct);
+                foreach (var member in members)
+                {
+                    if (!userIdsOnCommittees.Add(member.UserId))
+                        return Result<SocietyResponse>.Failure(ErrorCodes.UserAlreadyOnCommittee,
+                            $"{member.FullName} is already assigned to a committee role. A user can only hold one committee role at a time.");
+                }
                 committees.Add(new Domain.Entities.Society.SocietyCommittee(committee.Name.Trim(), members));
             }
 

@@ -3,11 +3,12 @@ import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { User, AuthState, LoginResponse, PasswordResetRequestResponse, InviteTokenValidation } from '../models/user.model';
+import { User, AuthState, LoginResponse, PasswordResetRequestResponse, PhoneLoginOtpResponse, LoginMethod, InviteTokenValidation } from '../models/user.model';
 
-const TOKEN_KEY    = 'am_token';
-const USER_KEY     = 'am_user';
-const SOCIETY_KEY  = 'am_society';
+const TOKEN_KEY        = 'am_token';
+const USER_KEY         = 'am_user';
+const SOCIETY_KEY      = 'am_society';
+const LOGIN_METHOD_KEY = 'am_login_method';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -47,6 +48,26 @@ export class AuthService {
         }
       })
     );
+  }
+
+  requestOtpLogin(phone: string, selectedUserId?: string) {
+    return this.http.post<PhoneLoginOtpResponse>(
+      `${environment.apiBaseUrl}/auth/otp-login/request`,
+      { phone, selectedUserId }
+    );
+  }
+
+  verifyOtpLogin(societyId: string, userId: string, otp: string) {
+    return this.verifyOtp(societyId, userId, otp);
+  }
+
+  getLoginMethod(): LoginMethod {
+    const stored = localStorage.getItem(LOGIN_METHOD_KEY);
+    return stored === 'email' ? 'email' : 'phone';
+  }
+
+  setLoginMethod(method: LoginMethod) {
+    localStorage.setItem(LOGIN_METHOD_KEY, method);
   }
 
   requestPasswordReset(email: string, selectedUserId?: string) {

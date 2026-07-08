@@ -12,6 +12,7 @@ public class NotificationService : INotificationService
 {
     private readonly InfrastructureSettings _settings;
     private readonly IPushSubscriptionStore _pushSubscriptionStore;
+    private readonly IMobilePushTokenStore _mobilePushTokenStore;
     private readonly ILogger<NotificationService> _logger;
     // Clients are expensive to construct (they wrap HttpClient); create once per service instance.
     private readonly EmailClient? _emailClient;
@@ -21,10 +22,12 @@ public class NotificationService : INotificationService
     public NotificationService(
         IOptions<InfrastructureSettings> settings,
         IPushSubscriptionStore pushSubscriptionStore,
+        IMobilePushTokenStore mobilePushTokenStore,
         ILogger<NotificationService> logger)
     {
         _settings = settings.Value;
         _pushSubscriptionStore = pushSubscriptionStore;
+        _mobilePushTokenStore = mobilePushTokenStore;
         _logger = logger;
 
         if (!string.IsNullOrWhiteSpace(_settings.AzureCommunicationConnectionString))
@@ -171,5 +174,55 @@ public class NotificationService : INotificationService
                 _logger.LogError(ex, "Failed to send push to user {UserId}", userId);
             }
         }
+    }
+
+    // ── Mobile Push Tokens (FCM/APNs) ────────────────────────────────────────
+
+    public async Task SaveMobilePushTokenAsync(
+        string userId, string societyId, string platform, string token, string? appVersion,
+        CancellationToken ct = default)
+    {
+        var tokenHash = Convert.ToBase64String(
+            System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(token)))
+            .Replace('+', '-').Replace('/', '_').TrimEnd('=')[..16];
+
+        var doc = new MobilePushTokenDocument
+        {
+            Id         = $"{userId}_{tokenHash}",
+            UserId     = userId,
+            SocietyId  = societyId,
+            Platform   = platform,
+            Token      = token,
+            AppVersion = appVersion,
+            CreatedAt  = DateTime.UtcNow,
+            UpdatedAt  = DateTime.UtcNow
+        };
+        await _mobilePushTokenStore.UpsertAsync(doc, ct);
+        _logger.LogInformation("Saved mobile push token for user {UserId} platform={Platform}", userId, platform);
+    }
+
+    public async Task DeleteMobilePushTokenAsync(
+        string userId, string societyId, string token, CancellationToken ct = default)
+    {
+        await _mobilePushTokenStore.DeleteByTokenAsync(token, societyId, ct);
+        _logger.LogInformation("Deleted mobile push token for user {UserId}", userId);
+    }
+
+    public async Task SendMobilePushNotificationAsync(
+        string userId, string societyId, string title, string body,
+        CancellationToken ct = default,
+        IReadOnlyDictionary<string, string>? data = null)
+    {
+        var tokens = await _mobilePushTokenStore.GetByUserIdAsync(userId, societyId, ct);
+        if (tokens.Count == 0)
+        {
+            _logger.LogWarning("No mobile push tokens for user {UserId} — skipping mobile push", userId);
+            return;
+        }
+
+        // Stub: actual FCM/APNs dispatch is handled by MobilePushPublisher Azure Function.
+        _logger.LogInformation(
+            "Mobile push stub: would deliver {Title} to {Count} token(s) for user {UserId}",
+            title, tokens.Count, userId);
     }
 }

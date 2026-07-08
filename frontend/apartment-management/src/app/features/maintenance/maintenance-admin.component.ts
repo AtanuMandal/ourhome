@@ -14,6 +14,8 @@ import { EmptyStateComponent } from '../../shared/components/empty-state/empty-s
 import { LoadingSpinnerComponent } from '../../shared/components/loading-spinner/loading-spinner.component';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 import { StatusChipComponent } from '../../shared/components/status-chip/status-chip.component';
+import { SecureImageComponent } from '../../shared/components/secure-image/secure-image.component';
+import { ImageLightboxComponent } from '../../shared/components/image-lightbox/image-lightbox.component';
 import { MaintenancePageBase } from './maintenance-page-base';
 import {
   AREA_BASIS_OPTIONS,
@@ -43,6 +45,8 @@ import {
     EmptyStateComponent,
     StatusChipComponent,
     SearchableSelectComponent,
+    SecureImageComponent,
+    ImageLightboxComponent,
   ],
   template: `
     <app-page-header
@@ -283,7 +287,8 @@ import {
                               <div class="section-copy proof-list__title">Submitted proofs</div>
                               @for (proof of charge.proofs; track proof.proofUrl + proof.submittedAt) {
                                 <div class="proof-item">
-                                  <a [href]="proof.proofUrl" target="_blank" rel="noreferrer">{{ proof.proofUrl }}</a>
+                                  <app-secure-image [src]="proof.proofUrl" alt="Payment proof" imgClass="proof-thumb"
+                                    [clickable]="true" (imageClick)="lightboxSrc.set(proof.proofUrl)"></app-secure-image>
                                   <span>{{ proof.submittedAt | date:'medium' }}</span>
                                   @if (proof.notes) {
                                     <span>{{ proof.notes }}</span>
@@ -415,8 +420,10 @@ import {
         </section>
       }
     </div>
+
+    <app-image-lightbox [open]="!!lightboxSrc()" [src]="lightboxSrc() ?? ''" (closed)="lightboxSrc.set(null)"></app-image-lightbox>
   `,
-  styles: [MAINTENANCE_PAGE_STYLES],
+  styles: [MAINTENANCE_PAGE_STYLES, `.proof-thumb { width: 64px; height: 64px; border-radius: 8px; object-fit: cover; }`],
 })
 export class MaintenanceAdminComponent extends MaintenancePageBase {
   readonly scheduleEditor = viewChild<ElementRef<HTMLElement>>('scheduleEditor');
@@ -424,6 +431,7 @@ export class MaintenanceAdminComponent extends MaintenancePageBase {
   readonly savingSchedule = signal(false);
   readonly deletingScheduleId = signal<string | null>(null);
   readonly processingChargeId = signal<string | null>(null);
+  readonly lightboxSrc = signal<string | null>(null);
 
   readonly scopeOptions = SCOPE_OPTIONS;
   readonly pricingTypeOptions = PRICING_TYPE_OPTIONS;

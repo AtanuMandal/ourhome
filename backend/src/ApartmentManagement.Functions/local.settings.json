@@ -5,7 +5,12 @@
     "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
 
     "Infrastructure:CosmosDbConnectionString": "AccountEndpoint=https://localhost:8081/;AccountKey=C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==",
-    "Infrastructure:CosmosDbDatabaseName": "apartment-management",
+    "Infrastructure:CosmosDbIdentityDatabaseName": "apartment-management-identity",
+    "Infrastructure:CosmosDbOperationsDatabaseName": "apartment-management-operations",
+    "Infrastructure:CosmosDbStaffDatabaseName": "apartment-management-staff",
+    "Infrastructure:CosmosDbFinanceDatabaseName": "apartment-management-finance",
+    "Infrastructure:CosmosDbEngagementDatabaseName": "apartment-management-engagement",
+    "Infrastructure:CosmosDbPlatformDatabaseName": "apartment-management-platform",
     "Infrastructure:EventGridTopicEndpoint": "",
     "Infrastructure:EventGridTopicKey": "",
     "Infrastructure:AzureCommunicationConnectionString": "",
@@ -17,6 +22,8 @@
     "Infrastructure:JwtIssuer": "apartment-management",
     "Infrastructure:JwtAudience": "apartment-management-app",
     "Infrastructure:JwtExpiryHours": "24",
+
+    "Infrastructure:AllowTestDataSeeding": "true",
 
     "Infrastructure:VapidSubject": "mailto:dev@localhost",
     "Infrastructure:VapidPublicKey": "BDpFr-ntg2qHNSHsaOaiBYrJwj9yamAIB4Z1RNsQZWlDPFAsT1FMc44o1oUEwogqQiNvNPQ7NHXH1ovIKxmsoXw",
@@ -31,7 +38,6 @@
   },
   "Host": {
     "LocalHttpPort": 7071,
-    "CORS": "http://localhost:4200",
-    "CORSCredentials": true
+    "CORS": "*"
   }
 }

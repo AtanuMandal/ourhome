@@ -5,6 +5,7 @@ using ApartmentManagement.Domain.Entities;
 using ApartmentManagement.Domain.Enums;
 using ApartmentManagement.Domain.Repositories;
 using ApartmentManagement.Shared.Constants;
+using ApartmentManagement.Shared.Models;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -641,5 +642,380 @@ public class DenyApartmentJoinCommandHandlerTests
         // Assert
         result.IsFailure.Should().BeTrue();
         result.ErrorCode.Should().Be(ErrorCodes.NoPendingApartmentRequest);
+    }
+}
+
+// ─── RequestPhoneLoginOtpCommandHandler Tests ─────────────────────────────────
+
+public class RequestPhoneLoginOtpCommandHandlerTests
+{
+    private readonly Mock<IUserRepository> _userRepoMock = new();
+    private readonly Mock<ISocietyRepository> _societyRepoMock = new();
+    private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
+    private readonly Mock<INotificationService> _notificationMock = new();
+    private readonly Mock<ILogger<RequestPhoneLoginOtpCommandHandler>> _loggerMock = new();
+
+    private RequestPhoneLoginOtpCommandHandler CreateHandler() =>
+        new(_userRepoMock.Object, _societyRepoMock.Object, _apartmentRepoMock.Object, _notificationMock.Object, _loggerMock.Object);
+
+    [Fact]
+    public async Task Handle_WithUnknownPhone_ReturnsUserNotFound()
+    {
+        _userRepoMock
+            .Setup(r => r.GetByPhoneAcrossSocietiesAsync("+91-9999999999", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<User>)[]);
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(new RequestPhoneLoginOtpCommand("+91-9999999999"), CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.UserNotFound);
+        _notificationMock.Verify(n => n.SendSmsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_WithSingleActiveAccount_SendsOtpAndReturnsUserId()
+    {
+        var user = User.Create("soc-001", "Alice", "alice@example.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
+        _userRepoMock
+            .Setup(r => r.GetByPhoneAcrossSocietiesAsync("+91-9876543210", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<User>)[user]);
+        _userRepoMock
+            .Setup(r => r.UpdateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User u, CancellationToken _) => u);
+        _societyRepoMock
+            .Setup(r => r.GetByIdAsync("soc-001", "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Domain.Entities.Society?)null);
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(new RequestPhoneLoginOtpCommand("+91-9876543210"), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.RequiresSelection.Should().BeFalse();
+        result.Value!.UserId.Should().Be(user.Id);
+        result.Value!.Options.Should().HaveCount(1);
+        _notificationMock.Verify(n => n.SendSmsAsync("+91-9876543210", It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_WithMultipleAccountsAndNoSelection_RequiresSelectionWithoutSendingOtp()
+    {
+        var user1 = User.Create("soc-001", "Alice", "alice1@example.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
+        var user2 = User.Create("soc-002", "Alice", "alice2@example.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
+        _userRepoMock
+            .Setup(r => r.GetByPhoneAcrossSocietiesAsync("+91-9876543210", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<User>)[user1, user2]);
+        _societyRepoMock
+            .Setup(r => r.GetByIdAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Domain.Entities.Society?)null);
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(new RequestPhoneLoginOtpCommand("+91-9876543210"), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.RequiresSelection.Should().BeTrue();
+        result.Value!.UserId.Should().BeNull();
+        result.Value!.Options.Should().HaveCount(2);
+        _notificationMock.Verify(n => n.SendSmsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_InactiveUserPhone_ReturnsUserNotFound()
+    {
+        var user = User.Create("soc-001", "Alice", "alice@example.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
+        user.Deactivate();
+        _userRepoMock
+            .Setup(r => r.GetByPhoneAcrossSocietiesAsync("+91-9876543210", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<User>)[user]);
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(new RequestPhoneLoginOtpCommand("+91-9876543210"), CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.UserNotFound);
+    }
+}
+
+// ─── GetUsersBySocietyQueryHandler search Tests ───────────────────────────────
+
+public class GetUsersBySocietyQueryHandlerSearchTests
+{
+    private readonly Mock<IUserRepository> _userRepoMock = new();
+    private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
+    private readonly Mock<ICurrentUserService> _currentUserServiceMock = new();
+
+    private GetUsersBySocietyQueryHandler CreateHandler() =>
+        new(_userRepoMock.Object, _apartmentRepoMock.Object, _currentUserServiceMock.Object);
+
+    [Fact]
+    public async Task Handle_WithSearchText_FiltersByNameEmailOrPhone()
+    {
+        var alice = User.Create("soc-001", "Alice Smith", "alice@example.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
+        var bob = User.Create("soc-001", "Bob Jones", "bob@example.com", "+91-1112223333", UserRole.SUUser, ResidentType.Owner);
+        _userRepoMock
+            .Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<User>)[alice, bob]);
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(
+            new GetUsersBySocietyQuery("soc-001", new PaginationParams { Page = 1, PageSize = 20 }, null, "alice"),
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Items.Should().ContainSingle(u => u.FullName == "Alice Smith");
+    }
+
+    [Fact]
+    public async Task Handle_ExcludesDeletedUsers()
+    {
+        var alice = User.Create("soc-001", "Alice Smith", "alice@example.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
+        alice.MarkDeleted();
+        var bob = User.Create("soc-001", "Bob Jones", "bob@example.com", "+91-1112223333", UserRole.SUUser, ResidentType.Owner);
+        _userRepoMock
+            .Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<User>)[alice, bob]);
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(
+            new GetUsersBySocietyQuery("soc-001", new PaginationParams { Page = 1, PageSize = 20 }, null),
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Items.Should().ContainSingle();
+        result.Value!.Items.Should().NotContain(u => u.FullName == "Alice Smith");
+    }
+}
+
+// ─── GetUsersBySocietyQueryHandler / GetUserQueryHandler contact-masking Tests ─
+
+public class GetUsersBySocietyQueryHandlerMaskingTests
+{
+    private readonly Mock<IUserRepository> _userRepoMock = new();
+    private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
+    private readonly Mock<ICurrentUserService> _currentUserServiceMock = new();
+
+    private GetUsersBySocietyQueryHandler CreateHandler() =>
+        new(_userRepoMock.Object, _apartmentRepoMock.Object, _currentUserServiceMock.Object);
+
+    [Fact]
+    public async Task Handle_SUUserViewer_MasksOtherResidentsContactInfo()
+    {
+        var alice = User.Create("soc-001", "Alice Smith", "alice@example.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
+        var bob = User.Create("soc-001", "Bob Jones", "bob@example.com", "+91-1112223333", UserRole.SUUser, ResidentType.Owner);
+        _userRepoMock
+            .Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<User>)[alice, bob]);
+        _currentUserServiceMock.Setup(c => c.UserId).Returns(alice.Id);
+        _currentUserServiceMock.Setup(c => c.Role).Returns("SUUser");
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(
+            new GetUsersBySocietyQuery("soc-001", new PaginationParams { Page = 1, PageSize = 20 }, null),
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        var bobResponse = result.Value!.Items.Single(u => u.FullName == "Bob Jones");
+        bobResponse.Email.Should().NotBe("bob@example.com");
+        bobResponse.Email.Should().Contain("***");
+        bobResponse.Phone.Should().NotBe("+91-1112223333");
+        bobResponse.Phone.Should().Contain("X");
+    }
+
+    [Fact]
+    public async Task Handle_SUUserViewer_DoesNotMaskOwnRecord()
+    {
+        var alice = User.Create("soc-001", "Alice Smith", "alice@example.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
+        _userRepoMock
+            .Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<User>)[alice]);
+        _currentUserServiceMock.Setup(c => c.UserId).Returns(alice.Id);
+        _currentUserServiceMock.Setup(c => c.Role).Returns("SUUser");
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(
+            new GetUsersBySocietyQuery("soc-001", new PaginationParams { Page = 1, PageSize = 20 }, null),
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        var aliceResponse = result.Value!.Items.Single();
+        aliceResponse.Email.Should().Be("alice@example.com");
+        aliceResponse.Phone.Should().Be("+91-9876543210");
+    }
+
+    [Theory]
+    [InlineData("SUAdmin")]
+    [InlineData("SUSecurity")]
+    public async Task Handle_AdminOrSecurityViewer_DoesNotMaskAnyResident(string viewerRole)
+    {
+        var alice = User.Create("soc-001", "Alice Smith", "alice@example.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
+        var bob = User.Create("soc-001", "Bob Jones", "bob@example.com", "+91-1112223333", UserRole.SUUser, ResidentType.Owner);
+        _userRepoMock
+            .Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<User>)[alice, bob]);
+        _currentUserServiceMock.Setup(c => c.UserId).Returns("some-admin-id");
+        _currentUserServiceMock.Setup(c => c.Role).Returns(viewerRole);
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(
+            new GetUsersBySocietyQuery("soc-001", new PaginationParams { Page = 1, PageSize = 20 }, null),
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Items.Should().Contain(u => u.Email == "alice@example.com" && u.Phone == "+91-9876543210");
+        result.Value!.Items.Should().Contain(u => u.Email == "bob@example.com" && u.Phone == "+91-1112223333");
+    }
+}
+
+public class GetUserQueryHandlerTests
+{
+    private readonly Mock<IUserRepository> _userRepoMock = new();
+    private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
+    private readonly Mock<ICurrentUserService> _currentUserServiceMock = new();
+
+    private GetUserQueryHandler CreateHandler() =>
+        new(_userRepoMock.Object, _apartmentRepoMock.Object, _currentUserServiceMock.Object);
+
+    [Fact]
+    public async Task Handle_SUUserViewingOtherResident_ReturnsMaskedContactInfo()
+    {
+        var bob = User.Create("soc-001", "Bob Jones", "bob@example.com", "+91-1112223333", UserRole.SUUser, ResidentType.Owner);
+        _userRepoMock
+            .Setup(r => r.GetByIdAsync(bob.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(bob);
+        _currentUserServiceMock.Setup(c => c.UserId).Returns("viewer-alice-id");
+        _currentUserServiceMock.Setup(c => c.Role).Returns("SUUser");
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(new GetUserQuery("soc-001", bob.Id), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Email.Should().Contain("***");
+        result.Value!.Phone.Should().Contain("X");
+    }
+
+    [Fact]
+    public async Task Handle_SUUserViewingOwnRecord_ReturnsUnmaskedContactInfo()
+    {
+        var alice = User.Create("soc-001", "Alice Smith", "alice@example.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
+        _userRepoMock
+            .Setup(r => r.GetByIdAsync(alice.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(alice);
+        _currentUserServiceMock.Setup(c => c.UserId).Returns(alice.Id);
+        _currentUserServiceMock.Setup(c => c.Role).Returns("SUUser");
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(new GetUserQuery("soc-001", alice.Id), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Email.Should().Be("alice@example.com");
+        result.Value!.Phone.Should().Be("+91-9876543210");
+    }
+
+    [Fact]
+    public async Task Handle_SUAdminViewingResident_ReturnsUnmaskedContactInfo()
+    {
+        var bob = User.Create("soc-001", "Bob Jones", "bob@example.com", "+91-1112223333", UserRole.SUUser, ResidentType.Owner);
+        _userRepoMock
+            .Setup(r => r.GetByIdAsync(bob.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(bob);
+        _currentUserServiceMock.Setup(c => c.UserId).Returns("admin-id");
+        _currentUserServiceMock.Setup(c => c.Role).Returns("SUAdmin");
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(new GetUserQuery("soc-001", bob.Id), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Email.Should().Be("bob@example.com");
+        result.Value!.Phone.Should().Be("+91-1112223333");
+    }
+}
+
+// ─── DeleteUserCommandHandler Tests ────────────────────────────────────────────
+
+public class DeleteUserCommandHandlerTests
+{
+    private readonly Mock<IUserRepository> _userRepoMock = new();
+    private readonly Mock<IMaintenanceChargeRepository> _chargeRepoMock = new();
+    private readonly Mock<ILogger<DeleteUserCommandHandler>> _loggerMock = new();
+
+    private DeleteUserCommandHandler CreateHandler() =>
+        new(_userRepoMock.Object, _chargeRepoMock.Object, _loggerMock.Object);
+
+    [Fact]
+    public async Task Handle_UserWithNoApartmentMapping_Succeeds()
+    {
+        var user = User.Create("soc-001", "Alice", "alice@example.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
+        _userRepoMock
+            .Setup(r => r.GetByIdAsync(user.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _userRepoMock
+            .Setup(r => r.UpdateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User u, CancellationToken _) => u);
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(new DeleteUserCommand("soc-001", user.Id), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        user.IsDeleted.Should().BeTrue();
+        _chargeRepoMock.Verify(r => r.GetByApartmentAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), null, null, It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_UserWithPendingDues_ReturnsUserHasPendingDues()
+    {
+        var user = User.Create("soc-001", "Alice", "alice@example.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
+        user.LinkApartment("apt-001", "A-101", ResidentType.Owner, makePrimary: true);
+        _userRepoMock
+            .Setup(r => r.GetByIdAsync(user.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        var now = DateTime.UtcNow;
+        var pendingCharge = MaintenanceCharge.Create("soc-001", "apt-001", "sched-1", "Monthly", 1000m, new DateTime(now.Year, now.Month, 5, 0, 0, 0, DateTimeKind.Utc));
+        _chargeRepoMock
+            .Setup(r => r.GetByApartmentAsync("soc-001", "apt-001", 1, int.MaxValue, null, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<MaintenanceCharge>)[pendingCharge]);
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(new DeleteUserCommand("soc-001", user.Id), CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.UserHasPendingDues);
+        user.IsDeleted.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Handle_UserWithApartmentButDuesCleared_ReturnsUserHasApartmentMapping()
+    {
+        var user = User.Create("soc-001", "Alice", "alice@example.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
+        user.LinkApartment("apt-001", "A-101", ResidentType.Owner, makePrimary: true);
+        _userRepoMock
+            .Setup(r => r.GetByIdAsync(user.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _chargeRepoMock
+            .Setup(r => r.GetByApartmentAsync("soc-001", "apt-001", 1, int.MaxValue, null, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<MaintenanceCharge>)[]);
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(new DeleteUserCommand("soc-001", user.Id), CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.UserHasApartmentMapping);
+        user.IsDeleted.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Handle_AlreadyDeletedUser_ReturnsUserNotFound()
+    {
+        var user = User.Create("soc-001", "Alice", "alice@example.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
+        user.MarkDeleted();
+        _userRepoMock
+            .Setup(r => r.GetByIdAsync(user.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(new DeleteUserCommand("soc-001", user.Id), CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.UserNotFound);
     }
 }

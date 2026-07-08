@@ -1,4 +1,5 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, OnInit } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -9,8 +10,10 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 import { LoadingSpinnerComponent } from '../../shared/components/loading-spinner/loading-spinner.component';
+import { SearchableSelectComponent, SelectOption } from '../../shared/components/searchable-select/searchable-select.component';
 import { SocietyService } from '../../core/services/society.service';
 import { AuthService } from '../../core/services/auth.service';
+import { UserService } from '../../core/services/apartment.service';
 import { Society, SocietyCommittee, SocietyUserAssignment } from '../../core/models/society.model';
 
 @Component({
@@ -26,6 +29,7 @@ import { Society, SocietyCommittee, SocietyUserAssignment } from '../../core/mod
     MatDividerModule,
     PageHeaderComponent,
     LoadingSpinnerComponent,
+    SearchableSelectComponent,
   ],
   template: `
     <app-page-header title="Society Details"></app-page-header>
@@ -146,7 +150,7 @@ import { Society, SocietyCommittee, SocietyUserAssignment } from '../../core/mod
             <div class="section-header">
               <div>
                 <div class="section-title">Committees</div>
-                <div class="section-copy">Create a committee and add residents with free-text committee roles.</div>
+                <div class="section-copy">Create a committee and pick an existing resident for each role. A resident can only hold one committee role at a time.</div>
               </div>
               <button mat-stroked-button type="button" (click)="addCommittee()">Add Committee</button>
             </div>
@@ -167,10 +171,8 @@ import { Society, SocietyCommittee, SocietyUserAssignment } from '../../core/mod
                   <div formArrayName="members" class="stack">
                     @for (member of committeeMembers(committeeIndex).controls; track member; let memberIndex = $index) {
                       <div class="nested-card" [formGroupName]="memberIndex">
-                        <mat-form-field appearance="fill" class="full-width">
-                          <mat-label>Resident Email</mat-label>
-                          <input matInput formControlName="email">
-                        </mat-form-field>
+                        <app-searchable-select label="Resident" formControlName="email"
+                          [options]="optionsForMember(member.get('email')?.value)"></app-searchable-select>
                         <mat-form-field appearance="fill" class="full-width">
                           <mat-label>Role Title</mat-label>
                           <input matInput formControlName="roleTitle" placeholder="Chairman, Member, Treasurer...">
@@ -231,6 +233,7 @@ import { Society, SocietyCommittee, SocietyUserAssignment } from '../../core/mod
 export class SocietyDetailComponent implements OnInit {
   private readonly svc = inject(SocietyService);
   private readonly auth = inject(AuthService);
+  private readonly userSvc = inject(UserService);
   private readonly fb = inject(FormBuilder);
   private readonly snackBar = inject(MatSnackBar);
 
@@ -239,6 +242,7 @@ export class SocietyDetailComponent implements OnInit {
   readonly editing = signal(false);
   readonly society = signal<Society | null>(null);
   readonly isAdmin = this.auth.isAdmin;
+  readonly allUsers = signal<{ email: string; fullName: string }[]>([]);
 
   readonly form = this.fb.group({
     name: ['', Validators.required],
@@ -259,6 +263,26 @@ export class SocietyDetailComponent implements OnInit {
     return this.form.get('committees') as FormArray;
   }
 
+  private readonly committeesValue = toSignal(this.committees.valueChanges, { initialValue: [] as Array<{ members?: { email?: string }[] }> });
+
+  private readonly assignedEmails = computed(() => {
+    const emails = new Set<string>();
+    for (const committee of this.committeesValue() ?? []) {
+      for (const member of committee.members ?? []) {
+        if (member.email) emails.add(member.email.toLowerCase());
+      }
+    }
+    return emails;
+  });
+
+  optionsForMember(currentEmail: string | null | undefined): SelectOption<string>[] {
+    const assigned = this.assignedEmails();
+    const current = (currentEmail ?? '').toLowerCase();
+    return this.allUsers()
+      .filter(u => u.email.toLowerCase() === current || !assigned.has(u.email.toLowerCase()))
+      .map(u => ({ value: u.email, label: `${u.fullName} (${u.email})` }));
+  }
+
   ngOnInit() {
     const sid = this.auth.societyId();
     if (!sid) {
@@ -273,6 +297,11 @@ export class SocietyDetailComponent implements OnInit {
         this.loading.set(false);
       },
       error: () => this.loading.set(false),
+    });
+
+    this.userSvc.list(sid, 1, 500).subscribe({
+      next: users => this.allUsers.set((users.items ?? []).map(u => ({ email: u.email, fullName: u.fullName ?? u.name ?? u.email }))),
+      error: () => {},
     });
   }
 

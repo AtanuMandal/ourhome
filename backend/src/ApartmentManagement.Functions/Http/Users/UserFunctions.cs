@@ -32,8 +32,21 @@ public class UserFunctions(ISender mediator, ICurrentUserService currentUser)
     {
         int.TryParse(req.Query["page"], out var page);
         int.TryParse(req.Query["pageSize"], out var pageSize);
+        var search = req.Query["search"].ToString();
         var result = await mediator.Send(
-            new GetUsersBySocietyQuery(societyId, new PaginationParams { Page = page < 1 ? 1 : page, PageSize = pageSize < 1 ? 20 : pageSize }, null), ct);
+            new GetUsersBySocietyQuery(societyId, new PaginationParams { Page = page < 1 ? 1 : page, PageSize = pageSize < 1 ? 20 : pageSize }, null,
+                string.IsNullOrWhiteSpace(search) ? null : search), ct);
+        return result.ToActionResult();
+    }
+
+    [Function("DeleteUser")]
+    public async Task<IActionResult> DeleteUser(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "delete", Route = "societies/{societyId}/users/{id}")] HttpRequest req,
+        string societyId, string id, CancellationToken ct)
+    {
+        if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
+        if (!currentUser.IsInRoles("SUAdmin", "HQAdmin")) return new ForbidResult();
+        var result = await mediator.Send(new DeleteUserCommand(societyId, id), ct);
         return result.ToActionResult();
     }
 
@@ -74,6 +87,19 @@ public class UserFunctions(ISender mediator, ICurrentUserService currentUser)
         return result.ToActionResult();
     }
 
+    [Function("RequestPhoneLoginOtp")]
+    public async Task<IActionResult> RequestPhoneLoginOtp(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "auth/otp-login/request")] HttpRequest req,
+        CancellationToken ct)
+    {
+        var body = await req.DeserializeAsync<PhoneLoginOtpRequest>(ct);
+        if (body is null)
+            return new BadRequestObjectResult("Invalid request body");
+
+        var result = await mediator.Send(new RequestPhoneLoginOtpCommand(body.Phone, body.SelectedUserId), ct);
+        return result.ToActionResult();
+    }
+
     [Function("RequestPasswordReset")]
     public async Task<IActionResult> RequestPasswordReset(
         [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "auth/password-reset/request")] HttpRequest req,
@@ -103,7 +129,8 @@ public class UserFunctions(ISender mediator, ICurrentUserService currentUser)
 
     [Function("GetUser")]
     public async Task<IActionResult> GetUser(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "societies/{societyId}/users/{id}")] HttpRequest req,
+        // Constrained to :guid so literal sibling routes (by-email/pending-join-requests) never bind here as "id".
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "societies/{societyId}/users/{id:guid}")] HttpRequest req,
         string societyId, string id, CancellationToken ct)
     {
         var result = await mediator.Send(new GetUserQuery(societyId, id), ct);

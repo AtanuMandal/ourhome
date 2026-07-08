@@ -1,6 +1,7 @@
 using ApartmentManagement.Application.Commands.Maintenance;
 using ApartmentManagement.Application.Commands.Notice;
 using ApartmentManagement.Application.Commands.Gamification;
+using ApartmentManagement.Application.Commands.Staff;
 using MediatR;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
@@ -56,6 +57,38 @@ public class TimerFunctions(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error in UpdateCompetitionStatuses timer");
+        }
+    }
+
+    /// <summary>Runs every 15 minutes — notifies SUAdmin when a staff member hasn't checked in shortly after their shift's grace period.</summary>
+    [Function("NotifyMissingStaffCheckIns")]
+    public async Task NotifyMissingStaffCheckIns(
+        [TimerTrigger("0 */15 * * * *")] TimerInfo timer, CancellationToken ct)
+    {
+        logger.LogInformation("NotifyMissingStaffCheckIns timer triggered");
+        try
+        {
+            await mediator.Send(new NotifyMissingStaffCheckInsCommand(), ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error in NotifyMissingStaffCheckIns timer");
+        }
+    }
+
+    /// <summary>Runs daily at 11:45 PM UTC — marks staff with no check-in that day as Absent.</summary>
+    [Function("MarkAbsentStaff")]
+    public async Task MarkAbsentStaff(
+        [TimerTrigger("0 45 23 * * *")] TimerInfo timer, CancellationToken ct)
+    {
+        logger.LogInformation("MarkAbsentStaff timer triggered");
+        try
+        {
+            await mediator.Send(new MarkAbsentStaffCommand(), ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error in MarkAbsentStaff timer");
         }
     }
 

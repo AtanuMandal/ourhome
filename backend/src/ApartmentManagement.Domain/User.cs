@@ -18,6 +18,7 @@ public sealed class User : BaseEntity
     public string? InvitedByUserId { get; private set; }
     public bool IsActive { get; private set; }
     public bool IsVerified { get; private set; }
+    public bool IsDeleted { get; private set; }
     public string? OtpCode { get; private set; }
     public DateTime? OtpExpiry { get; private set; }
     public string? ExternalAuthId { get; private set; }
@@ -88,6 +89,14 @@ public sealed class User : BaseEntity
 
     public void Deactivate() { IsActive = false; TouchUpdatedAt(); }
     public void Activate() { IsActive = true; TouchUpdatedAt(); }
+
+    /// <summary>Soft-deletes the user. Callers must verify no apartment mapping or pending dues exist first.</summary>
+    public void MarkDeleted()
+    {
+        IsDeleted = true;
+        IsActive = false;
+        TouchUpdatedAt();
+    }
 
     /// <summary>Updates mutable profile fields.</summary>
     public void UpdateProfile(string fullName, string phone)

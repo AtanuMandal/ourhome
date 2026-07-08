@@ -4,14 +4,14 @@
 }
 
 .app-container {
-  // Desktop: show sidenav
+  // Sidenav is always a real drawer now — "side" (always open, pinned) on desktop,
+  // "over" (toggled via hamburger, with backdrop) on mobile — see sidenavMode()/sidenavOpened().
   .side-nav {
     width: 240px;
     background: var(--surface);
     border-right: 1px solid var(--border);
-    display: none; // hidden on mobile
-
-    @media (min-width: 768px) { display: flex; flex-direction: column; }
+    display: flex;
+    flex-direction: column;
   }
 
   .main-content {
@@ -24,6 +24,26 @@
     padding-bottom: var(--bottom-nav-h);
     @media (min-width: 768px) { padding-bottom: 0; }
   }
+}
+
+.mobile-topbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+
+  &__title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--on-surface);
+  }
+
+  @media (min-width: 768px) { display: none; }
 }
 
 // Side nav sections
@@ -113,11 +133,4 @@
   &__icon { color: #f59e0b; font-size: 20px; height: 20px; width: 20px; flex-shrink: 0; }
   &__text { flex: 1; font-size: 13px; color: #78350f; }
   &__btn { flex-shrink: 0; font-size: 13px; }
-}
-
-// Mobile: sidenav-container behaves as plain container
-@media (max-width: 767px) {
-  ::ng-deep .mat-drawer-container { background: transparent !important; }
-  ::ng-deep .mat-drawer { display: none !important; }
-  ::ng-deep .mat-drawer-content { margin-left: 0 !important; }
 }

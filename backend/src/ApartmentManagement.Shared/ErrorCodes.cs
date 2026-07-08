@@ -25,6 +25,9 @@ public static class ErrorCodes
     public const string OtpInvalid = "OTP_INVALID";
     public const string OtpExpired = "OTP_EXPIRED";
     public const string UserNotVerified = "USER_NOT_VERIFIED";
+    public const string UserHasApartmentMapping = "USER_HAS_APARTMENT_MAPPING";
+    public const string UserHasPendingDues = "USER_HAS_PENDING_DUES";
+    public const string UserAlreadyOnCommittee = "USER_ALREADY_ON_COMMITTEE";
 
     public const string AmenityNotFound = "AMENITY_NOT_FOUND";
     public const string BookingConflict = "BOOKING_CONFLICT";
@@ -60,4 +63,10 @@ public static class ErrorCodes
 
     public const string InvalidInviteToken = "INVALID_INVITE_TOKEN";
     public const string NoPendingApartmentRequest = "NO_PENDING_APARTMENT_REQUEST";
+
+    public const string StaffNotFound = "STAFF_NOT_FOUND";
+    public const string StaffInactive = "STAFF_INACTIVE";
+    public const string ShiftNotFound = "SHIFT_NOT_FOUND";
+    public const string StaffAlreadyCheckedIn = "STAFF_ALREADY_CHECKED_IN";
+    public const string StaffNotCheckedIn = "STAFF_NOT_CHECKED_IN";
 }

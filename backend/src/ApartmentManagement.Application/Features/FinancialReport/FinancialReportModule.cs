@@ -21,6 +21,9 @@ public record GetCashFlowQuery(string SocietyId, int FromMonth, int FromYear, in
 public record GetApartmentLedgerQuery(string SocietyId, string ApartmentId, int? FromYear, int? ToYear)
     : IRequest<Result<ApartmentLedgerDto>>;
 
+public record GetSocietyLedgerQuery(string SocietyId, DateTime? From = null, DateTime? To = null)
+    : IRequest<Result<SocietyLedgerDto>>;
+
 public record GetSocietySummaryQuery(string SocietyId)
     : IRequest<Result<SocietySummaryDto>>;
 
@@ -45,6 +48,62 @@ file static class MonthHelper
     internal static int CurrentFyStart(DateTime now) => now.Month >= 4 ? now.Year : now.Year - 1;
 }
 
+file static class LedgerHelper
+{
+    /// <summary>Raw (unbalanced) ledger transaction — a debit or a credit at a point in time.</summary>
+    internal readonly record struct RawEntry(DateTime Date, string Description, string Type, decimal? Debit, decimal? Credit);
+
+    /// <summary>
+    /// Builds the debit (charge raised) and credit (payment received) transactions for a single
+    /// maintenance charge. Shared by both the per-apartment ledger and the society-wide ledger so the
+    /// debit/credit-formatting logic only lives in one place.
+    /// </summary>
+    internal static IEnumerable<RawEntry> MaintenanceChargeEntries(Domain.Entities.MaintenanceCharge charge, string? apartmentLabel = null)
+    {
+        var suffix = apartmentLabel is null ? string.Empty : $"{apartmentLabel} — ";
+        var period = MonthHelper.Label(charge.ChargeMonth, charge.ChargeYear);
+
+        yield return new RawEntry(
+            charge.DueDate, $"Maintenance — {suffix}{period}", "Charge", charge.Amount, null);
+
+        if (charge.Status == PaymentStatus.Paid && charge.PaidAt.HasValue)
+        {
+            yield return new RawEntry(
+                charge.PaidAt.Value, $"Payment received — {suffix}{period}", "Payment", null, charge.Amount);
+        }
+    }
+
+    /// <summary>Builds the debit (bill raised) and credit (payment made) transactions for a vendor charge.</summary>
+    internal static IEnumerable<RawEntry> VendorChargeEntries(Domain.Entities.VendorCharge charge)
+    {
+        var period = MonthHelper.Label(charge.ChargeMonth, charge.ChargeYear);
+
+        yield return new RawEntry(
+            charge.DueDate, $"Vendor Bill — {charge.VendorName} — {period}", "VendorBill", charge.Amount, null);
+
+        if (charge.Status == PaymentStatus.Paid && charge.PaidAt.HasValue)
+        {
+            yield return new RawEntry(
+                charge.PaidAt.Value, $"Vendor payment — {charge.VendorName} — {period}", "VendorPayment", null, charge.Amount);
+        }
+    }
+
+    /// <summary>Sorts raw transactions chronologically and accumulates a running balance (debit adds, credit subtracts).</summary>
+    internal static List<LedgerEntryDto> ToLedgerEntries(IEnumerable<RawEntry> rawEntries)
+    {
+        var entries = new List<LedgerEntryDto>();
+        decimal balance = 0;
+
+        foreach (var raw in rawEntries.OrderBy(e => e.Date))
+        {
+            balance += (raw.Debit ?? 0) - (raw.Credit ?? 0);
+            entries.Add(new LedgerEntryDto(raw.Date, raw.Description, raw.Type, raw.Debit, raw.Credit, balance));
+        }
+
+        return entries;
+    }
+}
+
 // ─── GetFinancialDashboard ────────────────────────────────────────────────────
 
 public sealed class GetFinancialDashboardQueryHandler(
@@ -55,6 +114,9 @@ public sealed class GetFinancialDashboardQueryHandler(
     ILogger<GetFinancialDashboardQueryHandler> logger)
     : IRequestHandler<GetFinancialDashboardQuery, Result<FinancialDashboardDto>>
 {
+    /// <summary>Shared "next N days" window used for both upcoming vendor dues (outflow) and upcoming charges (inflow).</summary>
+    private const int UpcomingWindowDays = 7;
+
     public async Task<Result<FinancialDashboardDto>> Handle(
         GetFinancialDashboardQuery request, CancellationToken ct)
     {
@@ -112,11 +174,11 @@ public sealed class GetFinancialDashboardQueryHandler(
                     (int)(now.Date - oldestDue.Date).TotalDays));
             }
 
-            // Upcoming vendor dues — next 7 days (Pending charges across all months)
-            var nextWeek = now.Date.AddDays(7);
-            var upcoming = vendorCharges
+            // Upcoming vendor dues — next N days (Pending charges across all months)
+            var nextWindow = now.Date.AddDays(UpcomingWindowDays);
+            var upcomingVendorDues = vendorCharges
                 .Where(c => c.IsActive && c.Status != PaymentStatus.Paid
-                         && c.DueDate.Date >= now.Date && c.DueDate.Date <= nextWeek)
+                         && c.DueDate.Date >= now.Date && c.DueDate.Date <= nextWindow)
                 .OrderBy(c => c.DueDate)
                 .Take(5)
                 .Select(c => new UpcomingVendorDueDto(
@@ -124,13 +186,43 @@ public sealed class GetFinancialDashboardQueryHandler(
                     (int)(c.DueDate.Date - now.Date).TotalDays))
                 .ToList();
 
+            // Upcoming charges (resident dues) — next N days across all months. Uses the due-date-range
+            // repository query (rather than the current-month-scoped `mainCharges` above) so charges due
+            // in the next few days are found even when they fall just past a calendar-month boundary.
+            var upcomingChargeEntities = (await maintenanceChargeRepo.GetByDueDateRangeAsync(
+                request.SocietyId, now.Date, nextWindow, ct))
+                .Where(c => c.Status is PaymentStatus.Pending or PaymentStatus.Overdue)
+                .OrderBy(c => c.DueDate)
+                .ToList();
+
+            var upcomingCharges = new List<UpcomingChargeDto>(upcomingChargeEntities.Count);
+            foreach (var charge in upcomingChargeEntities)
+            {
+                var apt = await apartmentRepo.GetByIdAsync(charge.ApartmentId, request.SocietyId, ct);
+                upcomingCharges.Add(new UpcomingChargeDto(
+                    charge.ApartmentId,
+                    apt?.ToDisplayLabel() ?? charge.ApartmentId,
+                    charge.Amount,
+                    charge.DueDate,
+                    (int)(charge.DueDate.Date - now.Date).TotalDays));
+            }
+
+            var upcomingCashInflow  = upcomingCharges.Sum(c => c.Amount);
+            var upcomingCashOutflow = vendorCharges
+                .Where(c => c.IsActive && c.Status != PaymentStatus.Paid
+                         && c.DueDate.Date >= now.Date && c.DueDate.Date <= nextWindow)
+                .Sum(c => c.Amount);
+
             return Result<FinancialDashboardDto>.Success(new FinancialDashboardDto(
                 month, year, MonthHelper.Label(month, year),
                 mainBilled, mainCollected, mainPending, mainOverdue, efficiency,
                 vendorBilled, vendorPaid, vendorOutstanding,
                 mainCollected - vendorPaid,
                 topOverdue,
-                upcoming));
+                upcomingVendorDues,
+                upcomingCharges,
+                upcomingCashInflow,
+                upcomingCashOutflow));
         }
         catch (Exception ex)
         {
@@ -258,38 +350,10 @@ public sealed class GetApartmentLedgerQueryHandler(
             if (request.ToYear.HasValue)
                 charges = charges.Where(c => c.ChargeYear <= request.ToYear.Value).ToList();
 
-            // Sort chronologically
-            var sorted = charges.OrderBy(c => c.DueDate).ToList();
-
-            // Build ledger entries: one debit per charge, one credit for paid charges
-            var entries = new List<LedgerEntryDto>(sorted.Count * 2);
-            decimal balance = 0;
-
-            foreach (var charge in sorted)
-            {
-                // Debit (charge raised)
-                balance += charge.Amount;
-                entries.Add(new LedgerEntryDto(
-                    charge.DueDate,
-                    $"Maintenance — {MonthHelper.Label(charge.ChargeMonth, charge.ChargeYear)}",
-                    "Charge",
-                    charge.Amount,
-                    null,
-                    balance));
-
-                // Credit (payment received)
-                if (charge.Status == PaymentStatus.Paid && charge.PaidAt.HasValue)
-                {
-                    balance -= charge.Amount;
-                    entries.Add(new LedgerEntryDto(
-                        charge.PaidAt.Value,
-                        $"Payment received — {MonthHelper.Label(charge.ChargeMonth, charge.ChargeYear)}",
-                        "Payment",
-                        null,
-                        charge.Amount,
-                        balance));
-                }
-            }
+            // Build ledger entries: one debit per charge, one credit for paid charges — sorted chronologically
+            var rawEntries = charges.SelectMany(c => LedgerHelper.MaintenanceChargeEntries(c));
+            var entries = LedgerHelper.ToLedgerEntries(rawEntries);
+            var balance = entries.Count > 0 ? entries[^1].Balance : 0;
 
             return Result<ApartmentLedgerDto>.Success(new ApartmentLedgerDto(
                 request.ApartmentId,
@@ -302,6 +366,73 @@ public sealed class GetApartmentLedgerQueryHandler(
         {
             logger.LogError(ex, "GetApartmentLedger failed for apartment {ApartmentId}", request.ApartmentId);
             return Result<ApartmentLedgerDto>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
+// ─── GetSocietyLedger (overall society view, all apartments + vendor charges) ─
+
+public sealed class GetSocietyLedgerQueryHandler(
+    IMaintenanceChargeRepository maintenanceChargeRepo,
+    IVendorChargeRepository vendorChargeRepo,
+    IApartmentRepository apartmentRepo,
+    ICurrentUserService currentUser,
+    ILogger<GetSocietyLedgerQueryHandler> logger)
+    : IRequestHandler<GetSocietyLedgerQuery, Result<SocietyLedgerDto>>
+{
+    public async Task<Result<SocietyLedgerDto>> Handle(
+        GetSocietyLedgerQuery request, CancellationToken ct)
+    {
+        try
+        {
+            if (!currentUser.IsInRoles("SUAdmin", "HQAdmin", "HQUser"))
+                return Result<SocietyLedgerDto>.Failure(ErrorCodes.Forbidden,
+                    "Only society admins may view the society-wide ledger.");
+
+            // Load all maintenance charges (across every apartment) and all vendor charges for the society.
+            var maintenanceCharges = await maintenanceChargeRepo.GetBySocietyAsync(
+                request.SocietyId, 1, 10_000, null, null, null, null, ct);
+
+            var vendorCharges = (await vendorChargeRepo.GetBySocietyAsync(
+                request.SocietyId, 1, 10_000, null, null, null, null, ct))
+                .Where(c => !c.IsDeleted && c.IsActive)
+                .ToList();
+
+            if (request.From.HasValue)
+            {
+                maintenanceCharges = maintenanceCharges.Where(c => c.DueDate.Date >= request.From.Value.Date).ToList();
+                vendorCharges      = vendorCharges.Where(c => c.DueDate.Date >= request.From.Value.Date).ToList();
+            }
+            if (request.To.HasValue)
+            {
+                maintenanceCharges = maintenanceCharges.Where(c => c.DueDate.Date <= request.To.Value.Date).ToList();
+                vendorCharges      = vendorCharges.Where(c => c.DueDate.Date <= request.To.Value.Date).ToList();
+            }
+
+            // Resolve each distinct apartment's display label once.
+            var labels = new Dictionary<string, string>();
+            foreach (var aptId in maintenanceCharges.Select(c => c.ApartmentId).Distinct())
+            {
+                var apt = await apartmentRepo.GetByIdAsync(aptId, request.SocietyId, ct);
+                labels[aptId] = apt?.ToDisplayLabel() ?? aptId;
+            }
+
+            var rawEntries = maintenanceCharges
+                .SelectMany(c => LedgerHelper.MaintenanceChargeEntries(c, labels.GetValueOrDefault(c.ApartmentId, c.ApartmentId)))
+                .Concat(vendorCharges.SelectMany(LedgerHelper.VendorChargeEntries));
+
+            var entries = LedgerHelper.ToLedgerEntries(rawEntries);
+            var balance = entries.Count > 0 ? entries[^1].Balance : 0;
+
+            return Result<SocietyLedgerDto>.Success(new SocietyLedgerDto(
+                request.SocietyId,
+                balance,
+                entries));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "GetSocietyLedger failed for society {SocietyId}", request.SocietyId);
+            return Result<SocietyLedgerDto>.Failure(ErrorCodes.InternalError, ex.Message);
         }
     }
 }

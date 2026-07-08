@@ -24,3 +24,6 @@ public enum VendorChargeType { Recurring, AdHoc }
 public enum CompetitionStatus { Upcoming, Active, Completed, Cancelled }
 public enum ServiceProviderStatus { Pending, Approved, Rejected, Suspended }
 public enum ServiceRequestStatus { Open, Accepted, InProgress, Completed, Cancelled }
+public enum StaffCategory { Security, Housekeeping, Gardener, Plumber, Electrician, Other }
+public enum StaffEmploymentType { OnPayroll, Contractor }
+public enum StaffAttendanceStatus { CheckedIn, CheckedOut, Absent, OnLeave }
