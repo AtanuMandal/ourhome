@@ -30,6 +30,9 @@ public class SeedDataFunction(
     IComplaintRepository          complaintRepo,
     IAmenityRepository            amenityRepo,
     IVisitorLogRepository         visitorRepo,
+    IShiftRepository              shiftRepo,
+    IStaffRepository              staffRepo,
+    IStaffAttendanceRepository    staffAttendanceRepo,
     IAuthService                  authService,
     IConfiguration                config)
 {
@@ -395,6 +398,154 @@ public class SeedDataFunction(
         }
         log.Add($"Visitors: {visitorSamples.Length}");
 
+        // ── 12. Shifts & Staff (workforce / attendance module) ───────────────────────
+        var shiftDefs = new (string Name, TimeSpan Start, TimeSpan End, int Grace)[]
+        {
+            ("Morning Security", new TimeSpan(6, 0, 0),  new TimeSpan(14, 0, 0), 15),
+            ("Night Security",   new TimeSpan(22, 0, 0), new TimeSpan(6, 0, 0),  15),
+            ("Housekeeping Day", new TimeSpan(8, 0, 0),  new TimeSpan(16, 0, 0), 30),
+        };
+
+        var shifts = new List<Shift>(shiftDefs.Length);
+        foreach (var (name, start, end, grace) in shiftDefs)
+        {
+            var shift = Shift.Create(society.Id, name, start, end, grace);
+            await shiftRepo.CreateAsync(shift, ct);
+            shifts.Add(shift);
+        }
+        log.Add($"Shifts: {shifts.Count}");
+
+        var morningShift = shifts[0];
+        var nightShift = shifts[1];
+        var housekeepingShift = shifts[2];
+
+        var staffDefs = new (string Name, string Phone, StaffCategory Category, StaffEmploymentType EmploymentType, Shift? Shift)[]
+        {
+            ("Bahadur Thapa",    "9876500001", StaffCategory.Security,     StaffEmploymentType.OnPayroll,  morningShift),
+            ("Suresh Yadav",     "9876500002", StaffCategory.Security,     StaffEmploymentType.OnPayroll,  morningShift),
+            ("Ramlal Chaudhary", "9876500003", StaffCategory.Security,     StaffEmploymentType.OnPayroll,  nightShift),
+            ("Ganesh Tamang",    "9876500004", StaffCategory.Security,     StaffEmploymentType.OnPayroll,  nightShift),
+            ("Kamla Devi",       "9876500005", StaffCategory.Housekeeping, StaffEmploymentType.OnPayroll,  housekeepingShift),
+            ("Sita Ram",         "9876500006", StaffCategory.Housekeeping, StaffEmploymentType.OnPayroll,  housekeepingShift),
+            ("Mahesh Mali",      "9876500007", StaffCategory.Gardener,     StaffEmploymentType.Contractor, null),
+            ("Ravi Kumar",       "9876500008", StaffCategory.Plumber,      StaffEmploymentType.Contractor, null),
+            ("Anil Sharma",      "9876500009", StaffCategory.Electrician,  StaffEmploymentType.Contractor, null),
+        };
+
+        var staffList = new List<Staff>(staffDefs.Length);
+        foreach (var (name, phone, category, employmentType, shift) in staffDefs)
+        {
+            var staffMember = Staff.Create(society.Id, name, phone, category, employmentType,
+                shiftId: shift?.Id, shiftName: shift?.Name);
+            await staffRepo.CreateAsync(staffMember, ct);
+            staffList.Add(staffMember);
+        }
+        log.Add($"Staff: {staffList.Count}");
+
+        // Attendance history for the 6 shift-assigned staff — a mix of on-time/late check-ins,
+        // completed shifts, and absences so every attendance state is represented.
+        var today = DateTime.UtcNow.Date;
+        var attendanceCreated = 0;
+
+        async Task CheckInOutAsync(Staff staffMember, Shift shift, DateTime day, bool late, bool completed)
+        {
+            var checkInTime = DateTime.SpecifyKind(day + shift.StartTime, DateTimeKind.Utc)
+                .AddMinutes(late ? shift.GraceMinutes + 30 : 5);
+            var attendance = StaffAttendance.CheckIn(society.Id, staffMember.Id, staffMember.FullName, shift.Id, checkInTime, late);
+            if (completed)
+                attendance.CheckOut(checkInTime.AddHours(8));
+            await staffAttendanceRepo.CreateAsync(attendance, ct);
+            attendanceCreated++;
+        }
+
+        async Task MarkAbsentAsync(Staff staffMember, string shiftId, DateTime day)
+        {
+            var attendance = StaffAttendance.CreateAbsent(society.Id, staffMember.Id, staffMember.FullName, shiftId, day);
+            await staffAttendanceRepo.CreateAsync(attendance, ct);
+            attendanceCreated++;
+        }
+
+        var g1 = staffList[0]; // Morning guard — on duty now
+        var g2 = staffList[1]; // Morning guard — one absence, one late arrival
+        var g3 = staffList[2]; // Night guard — on duty now, arrived late
+        var g4 = staffList[3]; // Night guard — one absence
+        var h1 = staffList[4]; // Housekeeper — on duty now
+        var h2 = staffList[5]; // Housekeeper — absent today
+
+        await CheckInOutAsync(g1, morningShift, today.AddDays(-2), late: false, completed: true);
+        await CheckInOutAsync(g1, morningShift, today.AddDays(-1), late: false, completed: true);
+        await CheckInOutAsync(g1, morningShift, today, late: false, completed: false); // currently on duty
+
+        await CheckInOutAsync(g2, morningShift, today.AddDays(-2), late: true, completed: true);
+        await MarkAbsentAsync(g2, morningShift.Id, today.AddDays(-1));
+        await CheckInOutAsync(g2, morningShift, today, late: false, completed: true);
+
+        await CheckInOutAsync(g3, nightShift, today.AddDays(-2), late: false, completed: true);
+        await CheckInOutAsync(g3, nightShift, today.AddDays(-1), late: false, completed: true);
+        await CheckInOutAsync(g3, nightShift, today, late: true, completed: false); // on duty, arrived late
+
+        await MarkAbsentAsync(g4, nightShift.Id, today.AddDays(-2));
+        await CheckInOutAsync(g4, nightShift, today.AddDays(-1), late: false, completed: true);
+        await CheckInOutAsync(g4, nightShift, today, late: false, completed: true);
+
+        await CheckInOutAsync(h1, housekeepingShift, today.AddDays(-2), late: false, completed: true);
+        await CheckInOutAsync(h1, housekeepingShift, today.AddDays(-1), late: false, completed: true);
+        await CheckInOutAsync(h1, housekeepingShift, today, late: false, completed: false); // on duty
+
+        await CheckInOutAsync(h2, housekeepingShift, today.AddDays(-2), late: false, completed: true);
+        await CheckInOutAsync(h2, housekeepingShift, today.AddDays(-1), late: false, completed: true);
+        await MarkAbsentAsync(h2, housekeepingShift.Id, today);
+
+        log.Add($"Staff attendance records: {attendanceCreated}");
+
+        // ── Validation — re-read every module back from Cosmos to confirm persistence ─
+        var validation = new List<string>();
+
+        async Task ValidateCountAsync<T>(string label, Func<Task<IReadOnlyList<T>>> fetch, int expected)
+        {
+            var actual = (await fetch()).Count;
+            validation.Add(actual == expected
+                ? $"OK {label}: {actual}/{expected} persisted"
+                : $"MISMATCH {label}: expected {expected}, found {actual}");
+        }
+
+        await ValidateCountAsync("Apartments", () => apartmentRepo.GetAllAsync(society.Id, ct), apartments.Count);
+        await ValidateCountAsync("Users (residents + admin + security)", () => userRepo.GetAllAsync(society.Id, ct), allResidents.Count + 2);
+        await ValidateCountAsync("Maintenance charges", () => chargeRepo.GetAllAsync(society.Id, ct), chargesCreated);
+        await ValidateCountAsync("Vendors", () => vendorRepo.GetAllAsync(society.Id, ct), vendorDefs.Length);
+        await ValidateCountAsync("Vendor charges", () => vendorChargeRepo.GetAllAsync(society.Id, ct), vendorDefs.Length * 6);
+        await ValidateCountAsync("Notices", () => noticeRepo.GetAllAsync(society.Id, ct), noticeDefs.Length);
+        await ValidateCountAsync("Complaints", () => complaintRepo.GetAllAsync(society.Id, ct), complaintDefs.Length);
+        await ValidateCountAsync("Amenities", () => amenityRepo.GetAllAsync(society.Id, ct), amenityDefs.Length);
+        await ValidateCountAsync("Visitors", () => visitorRepo.GetAllAsync(society.Id, ct), visitorSamples.Length);
+        await ValidateCountAsync("Shifts", () => shiftRepo.GetAllAsync(society.Id, ct), shifts.Count);
+        await ValidateCountAsync("Staff", () => staffRepo.GetAllAsync(society.Id, ct), staffList.Count);
+        await ValidateCountAsync("Staff attendance", () => staffAttendanceRepo.GetAllAsync(society.Id, ct), attendanceCreated);
+
+        // Spot-checks beyond raw counts — confirm specific field values round-tripped correctly.
+        var reloadedSociety = await societyRepo.GetByIdAsync(society.Id, society.Id, ct);
+        validation.Add(reloadedSociety is not null && reloadedSociety.Name == society.Name
+            ? "OK Society: re-read matches (id, name)"
+            : "MISMATCH Society: re-read failed or name differs");
+
+        var reloadedAdmin = await userRepo.GetByIdAsync(admin.Id, society.Id, ct);
+        validation.Add(reloadedAdmin?.Role == UserRole.SUAdmin
+            ? "OK Admin user: role persisted as SUAdmin"
+            : $"MISMATCH Admin user: role is {reloadedAdmin?.Role.ToString() ?? "null (not found)"}");
+
+        var reloadedCharges = await chargeRepo.GetAllAsync(society.Id, ct);
+        validation.Add(reloadedCharges.Any(c => c.Status == PaymentStatus.Paid)
+            ? "OK Maintenance charges: at least one Paid charge persisted"
+            : "MISMATCH Maintenance charges: no Paid charge found");
+
+        var onDutyNow = await staffAttendanceRepo.GetOnDutyAsync(society.Id, ct);
+        validation.Add(onDutyNow.Count > 0
+            ? $"OK Staff attendance: {onDutyNow.Count} staff currently on duty"
+            : "MISMATCH Staff attendance: expected at least one staff member currently checked in");
+
+        var failedChecks = validation.Count(v => v.StartsWith("MISMATCH", StringComparison.Ordinal));
+        log.Add($"Validation: {validation.Count - failedChecks}/{validation.Count} checks passed");
+
         // ── Summary ───────────────────────────────────────────────────────────────
         return new OkObjectResult(new
         {
@@ -405,6 +556,8 @@ public class SeedDataFunction(
             securityPassword = "Security@123",
             residentPassword = "Resident@123",
             stats = log,
+            validationPassed = failedChecks == 0,
+            validation,
         });
     }
 
