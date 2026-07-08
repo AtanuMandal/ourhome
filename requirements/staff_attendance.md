@@ -35,6 +35,7 @@ This module tracks attendance for society staff — security guards, housekeepin
 - Check-in and check-out are recorded with a timestamp, marked by `SUSecurity` (for gate/security staff) or by `SUAdmin` on behalf of any staff category.
 - A staff member cannot be checked in twice without an intervening check-out for the same day.
 - Attendance for a given day defaults to `Absent` if no check-in is recorded by the end of that staff member's shift window, unless `SUAdmin` marks an explicit leave/exception (e.g., approved leave, holiday).
+- Check in status should be 
 
 ### 4. Today's Roster View
 - `SUSecurity` sees a live view of which staff are currently checked in, matching the "who's on the premises" visibility the gate already has for visitors.

@@ -258,7 +258,12 @@ public class VisitorLogRepository(CosmosClient client, string dbName, ILogger<Vi
 
     public async Task<IReadOnlyList<VisitorLog>> GetActiveVisitorsAsync(string societyId, CancellationToken ct = default)
     {
-        var q = new QueryDefinition("SELECT * FROM c WHERE c.societyId = @sid AND c.checkOutTime = null")
+        // The Cosmos serializer uses NullValueHandling.Ignore, so a null checkOutTime is never
+        // written to the document — it's missing, not JSON null. `c.checkOutTime = null` evaluates
+        // to Undefined (excluded from the WHERE clause) against a missing property, so this must be
+        // matched with IS_DEFINED/IS_NULL rather than `= null` (same fix as StaffAttendanceRepository).
+        var q = new QueryDefinition(
+            "SELECT * FROM c WHERE c.societyId = @sid AND (NOT IS_DEFINED(c.checkOutTime) OR IS_NULL(c.checkOutTime))")
             .WithParameter("@sid", societyId);
         return await ExecuteQueryAsync(q, societyId, ct);
     }
@@ -555,10 +560,18 @@ public class StaffRepository(CosmosClient client, string dbName, ILogger<StaffRe
 public class StaffAttendanceRepository(CosmosClient client, string dbName, ILogger<StaffAttendanceRepository> logger)
     : CosmosDbRepository<StaffAttendance>(client, dbName, "staff_attendance", logger), IStaffAttendanceRepository
 {
+    // "Open" (on-duty) means checked in with no check-out yet. The Cosmos serializer uses
+    // NullValueHandling.Ignore, so a null checkOutTime is never written to the document at all —
+    // it's *missing*, not JSON null. Cosmos treats a missing property as Undefined, and
+    // `c.checkOutTime = null` evaluates to Undefined (excluded from the WHERE clause) rather than
+    // true for a missing property, so it must be matched with IS_DEFINED/IS_NULL, not `= null`.
+    private const string OpenAttendanceFilter =
+        "IS_DEFINED(c.checkInTime) AND (NOT IS_DEFINED(c.checkOutTime) OR IS_NULL(c.checkOutTime))";
+
     public async Task<IReadOnlyList<StaffAttendance>> GetOnDutyAsync(string societyId, CancellationToken ct = default)
     {
         var q = new QueryDefinition(
-            "SELECT * FROM c WHERE c.societyId = @sid AND c.checkInTime != null AND c.checkOutTime = null")
+            $"SELECT * FROM c WHERE c.societyId = @sid AND {OpenAttendanceFilter}")
             .WithParameter("@sid", societyId);
         return await ExecuteQueryAsync(q, societyId, ct);
     }
@@ -566,7 +579,7 @@ public class StaffAttendanceRepository(CosmosClient client, string dbName, ILogg
     public async Task<StaffAttendance?> GetOpenAttendanceAsync(string societyId, string staffId, CancellationToken ct = default)
     {
         var q = new QueryDefinition(
-            "SELECT * FROM c WHERE c.societyId = @sid AND c.staffId = @staffId AND c.checkInTime != null AND c.checkOutTime = null")
+            $"SELECT * FROM c WHERE c.societyId = @sid AND c.staffId = @staffId AND {OpenAttendanceFilter}")
             .WithParameter("@sid", societyId).WithParameter("@staffId", staffId);
         return (await ExecuteQueryAsync(q, societyId, ct)).FirstOrDefault();
     }

@@ -73,6 +73,7 @@ src/app/
 - Lazy-loaded routes — each feature is a separate chunk.
 - PWA service worker: network-first for `/api/*`, cache-first for static assets.
 - Any gridview should have filter and sorting built in by default .
+- All user actions should be included in Side menu with role based acccess and visibility
 ---
 
 ## Security

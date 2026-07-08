@@ -40,6 +40,7 @@ public sealed class StaffAttendance : BaseEntity
             ShiftId = shiftId,
             AttendanceDate = checkInTimeUtc.Date,
             CheckInTime = checkInTimeUtc,
+            CheckOutTime =null,
             IsLate = isLate,
             Status = StaffAttendanceStatus.CheckedIn,
         };
