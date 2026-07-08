@@ -9,6 +9,7 @@ using ApartmentManagement.Application.Commands.Maintenance;
 using ApartmentManagement.Application.Commands.Gamification;
 using ApartmentManagement.Application.Commands.ServiceProvider;
 using ApartmentManagement.Application.Commands.Staff;
+using ApartmentManagement.Application.Commands.Dev;
 using ApartmentManagement.Domain.Enums;
 using FluentValidation;
 
@@ -453,5 +454,17 @@ public sealed class UpdateStaffCommandValidator : AbstractValidator<UpdateStaffC
         RuleFor(x => x.StaffId).NotEmpty();
         RuleFor(x => x.FullName).NotEmpty().MaximumLength(150);
         RuleFor(x => x.Phone).NotEmpty().MaximumLength(30);
+    }
+}
+
+// ─── Dev / Test Data Seeding ──────────────────────────────────────────────────
+
+public sealed class SeedTestDataCommandValidator : AbstractValidator<SeedTestDataCommand>
+{
+    public SeedTestDataCommandValidator()
+    {
+        RuleFor(x => x.SocietyId).NotEmpty();
+        RuleFor(x => x.ApartmentCount).InclusiveBetween(1, 20)
+            .WithMessage("Apartment count must be between 1 and 20.");
     }
 }

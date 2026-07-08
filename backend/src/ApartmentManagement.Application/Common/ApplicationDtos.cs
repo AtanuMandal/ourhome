@@ -553,6 +553,22 @@ public record StaffAttendanceReportEntry(
 public record StaffAttendanceReportResponse(
     DateTime FromDate, DateTime ToDate, IReadOnlyList<StaffAttendanceReportEntry> Entries);
 
+// ─── Dev / Test Data Seeding ──────────────────────────────────────────────────
+
+public sealed record SeedTestDataRequest(int? ApartmentCount = null);
+
+public record SeededApartmentInfo(
+    string ApartmentId, string ApartmentLabel,
+    string OwnerId, string OwnerEmail,
+    string TenantId, string TenantEmail,
+    IReadOnlyList<string> ChargeIds);
+
+public record SeedTestDataResponse(
+    int ApartmentsCreated,
+    int Failed,
+    IReadOnlyList<SeededApartmentInfo> Apartments,
+    IReadOnlyList<string> Errors);
+
 // ─── Common ───────────────────────────────────────────────────────────────────
 
 public record IdResponse(string Id);
