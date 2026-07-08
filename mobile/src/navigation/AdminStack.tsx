@@ -11,6 +11,9 @@ import { NoticeDetailScreen } from '../features/notices/NoticeDetailScreen';
 import { ComplaintListScreen } from '../features/complaints/ComplaintListScreen';
 import { AmenityListScreen } from '../features/amenities/AmenityListScreen';
 import { ProfileScreen } from '../features/profile/ProfileScreen';
+import { StaffListScreen } from '../features/staff/StaffListScreen';
+import { StaffFormScreen } from '../features/staff/StaffFormScreen';
+import { StaffAttendanceReportScreen } from '../features/staff/StaffAttendanceReportScreen';
 
 const opts = { headerShown: false };
 
@@ -21,6 +24,9 @@ type HomeParams = {
   NoticeDetail: { id: string };
   Complaints: undefined;
   Profile: undefined;
+  StaffList: undefined;
+  StaffForm: { id?: string };
+  StaffAttendanceReport: undefined;
 };
 const SHome = createNativeStackNavigator<HomeParams>();
 export function AdminHomeStack() {
@@ -31,6 +37,9 @@ export function AdminHomeStack() {
       <SHome.Screen name="NoticeDetail" component={NoticeDetailScreen} />
       <SHome.Screen name="Complaints" component={ComplaintListScreen} />
       <SHome.Screen name="Profile" component={ProfileScreen} />
+      <SHome.Screen name="StaffList" component={StaffListScreen} />
+      <SHome.Screen name="StaffForm" component={StaffFormScreen} />
+      <SHome.Screen name="StaffAttendanceReport" component={StaffAttendanceReportScreen} />
     </SHome.Navigator>
   );
 }

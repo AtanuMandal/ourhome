@@ -525,6 +525,34 @@ public record ServiceRequestResponse(
 
 public record AddReviewRequest(int Rating, string Comment);
 
+// ─── Staff Attendance ─────────────────────────────────────────────────────────
+
+public sealed record CreateShiftRequest(string Name, TimeSpan StartTime, TimeSpan EndTime, int GraceMinutes = 30);
+
+public record ShiftResponse(string Id, string SocietyId, string Name, TimeSpan StartTime, TimeSpan EndTime, int GraceMinutes);
+
+public sealed record CreateStaffRequest(
+    string FullName, string Phone, StaffCategory Category, StaffEmploymentType EmploymentType,
+    string? PhotoUrl = null, string? VendorId = null, string? ShiftId = null);
+
+public sealed record UpdateStaffRequest(string FullName, string Phone, string? PhotoUrl, string? ShiftId);
+
+public record StaffResponse(
+    string Id, string SocietyId, string FullName, string Phone, string? PhotoUrl,
+    string Category, string EmploymentType, string? VendorId, string? ShiftId, string? ShiftName,
+    bool IsActive, DateTime CreatedAt);
+
+public record StaffAttendanceResponse(
+    string Id, string SocietyId, string StaffId, string StaffName, string? ShiftId,
+    DateTime AttendanceDate, DateTime? CheckInTime, DateTime? CheckOutTime, bool IsLate, string Status);
+
+public record StaffAttendanceReportEntry(
+    string StaffId, string StaffName, string Category,
+    int PresentDays, int AbsentDays, int LateDays, int OnLeaveDays);
+
+public record StaffAttendanceReportResponse(
+    DateTime FromDate, DateTime ToDate, IReadOnlyList<StaffAttendanceReportEntry> Entries);
+
 // ─── Common ───────────────────────────────────────────────────────────────────
 
 public record IdResponse(string Id);

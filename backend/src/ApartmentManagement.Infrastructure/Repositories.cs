@@ -530,6 +530,73 @@ public class ServiceProviderRequestRepository(CosmosClient client, string dbName
     }
 }
 
+public class ShiftRepository(CosmosClient client, string dbName, ILogger<ShiftRepository> logger)
+    : CosmosDbRepository<Shift>(client, dbName, "shifts", logger), IShiftRepository
+{
+}
+
+public class StaffRepository(CosmosClient client, string dbName, ILogger<StaffRepository> logger)
+    : CosmosDbRepository<Staff>(client, dbName, "staff", logger), IStaffRepository
+{
+    public async Task<IReadOnlyList<Staff>> GetActiveAsync(string societyId, CancellationToken ct = default)
+    {
+        var q = new QueryDefinition("SELECT * FROM c WHERE c.societyId = @sid AND c.isActive = true")
+            .WithParameter("@sid", societyId);
+        return await ExecuteQueryAsync(q, societyId, ct);
+    }
+
+    public async Task<IReadOnlyList<Staff>> GetActiveWithShiftsAcrossSocietiesAsync(CancellationToken ct = default)
+    {
+        var q = new QueryDefinition("SELECT * FROM c WHERE c.isActive = true AND IS_DEFINED(c.shiftId) AND c.shiftId != null");
+        return await ExecuteCrossPartitionQueryAsync(q, ct);
+    }
+}
+
+public class StaffAttendanceRepository(CosmosClient client, string dbName, ILogger<StaffAttendanceRepository> logger)
+    : CosmosDbRepository<StaffAttendance>(client, dbName, "staff_attendance", logger), IStaffAttendanceRepository
+{
+    public async Task<IReadOnlyList<StaffAttendance>> GetOnDutyAsync(string societyId, CancellationToken ct = default)
+    {
+        var q = new QueryDefinition(
+            "SELECT * FROM c WHERE c.societyId = @sid AND c.checkInTime != null AND c.checkOutTime = null")
+            .WithParameter("@sid", societyId);
+        return await ExecuteQueryAsync(q, societyId, ct);
+    }
+
+    public async Task<StaffAttendance?> GetOpenAttendanceAsync(string societyId, string staffId, CancellationToken ct = default)
+    {
+        var q = new QueryDefinition(
+            "SELECT * FROM c WHERE c.societyId = @sid AND c.staffId = @staffId AND c.checkInTime != null AND c.checkOutTime = null")
+            .WithParameter("@sid", societyId).WithParameter("@staffId", staffId);
+        return (await ExecuteQueryAsync(q, societyId, ct)).FirstOrDefault();
+    }
+
+    public async Task<IReadOnlyList<StaffAttendance>> GetByStaffAsync(string societyId, string staffId, DateTime fromUtc, DateTime toUtc, CancellationToken ct = default)
+    {
+        var q = new QueryDefinition(
+            "SELECT * FROM c WHERE c.societyId = @sid AND c.staffId = @staffId AND c.attendanceDate >= @from AND c.attendanceDate <= @to")
+            .WithParameter("@sid", societyId).WithParameter("@staffId", staffId)
+            .WithParameter("@from", fromUtc).WithParameter("@to", toUtc);
+        return await ExecuteQueryAsync(q, societyId, ct);
+    }
+
+    public async Task<IReadOnlyList<StaffAttendance>> GetBySocietyAndDateRangeAsync(string societyId, DateTime fromUtc, DateTime toUtc, CancellationToken ct = default)
+    {
+        var q = new QueryDefinition(
+            "SELECT * FROM c WHERE c.societyId = @sid AND c.attendanceDate >= @from AND c.attendanceDate <= @to")
+            .WithParameter("@sid", societyId).WithParameter("@from", fromUtc).WithParameter("@to", toUtc);
+        return await ExecuteQueryAsync(q, societyId, ct);
+    }
+
+    public async Task<bool> HasRecordForDateAsync(string societyId, string staffId, DateTime attendanceDate, CancellationToken ct = default)
+    {
+        var q = new QueryDefinition(
+            "SELECT * FROM c WHERE c.societyId = @sid AND c.staffId = @staffId AND c.attendanceDate = @date")
+            .WithParameter("@sid", societyId).WithParameter("@staffId", staffId).WithParameter("@date", attendanceDate.Date);
+        return (await ExecuteQueryAsync(q, societyId, ct)).Count > 0;
+    }
+}
+
 public class OutboxRepository(CosmosClient client, string dbName, ILogger<OutboxRepository> logger)
     : CosmosDbRepository<OutboxRecord>(client, dbName, "outbox", logger), IOutboxRepository
 {

@@ -424,4 +424,19 @@ public static class MappingExtensions
 
         return permissions.ToList();
     }
+
+    public static ShiftResponse ToResponse(this Shift shift) =>
+        new(shift.Id, shift.SocietyId, shift.Name, shift.StartTime, shift.EndTime, shift.GraceMinutes);
+
+    public static StaffResponse ToResponse(this Staff staff) =>
+        new(
+            staff.Id, staff.SocietyId, staff.FullName, staff.Phone, staff.PhotoUrl,
+            staff.Category.ToString(), staff.EmploymentType.ToString(), staff.VendorId,
+            staff.ShiftId, staff.ShiftName, staff.IsActive, staff.CreatedAt);
+
+    public static StaffAttendanceResponse ToResponse(this StaffAttendance attendance) =>
+        new(
+            attendance.Id, attendance.SocietyId, attendance.StaffId, attendance.StaffName, attendance.ShiftId,
+            attendance.AttendanceDate, attendance.CheckInTime, attendance.CheckOutTime, attendance.IsLate,
+            attendance.Status.ToString());
 }

@@ -41,6 +41,9 @@ public static class CosmosDbInitializer
         new("outbox",                        "/societyId"),
         new("outbox-leases",                 "/id"),
         new("push-subscriptions",            "/societyId"),
+        new("shifts",                        "/societyId"),
+        new("staff",                         "/societyId"),
+        new("staff_attendance",              "/societyId"),
     ];
 
     private static readonly IndexingPolicy DefaultIndexingPolicy = new()

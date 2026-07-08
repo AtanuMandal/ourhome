@@ -128,6 +128,21 @@ public static class InfrastructureDependencyInjection
             sp.GetRequiredService<IOptions<InfrastructureSettings>>().Value.CosmosDbDatabaseName,
             sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<VendorChargeRepository>>()));
 
+        services.AddScoped<IShiftRepository>(sp => new ShiftRepository(
+            sp.GetRequiredService<CosmosClient>(),
+            sp.GetRequiredService<IOptions<InfrastructureSettings>>().Value.CosmosDbDatabaseName,
+            sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<ShiftRepository>>()));
+
+        services.AddScoped<IStaffRepository>(sp => new StaffRepository(
+            sp.GetRequiredService<CosmosClient>(),
+            sp.GetRequiredService<IOptions<InfrastructureSettings>>().Value.CosmosDbDatabaseName,
+            sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<StaffRepository>>()));
+
+        services.AddScoped<IStaffAttendanceRepository>(sp => new StaffAttendanceRepository(
+            sp.GetRequiredService<CosmosClient>(),
+            sp.GetRequiredService<IOptions<InfrastructureSettings>>().Value.CosmosDbDatabaseName,
+            sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<StaffAttendanceRepository>>()));
+
         services.AddScoped<IOutboxRepository>(sp => new OutboxRepository(
             sp.GetRequiredService<CosmosClient>(),
             sp.GetRequiredService<IOptions<InfrastructureSettings>>().Value.CosmosDbDatabaseName,
