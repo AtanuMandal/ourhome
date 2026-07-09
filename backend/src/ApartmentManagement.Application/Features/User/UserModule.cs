@@ -513,6 +513,7 @@ public record VerifyOtpCommand(string SocietyId, string UserId, string OtpCode) 
 
 public sealed class VerifyOtpCommandHandler(
     IUserRepository userRepository,
+    ISocietyRepository societyRepository,
     IAuthService authService,
     ILogger<VerifyOtpCommandHandler> logger)
     : IRequestHandler<VerifyOtpCommand, Result<VerifyOtpResponse>>
@@ -526,6 +527,10 @@ public sealed class VerifyOtpCommandHandler(
 
             if (!user.ValidateOtp(request.OtpCode))
                 return Result<VerifyOtpResponse>.Failure(ErrorCodes.OtpInvalid, "OTP is invalid or has expired.");
+
+            if (await SocietyLoginGuard.IsDisabledAsync(user.SocietyId, societyRepository, ct))
+                return Result<VerifyOtpResponse>.Failure(ErrorCodes.SocietyNotActive,
+                    "Your society has been disabled by the platform administrator. Please contact your housing society for assistance.");
 
             user.Verify();
             await userRepository.UpdateAsync(user, ct);
@@ -622,6 +627,10 @@ public sealed class LoginCommandHandler(
 
             if (selected is null)
                 return Result<LoginResponse>.Failure(ErrorCodes.InvalidCredentials, "The selected login option is not available.");
+
+            if (await SocietyLoginGuard.IsDisabledAsync(selected.SocietyId, societyRepository, ct))
+                return Result<LoginResponse>.Failure(ErrorCodes.SocietyNotActive,
+                    "Your society has been disabled by the platform administrator. Please contact your housing society for assistance.");
 
             var token = await authService.GenerateJwtTokenAsync(selected.Id, selected.Email, selected.Role.ToString(), selected.SocietyId, selected.ApartmentId, ct);
             return Result<LoginResponse>.Success(new LoginResponse(false, token, selected.ToAuthUser(), []));
@@ -1017,6 +1026,24 @@ internal static class UserLoginOptionMapper
         }
 
         return options;
+    }
+}
+
+/// <summary>
+/// Shared login-time gate: a user whose home society has been disabled by HQAdmin must not be
+/// issued a token. HQ users (society id <see cref="HqConstants.PartitionKey"/>) are exempt since
+/// they aren't scoped to a single society. A society still in "Draft" is not blocked here either —
+/// only an explicitly deactivated ("Inactive") society locks its users out.
+/// </summary>
+internal static class SocietyLoginGuard
+{
+    public static async Task<bool> IsDisabledAsync(string societyId, ISocietyRepository societyRepository, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(societyId) || string.Equals(societyId, HqConstants.PartitionKey, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var society = await societyRepository.GetByIdAsync(societyId, societyId, ct);
+        return society is not null && society.Status == SocietyStatus.Inactive;
     }
 }
 

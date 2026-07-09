@@ -1,5 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, Validators, ReactiveFormsModule } from '@angular/forms';
+import { HttpErrorResponse } from '@angular/common/http';
 import { Router, RouterLink } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -71,9 +72,9 @@ export class LoginComponent {
 
         this.router.navigate(['/dashboard']);
       },
-      error: () => {
+      error: (err: HttpErrorResponse) => {
         this.loading.set(false);
-        this.error.set('Unable to sign in with that email and password.');
+        this.error.set(this.messageFor(err, 'Unable to sign in with that email and password.'));
       },
     });
   }
@@ -112,9 +113,9 @@ export class LoginComponent {
         this.otpSocietyId = res.options[0]?.societyId ?? '';
         this.phoneStep.set('enter-otp');
       },
-      error: () => {
+      error: (err: HttpErrorResponse) => {
         this.loading.set(false);
-        this.error.set('Unable to find an account with that mobile number.');
+        this.error.set(this.messageFor(err, 'Unable to find an account with that mobile number.'));
       },
     });
   }
@@ -136,9 +137,9 @@ export class LoginComponent {
         this.loading.set(false);
         this.router.navigate(['/dashboard']);
       },
-      error: () => {
+      error: (err: HttpErrorResponse) => {
         this.loading.set(false);
-        this.error.set('That OTP is invalid or has expired.');
+        this.error.set(this.messageFor(err, 'That OTP is invalid or has expired.'));
       },
     });
   }
@@ -146,5 +147,12 @@ export class LoginComponent {
   labelFor(option: LoginOption) {
     const apartment = option.apartmentLabel ?? option.apartmentId ?? 'No apartment';
     return `${option.societyName} - ${apartment} - ${option.residentType}`;
+  }
+
+  private messageFor(err: HttpErrorResponse, fallback: string): string {
+    if (err.error?.errorCode === 'SOCIETY_NOT_ACTIVE') {
+      return 'Your society has been disabled by the platform administrator. Please contact your housing society for assistance.';
+    }
+    return fallback;
   }
 }

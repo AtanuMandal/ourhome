@@ -25,7 +25,11 @@ api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
-    if (error.response?.status === 401) {
+    const errorCode = (error.response?.data as { errorCode?: string } | undefined)?.errorCode;
+    // A disabled society locks out its own users from every action, same as an expired
+    // session — clear any stored token so the app doesn't keep retrying requests that
+    // will always be rejected, and drop back to the login screen.
+    if (error.response?.status === 401 || errorCode === 'SOCIETY_NOT_ACTIVE') {
       await tokenStore.clearTokens();
       authEventListener?.();
     }

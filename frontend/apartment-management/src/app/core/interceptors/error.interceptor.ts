@@ -17,6 +17,11 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
       } else if (err.status === 401) {
         message = 'Session expired. Please log in again.';
         auth.logout();
+      } else if (err.status === 403 && err.error?.errorCode === 'SOCIETY_NOT_ACTIVE') {
+        message = 'Your society has been disabled by the platform administrator. Please contact your housing society for assistance.';
+        // The account can no longer do anything until the society is re-enabled — clear any
+        // stale session so the app doesn't keep retrying requests that will always be rejected.
+        if (auth.isLoggedIn()) auth.logout();
       } else if (err.status === 403) {
         message = 'You do not have permission for this action.';
       } else if (err.status === 404) {
