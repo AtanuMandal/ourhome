@@ -112,6 +112,61 @@ public class CreateUserCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_HQAdminCreatingHQUser_Succeeds()
+    {
+        // Arrange
+        var hqAdmin = User.Create(HqConstants.PartitionKey, "Platform Admin", "hq-admin@platform.com", "+91-9000000010",
+            UserRole.HQAdmin, ResidentType.SocietyAdmin);
+        _currentUserServiceMock.Setup(s => s.UserId).Returns(hqAdmin.Id);
+        _userRepoMock
+            .Setup(r => r.GetByIdAsync(hqAdmin.Id, HqConstants.PartitionKey, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(hqAdmin);
+        _userRepoMock
+            .Setup(r => r.GetByEmailAsync(HqConstants.PartitionKey, "hq-user@platform.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
+        _userRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User u, CancellationToken _) => u);
+
+        var handler = CreateHandler();
+        var command = new CreateUserCommand(HqConstants.PartitionKey, "New HQ User", "hq-user@platform.com", "+91-9000000011",
+            UserRole.HQUser, ResidentType.SocietyAdmin, null);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Role.Should().Be("HQUser");
+        _userRepoMock.Verify(r => r.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_SUAdminCreatingHQAdmin_ReturnsForbidden()
+    {
+        // Arrange
+        var suAdmin = User.Create("soc-001", "Society Admin", "su-admin@soc.com", "+91-9000000012", UserRole.SUAdmin, ResidentType.SocietyAdmin);
+        _currentUserServiceMock.Setup(s => s.UserId).Returns(suAdmin.Id);
+        _userRepoMock
+            .Setup(r => r.GetByIdAsync(suAdmin.Id, HqConstants.PartitionKey, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(suAdmin);
+        _userRepoMock
+            .Setup(r => r.GetByEmailAsync(HqConstants.PartitionKey, "hq-user@platform.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
+
+        var handler = CreateHandler();
+        var command = new CreateUserCommand(HqConstants.PartitionKey, "New HQ User", "hq-user@platform.com", "+91-9000000013",
+            UserRole.HQUser, ResidentType.SocietyAdmin, null);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.Forbidden);
+    }
+
+    [Fact]
     public async Task Handle_SUUserCreatingSUSecurity_ReturnsForbidden()
     {
         // Arrange

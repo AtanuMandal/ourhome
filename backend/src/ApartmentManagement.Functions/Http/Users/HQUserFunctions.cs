@@ -1,5 +1,6 @@
 using ApartmentManagement.Application.Commands.User;
 using ApartmentManagement.Application.DTOs;
+using ApartmentManagement.Application.Interfaces;
 using ApartmentManagement.Application.Queries.User;
 using ApartmentManagement.Domain.Enums;
 using ApartmentManagement.Functions.Helpers;
@@ -17,13 +18,16 @@ namespace ApartmentManagement.Functions.Http;
 /// to any society; they are stored under the reserved "hq" partition key.
 /// Routes: /api/hq/users/...
 /// </summary>
-public class HQUserFunctions(ISender mediator)
+public class HQUserFunctions(ISender mediator, ICurrentUserService currentUser)
 {
     [Function("CreateHQUser")]
     public async Task<IActionResult> CreateHQUser(
         [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "hq/users")] HttpRequest req,
         CancellationToken ct)
     {
+        //if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
+        //if (!currentUser.IsInRoles("HQAdmin")) return new ForbidResult();
+
         var body = await req.DeserializeAsync<CreateHQUserRequest>(ct);
         if (body is null) return new BadRequestObjectResult("Invalid request body.");
 
@@ -42,6 +46,9 @@ public class HQUserFunctions(ISender mediator)
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "hq/users/{id:guid}")] HttpRequest req,
         string id, CancellationToken ct)
     {
+        if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
+        if (!currentUser.IsInRoles("HQAdmin", "HQUser")) return new ForbidResult();
+
         var result = await mediator.Send(new GetUserQuery(HqConstants.PartitionKey, id), ct);
         return result.ToActionResult();
     }

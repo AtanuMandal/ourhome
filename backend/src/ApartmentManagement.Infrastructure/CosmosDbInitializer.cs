@@ -72,7 +72,7 @@ public static class CosmosDbInitializer
     public static async Task InitializeAsync(CosmosClient client, InfrastructureSettings settings, ILogger? logger = null)
     {
         var databaseName = settings.CosmosDbDatabaseName;
-        Console.WriteLine("CosmosDB init: ensuring database '{Database}' exists", databaseName);
+        Console.WriteLine($"CosmosDB init: ensuring database '{databaseName}' exists");
 
         var dbResponse = await client.CreateDatabaseIfNotExistsAsync(databaseName);
         var database = dbResponse.Database;
@@ -88,14 +88,15 @@ public static class CosmosDbInitializer
             var response = await database.CreateContainerIfNotExistsAsync(props);
             if (response.StatusCode == HttpStatusCode.Created)
             {
-                Console.WriteLine("CosmosDB init: created container '{Container}' in '{Database}'", spec.Name, databaseName);
+                Console.WriteLine($"CosmosDB init: created container '{spec.Name}' in '{databaseName}'");
                 created++;
             }
         }
 
         if (created == 0)
-            Console.WriteLine("CosmosDB init: all {Count} containers already exist in '{Database}'", Containers.Length, databaseName);
+            Console.WriteLine($"CosmosDB init: all {Containers.Length} containers already exist in '{databaseName}'");
         else
-            Console.WriteLine("CosmosDB init: {Created} container(s) created in '{Database}'", created, databaseName);
+            Console.WriteLine($"CosmosDB init: {created} container(s) created in '{databaseName}'");
+
     }
 }

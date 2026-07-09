@@ -1,5 +1,6 @@
 using Microsoft.Azure.Cosmos;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Serialization;
 using System.Reflection;
 
@@ -11,12 +12,15 @@ namespace ApartmentManagement.Infrastructure;
 /// </summary>
 public sealed class CosmosNewtonsoftSerializer : CosmosSerializer
 {
+    // StringEnumConverter: repository queries filter enum-typed fields (e.g. WHERE c.status = @status)
+    // by their string name, so enums must round-trip as strings, not their default numeric values.
     private static readonly JsonSerializer _serializer = JsonSerializer.Create(new JsonSerializerSettings
     {
         ContractResolver = new PrivateSetterCamelCaseContractResolver(),
         NullValueHandling = NullValueHandling.Ignore,
         DateFormatHandling = DateFormatHandling.IsoDateFormat,
         DateTimeZoneHandling = DateTimeZoneHandling.Utc,
+        Converters = { new StringEnumConverter() },
     });
 
     public override T FromStream<T>(Stream stream)

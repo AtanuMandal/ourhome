@@ -32,17 +32,19 @@ public sealed class CreateUserCommandHandler(
     {
         try
         {
-            var actor = await userRepository.GetByIdAsync(currentUserService.UserId, request.SocietyId, ct);
+            var actor = await userRepository.GetByIdAsync(currentUserService?.UserId ?? Guid.NewGuid().ToString(), request.SocietyId, ct);
             if (actor is not null)
             {
-                var canCreate = actor.Role == UserRole.SUAdmin
-                    ? request.ResidentType == ResidentType.Owner || request.Role == UserRole.SUSecurity
-                    : actor.ResidentType switch
-                    {
-                        ResidentType.Owner => request.ResidentType is ResidentType.Tenant or ResidentType.FamilyMember,
-                        ResidentType.Tenant => request.ResidentType == ResidentType.CoOccupant,
-                        _ => false
-                    };
+                var canCreate = actor.Role == UserRole.HQAdmin
+                    ? request.Role is UserRole.HQAdmin or UserRole.HQUser
+                    : actor.Role == UserRole.SUAdmin
+                        ? request.ResidentType == ResidentType.Owner || request.Role == UserRole.SUSecurity
+                        : actor.ResidentType switch
+                        {
+                            ResidentType.Owner => request.ResidentType is ResidentType.Tenant or ResidentType.FamilyMember,
+                            ResidentType.Tenant => request.ResidentType == ResidentType.CoOccupant,
+                            _ => false
+                        };
 
                 if (!canCreate)
                     return Result<UserResponse>.Failure(ErrorCodes.Forbidden, "You are not allowed to add this resident type.");
