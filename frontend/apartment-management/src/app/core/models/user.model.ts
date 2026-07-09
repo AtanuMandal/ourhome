@@ -18,6 +18,13 @@ export interface ResidentApartment {
   residentType: 'Owner' | 'Tenant' | 'FamilyMember' | 'CoOccupant' | 'SocietyAdmin';
 }
 
+export interface CreateHqUserDto {
+  fullName: string;
+  email: string;
+  phone: string;
+  role: 'HQAdmin' | 'HQUser';
+}
+
 export interface User {
   id: string;
   societyId: string;

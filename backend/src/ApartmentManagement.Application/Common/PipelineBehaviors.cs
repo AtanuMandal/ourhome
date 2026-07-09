@@ -1,8 +1,12 @@
+using ApartmentManagement.Domain.Enums;
+using ApartmentManagement.Domain.Repositories;
+using ApartmentManagement.Shared.Constants;
 using ApartmentManagement.Shared.Exceptions;
 using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
+using System.Reflection;
 using ValidationException = ApartmentManagement.Shared.Exceptions.ValidationException;
 
 namespace ApartmentManagement.Application.Behaviors;
@@ -77,6 +81,45 @@ public sealed class AuthorizationBehavior<TRequest, TResponse>(
             var requiredRoles = authRequest.RequiredRoles;
             if (requiredRoles.Count > 0 && !requiredRoles.Any(currentUser.IsInRole))
                 throw new ForbiddenException("Insufficient permissions.");
+        }
+        return await next();
+    }
+}
+
+/// <summary>
+/// Blocks every request from a caller whose home society has been disabled (deactivated) by
+/// HQAdmin. HQ users (partitioned under <see cref="HqConstants.PartitionKey"/>) are never scoped
+/// to a single society and are exempt. A society in "Draft" (not yet published) is NOT blocked —
+/// only an explicitly deactivated ("Inactive") society locks out its own users.
+/// Runs for every <see cref="IRequest{TResponse}"/> uniformly; short-circuits to a failure result
+/// via reflection since every command/query in this app returns <c>Result&lt;T&gt;</c>, which
+/// exposes a matching static <c>Failure(string,string)</c> factory. Requests whose response type
+/// has no such factory are left untouched (defensive no-op rather than a hard failure).
+/// </summary>
+public sealed class SocietyActiveBehavior<TRequest, TResponse>(
+    ApartmentManagement.Application.Interfaces.ICurrentUserService currentUser,
+    ISocietyRepository societyRepository)
+    : IPipelineBehavior<TRequest, TResponse>
+    where TRequest : notnull
+{
+    private static readonly MethodInfo? FailureFactory = typeof(TResponse).GetMethod(
+        "Failure", BindingFlags.Public | BindingFlags.Static, null, [typeof(string), typeof(string)], null);
+
+    public async Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
+    {
+        if (FailureFactory is not null
+            && currentUser.IsAuthenticated
+            && !string.IsNullOrWhiteSpace(currentUser.SocietyId)
+            && !string.Equals(currentUser.SocietyId, HqConstants.PartitionKey, StringComparison.OrdinalIgnoreCase))
+        {
+            var society = await societyRepository.GetByIdAsync(currentUser.SocietyId, currentUser.SocietyId, cancellationToken);
+            if (society is not null && society.Status == SocietyStatus.Inactive)
+            {
+                return (TResponse)FailureFactory.Invoke(null, [
+                    ErrorCodes.SocietyNotActive,
+                    "Your society has been disabled by the platform administrator. Please contact your housing society for assistance."
+                ])!;
+            }
         }
         return await next();
     }

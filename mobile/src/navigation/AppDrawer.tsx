@@ -34,6 +34,11 @@ import { PollDetailScreen } from '../features/polls/PollDetailScreen';
 import { AgmSessionListScreen } from '../features/polls/AgmSessionListScreen';
 import { AgmSessionFormScreen } from '../features/polls/AgmSessionFormScreen';
 import { AgmSessionDetailScreen } from '../features/polls/AgmSessionDetailScreen';
+import { HqSocietyListScreen } from '../features/hq/HqSocietyListScreen';
+import { HqSocietyFormScreen } from '../features/hq/HqSocietyFormScreen';
+import { HqSocietyEditScreen } from '../features/hq/HqSocietyEditScreen';
+import { HqSocietyReportScreen } from '../features/hq/HqSocietyReportScreen';
+import { HqUserListScreen } from '../features/hq/HqUserListScreen';
 import { colors } from '../theme/colors';
 
 const Drawer = createDrawerNavigator();
@@ -157,6 +162,24 @@ function PollStack() {
 
 // ── Main Drawer Navigator ───────────────────────────────────────��─────────────
 
+type HqSocietiesParams = {
+  HqSocietyList: undefined;
+  HqSocietyForm: undefined;
+  HqSocietyEdit: { id: string; name?: string };
+  HqSocietyReport: { id: string; name?: string };
+};
+const HqSocietiesNav = createNativeStackNavigator<HqSocietiesParams>();
+function HqSocietiesStack() {
+  return (
+    <HqSocietiesNav.Navigator screenOptions={noHeader}>
+      <HqSocietiesNav.Screen name="HqSocietyList" component={HqSocietyListScreen} />
+      <HqSocietiesNav.Screen name="HqSocietyForm" component={HqSocietyFormScreen} />
+      <HqSocietiesNav.Screen name="HqSocietyEdit" component={HqSocietyEditScreen} />
+      <HqSocietiesNav.Screen name="HqSocietyReport" component={HqSocietyReportScreen} />
+    </HqSocietiesNav.Navigator>
+  );
+}
+
 function renderDrawer(props: DrawerContentComponentProps) {
   return <CustomDrawer {...props} />;
 }
@@ -188,6 +211,8 @@ export function AppDrawer() {
       <Drawer.Screen name="Polls"           component={PollStack} />
       <Drawer.Screen name="Committee"       component={CommitteeScreen} />
       <Drawer.Screen name="ContactUs"       component={ContactUsScreen} />
+      <Drawer.Screen name="HqSocieties"     component={HqSocietiesStack} />
+      <Drawer.Screen name="HqUsers"         component={HqUserListScreen} />
       <Drawer.Screen name="Profile"         component={ProfileScreen} />
     </Drawer.Navigator>
   );

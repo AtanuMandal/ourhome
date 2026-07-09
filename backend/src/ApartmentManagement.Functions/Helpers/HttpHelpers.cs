@@ -70,6 +70,7 @@ public static class HttpHelpers
         return result.ErrorCode switch
         {
             "FORBIDDEN" => new ObjectResult(new { error = msg }) { StatusCode = 403 },
+            "SOCIETY_NOT_ACTIVE" => new ObjectResult(new { error = msg, errorCode = result.ErrorCode }) { StatusCode = 403 },
             "UNAUTHORIZED" => new UnauthorizedObjectResult(new { error = msg }),
             "VALIDATION_ERROR" => new BadRequestObjectResult(new { error = msg }),
             "VALIDATION_FAILED" => new BadRequestObjectResult(new { error = msg }),

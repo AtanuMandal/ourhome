@@ -61,20 +61,13 @@ const MENU_SECURITY: MenuItem[] = [
   { name: 'Profile',    icon: 'manage-accounts', label: 'My Profile' },
 ];
 
+// HQAdmin/HQUser are platform-level roles with no access to individual society-level
+// features (residents, billing, visitors, etc.) — their menu is limited to platform management.
 const MENU_HQ: MenuItem[] = [
-  { name: 'Dashboard',       icon: 'home',            label: 'Dashboard' },
-  { name: 'Residents',       icon: 'people',          label: 'Residents' },
-  { name: 'Apartments',      icon: 'domain',          label: 'Apartments' },
-  { name: 'Amenities',       icon: 'event-available', label: 'Amenities' },
-  { name: 'Complaints',      icon: 'report-problem',  label: 'Complaints' },
-  { name: 'Notices',         icon: 'notifications',   label: 'Notices' },
-  { name: 'Visitors',        icon: 'badge',           label: 'Visitors' },
-  { name: 'Maintenance',     icon: 'receipt-long',    label: 'Maintenance' },
-  { name: 'FinancialReport', icon: 'bar-chart',       label: 'Financial Reports' },
-  { name: 'VendorPayments',  icon: 'payments',        label: 'Vendor Payments' },
-  { name: 'Committee',       icon: 'groups',          label: 'Society Committee' },
-  { name: 'ContactUs',       icon: 'support-agent',   label: 'Contact Us' },
-  { name: 'Profile',         icon: 'manage-accounts', label: 'My Profile' },
+  { name: 'Dashboard',    icon: 'home',                  label: 'Dashboard' },
+  { name: 'HqSocieties',  icon: 'location-city',         label: 'Societies' },
+  { name: 'HqUsers',      icon: 'admin-panel-settings',  label: 'HQ Users' },
+  { name: 'Profile',      icon: 'manage-accounts',       label: 'My Profile' },
 ];
 
 function getMenuItems(role?: string): MenuItem[] {

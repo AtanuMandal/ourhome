@@ -29,6 +29,14 @@ public class SocietyRepository(CosmosClient client, string dbName, ILogger<Socie
         return await ExecuteCrossPartitionQueryAsync(q, ct);
     }
 
+    public async Task<IReadOnlyList<Society>> GetAllAcrossSocietiesAsync(int page, int pageSize, CancellationToken ct = default)
+    {
+        var q = new QueryDefinition("SELECT * FROM c OFFSET @offset LIMIT @limit")
+            .WithParameter("@offset", (page - 1) * pageSize)
+            .WithParameter("@limit", pageSize);
+        return await ExecuteCrossPartitionQueryAsync(q, ct);
+    }
+
     public async Task<int> CountAsync(CancellationToken ct = default)
     {
         var q = new QueryDefinition("SELECT VALUE COUNT(1) FROM c");

@@ -31,6 +31,10 @@ export class AuthService {
 
   readonly isSecurity = computed(() => this._state().user?.role === 'SUSecurity');
 
+  readonly isHqAdmin = computed(() => this._state().user?.role === 'HQAdmin');
+  readonly isHqUser  = computed(() => this._state().user?.role === 'HQUser');
+  readonly isHq      = computed(() => this.isHqAdmin() || this.isHqUser());
+
   readonly canManageVisitors = computed(() => {
     const role = this._state().user?.role;
     return role === 'SUAdmin' || role === 'SUSecurity';

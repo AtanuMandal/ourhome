@@ -110,22 +110,13 @@ export class AppComponent {
     { path: '/profile',    icon: 'manage_accounts', label: 'My Profile' },
   ];
 
+  // HQAdmin/HQUser are platform-level roles with no access to individual society-level
+  // features (residents, billing, visitors, etc.) — their nav is limited to platform management.
   private static readonly NAV_HQ: SideNavItem[] = [
-    { path: '/dashboard',       icon: 'home',            label: 'Dashboard' },
-    { path: '/apartments',      icon: 'domain',          label: 'Apartments' },
-    { path: '/residents',       icon: 'people',          label: 'Residents' },
-    { path: '/amenities',       icon: 'event_available', label: 'Amenities' },
-    { path: '/complaints',      icon: 'report_problem',  label: 'Complaints' },
-    { path: '/notices',         icon: 'notifications',   label: 'Notices' },
-    { path: '/visitors',        icon: 'badge',           label: 'Visitors' },
-    { path: '/maintenance',     icon: 'receipt_long',    label: 'Maintenance' },
-    { path: '/financial-report',icon: 'bar_chart',       label: 'Financial Reports' },
-    { path: '/rewards',         icon: 'emoji_events',    label: 'Rewards' },
-    { path: '/services',        icon: 'build',           label: 'Services' },
-    { path: '/vendor-payments', icon: 'payments',        label: 'Vendor Payments' },
-    { path: '/society',         icon: 'location_city',   label: 'Society' },
-    { path: '/contact-us',      icon: 'contact_support', label: 'Contact Us' },
-    { path: '/profile',         icon: 'manage_accounts', label: 'My Profile' },
+    { path: '/dashboard',    icon: 'home',            label: 'Dashboard' },
+    { path: '/hq/societies', icon: 'location_city',   label: 'Societies' },
+    { path: '/hq/users',     icon: 'admin_panel_settings', label: 'HQ Users' },
+    { path: '/profile',      icon: 'manage_accounts', label: 'My Profile' },
   ];
 
   constructor() {

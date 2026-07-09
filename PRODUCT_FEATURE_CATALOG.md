@@ -51,10 +51,13 @@ OurHome is a cloud-hosted, always-on platform that helps housing societies and a
 | Complaints & Service Requests | SUUser, SUAdmin | Lets residents log issues and track resolution by society staff |
 | Notice Board & Communication | SUAdmin, SUUser | Society-wide announcements and communication |
 | Visitor Management | SUUser, SUSecurity, SUAdmin | Controls entry of guests, delivery staff, and service providers |
+| Emergency SOS Alerts | SUUser, SUSecurity, SUAdmin | One-tap panic button connecting a resident directly to security and admin |
+| Staff Attendance & Workforce Management | SUAdmin, SUSecurity | Tracks the society's own security/housekeeping/maintenance staff roster and daily attendance |
 | Maintenance Billing & Fee Collection | SUAdmin, SUUser | Generates and collects periodic maintenance fees from residents |
 | Vendor & Operational Expense Management | SUAdmin | Tracks society vendors and operational spending |
 | Financial Reporting & Transparency | SUAdmin, SUUser | A suite of reports giving visibility into society finances |
 | Rewards & Gamification | SUUser, SUAdmin | Engagement features that reward positive resident participation |
+| Polls & AGM E-Voting | SUAdmin, SUUser | Structured resident polling and formal AGM e-voting with audit trail |
 | Local Service Provider Marketplace | SUUser, SUAdmin | Connects residents with vetted local service providers |
 | Mobile Application | All roles | Native mobile companion experience to the web platform |
 
@@ -399,7 +402,74 @@ OurHome is a cloud-hosted, always-on platform that helps housing societies and a
 
 ---
 
-### 5.11 Maintenance Billing & Fee Collection
+### 5.11 Emergency SOS Alerts
+
+**Purpose:** Give a resident a single, unmistakable way to raise an emergency — fire, medical, security threat, or anything that cannot wait for a normal complaint ticket — and get it in front of security and admin immediately, with a full response-time record.
+
+**Roles & Access**
+
+| Role | Access |
+|---|---|
+| SUUser | Triggers an SOS alert for their own apartment; can stand it down as a false alarm |
+| SUSecurity | Receives alerts in real time; acknowledges and resolves |
+| SUAdmin | Receives alerts; views full history and response-time reporting |
+
+**Business Capabilities**
+- A one-tap SOS control lets a resident raise an alert with a category (Fire, Medical, Security/Intrusion, Other) and an optional note
+- The resident's apartment, name, and a server timestamp are attached automatically — nothing to type or locate manually
+- Every on-duty security account and the society admin get an immediate, high-priority push notification with the resident's name, apartment, category, and note
+- Other residents linked to the same apartment (co-owner, family members) are also notified that a household member triggered an alert
+- An alert moves through a clear lifecycle: Triggered → Acknowledged → Resolved, or Triggered/Acknowledged → False Alarm
+- The first responder to acknowledge is recorded by name and time, so ownership of the alert is always clear
+- If an alert goes unacknowledged past a configurable window (default 2 minutes), it automatically escalates — re-notifying security and looping in admin if not already alerted
+- Admin can review full alert history and response-time/false-alarm-rate reporting to tune staffing and escalation timing
+
+**Business Rules**
+- Only the triggering resident can mark their own alert a False Alarm; only SUSecurity/SUAdmin can mark an alert Resolved
+- A resident can only trigger or stand down an alert for their own apartment
+- Escalation repeats at increasing intervals until the alert is acknowledged
+
+**Planned Enhancements**
+- One-tap dial to the local emergency number alongside the in-app alert, for Fire/Medical categories
+- Capturing device GPS location in addition to the registered apartment, for large campuses with common areas
+- A silent/duress trigger mode that raises an alert without an audible confirmation on the resident's device
+
+---
+
+### 5.12 Staff Attendance & Workforce Management
+
+**Purpose:** Track attendance for the society's own staff — security guards, housekeeping, gardeners, and contractors — replacing the paper register kept (if at all) at the gate today.
+
+**Roles & Access**
+
+| Role | Access |
+|---|---|
+| SUAdmin | Manages the staff roster and shifts, marks or corrects attendance, views attendance reports |
+| SUSecurity | Marks staff check-in/check-out at the gate, views today's roster and who is currently on duty |
+| SUUser | No access |
+
+**Business Capabilities**
+- Admin maintains a staff roster with name, phone, photo, category (Security, Housekeeping, Gardener, Plumber, Electrician, Other), assigned shift, and employment type (on-payroll or contractor)
+- Admin defines named shifts with start/end times (e.g., "Morning Security", "Night Security")
+- Security or admin marks check-in and check-out with a timestamp; a staff member cannot be checked in twice without an intervening check-out
+- A day with no check-in by the end of a staff member's shift is automatically recorded as Absent
+- Security sees a live "who's currently on duty" view, mirroring the same visibility already available for visitors
+- Admin views daily and monthly attendance summaries per staff member — present, absent, late-arrival counts — filterable by category and date range
+- Admin is notified if a staff member hasn't checked in within a configurable grace period (default 30 minutes) after their shift start
+- Deactivating a staff member who has left preserves their historical attendance record
+
+**Business Rules**
+- A staff member cannot be checked in twice on the same day without checking out first
+- Attendance defaults to Absent when no check-in occurs by end of shift, unless an exception is logged
+
+**Planned Enhancements**
+- Staff self check-in via QR code or geofence, rather than relying solely on SUSecurity to mark it
+- Advance leave requests from staff or their supervising contractor, to reduce false Absent marks
+- CSV payroll export of monthly attendance for payroll or contractor invoice reconciliation
+
+---
+
+### 5.13 Maintenance Billing & Fee Collection
 
 **Purpose:** Automate recurring maintenance billing and give both admins and residents a clear, month-by-month payment record.
 
@@ -444,7 +514,7 @@ OurHome is a cloud-hosted, always-on platform that helps housing societies and a
 
 ---
 
-### 5.12 Vendor & Operational Expense Management
+### 5.14 Vendor & Operational Expense Management
 
 **Purpose:** Bring the same rigor used for resident billing to the society's own outgoing vendor payments.
 
@@ -479,7 +549,7 @@ OurHome is a cloud-hosted, always-on platform that helps housing societies and a
 
 ---
 
-### 5.13 Financial Reporting & Transparency
+### 5.15 Financial Reporting & Transparency
 
 **Purpose:** Give society management full financial visibility, and give residents enough transparency to trust that their fees are being used responsibly — without exposing any other resident's personal payment data.
 
@@ -535,7 +605,7 @@ OurHome is a cloud-hosted, always-on platform that helps housing societies and a
 
 ---
 
-### 5.14 Rewards & Gamification
+### 5.16 Rewards & Gamification
 
 **Purpose:** Promote community engagement and make participation visible and rewarding.
 
@@ -571,7 +641,45 @@ OurHome is a cloud-hosted, always-on platform that helps housing societies and a
 
 ---
 
-### 5.15 Local Service Provider Marketplace
+### 5.17 Polls & AGM E-Voting
+
+**Purpose:** Let the society raise a question to residents and collect structured input — from a quick one-tap poll to a formal e-voting resolution tied to an Annual General Meeting (AGM) — replacing a show of hands, a WhatsApp thread, or a physical ballot with a digital paper trail.
+
+**Roles & Access**
+
+| Role | Access |
+|---|---|
+| SUAdmin | Creates and closes polls, configures voting rules and eligibility, views live tally, publishes results |
+| SUUser | Views open and past polls, casts a vote while open, views results per the poll's visibility setting |
+| SUSecurity | Views published results only — no voting rights |
+| HQAdmin / HQUser | No access to society-level polls |
+
+**Business Capabilities**
+- Admin creates a poll with a title, description, poll type (single or multiple choice), and two or more answer options
+- Admin sets a voting window (opens/closes), and can target the poll at the whole society, a single block, or a specific set of blocks
+- Admin chooses the voting unit — one vote per apartment (cast by the owner) or one vote per registered resident
+- Admin chooses anonymity — Anonymous (choice not linked to identity in any result) or Identified (who-voted-for-what retained for audit)
+- A poll can optionally link back to a Notice Board announcement (e.g. the AGM notice), surfacing the poll directly from that notice
+- An eligible resident/apartment casts exactly one vote per poll; a second attempt is rejected, unless the poll allows vote changes, in which case the earlier vote is replaced, not duplicated
+- Admin sees a live running tally while a poll is open — vote counts per option against the eligible count
+- Once closed, results are visible per the poll's visibility setting: immediately, only after close, or admin-only until manually published
+- A poll can be flagged as a formal AGM Resolution, enabling a quorum threshold and an identified audit trail; multiple resolutions can be grouped under one AGM session so residents see them as a single combined ballot rather than several unrelated polls
+- Residents get a push notification when a poll opens, a reminder ahead of close if they haven't voted, and a notification when results are published
+- Every vote is timestamped and recorded against the voting unit, regardless of anonymity setting — for Anonymous polls, that identity-to-choice link is retained internally for dispute resolution but never exposed to residents through the app; only the aggregate tally is
+
+**Business Rules**
+- An eligible apartment/resident cannot vote more than once on the same poll
+- Votes cast outside the voting window are rejected
+- If a quorum threshold is configured and not met, the outcome is recorded as No Quorum rather than Passed/Failed
+- A Single-Block poll requires exactly one target block; a Multiple-Block poll requires at least one
+
+**Planned Enhancements**
+- Allowing a resident to attach a short comment/objection to their vote on an AGM resolution, visible only to SUAdmin
+- A downloadable PDF summary of an AGM session's resolutions and results, for official society records
+
+---
+
+### 5.18 Local Service Provider Marketplace
 
 **Purpose:** Connect residents with vetted local service providers (plumbers, electricians, cab services, grocery stores, etc.) operating in or around the society.
 
@@ -608,7 +716,7 @@ OurHome is a cloud-hosted, always-on platform that helps housing societies and a
 
 ---
 
-### 5.16 Mobile Application
+### 5.19 Mobile Application
 
 **Purpose:** Give every role a native companion app with the same functional depth as the web app, plus mobile-only capabilities that a browser can't offer.
 

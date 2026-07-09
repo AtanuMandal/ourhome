@@ -5,6 +5,7 @@ using ApartmentManagement.Application.DTOs;
 using ApartmentManagement.Application.Queries.Society;
 using ApartmentManagement.Application.Queries.Apartment;
 using ApartmentManagement.Domain.Enums;
+using ApartmentManagement.Shared.Constants;
 using ApartmentManagement.Shared.Models;
 using ApartmentManagement.Tests.L2.TestInfrastructure;
 using FluentAssertions;
@@ -150,6 +151,75 @@ public class SocietyIntegrationTests : IntegrationTestBase
 
         var getResult = await Mediator.Send(new GetSocietyQuery(created.Id));
         getResult.Value!.Status.Should().Be("Active");
+    }
+
+    // ─── Disabled societies lock out their own users ──────────────────────────
+
+    [Fact]
+    public async Task DeactivateSociety_BlocksFurtherActionsFromThatSocietysUsers()
+    {
+        var created = (await Mediator.Send(ValidCreateSocietyCommand("Locked Gardens"))).Value!;
+
+        // HQAdmin publishes the society (Draft -> Active).
+        CurrentUserService.SocietyId = HqConstants.PartitionKey;
+        CurrentUserService.Role = "HQAdmin";
+        (await Mediator.Send(new PublishSocietyCommand(created.Society.Id))).IsSuccess.Should().BeTrue();
+
+        // While active, a request scoped to this society's own admin succeeds.
+        CurrentUserService.SocietyId = created.Society.Id;
+        CurrentUserService.UserId = created.Admin.Id;
+        CurrentUserService.Role = "SUAdmin";
+        (await Mediator.Send(new GetSocietyQuery(created.Society.Id))).IsSuccess.Should().BeTrue();
+
+        // HQAdmin disables the society (acting from the exempt "hq" partition).
+        CurrentUserService.SocietyId = HqConstants.PartitionKey;
+        CurrentUserService.Role = "HQAdmin";
+        (await Mediator.Send(new DeactivateSocietyCommand(created.Society.Id))).IsSuccess.Should().BeTrue();
+
+        // The same society's user is now blocked from any further action, including reads.
+        CurrentUserService.SocietyId = created.Society.Id;
+        CurrentUserService.Role = "SUAdmin";
+        var blockedResult = await Mediator.Send(new GetSocietyQuery(created.Society.Id));
+        blockedResult.IsFailure.Should().BeTrue();
+        blockedResult.ErrorCode.Should().Be(ErrorCodes.SocietyNotActive);
+
+        // Re-activating restores access for that society's users.
+        CurrentUserService.SocietyId = HqConstants.PartitionKey;
+        CurrentUserService.Role = "HQAdmin";
+        (await Mediator.Send(new PublishSocietyCommand(created.Society.Id))).IsSuccess.Should().BeTrue();
+
+        CurrentUserService.SocietyId = created.Society.Id;
+        CurrentUserService.Role = "SUAdmin";
+        (await Mediator.Send(new GetSocietyQuery(created.Society.Id))).IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task DraftSociety_DoesNotBlockActionsFromThatSocietysUsers()
+    {
+        // A newly created, not-yet-published (Draft) society is distinct from a disabled
+        // (Inactive) one and must not be locked out by the same-society-status check.
+        var created = (await Mediator.Send(ValidCreateSocietyCommand("Unpublished Heights"))).Value!;
+        created.Society.Status.Should().Be("Draft");
+
+        CurrentUserService.SocietyId = created.Society.Id;
+        CurrentUserService.UserId = created.Admin.Id;
+        CurrentUserService.Role = "SUAdmin";
+
+        var result = await Mediator.Send(new GetSocietyQuery(created.Society.Id));
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task HqAdmin_IsNeverBlockedByAnySocietysDisabledStatus()
+    {
+        var created = (await Mediator.Send(ValidCreateSocietyCommand("HQ Exempt"))).Value!.Society;
+
+        CurrentUserService.SocietyId = HqConstants.PartitionKey;
+        CurrentUserService.Role = "HQAdmin";
+
+        // HQAdmin can deactivate and act on societies regardless of their status.
+        (await Mediator.Send(new DeactivateSocietyCommand(created.Id))).IsSuccess.Should().BeTrue();
+        (await Mediator.Send(new GetSocietyQuery(created.Id))).IsSuccess.Should().BeTrue();
     }
 
     // ─── GetAllSocieties ──────────────────────────────────────────────────────

@@ -5,6 +5,7 @@ using ApartmentManagement.Application.Queries.User;
 using ApartmentManagement.Domain.Entities;
 using ApartmentManagement.Domain.Enums;
 using ApartmentManagement.Domain.Repositories;
+using ApartmentManagement.Domain.ValueObjects;
 using ApartmentManagement.Shared.Constants;
 using ApartmentManagement.Shared.Models;
 using FluentAssertions;
@@ -29,6 +30,11 @@ public class CreateUserCommandHandlerTests
     public async Task Handle_WithNewUser_CreatesUserAndSendsOtp()
     {
         // Arrange
+        var admin = User.Create("soc-001", "Admin", "admin@soc.com", "+91-9000000000", UserRole.SUAdmin, ResidentType.SocietyAdmin);
+        _currentUserServiceMock.Setup(s => s.UserId).Returns(admin.Id);
+        _userRepoMock
+            .Setup(r => r.GetByIdAsync(admin.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(admin);
         _userRepoMock
             .Setup(r => r.GetByEmailAsync("soc-001", "alice@example.com", It.IsAny<CancellationToken>()))
             .ReturnsAsync((User?)null);
@@ -62,6 +68,11 @@ public class CreateUserCommandHandlerTests
     public async Task Handle_WhenEmailAlreadyExists_ReturnsFailure()
     {
         // Arrange
+        var admin = User.Create("soc-001", "Admin", "admin@soc.com", "+91-9000000000", UserRole.SUAdmin, ResidentType.SocietyAdmin);
+        _currentUserServiceMock.Setup(s => s.UserId).Returns(admin.Id);
+        _userRepoMock
+            .Setup(r => r.GetByIdAsync(admin.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(admin);
         var existingUser = User.Create("soc-001", "Bob", "alice@example.com", "+91-1111111111", UserRole.SUUser, ResidentType.Owner);
         _userRepoMock
             .Setup(r => r.GetByEmailAsync("soc-001", "alice@example.com", It.IsAny<CancellationToken>()))
@@ -193,6 +204,27 @@ public class CreateUserCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_WithNoRecognizedActorInTargetSociety_ReturnsForbidden()
+    {
+        // An unauthenticated caller, or one whose own record doesn't exist in the target society's
+        // partition (e.g. an actor from a different society), must not silently bypass authorization.
+        _currentUserServiceMock.Setup(s => s.UserId).Returns(string.Empty);
+        _userRepoMock
+            .Setup(r => r.GetByIdAsync(string.Empty, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
+
+        var handler = CreateHandler();
+        var command = new CreateUserCommand("soc-001", "Nobody", "nobody@soc.com", "+91-9000000099",
+            UserRole.SUAdmin, ResidentType.SocietyAdmin, null);
+
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.Forbidden);
+        _userRepoMock.Verify(r => r.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task Handle_SUSecurityCreated_HasNoApartmentId()
     {
         // Arrange
@@ -306,10 +338,11 @@ public class ChangePasswordCommandHandlerTests
 public class VerifyOtpCommandHandlerTests
 {
     private readonly Mock<IUserRepository> _userRepoMock = new();
+    private readonly Mock<ISocietyRepository> _societyRepoMock = new();
     private readonly Mock<IAuthService> _authServiceMock = new();
     private readonly Mock<ILogger<VerifyOtpCommandHandler>> _loggerMock = new();
 
-    private VerifyOtpCommandHandler CreateHandler() => new(_userRepoMock.Object, _authServiceMock.Object, _loggerMock.Object);
+    private VerifyOtpCommandHandler CreateHandler() => new(_userRepoMock.Object, _societyRepoMock.Object, _authServiceMock.Object, _loggerMock.Object);
 
     [Fact]
     public async Task Handle_WithValidOtp_VerifiesUserAndReturnsSuccess()
@@ -380,6 +413,134 @@ public class VerifyOtpCommandHandlerTests
         // Assert
         result.IsFailure.Should().BeTrue();
         result.ErrorCode.Should().Be(ErrorCodes.UserNotFound);
+    }
+
+    [Fact]
+    public async Task Handle_WhenSocietyIsDisabled_ReturnsFailureAndDoesNotIssueToken()
+    {
+        // Arrange
+        var society = Society.Create("GV", new Address("1 Main St", "Mumbai", "MH", "400001", "India"),
+            "admin@gv.com", "+91-9876543210", 1, 10);
+        society.Deactivate();
+
+        var user = User.Create(society.Id, "Alice", "alice@example.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
+        user.GenerateOtp();
+        var validOtp = user.OtpCode!;
+
+        _userRepoMock
+            .Setup(r => r.GetByIdAsync(user.Id, society.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _societyRepoMock
+            .Setup(r => r.GetByIdAsync(society.Id, society.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(society);
+
+        var handler = CreateHandler();
+        var command = new VerifyOtpCommand(society.Id, user.Id, validOtp);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.SocietyNotActive);
+        _authServiceMock.Verify(a => a.GenerateJwtTokenAsync(
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+}
+
+public class LoginCommandHandlerTests
+{
+    private readonly Mock<IUserRepository> _userRepoMock = new();
+    private readonly Mock<ISocietyRepository> _societyRepoMock = new();
+    private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
+    private readonly Mock<IAuthService> _authServiceMock = new();
+    private readonly Mock<ILogger<LoginCommandHandler>> _loggerMock = new();
+
+    private LoginCommandHandler CreateHandler() =>
+        new(_userRepoMock.Object, _societyRepoMock.Object, _apartmentRepoMock.Object, _authServiceMock.Object, _loggerMock.Object);
+
+    private User CreateLoginableUser(string societyId, string password = "secret")
+    {
+        var user = User.Create(societyId, "Alice", "alice@gv.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
+        user.SetPasswordHash($"hashed-{password}");
+        return user;
+    }
+
+    [Fact]
+    public async Task Handle_WithValidCredentials_ReturnsTokenAndAuthUser()
+    {
+        var user = CreateLoginableUser("soc-001");
+        _userRepoMock.Setup(r => r.GetByEmailAcrossSocietiesAsync("alice@gv.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync([user]);
+        _authServiceMock.Setup(a => a.VerifyPassword("secret", "hashed-secret")).Returns(true);
+        _authServiceMock.Setup(a => a.GenerateJwtTokenAsync(user.Id, user.Email, user.Role.ToString(), user.SocietyId, user.ApartmentId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync("token");
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(new LoginCommand("alice@gv.com", "secret"), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Token.Should().Be("token");
+    }
+
+    [Fact]
+    public async Task Handle_WhenSocietyIsDisabled_ReturnsFailureAndDoesNotIssueToken()
+    {
+        var society = Society.Create("GV", new Address("1 Main St", "Mumbai", "MH", "400001", "India"),
+            "admin@gv.com", "+91-9876543210", 1, 10);
+        society.Deactivate();
+
+        var user = CreateLoginableUser(society.Id);
+        _userRepoMock.Setup(r => r.GetByEmailAcrossSocietiesAsync("alice@gv.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync([user]);
+        _authServiceMock.Setup(a => a.VerifyPassword("secret", "hashed-secret")).Returns(true);
+        _societyRepoMock.Setup(r => r.GetByIdAsync(society.Id, society.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(society);
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(new LoginCommand("alice@gv.com", "secret"), CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.SocietyNotActive);
+        _authServiceMock.Verify(a => a.GenerateJwtTokenAsync(
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_WhenSocietyIsDraft_StillAllowsLogin()
+    {
+        // Draft (not-yet-published) societies are distinct from disabled ones and must not be blocked.
+        var society = Society.Create("GV", new Address("1 Main St", "Mumbai", "MH", "400001", "India"),
+            "admin@gv.com", "+91-9876543210", 1, 10);
+
+        var user = CreateLoginableUser(society.Id);
+        _userRepoMock.Setup(r => r.GetByEmailAcrossSocietiesAsync("alice@gv.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync([user]);
+        _authServiceMock.Setup(a => a.VerifyPassword("secret", "hashed-secret")).Returns(true);
+        _societyRepoMock.Setup(r => r.GetByIdAsync(society.Id, society.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(society);
+        _authServiceMock.Setup(a => a.GenerateJwtTokenAsync(user.Id, user.Email, user.Role.ToString(), user.SocietyId, user.ApartmentId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync("token");
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(new LoginCommand("alice@gv.com", "secret"), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Handle_WithInvalidPassword_ReturnsInvalidCredentials()
+    {
+        var user = CreateLoginableUser("soc-001");
+        _userRepoMock.Setup(r => r.GetByEmailAcrossSocietiesAsync("alice@gv.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync([user]);
+        _authServiceMock.Setup(a => a.VerifyPassword("wrong", "hashed-secret")).Returns(false);
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(new LoginCommand("alice@gv.com", "wrong"), CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.InvalidCredentials);
     }
 }
 

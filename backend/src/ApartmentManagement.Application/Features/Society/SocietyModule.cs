@@ -87,7 +87,10 @@ public record UpdateSocietyCommand(
     int TotalApartments,
     int MaintenanceOverdueThresholdDays,
     IReadOnlyList<SocietyUserAssignmentRequest>? SocietyUsers,
-    IReadOnlyList<SocietyCommitteeRequest>? Committees)
+    IReadOnlyList<SocietyCommitteeRequest>? Committees,
+    // Address fields are optional — omitted (all-null) means "leave the address unchanged".
+    // Populated by the HQAdmin society-edit flow, which manages address but never SocietyUsers/Committees.
+    string? Street = null, string? City = null, string? State = null, string? PostalCode = null, string? Country = null)
     : IRequest<Result<SocietyResponse>>;
 
 public sealed class UpdateSocietyCommandHandler(
@@ -101,34 +104,58 @@ public sealed class UpdateSocietyCommandHandler(
     {
         try
         {
-            var actor = await userRepository.GetByIdAsync(currentUserService.UserId, request.SocietyId, ct);
-            if (actor is null || actor.Role != UserRole.SUAdmin)
-                return Result<SocietyResponse>.Failure(ErrorCodes.Forbidden, "Only society admins can update society details.");
+            // HQAdmin manages any society platform-wide (checked via the JWT role, since an HQAdmin's own
+            // record lives in the "hq" partition, not this society's). A society's own SUAdmin manages
+            // their own society, looked up within this society's partition.
+            if (!string.Equals(currentUserService.Role, "HQAdmin", StringComparison.OrdinalIgnoreCase))
+            {
+                var actor = await userRepository.GetByIdAsync(currentUserService.UserId, request.SocietyId, ct);
+                if (actor is null || actor.Role != UserRole.SUAdmin)
+                    return Result<SocietyResponse>.Failure(ErrorCodes.Forbidden, "Only society admins can update society details.");
+            }
 
             var society = await societyRepository.GetByIdAsync(request.SocietyId, request.SocietyId, ct)
                 ?? throw new NotFoundException("Society", request.SocietyId);
 
-            society.Update(request.Name, request.ContactEmail, request.ContactPhone,
-                request.TotalBlocks, request.TotalApartments, request.MaintenanceOverdueThresholdDays);
-            var societyUsers = await ResolveSocietyUsersAsync(request.SocietyId, request.SocietyUsers ?? [], userRepository, ct);
-            var committees = new List<Domain.Entities.Society.SocietyCommittee>((request.Committees ?? []).Count);
-            var userIdsOnCommittees = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var committee in request.Committees ?? [])
+            Address? address = null;
+            if (request.Street is not null || request.City is not null || request.State is not null
+                || request.PostalCode is not null || request.Country is not null)
             {
-                if (string.IsNullOrWhiteSpace(committee.Name))
-                    return Result<SocietyResponse>.Failure(ErrorCodes.ValidationFailed, "Committee name is required.");
-
-                var members = await ResolveSocietyUsersAsync(request.SocietyId, committee.Members ?? [], userRepository, ct);
-                foreach (var member in members)
-                {
-                    if (!userIdsOnCommittees.Add(member.UserId))
-                        return Result<SocietyResponse>.Failure(ErrorCodes.UserAlreadyOnCommittee,
-                            $"{member.FullName} is already assigned to a committee role. A user can only hold one committee role at a time.");
-                }
-                committees.Add(new Domain.Entities.Society.SocietyCommittee(committee.Name.Trim(), members));
+                address = new Address(
+                    request.Street ?? society.Address.Street,
+                    request.City ?? society.Address.City,
+                    request.State ?? society.Address.State,
+                    request.PostalCode ?? society.Address.PostalCode,
+                    request.Country ?? society.Address.Country);
             }
 
-            society.UpdateLeadership(societyUsers, committees);
+            society.Update(request.Name, request.ContactEmail, request.ContactPhone,
+                request.TotalBlocks, request.TotalApartments, request.MaintenanceOverdueThresholdDays, address);
+
+            // SocietyUsers/Committees are omitted (null) by callers that only manage name/address/contact
+            // (e.g. the HQAdmin society-edit flow) — only touch leadership when the caller actually sent it.
+            if (request.SocietyUsers is not null || request.Committees is not null)
+            {
+                var societyUsers = await ResolveSocietyUsersAsync(request.SocietyId, request.SocietyUsers ?? [], userRepository, ct);
+                var committees = new List<Domain.Entities.Society.SocietyCommittee>((request.Committees ?? []).Count);
+                var userIdsOnCommittees = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var committee in request.Committees ?? [])
+                {
+                    if (string.IsNullOrWhiteSpace(committee.Name))
+                        return Result<SocietyResponse>.Failure(ErrorCodes.ValidationFailed, "Committee name is required.");
+
+                    var members = await ResolveSocietyUsersAsync(request.SocietyId, committee.Members ?? [], userRepository, ct);
+                    foreach (var member in members)
+                    {
+                        if (!userIdsOnCommittees.Add(member.UserId))
+                            return Result<SocietyResponse>.Failure(ErrorCodes.UserAlreadyOnCommittee,
+                                $"{member.FullName} is already assigned to a committee role. A user can only hold one committee role at a time.");
+                    }
+                    committees.Add(new Domain.Entities.Society.SocietyCommittee(committee.Name.Trim(), members));
+                }
+
+                society.UpdateLeadership(societyUsers, committees);
+            }
 
             var updated = await societyRepository.UpdateAsync(society, ct);
             return Result<SocietyResponse>.Success(updated.ToResponse());
@@ -209,6 +236,38 @@ public sealed class PublishSocietyCommandHandler(
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to publish society {SocietyId}", request.SocietyId);
+            return Result<bool>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
+// ─── Deactivate Society ───────────────────────────────────────────────────────
+
+public record DeactivateSocietyCommand(string SocietyId) : IRequest<Result<bool>>;
+
+public sealed class DeactivateSocietyCommandHandler(
+    ISocietyRepository societyRepository,
+    ILogger<DeactivateSocietyCommandHandler> logger)
+    : IRequestHandler<DeactivateSocietyCommand, Result<bool>>
+{
+    public async Task<Result<bool>> Handle(DeactivateSocietyCommand request, CancellationToken ct)
+    {
+        try
+        {
+            var society = await societyRepository.GetByIdAsync(request.SocietyId, request.SocietyId, ct)
+                ?? throw new NotFoundException("Society", request.SocietyId);
+
+            society.Deactivate();
+            await societyRepository.UpdateAsync(society, ct);
+            return Result<bool>.Success(true);
+        }
+        catch (NotFoundException ex)
+        {
+            return Result<bool>.Failure(ErrorCodes.SocietyNotFound, ex.Message);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to deactivate society {SocietyId}", request.SocietyId);
             return Result<bool>.Failure(ErrorCodes.InternalError, ex.Message);
         }
     }
@@ -326,8 +385,7 @@ public sealed class GetAllSocietiesQueryHandler(ISocietyRepository societyReposi
     {
         try
         {
-            var all = await societyRepository.GetByStatusAsync(
-                Domain.Enums.SocietyStatus.Active,
+            var all = await societyRepository.GetAllAcrossSocietiesAsync(
                 request.Pagination.Page,
                 request.Pagination.PageSize,
                 ct);
@@ -339,6 +397,50 @@ public sealed class GetAllSocietiesQueryHandler(ISocietyRepository societyReposi
         catch (Exception ex)
         {
             return Result<PagedResult<SocietyResponse>>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
+/// <summary>
+/// Occupancy snapshot for HQAdmin/HQUser — apartment and owner/tenant counts only, no financial data
+/// (requirements/UserAndAccess.md: "HQAdmin and HQUser should be able to pull a report regarding the
+/// society — how many apartments, how many owner/tenant — no financial data").
+/// </summary>
+public record GetSocietySummaryReportQuery(string SocietyId) : IRequest<Result<SocietySummaryReportResponse>>;
+
+public sealed class GetSocietySummaryReportQueryHandler(
+    ISocietyRepository societyRepository, IApartmentRepository apartmentRepository, IUserRepository userRepository)
+    : IRequestHandler<GetSocietySummaryReportQuery, Result<SocietySummaryReportResponse>>
+{
+    public async Task<Result<SocietySummaryReportResponse>> Handle(GetSocietySummaryReportQuery request, CancellationToken ct)
+    {
+        try
+        {
+            var society = await societyRepository.GetByIdAsync(request.SocietyId, request.SocietyId, ct)
+                ?? throw new NotFoundException("Society", request.SocietyId);
+
+            var apartments = await apartmentRepository.GetAllAsync(request.SocietyId, ct);
+            var occupied = apartments.Count(a => a.Status == Domain.Enums.ApartmentStatus.Occupied);
+            var underMaintenance = apartments.Count(a => a.Status == Domain.Enums.ApartmentStatus.UnderMaintenance);
+            var vacant = apartments.Count - occupied - underMaintenance;
+
+            var residents = await userRepository.GetAllAsync(request.SocietyId, ct);
+            var owners = residents.Count(u => u.Role == Domain.Enums.UserRole.SUUser && u.ResidentType == Domain.Enums.ResidentType.Owner);
+            var tenants = residents.Count(u => u.Role == Domain.Enums.UserRole.SUUser && u.ResidentType == Domain.Enums.ResidentType.Tenant);
+            var totalResidents = residents.Count(u => u.Role == Domain.Enums.UserRole.SUUser);
+
+            return Result<SocietySummaryReportResponse>.Success(new SocietySummaryReportResponse(
+                society.Id, society.Name, society.Status.ToString(),
+                apartments.Count, occupied, vacant, underMaintenance,
+                owners, tenants, totalResidents));
+        }
+        catch (NotFoundException ex)
+        {
+            return Result<SocietySummaryReportResponse>.Failure(ErrorCodes.SocietyNotFound, ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return Result<SocietySummaryReportResponse>.Failure(ErrorCodes.InternalError, ex.Message);
         }
     }
 }

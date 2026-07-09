@@ -32,23 +32,27 @@ public sealed class CreateUserCommandHandler(
     {
         try
         {
-            var actor = await userRepository.GetByIdAsync(currentUserService?.UserId ?? Guid.NewGuid().ToString(), request.SocietyId, ct);
-            if (actor is not null)
-            {
-                var canCreate = actor.Role == UserRole.HQAdmin
-                    ? request.Role is UserRole.HQAdmin or UserRole.HQUser
-                    : actor.Role == UserRole.SUAdmin
-                        ? request.ResidentType == ResidentType.Owner || request.Role == UserRole.SUSecurity
-                        : actor.ResidentType switch
-                        {
-                            ResidentType.Owner => request.ResidentType is ResidentType.Tenant or ResidentType.FamilyMember,
-                            ResidentType.Tenant => request.ResidentType == ResidentType.CoOccupant,
-                            _ => false
-                        };
+            // Actor is looked up in the *target* society's partition, so it only resolves for actors who
+            // operate within that same society (SUAdmin/Owner/Tenant) or an HQAdmin acting within the
+            // reserved "hq" partition. A null actor here means the caller isn't a recognized party for
+            // this target — fail closed rather than silently skipping the authorization check.
+            var actor = await userRepository.GetByIdAsync(currentUserService?.UserId ?? string.Empty, request.SocietyId, ct);
+            if (actor is null)
+                return Result<UserResponse>.Failure(ErrorCodes.Forbidden, "You are not allowed to add this resident type.");
 
-                if (!canCreate)
-                    return Result<UserResponse>.Failure(ErrorCodes.Forbidden, "You are not allowed to add this resident type.");
-            }
+            var canCreate = actor.Role == UserRole.HQAdmin
+                ? request.Role is UserRole.HQAdmin or UserRole.HQUser
+                : actor.Role == UserRole.SUAdmin
+                    ? request.ResidentType == ResidentType.Owner || request.Role == UserRole.SUSecurity
+                    : actor.ResidentType switch
+                    {
+                        ResidentType.Owner => request.ResidentType is ResidentType.Tenant or ResidentType.FamilyMember,
+                        ResidentType.Tenant => request.ResidentType == ResidentType.CoOccupant,
+                        _ => false
+                    };
+
+            if (!canCreate)
+                return Result<UserResponse>.Failure(ErrorCodes.Forbidden, "You are not allowed to add this resident type.");
 
             var existing = await userRepository.GetByEmailAsync(request.SocietyId, request.Email.Trim().ToLowerInvariant(), ct);
             if (existing is not null)
@@ -509,6 +513,7 @@ public record VerifyOtpCommand(string SocietyId, string UserId, string OtpCode) 
 
 public sealed class VerifyOtpCommandHandler(
     IUserRepository userRepository,
+    ISocietyRepository societyRepository,
     IAuthService authService,
     ILogger<VerifyOtpCommandHandler> logger)
     : IRequestHandler<VerifyOtpCommand, Result<VerifyOtpResponse>>
@@ -522,6 +527,10 @@ public sealed class VerifyOtpCommandHandler(
 
             if (!user.ValidateOtp(request.OtpCode))
                 return Result<VerifyOtpResponse>.Failure(ErrorCodes.OtpInvalid, "OTP is invalid or has expired.");
+
+            if (await SocietyLoginGuard.IsDisabledAsync(user.SocietyId, societyRepository, ct))
+                return Result<VerifyOtpResponse>.Failure(ErrorCodes.SocietyNotActive,
+                    "Your society has been disabled by the platform administrator. Please contact your housing society for assistance.");
 
             user.Verify();
             await userRepository.UpdateAsync(user, ct);
@@ -618,6 +627,10 @@ public sealed class LoginCommandHandler(
 
             if (selected is null)
                 return Result<LoginResponse>.Failure(ErrorCodes.InvalidCredentials, "The selected login option is not available.");
+
+            if (await SocietyLoginGuard.IsDisabledAsync(selected.SocietyId, societyRepository, ct))
+                return Result<LoginResponse>.Failure(ErrorCodes.SocietyNotActive,
+                    "Your society has been disabled by the platform administrator. Please contact your housing society for assistance.");
 
             var token = await authService.GenerateJwtTokenAsync(selected.Id, selected.Email, selected.Role.ToString(), selected.SocietyId, selected.ApartmentId, ct);
             return Result<LoginResponse>.Success(new LoginResponse(false, token, selected.ToAuthUser(), []));
@@ -1013,6 +1026,24 @@ internal static class UserLoginOptionMapper
         }
 
         return options;
+    }
+}
+
+/// <summary>
+/// Shared login-time gate: a user whose home society has been disabled by HQAdmin must not be
+/// issued a token. HQ users (society id <see cref="HqConstants.PartitionKey"/>) are exempt since
+/// they aren't scoped to a single society. A society still in "Draft" is not blocked here either —
+/// only an explicitly deactivated ("Inactive") society locks its users out.
+/// </summary>
+internal static class SocietyLoginGuard
+{
+    public static async Task<bool> IsDisabledAsync(string societyId, ISocietyRepository societyRepository, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(societyId) || string.Equals(societyId, HqConstants.PartitionKey, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var society = await societyRepository.GetByIdAsync(societyId, societyId, ct);
+        return society is not null && society.Status == SocietyStatus.Inactive;
     }
 }
 

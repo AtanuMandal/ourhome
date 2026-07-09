@@ -85,4 +85,32 @@ describe('LoginComponent', () => {
 
     expect(component.error()).toContain('invalid');
   });
+
+  it('logging in as a user of a disabled society shows a specific message', () => {
+    const { component } = setup({
+      login: jasmine.createSpy().and.returnValue(throwError(() => ({
+        status: 403,
+        error: { error: 'Your society has been disabled.', errorCode: 'SOCIETY_NOT_ACTIVE' },
+      }))),
+    });
+    component.form.patchValue({ email: 'alice@gv.com', password: 'password123' });
+    component.submit();
+
+    expect(component.error()).toContain('disabled');
+  });
+
+  it('verifying OTP as a user of a disabled society shows a specific message', () => {
+    const { component } = setup({
+      verifyOtpLogin: jasmine.createSpy().and.returnValue(throwError(() => ({
+        status: 403,
+        error: { error: 'Your society has been disabled.', errorCode: 'SOCIETY_NOT_ACTIVE' },
+      }))),
+    });
+    component.phoneForm.patchValue({ phone: '9876543210' });
+    component.requestPhoneOtp();
+    component.phoneForm.patchValue({ otp: '000000' });
+    component.verifyPhoneOtp();
+
+    expect(component.error()).toContain('disabled');
+  });
 });
