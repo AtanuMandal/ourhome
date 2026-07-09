@@ -69,7 +69,8 @@ export class NoticeListComponent implements OnInit {
   ngOnInit() {
     const sid = this.auth.societyId();
     if (!sid) { this.loading.set(false); return; }
-    this.svc.list(sid).subscribe({
+    // Show every notice in the society, not just the default first-page-of-20.
+    this.svc.list(sid, 1, 500).subscribe({
       next: r => { this.items.set(r.items ?? []); this.loading.set(false); },
       error: () => this.loading.set(false),
     });

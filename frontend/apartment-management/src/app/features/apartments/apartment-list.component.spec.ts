@@ -59,4 +59,25 @@ describe('ApartmentListComponent', () => {
 
     expect(component.filtered().map(a => a.apartmentNumber)).toEqual(['A301', 'A305', 'A202', 'A101']);
   });
+
+  it('requests a large page size so societies with more than 20 apartments are not silently truncated', () => {
+    const apartmentServiceStub = {
+      list: jasmine.createSpy().and.returnValue(of({ items: [], totalCount: 0, page: 1, pageSize: 500 })),
+    };
+    const authServiceStub = { societyId: () => 'soc-1', isAdmin: () => false };
+    const snackBarStub = { open: jasmine.createSpy() };
+
+    TestBed.configureTestingModule({
+      imports: [ApartmentListComponent, NoopAnimationsModule],
+      providers: [
+        provideRouter([]),
+        { provide: ApartmentService, useValue: apartmentServiceStub },
+        { provide: AuthService, useValue: authServiceStub },
+        { provide: MatSnackBar, useValue: snackBarStub },
+      ],
+    });
+    TestBed.createComponent(ApartmentListComponent).detectChanges();
+
+    expect(apartmentServiceStub.list).toHaveBeenCalledWith('soc-1', 1, 500);
+  });
 });

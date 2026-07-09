@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -59,12 +59,20 @@ export function CommitteeScreen() {
     return emails;
   }, [committees]);
 
-  function optionsForMember(currentEmail: string): { label: string; value: string }[] {
+  // Precompute each user's lowercased email once per `users` change, instead of re-lowercasing
+  // every user's email on every optionsForMember() call (once per committee-member row, on every
+  // render — O(committees × members × users) otherwise).
+  const usersWithLowerEmail = useMemo(
+    () => users.map((u) => ({ ...u, emailLower: u.email.toLowerCase() })),
+    [users]
+  );
+
+  const optionsForMember = useCallback((currentEmail: string): { label: string; value: string }[] => {
     const current = currentEmail.toLowerCase();
-    return users
-      .filter((u) => u.email.toLowerCase() === current || !assignedEmails.has(u.email.toLowerCase()))
+    return usersWithLowerEmail
+      .filter((u) => u.emailLower === current || !assignedEmails.has(u.emailLower))
       .map((u) => ({ value: u.email, label: `${u.fullName} (${u.email})` }));
-  }
+  }, [usersWithLowerEmail, assignedEmails]);
 
   function addCommittee(): void {
     setCommittees((prev) => [...prev, { name: '', members: [] }]);

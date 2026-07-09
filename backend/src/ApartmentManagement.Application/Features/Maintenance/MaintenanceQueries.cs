@@ -71,10 +71,28 @@ public sealed class GetMaintenanceChargesQueryHandler(
                 request.Month,
                 ct);
 
+            // Resolve apartment display labels with as few round trips as possible: when the
+            // request is already scoped to a single apartment, every charge shares it, so fetch
+            // it once; otherwise bulk-fetch the whole society's apartments and map in memory
+            // instead of resolving each charge's apartment with its own repository round-trip.
+            IReadOnlyDictionary<string, Domain.Entities.Apartment> apartmentsById;
+            if (!string.IsNullOrWhiteSpace(effectiveApartmentId))
+            {
+                var singleApartment = await apartmentRepository.GetByIdAsync(effectiveApartmentId, request.SocietyId, ct);
+                apartmentsById = singleApartment is null
+                    ? new Dictionary<string, Domain.Entities.Apartment>(StringComparer.OrdinalIgnoreCase)
+                    : new Dictionary<string, Domain.Entities.Apartment>(StringComparer.OrdinalIgnoreCase) { [singleApartment.Id] = singleApartment };
+            }
+            else
+            {
+                var allApartments = await apartmentRepository.GetAllAsync(request.SocietyId, ct);
+                apartmentsById = allApartments.ToDictionary(a => a.Id, StringComparer.OrdinalIgnoreCase);
+            }
+
             var items = new List<MaintenanceChargeDto>(charges.Count);
             foreach (var charge in charges)
             {
-                var apartment = await apartmentRepository.GetByIdAsync(charge.ApartmentId, request.SocietyId, ct);
+                apartmentsById.TryGetValue(charge.ApartmentId, out var apartment);
                 items.Add(charge.ToResponse(apartment?.ToDisplayLabel() ?? charge.ApartmentId, society.MaintenanceOverdueThresholdDays));
             }
 

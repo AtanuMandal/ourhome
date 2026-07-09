@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -55,19 +55,19 @@ export function StaffListScreen() {
       .map((category) => ({ title: category, data: byCategory.get(category) ?? [] }));
   }, [data]);
 
-  function handleCheckIn(staff: Staff): void {
+  const handleCheckIn = useCallback((staff: Staff): void => {
     checkInStaff.mutate(staff.id, {
       onError: (e) => Alert.alert('Could not check in', normalizeError(e)),
     });
-  }
+  }, [checkInStaff]);
 
-  function handleCheckOut(staff: Staff): void {
+  const handleCheckOut = useCallback((staff: Staff): void => {
     checkOutStaff.mutate(staff.id, {
       onError: (e) => Alert.alert('Could not check out', normalizeError(e)),
     });
-  }
+  }, [checkOutStaff]);
 
-  function handleDeactivate(staff: Staff): void {
+  const handleDeactivate = useCallback((staff: Staff): void => {
     Alert.alert('Deactivate staff', `Deactivate ${staff.fullName}?`, [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -80,9 +80,9 @@ export function StaffListScreen() {
         },
       },
     ]);
-  }
+  }, [deactivateStaff]);
 
-  function renderItem({ item }: { item: Staff }) {
+  const renderItem = useCallback(({ item }: { item: Staff }) => {
     const isOnDuty = onDutyStaffIds.has(item.id);
     return (
       <View style={styles.item}>
@@ -131,7 +131,7 @@ export function StaffListScreen() {
         )}
       </View>
     );
-  }
+  }, [onDutyStaffIds, isAdmin, navigation, handleCheckIn, handleCheckOut, handleDeactivate, checkInStaff.isPending, checkOutStaff.isPending, deactivateStaff.isPending]);
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>

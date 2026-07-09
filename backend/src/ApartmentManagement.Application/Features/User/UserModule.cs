@@ -1007,23 +1007,28 @@ internal static class UserLoginOptionMapper
         IApartmentRepository apartmentRepository,
         CancellationToken ct)
     {
-        var options = new List<LoginOptionDto>(users.Count);
-        foreach (var user in users)
+        // Candidates can span different societies (e.g. the same phone/email registered under
+        // several accounts), so there's no single bulk fetch to replace this with — instead, run
+        // every candidate's (and each candidate's own society + apartment) lookups concurrently
+        // rather than as N sequential round trips.
+        var optionTasks = users.Select(async user =>
         {
-            var society = await societyRepository.GetByIdAsync(user.SocietyId, user.SocietyId, ct);
-            var apartment = string.IsNullOrWhiteSpace(user.ApartmentId)
-                ? null
-                : await apartmentRepository.GetByIdAsync(user.ApartmentId, user.SocietyId, ct);
+            var societyTask = societyRepository.GetByIdAsync(user.SocietyId, user.SocietyId, ct);
+            var apartmentTask = string.IsNullOrWhiteSpace(user.ApartmentId)
+                ? Task.FromResult<Domain.Entities.Apartment?>(null)
+                : apartmentRepository.GetByIdAsync(user.ApartmentId, user.SocietyId, ct);
+            await Task.WhenAll(societyTask, apartmentTask);
 
-            options.Add(new LoginOptionDto(
+            return new LoginOptionDto(
                 user.Id,
                 user.SocietyId,
-                society?.Name ?? user.SocietyId,
+                societyTask.Result?.Name ?? user.SocietyId,
                 user.ApartmentId,
-                apartment?.ToDisplayLabel(),
+                apartmentTask.Result?.ToDisplayLabel(),
                 user.Role.ToString(),
-                user.ResidentType.ToString()));
-        }
+                user.ResidentType.ToString());
+        });
+        var options = (await Task.WhenAll(optionTasks)).ToList();
 
         return options;
     }
@@ -1328,10 +1333,23 @@ public sealed class GetUsersByApartmentQueryHandler(IUserRepository userReposito
                 .Where(u => u.Apartments.Any(a => a.ApartmentId == request.ApartmentId) || u.ApartmentId == request.ApartmentId)
                 .ToList();
 
+            // Fetch every apartment for the society once and map in memory below, instead of
+            // resolving each matched user's apartment(s) with its own repository round-trip
+            // (same pattern as GetUsersBySocietyQueryHandler).
+            var allApartments = await apartmentRepository.GetAllAsync(request.SocietyId, ct);
+            var apartmentsById = allApartments.ToDictionary(a => a.Id, StringComparer.OrdinalIgnoreCase);
+            var ownedApartmentsByUserId = allApartments
+                .Where(a => !string.IsNullOrEmpty(a.OwnerId))
+                .ToLookup(a => a.OwnerId!, StringComparer.OrdinalIgnoreCase);
+            var tenantedApartmentsByUserId = allApartments
+                .Where(a => !string.IsNullOrEmpty(a.TenantId))
+                .ToLookup(a => a.TenantId!, StringComparer.OrdinalIgnoreCase);
+
             var items = new List<UserResponse>(filteredUsers.Count);
             foreach (var user in filteredUsers)
             {
-                var apartments = await UserQueryMapping.GetResidentApartmentsAsync(user, apartmentRepository, ct);
+                var apartments = UserQueryMapping.GetResidentApartments(
+                    user, apartmentsById, ownedApartmentsByUserId, tenantedApartmentsByUserId);
                 items.Add(user.ToResponse(apartments));
             }
             return Result<IReadOnlyList<UserResponse>>.Success(items);

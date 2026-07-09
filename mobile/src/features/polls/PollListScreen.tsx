@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { View, Text, FlatList, TouchableOpacity, RefreshControl, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -28,7 +28,7 @@ export function PollListScreen() {
 
   const { data, isLoading, fetchNextPage, hasNextPage, refetch } = usePollList(societyId);
 
-  function renderItem({ item }: { item: PollSummary }) {
+  const renderItem = useCallback(({ item }: { item: PollSummary }) => {
     return (
       <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('PollDetail', { id: item.id })}>
         <View style={styles.cardInfo}>
@@ -43,7 +43,7 @@ export function PollListScreen() {
         </View>
       </TouchableOpacity>
     );
-  }
+  }, [navigation]);
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>

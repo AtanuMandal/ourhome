@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   Text,
@@ -37,12 +37,12 @@ export function NoticeListScreen() {
     useNoticeList(societyId);
   const { mutate: markRead } = useMarkNoticeRead(societyId);
 
-  function handleMarkRead(id: string, e: { stopPropagation: () => void }): void {
+  const handleMarkRead = useCallback((id: string, e: { stopPropagation: () => void }): void => {
     e.stopPropagation();
     markRead(id);
-  }
+  }, [markRead]);
 
-  function renderItem({ item }: { item: Notice }) {
+  const renderItem = useCallback(({ item }: { item: Notice }) => {
     return (
       <TouchableOpacity
         style={[styles.item, !item.isReadByCurrentUser && styles.unread]}
@@ -74,7 +74,7 @@ export function NoticeListScreen() {
         </View>
       </TouchableOpacity>
     );
-  }
+  }, [navigation, markRead, handleMarkRead]);
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>

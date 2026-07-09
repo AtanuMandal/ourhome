@@ -101,12 +101,16 @@ public sealed class GetAgmSessionQueryHandler(
                 .Where(p => string.Equals(p.AgmSessionId, request.AgmSessionId, StringComparison.OrdinalIgnoreCase))
                 .OrderBy(p => p.CreatedAt);
 
+            // Fetch the requesting user once and reuse it for every resolution in the session,
+            // instead of BuildPollResponseAsync refetching the same user on every iteration.
+            var requester = await userRepository.GetByIdAsync(request.RequestingUserId, request.SocietyId, ct);
+
             var responses = new List<PollResponse>();
             foreach (var poll in resolutions)
             {
                 responses.Add(await PollNotificationHelper.BuildPollResponseAsync(
                     poll, request.RequestingUserId, request.RequestingUserRole,
-                    pollVoteRepository, apartmentRepository, userRepository, ct));
+                    pollVoteRepository, apartmentRepository, userRepository, ct, requester));
             }
 
             return Result<AgmSessionDetailResponse>.Success(new AgmSessionDetailResponse(

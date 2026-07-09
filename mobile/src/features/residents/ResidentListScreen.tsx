@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -58,7 +58,7 @@ export function ResidentListScreen() {
     return roles.map((r) => ({ title: ROLE_LABELS[r] ?? r, data: byRole.get(r) ?? [] }));
   }, [data]);
 
-  function handleDelete(user: User): void {
+  const handleDelete = useCallback((user: User): void => {
     Alert.alert('Delete user', `Delete ${user.fullName}? This cannot be undone.`, [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -71,9 +71,9 @@ export function ResidentListScreen() {
         },
       },
     ]);
-  }
+  }, [deleteResident]);
 
-  function renderItem({ item }: { item: User }) {
+  const renderItem = useCallback(({ item }: { item: User }) => {
     return (
       <View style={styles.item}>
         <View style={styles.avatar}>
@@ -100,7 +100,7 @@ export function ResidentListScreen() {
         )}
       </View>
     );
-  }
+  }, [isAdmin, handleDelete, deleteResident.isPending]);
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>

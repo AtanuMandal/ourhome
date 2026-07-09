@@ -409,13 +409,18 @@ public sealed class GetSocietyLedgerQueryHandler(
                 vendorCharges      = vendorCharges.Where(c => c.DueDate.Date <= request.To.Value.Date).ToList();
             }
 
-            // Resolve each distinct apartment's display label once.
-            var labels = new Dictionary<string, string>();
-            foreach (var aptId in maintenanceCharges.Select(c => c.ApartmentId).Distinct())
-            {
-                var apt = await apartmentRepo.GetByIdAsync(aptId, request.SocietyId, ct);
-                labels[aptId] = apt?.ToDisplayLabel() ?? aptId;
-            }
+            // Resolve every apartment's display label with a single bulk fetch for the whole
+            // society, instead of one repository round-trip per distinct apartment referenced
+            // in the charges above.
+            var allApartments = await apartmentRepo.GetAllAsync(request.SocietyId, ct);
+            var apartmentsById = allApartments.ToDictionary(a => a.Id, StringComparer.OrdinalIgnoreCase);
+            var labels = maintenanceCharges
+                .Select(c => c.ApartmentId)
+                .Distinct()
+                .ToDictionary(
+                    aptId => aptId,
+                    aptId => apartmentsById.TryGetValue(aptId, out var apt) ? apt.ToDisplayLabel() : aptId,
+                    StringComparer.OrdinalIgnoreCase);
 
             var rawEntries = maintenanceCharges
                 .SelectMany(c => LedgerHelper.MaintenanceChargeEntries(c, labels.GetValueOrDefault(c.ApartmentId, c.ApartmentId)))
