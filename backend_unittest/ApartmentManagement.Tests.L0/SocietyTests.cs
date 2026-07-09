@@ -240,6 +240,48 @@ public class SocietyTests
     }
 
     [Fact]
+    public void Update_WithAddress_UpdatesAddress()
+    {
+        // Arrange
+        var society = Society.Create("GV", ValidAddress(), "admin@gv.com", "+91-9876543210", 2, 40);
+        var newAddress = new Address("99 New Street", "Pune", "Maharashtra", "411001", "India");
+
+        // Act
+        society.Update("GV", "admin@gv.com", "+91-9876543210", 2, 40, address: newAddress);
+
+        // Assert
+        society.Address.Should().Be(newAddress);
+    }
+
+    [Fact]
+    public void Update_WithoutAddress_LeavesAddressUnchanged()
+    {
+        // Arrange
+        var originalAddress = ValidAddress();
+        var society = Society.Create("GV", originalAddress, "admin@gv.com", "+91-9876543210", 2, 40);
+
+        // Act
+        society.Update("Green Valley Updated", "admin@gv.com", "+91-9876543210", 2, 40);
+
+        // Assert
+        society.Address.Should().Be(originalAddress);
+    }
+
+    [Fact]
+    public void Update_WithInvalidAddress_ThrowsArgumentException()
+    {
+        // Arrange
+        var society = Society.Create("GV", ValidAddress(), "admin@gv.com", "+91-9876543210", 2, 40);
+        var invalidAddress = new Address("", "Pune", "Maharashtra", "411001", "India");
+
+        // Act
+        var act = () => society.Update("GV", "admin@gv.com", "+91-9876543210", 2, 40, address: invalidAddress);
+
+        // Assert
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
     public void Create_WithZeroTotalApartments_ThrowsArgumentOutOfRangeException()
     {
         // Arrange & Act

@@ -21,6 +21,15 @@ public sealed class FakeSocietyRepository : FakeRepository<Society>, ISocietyRep
         return Task.FromResult(result);
     }
 
+    public Task<IReadOnlyList<Society>> GetAllAcrossSocietiesAsync(int page, int pageSize, CancellationToken ct = default)
+    {
+        IReadOnlyList<Society> result = Store.Values
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
+        return Task.FromResult(result);
+    }
+
     public Task<int> CountAsync(CancellationToken ct = default)
         => Task.FromResult(Store.Count);
 }

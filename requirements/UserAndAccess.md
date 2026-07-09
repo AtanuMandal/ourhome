@@ -101,7 +101,8 @@ This module defines the role hierarchy, user lifecycle management, apartment ass
   - ⚠️ **Gap:** Phone and email masking for `SUUser` is a documented requirement but **not yet implemented** in `GetUsersBySocietyQuery`, nor in the single-user `GET /societies/{id}/users/{id}` lookup. `UserResponse` returns full contact details to all callers on both endpoints today.
 - `SUSecurity` can view the resident directory (names and apartment) but has limited access to financial and administrative features.
 - `HQAdmin` and `HQUser` do not have access to individual society-level features (notices, complaints, maintenance, visitors).
-
+- `HQAdmin` should only be able to create Socity and `HQUser`. They should be able to manage the socity (enable , disable and name address change) , for users they should only be able to manage `HQAdmin` and `HQUser` ( like Create ,enable/Diable )
+- `HQAdmin` and `HQUser` should be able to pull a report reagrding teh socity(how many apartment , how many owner /tenant no financial data)
 ---
 
 ## Password Management

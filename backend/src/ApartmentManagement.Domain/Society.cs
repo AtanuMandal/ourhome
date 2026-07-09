@@ -112,14 +112,15 @@ public sealed class Society : BaseEntity
         TouchUpdatedAt();
     }
 
-    /// <summary>Updates society name and block/apartment counts.</summary>
+    /// <summary>Updates society name, address, contact details, and block/apartment counts.</summary>
     public void Update(
         string name,
         string contactEmail,
         string contactPhone,
         int totalBlocks,
         int totalApartments,
-        int? maintenanceOverdueThresholdDays = null)
+        int? maintenanceOverdueThresholdDays = null,
+        Address? address = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name, nameof(name));
         Name = name.Trim();
@@ -128,6 +129,11 @@ public sealed class Society : BaseEntity
         if (totalApartments > 0) TotalApartments = totalApartments;
         if (maintenanceOverdueThresholdDays.HasValue)
             SetMaintenanceOverdueThreshold(maintenanceOverdueThresholdDays.Value);
+        if (address is not null)
+        {
+            address.Validate();
+            Address = address;
+        }
         TouchUpdatedAt();
     }
 

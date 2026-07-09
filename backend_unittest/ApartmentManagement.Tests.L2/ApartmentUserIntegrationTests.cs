@@ -3,6 +3,7 @@ using ApartmentManagement.Application.DTOs;
 using ApartmentManagement.Application.Commands.User;
 using ApartmentManagement.Application.Queries.Apartment;
 using ApartmentManagement.Application.Queries.User;
+using ApartmentManagement.Domain.Entities;
 using ApartmentManagement.Domain.Enums;
 using ApartmentManagement.Shared.Constants;
 using ApartmentManagement.Shared.Models;
@@ -15,6 +16,20 @@ public class ApartmentUserIntegrationTests : IntegrationTestBase
 {
     private const string SocietyId = "society-001";
 
+    /// <summary>
+    /// CreateUserCommandHandler requires the caller to be a recognized actor within the target
+    /// society's partition. Every test in this class acts as this default SUAdmin unless it
+    /// explicitly overrides CurrentUserService.UserId for a specific actor scenario.
+    /// </summary>
+    public ApartmentUserIntegrationTests()
+    {
+        var defaultAdmin = User.Create(SocietyId, "Default Admin", "default-admin@test.com", "9000000000",
+            UserRole.SUAdmin, ResidentType.SocietyAdmin);
+        UserRepo.CreateAsync(defaultAdmin, CancellationToken.None).GetAwaiter().GetResult();
+        CurrentUserService.UserId = defaultAdmin.Id;
+        CurrentUserService.SocietyId = SocietyId;
+    }
+
     // ─── Helper factories ─────────────────────────────────────────────────────
 
     private static CreateApartmentCommand AptCmd(
@@ -22,12 +37,25 @@ public class ApartmentUserIntegrationTests : IntegrationTestBase
         int rooms = 2, params string[] parkingSlots) =>
         new(SocietyId, number, block, floor, rooms, parkingSlots, null, 500, 600, 700);
 
-    private static CreateUserCommand UserCmd(
+    private int _autoAptCounter = 900;
+
+    // Owner is the resident type an SUAdmin actor can create directly (see CreateUserCommandHandler's
+    // canCreate rule) — the default constructor-seeded SUAdmin backs every call unless overridden.
+    // Owner/Tenant/FamilyMember/CoOccupant require an apartment, so one is auto-created here when the
+    // caller doesn't care which apartment is used, avoiding cross-test owner/apartment-id collisions.
+    private CreateUserCommand UserCmd(
         string email = "resident@test.com",
         UserRole role = UserRole.SUUser,
-        ResidentType residentType = ResidentType.SocietyAdmin,
-        string? apartmentId = null) =>
-        new(SocietyId, "John Resident", email, "9876543210", role, residentType, apartmentId);
+        ResidentType residentType = ResidentType.Owner,
+        string? apartmentId = null)
+    {
+        if (apartmentId is null && residentType is ResidentType.Owner or ResidentType.Tenant or ResidentType.FamilyMember or ResidentType.CoOccupant)
+        {
+            var apt = Mediator.Send(AptCmd((_autoAptCounter++).ToString(), "Z", 9)).GetAwaiter().GetResult().Value!;
+            apartmentId = apt.Id;
+        }
+        return new(SocietyId, "John Resident", email, "9876543210", role, residentType, apartmentId);
+    }
 
     // ─── Apartment: create → retrieve ────────────────────────────────────────
 
@@ -173,10 +201,10 @@ public class ApartmentUserIntegrationTests : IntegrationTestBase
         var user = createResult.Value!;
         user.Email.Should().Be("alice@test.com");
         user.Role.Should().Be("SUUser");
-        user.ResidentType.Should().Be("SocietyAdmin");
+        user.ResidentType.Should().Be("Owner");
         user.IsActive.Should().BeTrue();
         user.IsVerified.Should().BeFalse();
-        user.Apartments.Should().BeEmpty();
+        user.Apartments.Should().ContainSingle(a => a.ResidentType == "Owner");
 
         var getResult = await Mediator.Send(new GetUserQuery(SocietyId, user.Id));
         getResult.IsSuccess.Should().BeTrue();
@@ -432,6 +460,9 @@ public class ApartmentUserIntegrationTests : IntegrationTestBase
     public async Task CreateUser_CannotAddSecondTenantForApartment()
     {
         var apartment = (await Mediator.Send(AptCmd("702", "G"))).Value!;
+        var owner = (await Mediator.Send(UserCmd("tenant-owner@test.com"))).Value!;
+        CurrentUserService.UserId = owner.Id;
+
         var first = await Mediator.Send(new CreateUserCommand(SocietyId, "First Tenant", "first-tenant@test.com", "9876543210", UserRole.SUUser, ResidentType.Tenant, apartment.Id));
         var second = await Mediator.Send(new CreateUserCommand(SocietyId, "Second Tenant", "second-tenant@test.com", "9876543211", UserRole.SUUser, ResidentType.Tenant, apartment.Id));
 
@@ -474,8 +505,8 @@ public class ApartmentUserIntegrationTests : IntegrationTestBase
     {
         var apartment = (await Mediator.Send(AptCmd("705", "G"))).Value!;
         var owner = (await Mediator.Send(new CreateUserCommand(SocietyId, "Old Owner", "old-owner@test.com", "9876543200", UserRole.SUUser, ResidentType.Owner, apartment.Id))).Value!;
-        var tenant = (await Mediator.Send(new CreateUserCommand(SocietyId, "Tenant", "tenant-stays@test.com", "9876543201", UserRole.SUUser, ResidentType.Tenant, apartment.Id))).Value!;
         CurrentUserService.UserId = owner.Id;
+        var tenant = (await Mediator.Send(new CreateUserCommand(SocietyId, "Tenant", "tenant-stays@test.com", "9876543201", UserRole.SUUser, ResidentType.Tenant, apartment.Id))).Value!;
         var family = await Mediator.Send(new AddHouseholdMemberCommand(SocietyId, apartment.Id, "Owner Family", "owner-family@test.com", "9876543202", ResidentType.FamilyMember));
         family.IsSuccess.Should().BeTrue();
 
@@ -497,6 +528,7 @@ public class ApartmentUserIntegrationTests : IntegrationTestBase
         var suAdminApartment = (await Mediator.Send(AptCmd("707", "G"))).Value!;
         var ownerApartment = (await Mediator.Send(AptCmd("708", "G"))).Value!;
         var owner = (await Mediator.Send(new CreateUserCommand(SocietyId, "Owner", "rule-owner@test.com", "9876543200", UserRole.SUUser, ResidentType.Owner, ownerApartment.Id))).Value!;
+        CurrentUserService.UserId = owner.Id;
         var tenant = (await Mediator.Send(new CreateUserCommand(SocietyId, "Tenant", "rule-tenant@test.com", "9876543201", UserRole.SUUser, ResidentType.Tenant, apartment.Id))).Value!;
         var suAdmin = await UserRepo.CreateAsync(
             ApartmentManagement.Domain.Entities.User.Create(SocietyId, "SU Admin", "rule-admin@test.com", "9876543202", UserRole.SUAdmin, ResidentType.SocietyAdmin),
@@ -533,10 +565,7 @@ public class ApartmentUserIntegrationTests : IntegrationTestBase
     [Fact]
     public async Task CreateUser_WithSUSecurityRole_Succeeds()
     {
-        // SUAdmin can create a security guard (no apartment, SocietyAdmin resident type)
-        var admin = await Mediator.Send(new CreateUserCommand(SocietyId, "Admin", "admin-sec@test.com", "9876540001", UserRole.SUAdmin, ResidentType.SocietyAdmin, null));
-        CurrentUserService.UserId = admin.Value!.Id;
-
+        // The constructor-seeded default SUAdmin can create a security guard (no apartment, SocietyAdmin resident type)
         var result = await Mediator.Send(new CreateUserCommand(SocietyId, "Guard One", "guard-one@test.com", "9876540002",
             UserRole.SUSecurity, ResidentType.SocietyAdmin, null));
 
@@ -548,9 +577,6 @@ public class ApartmentUserIntegrationTests : IntegrationTestBase
     [Fact]
     public async Task CreateUser_SUSecurity_HasManageVisitorsAndViewResidentsPermissions()
     {
-        var admin = await Mediator.Send(new CreateUserCommand(SocietyId, "Admin", "admin-sec2@test.com", "9876540003", UserRole.SUAdmin, ResidentType.SocietyAdmin, null));
-        CurrentUserService.UserId = admin.Value!.Id;
-
         var result = await Mediator.Send(new CreateUserCommand(SocietyId, "Guard Two", "guard-two@test.com", "9876540004",
             UserRole.SUSecurity, ResidentType.SocietyAdmin, null));
 

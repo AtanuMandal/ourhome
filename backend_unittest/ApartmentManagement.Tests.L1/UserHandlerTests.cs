@@ -29,6 +29,11 @@ public class CreateUserCommandHandlerTests
     public async Task Handle_WithNewUser_CreatesUserAndSendsOtp()
     {
         // Arrange
+        var admin = User.Create("soc-001", "Admin", "admin@soc.com", "+91-9000000000", UserRole.SUAdmin, ResidentType.SocietyAdmin);
+        _currentUserServiceMock.Setup(s => s.UserId).Returns(admin.Id);
+        _userRepoMock
+            .Setup(r => r.GetByIdAsync(admin.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(admin);
         _userRepoMock
             .Setup(r => r.GetByEmailAsync("soc-001", "alice@example.com", It.IsAny<CancellationToken>()))
             .ReturnsAsync((User?)null);
@@ -62,6 +67,11 @@ public class CreateUserCommandHandlerTests
     public async Task Handle_WhenEmailAlreadyExists_ReturnsFailure()
     {
         // Arrange
+        var admin = User.Create("soc-001", "Admin", "admin@soc.com", "+91-9000000000", UserRole.SUAdmin, ResidentType.SocietyAdmin);
+        _currentUserServiceMock.Setup(s => s.UserId).Returns(admin.Id);
+        _userRepoMock
+            .Setup(r => r.GetByIdAsync(admin.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(admin);
         var existingUser = User.Create("soc-001", "Bob", "alice@example.com", "+91-1111111111", UserRole.SUUser, ResidentType.Owner);
         _userRepoMock
             .Setup(r => r.GetByEmailAsync("soc-001", "alice@example.com", It.IsAny<CancellationToken>()))
@@ -190,6 +200,27 @@ public class CreateUserCommandHandlerTests
         // Assert
         result.IsFailure.Should().BeTrue();
         result.ErrorCode.Should().Be(ErrorCodes.Forbidden);
+    }
+
+    [Fact]
+    public async Task Handle_WithNoRecognizedActorInTargetSociety_ReturnsForbidden()
+    {
+        // An unauthenticated caller, or one whose own record doesn't exist in the target society's
+        // partition (e.g. an actor from a different society), must not silently bypass authorization.
+        _currentUserServiceMock.Setup(s => s.UserId).Returns(string.Empty);
+        _userRepoMock
+            .Setup(r => r.GetByIdAsync(string.Empty, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
+
+        var handler = CreateHandler();
+        var command = new CreateUserCommand("soc-001", "Nobody", "nobody@soc.com", "+91-9000000099",
+            UserRole.SUAdmin, ResidentType.SocietyAdmin, null);
+
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.Forbidden);
+        _userRepoMock.Verify(r => r.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

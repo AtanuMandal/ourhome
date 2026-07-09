@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { ApiService } from './api.service';
 import { AuthService } from './auth.service';
-import { Society, CreateSocietyDto, UpdateSocietyDto } from '../models/society.model';
+import { Society, CreateSocietyDto, CreateSocietyResponse, UpdateSocietyDto, SocietySummaryReport } from '../models/society.model';
 import { PagedResult } from '../models/user.model';
 
 @Injectable({ providedIn: 'root' })
@@ -18,10 +18,22 @@ export class SocietyService {
   }
 
   create(dto: CreateSocietyDto) {
-    return this.api.post<Society>('societies', dto);
+    return this.api.post<CreateSocietyResponse>('societies', dto);
   }
 
   update(id: string, dto: UpdateSocietyDto) {
     return this.api.put<Society>(`societies/${id}`, dto);
+  }
+
+  activate(id: string) {
+    return this.api.post<boolean>(`societies/${id}/activate`, {});
+  }
+
+  deactivate(id: string) {
+    return this.api.post<boolean>(`societies/${id}/deactivate`, {});
+  }
+
+  getSummaryReport(id: string) {
+    return this.api.get<SocietySummaryReport>(`societies/${id}/report`);
   }
 }

@@ -21,6 +21,9 @@ public interface ISocietyRepository : IRepository<Society>
 {
     Task<Society?> GetByRegistrationNumberAsync(string registrationNumber, CancellationToken ct = default);
     Task<IReadOnlyList<Society>> GetByStatusAsync(SocietyStatus status, int page, int pageSize, CancellationToken ct = default);
+
+    /// <summary>Cross-partition — every society regardless of status, for the HQ platform-wide directory.</summary>
+    Task<IReadOnlyList<Society>> GetAllAcrossSocietiesAsync(int page, int pageSize, CancellationToken ct = default);
     Task<int> CountAsync(CancellationToken ct = default);
 }
 

@@ -32,23 +32,27 @@ public sealed class CreateUserCommandHandler(
     {
         try
         {
-            var actor = await userRepository.GetByIdAsync(currentUserService?.UserId ?? Guid.NewGuid().ToString(), request.SocietyId, ct);
-            if (actor is not null)
-            {
-                var canCreate = actor.Role == UserRole.HQAdmin
-                    ? request.Role is UserRole.HQAdmin or UserRole.HQUser
-                    : actor.Role == UserRole.SUAdmin
-                        ? request.ResidentType == ResidentType.Owner || request.Role == UserRole.SUSecurity
-                        : actor.ResidentType switch
-                        {
-                            ResidentType.Owner => request.ResidentType is ResidentType.Tenant or ResidentType.FamilyMember,
-                            ResidentType.Tenant => request.ResidentType == ResidentType.CoOccupant,
-                            _ => false
-                        };
+            // Actor is looked up in the *target* society's partition, so it only resolves for actors who
+            // operate within that same society (SUAdmin/Owner/Tenant) or an HQAdmin acting within the
+            // reserved "hq" partition. A null actor here means the caller isn't a recognized party for
+            // this target — fail closed rather than silently skipping the authorization check.
+            var actor = await userRepository.GetByIdAsync(currentUserService?.UserId ?? string.Empty, request.SocietyId, ct);
+            if (actor is null)
+                return Result<UserResponse>.Failure(ErrorCodes.Forbidden, "You are not allowed to add this resident type.");
 
-                if (!canCreate)
-                    return Result<UserResponse>.Failure(ErrorCodes.Forbidden, "You are not allowed to add this resident type.");
-            }
+            var canCreate = actor.Role == UserRole.HQAdmin
+                ? request.Role is UserRole.HQAdmin or UserRole.HQUser
+                : actor.Role == UserRole.SUAdmin
+                    ? request.ResidentType == ResidentType.Owner || request.Role == UserRole.SUSecurity
+                    : actor.ResidentType switch
+                    {
+                        ResidentType.Owner => request.ResidentType is ResidentType.Tenant or ResidentType.FamilyMember,
+                        ResidentType.Tenant => request.ResidentType == ResidentType.CoOccupant,
+                        _ => false
+                    };
+
+            if (!canCreate)
+                return Result<UserResponse>.Failure(ErrorCodes.Forbidden, "You are not allowed to add this resident type.");
 
             var existing = await userRepository.GetByEmailAsync(request.SocietyId, request.Email.Trim().ToLowerInvariant(), ct);
             if (existing is not null)

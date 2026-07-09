@@ -67,3 +67,25 @@ export const staffGuard: CanActivateFn = () => {
   router.navigate(['/dashboard']);
   return false;
 };
+
+/** Platform-level HQ area (society directory, HQ user management) — HQAdmin and HQUser only. */
+export const hqGuard: CanActivateFn = () => {
+  const auth   = inject(AuthService);
+  const router = inject(Router);
+
+  if (auth.isLoggedIn() && auth.isHq()) return true;
+
+  router.navigate(['/dashboard']);
+  return false;
+};
+
+/** HQ actions that mutate platform state (create/activate/deactivate) — HQAdmin only, HQUser is read-only. */
+export const hqAdminGuard: CanActivateFn = () => {
+  const auth   = inject(AuthService);
+  const router = inject(Router);
+
+  if (auth.isLoggedIn() && auth.isHqAdmin()) return true;
+
+  router.navigate(['/dashboard']);
+  return false;
+};

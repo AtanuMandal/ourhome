@@ -24,7 +24,9 @@ public record UpdateSocietyRequest(
     int TotalApartments,
     int MaintenanceOverdueThresholdDays,
     IReadOnlyList<SocietyUserAssignmentRequest>? SocietyUsers,
-    IReadOnlyList<SocietyCommitteeRequest>? Committees);
+    IReadOnlyList<SocietyCommitteeRequest>? Committees,
+    // Omitted (all-null) means "leave the address unchanged".
+    string? Street = null, string? City = null, string? State = null, string? PostalCode = null, string? Country = null);
 
 public record SocietyResponse(
     string Id, string Name, AddressDto Address, string ContactEmail, string ContactPhone,
@@ -33,6 +35,15 @@ public record SocietyResponse(
     IReadOnlyList<SocietyUserAssignmentDto> SocietyUsers,
     IReadOnlyList<SocietyCommitteeDto> Committees,
     DateTime CreatedAt);
+
+/// <summary>
+/// Platform-level occupancy snapshot for HQAdmin/HQUser — deliberately excludes any financial data
+/// (per requirements/UserAndAccess.md: HQ roles get a society report with no financial data).
+/// </summary>
+public record SocietySummaryReportResponse(
+    string SocietyId, string SocietyName, string Status,
+    int TotalApartments, int OccupiedApartments, int VacantApartments, int UnderMaintenanceApartments,
+    int OwnerCount, int TenantCount, int TotalResidents);
 
 public record SocietyUserAssignmentRequest(string Email, string RoleTitle);
 public record SocietyCommitteeRequest(string Name, IReadOnlyList<SocietyUserAssignmentRequest> Members);

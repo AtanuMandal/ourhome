@@ -18,6 +18,8 @@ public class UserFunctions(ISender mediator, ICurrentUserService currentUser)
         [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "societies/{societyId}/users")] HttpRequest req,
         string societyId, CancellationToken ct)
     {
+        if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
+        if (!currentUser.IsInRoles("SUAdmin")) return new ForbidResult();
         var body = await req.DeserializeAsync<CreateUserRequest>(ct);
         if (body is null) return new BadRequestObjectResult("Invalid request body");
         var result = await mediator.Send(
@@ -240,7 +242,7 @@ public class UserFunctions(ISender mediator, ICurrentUserService currentUser)
         string societyId, string id, CancellationToken ct)
     {
         if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
-        if (!currentUser.IsInRoles("SUAdmin", "HQAdmin")) return new ForbidResult();
+        if (!currentUser.IsInRoles("SUAdmin")) return new ForbidResult();
         var result = await mediator.Send(new DeactivateUserCommand(societyId, id), ct);
         return result.ToActionResult();
     }
@@ -251,7 +253,7 @@ public class UserFunctions(ISender mediator, ICurrentUserService currentUser)
         string societyId, string id, CancellationToken ct)
     {
         if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
-        if (!currentUser.IsInRoles("SUAdmin", "HQAdmin")) return new ForbidResult();
+        if (!currentUser.IsInRoles("SUAdmin")) return new ForbidResult();
         var result = await mediator.Send(new ActivateUserCommand(societyId, id), ct);
         return result.ToActionResult();
     }

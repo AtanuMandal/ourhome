@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authGuard, guestGuard, adminGuard, visitorGuard, staffGuard } from './core/guards/auth.guard';
+import { authGuard, guestGuard, adminGuard, visitorGuard, staffGuard, hqGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
   { path: '', redirectTo: '/dashboard', pathMatch: 'full' },
@@ -133,6 +133,12 @@ export const routes: Routes = [
   {
     path: 'visitor-pass/:passCode',
     loadComponent: () => import('./features/visitors/visitor-pass-public.component').then(m => m.VisitorPassPublicComponent),
+  },
+
+  {
+    path: 'hq',
+    canActivate: [hqGuard],
+    loadChildren: () => import('./features/hq/hq.routes').then(m => m.HQ_ROUTES),
   },
 
   { path: '**', redirectTo: '/dashboard' },
