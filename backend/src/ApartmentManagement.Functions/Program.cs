@@ -80,14 +80,14 @@ if (string.IsNullOrWhiteSpace(pubKey) || string.IsNullOrWhiteSpace(privKey) || p
     Console.ResetColor();
 }
 
-// Ensure Cosmos DB databases and all containers exist before accepting requests.
-// using (var scope = host.Services.CreateScope())
-// {
-//     var cosmosClient = scope.ServiceProvider.GetRequiredService<CosmosClient>();
-//     var settings     = scope.ServiceProvider.GetRequiredService<IOptions<InfrastructureSettings>>().Value;
-//     var logger       = scope.ServiceProvider.GetRequiredService<ILoggerFactory>()
-//                             .CreateLogger(nameof(CosmosDbInitializer));
-//     await CosmosDbInitializer.InitializeAsync(cosmosClient, settings, logger);
-// }
+// Ensure the Cosmos DB database and all containers exist before accepting requests.
+using (var scope = host.Services.CreateScope())
+{
+    var cosmosClient = scope.ServiceProvider.GetRequiredService<CosmosClient>();
+    var settings     = scope.ServiceProvider.GetRequiredService<IOptions<InfrastructureSettings>>().Value;
+    var logger       = scope.ServiceProvider.GetRequiredService<ILoggerFactory>()
+                            .CreateLogger(nameof(CosmosDbInitializer));
+    await CosmosDbInitializer.InitializeAsync(cosmosClient, settings, logger);
+}
 
 await host.RunAsync();

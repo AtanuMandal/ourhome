@@ -29,10 +29,20 @@ public class SeedDataFunction(
     INoticeRepository             noticeRepo,
     IComplaintRepository          complaintRepo,
     IAmenityRepository            amenityRepo,
+    IAmenityBookingRepository     amenityBookingRepo,
     IVisitorLogRepository         visitorRepo,
     IShiftRepository              shiftRepo,
     IStaffRepository              staffRepo,
     IStaffAttendanceRepository    staffAttendanceRepo,
+    ISosAlertRepository           sosAlertRepo,
+    ICompetitionRepository        competitionRepo,
+    ICompetitionEntryRepository   competitionEntryRepo,
+    IRewardPointsRepository       rewardPointsRepo,
+    IServiceProviderRepository    serviceProviderRepo,
+    IServiceProviderRequestRepository serviceRequestRepo,
+    IPollRepository               pollRepo,
+    IPollVoteRepository           pollVoteRepo,
+    IAgmSessionRepository         agmSessionRepo,
     IAuthService                  authService,
     IConfiguration                config)
 {
@@ -80,11 +90,11 @@ public class SeedDataFunction(
             return new UnauthorizedResult();
 
         var log = new List<string>();
-        var rng = new Random(42); // fixed seed for reproducibility
+        var rng = new Random(Environment.TickCount); // fixed seed for reproducibility
 
         // ── 1. Society ────────────────────────────────────────────────────────────
         var society = Society.Create(
-            "Green Valley Residency",
+            $"Green Valley Residency {rng.Next(0,1000)}",
             new Address("12 Garden Road", "Bengaluru", "Karnataka", "560001", "India"),
             "admin@greenvalley.in", "9845000001",
             Blocks.Length, Blocks.Length * FloorsPerBlock * UnitsPerFloor);
@@ -93,7 +103,7 @@ public class SeedDataFunction(
         log.Add($"Society: {society.Id}");
 
         // ── 2. SUAdmin ────────────────────────────────────────────────────────────
-        var admin = User.Create(society.Id, "Ramesh Gupta", "admin@greenvalley.in",
+        var admin = User.Create(society.Id, "Ramesh Gupta", $"admin@{society.Name.Replace(" ", "")}.in",
             "9845000001", UserRole.SUAdmin, ResidentType.SocietyAdmin);
         admin.SetPasswordHash(authService.HashPassword("Admin@123"));
         admin.Verify();
@@ -103,7 +113,7 @@ public class SeedDataFunction(
         log.Add($"Admin: {admin.Id}");
 
         // ── 3. SUSecurity ─────────────────────────────────────────────────────────
-        var security = User.Create(society.Id, "Mohan Lal", "security@greenvalley.in",
+        var security = User.Create(society.Id, "Mohan Lal", $"security@{society.Name.Replace(" ", "")}.in",
             "9845000002", UserRole.SUSecurity, ResidentType.SocietyAdmin);
         security.SetPasswordHash(authService.HashPassword("Security@123"));
         security.Verify();
@@ -111,8 +121,8 @@ public class SeedDataFunction(
         log.Add($"Security: {security.Id}");
 
         // ── 4. Apartments + Residents ─────────────────────────────────────────────
-        var apartments   = new List<Apartment>(200);
-        var allResidents = new List<User>(400);
+        var apartments   = new List<Apartment>(400);
+        var allResidents = new List<User>(800);
         int aptIndex     = 0;
 
         foreach (var block in Blocks)
@@ -144,7 +154,7 @@ public class SeedDataFunction(
                     aptIndex++;
 
                     var owner1 = CreateResident(society.Id, apt.Id, aptIndex, 0, rng,
-                        UserRole.SUUser, ResidentType.Owner);
+                        UserRole.SUUser, ResidentType.Owner, society);
                     owner1.SetPasswordHash(authService.HashPassword("Resident@123"));
                     owner1.Verify();
                     owner1.AssignApartment(apt.Id);
@@ -154,7 +164,7 @@ public class SeedDataFunction(
                     if (pattern == 1)
                     {
                         var owner2 = CreateResident(society.Id, apt.Id, aptIndex, 1, rng,
-                            UserRole.SUUser, ResidentType.Owner);
+                            UserRole.SUUser, ResidentType.Owner, society);
                         owner2.SetPasswordHash(authService.HashPassword("Resident@123"));
                         owner2.Verify();
                         owner2.AssignApartment(apt.Id);
@@ -164,7 +174,7 @@ public class SeedDataFunction(
                     else if (pattern == 2)
                     {
                         var tenant = CreateResident(society.Id, apt.Id, aptIndex, 1, rng,
-                            UserRole.SUUser, ResidentType.Tenant);
+                            UserRole.SUUser, ResidentType.Tenant, society);
                         tenant.SetPasswordHash(authService.HashPassword("Resident@123"));
                         tenant.Verify();
                         tenant.AssignApartment(apt.Id);
@@ -289,12 +299,14 @@ public class SeedDataFunction(
              "Residents are advised not to let in unknown persons claiming to be service technicians without verifying with the admin office. All vendors and service personnel must check in at the security cabin and collect a visitor pass."),
         };
 
+        var createdNotices = new List<Notice>(noticeDefs.Length);
         foreach (var (category, title, content) in noticeDefs)
         {
             var notice = Notice.Create(society.Id, admin.Id, title, content, category,
                 DateTime.UtcNow.AddDays(-rng.Next(1, 60)),
                 DateTime.UtcNow.AddDays(rng.Next(30, 120)));
             await noticeRepo.CreateAsync(notice, ct);
+            createdNotices.Add(notice);
         }
         log.Add($"Notices: {noticeDefs.Length}");
 
@@ -498,6 +510,310 @@ public class SeedDataFunction(
 
         log.Add($"Staff attendance records: {attendanceCreated}");
 
+        // ── 13. Amenity bookings ──────────────────────────────────────────────────
+        var amenities = await amenityRepo.GetAllAsync(society.Id, ct);
+        var bookingsCreated = 0;
+        foreach (var amenity in amenities)
+        {
+            for (int i = 0; i < 3; i++)
+            {
+                var apt      = apartments[(bookingsCreated * 7) % apartments.Count];
+                var resident = allResidents.FirstOrDefault(u => u.ApartmentId == apt.Id) ?? allResidents[0];
+                var start    = today.AddDays(i + 1).Add(amenity.OperatingStart.ToTimeSpan());
+                var end      = start.AddMinutes(amenity.BookingSlotMinutes);
+
+                var booking = AmenityBooking.Create(society.Id, amenity.Id, amenity.Name,
+                    resident.Id, apt.Id, start, end);
+                if (i == 0) booking.Approve("Confirmed by admin");
+                else if (i == 2) booking.Reject("Slot double-booked — please choose another time");
+                await amenityBookingRepo.CreateAsync(booking, ct);
+                bookingsCreated++;
+            }
+        }
+        log.Add($"Amenity bookings: {bookingsCreated}");
+
+        // ── 14. SOS alerts ────────────────────────────────────────────────────────
+        var sosDefs = new (SosCategory Category, string? Note)[]
+        {
+            (SosCategory.Fire,              "Smoke smell from kitchen exhaust"),
+            (SosCategory.Medical,            "Elderly resident needs urgent assistance"),
+            (SosCategory.SecurityIntrusion,  "Unknown person attempting to enter through the back gate"),
+            (SosCategory.Other,              "Water leakage flooding the ground floor lobby"),
+        };
+        var sosAlerts = new List<SosAlert>(sosDefs.Length);
+        for (int i = 0; i < sosDefs.Length; i++)
+        {
+            var (category, note) = sosDefs[i];
+            var apt      = apartments[i * 40];
+            var resident = allResidents.FirstOrDefault(u => u.ApartmentId == apt.Id) ?? allResidents[0];
+            var alert    = SosAlert.Create(society.Id, apt.Id, resident.Id, resident.FullName, category, note);
+
+            switch (i)
+            {
+                case 1: alert.Acknowledge(security.Id, security.FullName); break;
+                case 2: alert.Acknowledge(security.Id, security.FullName); alert.Resolve(security.Id, security.FullName); break;
+                case 3: alert.MarkFalseAlarm(); break;
+                // case 0 stays Triggered — still active
+            }
+            await sosAlertRepo.CreateAsync(alert, ct);
+            sosAlerts.Add(alert);
+        }
+        log.Add($"SOS alerts: {sosAlerts.Count}");
+
+        // ── 15. Competitions + entries ────────────────────────────────────────────
+        var gardenComp  = Competition.Create(society.Id, admin.Id, "Best Balcony Garden",
+            "Show off your green thumb — best balcony garden wins a shopping voucher.",
+            now.AddDays(20), now.AddDays(35), "₹2,000 voucher", maxParticipants: 30);
+        await competitionRepo.CreateAsync(gardenComp, ct);
+
+        var cricketComp = Competition.Create(society.Id, admin.Id, "Society Cricket Tournament",
+            "Inter-block box cricket tournament on the central lawn every weekend this month.",
+            now.AddDays(-10), now.AddDays(10), "Trophy + ₹10,000", maxParticipants: 40);
+        cricketComp.Start();
+        await competitionRepo.CreateAsync(cricketComp, ct);
+
+        var rangoliComp = Competition.Create(society.Id, admin.Id, "Diwali Rangoli Contest",
+            "Traditional rangoli competition judged by the RWA committee on Diwali eve.",
+            now.AddDays(-30), now.AddDays(-25), "₹5,000 voucher", maxParticipants: 20);
+        rangoliComp.Start();
+        rangoliComp.Complete();
+        await competitionRepo.CreateAsync(rangoliComp, ct);
+
+        var competitions = new[] { gardenComp, cricketComp, rangoliComp };
+        log.Add($"Competitions: {competitions.Length}");
+
+        int entriesCreated = 0;
+
+        async Task<CompetitionEntry> AddEntryAsync(Competition competition, Apartment apt, decimal score = 0m)
+        {
+            var resident = allResidents.FirstOrDefault(u => u.ApartmentId == apt.Id) ?? allResidents[0];
+            var entry = CompetitionEntry.Create(society.Id, competition.Id, apt.Id, resident.Id);
+            if (score != 0m) entry.UpdateScore(score);
+            await competitionEntryRepo.CreateAsync(entry, ct);
+            entriesCreated++;
+            return entry;
+        }
+
+        // Garden contest — registrations only, judging hasn't started.
+        for (int i = 0; i < 3; i++)
+            await AddEntryAsync(gardenComp, apartments[i * 15]);
+
+        // Cricket — mid-tournament, scores updated as matches are played, no final ranking yet.
+        for (int i = 0; i < 4; i++)
+            await AddEntryAsync(cricketComp, apartments[i * 12 + 5], score: rng.Next(1, 6));
+
+        // Rangoli — judged and ranked; top 3 entries get a placement.
+        var rangoliEntries = new List<CompetitionEntry>();
+        for (int i = 0; i < 5; i++)
+            rangoliEntries.Add(await AddEntryAsync(rangoliComp, apartments[i * 18 + 2], score: 100 - i * 8));
+        rangoliEntries[0].SetRank(1);
+        rangoliEntries[1].SetRank(2);
+        rangoliEntries[2].SetRank(3);
+        foreach (var entry in rangoliEntries.Take(3))
+            await competitionEntryRepo.UpdateAsync(entry, ct);
+        log.Add($"Competition entries: {entriesCreated}");
+
+        // ── 16. Reward points ─────────────────────────────────────────────────────
+        var rewardDefs = new (int Index, int Points, string Reason)[]
+        {
+            (0, 100, "Diwali Rangoli Contest — 1st place"),
+            (1, 60,  "Diwali Rangoli Contest — 2nd place"),
+            (2, 40,  "Diwali Rangoli Contest — 3rd place"),
+            (3, 25,  "Timely maintenance payment — Q1 bonus"),
+            (4, 25,  "Timely maintenance payment — Q1 bonus"),
+            (5, 30,  "Community volunteer — AGM setup"),
+            (6, 20,  "Referral bonus — new resident onboarding"),
+            (7, -50, "Redeemed for society store voucher"),
+        };
+        foreach (var (index, points, reason) in rewardDefs)
+        {
+            var resident = allResidents[index * 23 % allResidents.Count];
+            var apt      = apartments.First(a => a.Id == resident.ApartmentId);
+            var reward   = RewardPoints.Create(society.Id, resident.Id, apt.Id, points, reason);
+            await rewardPointsRepo.CreateAsync(reward, ct);
+        }
+        log.Add($"Reward points records: {rewardDefs.Length}");
+
+        // ── 17. Service providers + requests ──────────────────────────────────────
+        var providerDefs = new[]
+        {
+            ("Om Plumbing Works",     "Ravi Om",     "9900011111", "om.plumbing@services.in",     new[] { "Plumbing" },              "24x7 plumbing repairs and installations", 4.5m),
+            ("Bright Spark Electric", "Naveen Kumar","9900022222", "brightspark@services.in",     new[] { "Electrical" },            "Licensed electricians for home and society work", 4.2m),
+            ("SafeGuard Pest Control","Ajay Rathi",  "9900033333", "safeguard.pest@services.in",  new[] { "Pest Control" },           "Eco-friendly pest control treatments", 4.0m),
+            ("CoolAir HVAC Services", "Farhan Sheikh","9900044444","coolair.hvac@services.in",    new[] { "AC Repair", "Appliance" }, "AC servicing, repair, and gas refilling", 0m),
+            ("Woodcraft Carpentry",   "Manoj Verma", "9900055555", "woodcraft@services.in",       new[] { "Carpentry" },              "Custom furniture and repair work", 4.7m),
+        };
+
+        var serviceProviders = new List<ServiceProvider>(providerDefs.Length);
+        foreach (var (name, contact, phone, email, types, desc, rating) in providerDefs)
+        {
+            var provider = ServiceProvider.Create(name, contact, phone, email, types, desc, society.Id);
+            if (rating > 0m)
+            {
+                provider.Approve();
+                provider.UpdateRating(rating);
+            }
+            // CoolAir HVAC Services is left Pending to represent an unreviewed onboarding request.
+            await serviceProviderRepo.CreateAsync(provider, ct);
+            serviceProviders.Add(provider);
+        }
+        log.Add($"Service providers: {serviceProviders.Count}");
+
+        var plumber      = serviceProviders[0];
+        var electrician   = serviceProviders[1];
+        var pestControl  = serviceProviders[2];
+        var carpenter    = serviceProviders[4];
+
+        var requestDefs = new (int AptIndex, string ServiceType, string Description, ServiceProvider? Provider, ServiceRequestStatus Status, int? Rating)[]
+        {
+            (10,  "Plumbing",    "Kitchen sink tap is leaking continuously.",           plumber,     ServiceRequestStatus.Completed, 5),
+            (35,  "Electrical",  "Living room switchboard sparking intermittently.",    electrician, ServiceRequestStatus.Completed, 4),
+            (60,  "Pest Control","Ants infestation in the kitchen cabinets.",           pestControl, ServiceRequestStatus.InProgress, null),
+            (85,  "Carpentry",   "Bedroom wardrobe door hinge needs replacement.",      carpenter,   ServiceRequestStatus.Accepted,   null),
+            (110, "Plumbing",    "Bathroom drain is clogged and draining slowly.",      null,        ServiceRequestStatus.Open,       null),
+            (135, "Electrical",  "Need an extra power outlet installed in the study.",  null,        ServiceRequestStatus.Cancelled,  null),
+        };
+
+        var serviceRequestsCreated = 0;
+        foreach (var (requestAptIndex, serviceType, desc, provider, status, rating) in requestDefs)
+        {
+            var apt      = apartments[requestAptIndex];
+            var resident = allResidents.FirstOrDefault(u => u.ApartmentId == apt.Id) ?? allResidents[0];
+            var request  = ServiceProviderRequest.Create(society.Id, apt.Id, resident.Id, serviceType, desc,
+                now.AddDays(rng.Next(1, 10)));
+
+            if (provider is not null && status is ServiceRequestStatus.Accepted or ServiceRequestStatus.InProgress or ServiceRequestStatus.Completed)
+                request.Accept(provider.Id);
+            if (status is ServiceRequestStatus.InProgress or ServiceRequestStatus.Completed)
+                request.StartWork();
+            if (status == ServiceRequestStatus.Completed)
+            {
+                request.Complete();
+                if (rating.HasValue) request.AddReview(rating.Value, "Great service, would book again.");
+            }
+            if (status == ServiceRequestStatus.Cancelled)
+                request.Cancel();
+
+            await serviceRequestRepo.CreateAsync(request, ct);
+            serviceRequestsCreated++;
+        }
+        log.Add($"Service provider requests: {serviceRequestsCreated}");
+
+        // ── 18. AGM session + poll resolutions + standalone polls ────────────────
+        var agmSession = AgmSession.Create(society.Id, admin.Id,
+            $"Annual General Meeting – FY {fyStart}",
+            "Annual General Meeting covering budget approval, committee elections, and corpus fund review.",
+            new DateTime(fyStart + 1, 4, 26, 10, 0, 0, DateTimeKind.Utc));
+        await agmSessionRepo.CreateAsync(agmSession, ct);
+        log.Add($"AGM sessions: 1");
+
+        var pollsCreated = 0;
+        var pollVotesCreated = 0;
+
+        async Task<int> CastApartmentVotesAsync(Poll poll, int apartmentCount, Func<int, string> pickOptionId)
+        {
+            var cast = 0;
+            for (int i = 0; i < apartmentCount; i++)
+            {
+                var apt   = apartments[i];
+                var owner = allResidents.First(u => u.ApartmentId == apt.Id && u.Role == UserRole.SUUser);
+                var vote  = PollVote.Create(society.Id, poll.Id, apt.Id, owner.Id, [pickOptionId(i)]);
+                await pollVoteRepo.CreateAsync(vote, ct);
+                cast++;
+            }
+            return cast;
+        }
+
+        async Task<int> CastResidentVotesAsync(Poll poll, int residentCount, Func<int, string> pickOptionId)
+        {
+            var cast = 0;
+            for (int i = 0; i < residentCount; i++)
+            {
+                var voter = allResidents[i];
+                var vote  = PollVote.Create(society.Id, poll.Id, voter.Id, voter.Id, [pickOptionId(i)]);
+                await pollVoteRepo.CreateAsync(vote, ct);
+                cast++;
+            }
+            return cast;
+        }
+
+        // Resolution 1 — budget approval, closed with quorum met and a Passed outcome.
+        var budgetResolution = Poll.Create(society.Id, admin.Id,
+            $"Approve Annual Budget FY {fyStart}-{fyStart + 1}",
+            "Review and approve the proposed annual maintenance and capital expenditure budget.",
+            PollType.SingleChoice, ["Approve", "Reject"],
+            now.AddDays(-10), now.AddDays(-1),
+            PollEligibilityUnit.PerApartment, PollAnonymity.Identified, PollVisibility.AfterClose,
+            null, 50, isAgmResolution: true, allowVoteChange: false, agmSession.Id);
+        await pollRepo.CreateAsync(budgetResolution, ct);
+        pollsCreated++;
+
+        var approveId = budgetResolution.Options[0].Id;
+        var rejectId  = budgetResolution.Options[1].Id;
+        var budgetVotes = await CastApartmentVotesAsync(budgetResolution, 100, i => i % 5 == 0 ? rejectId : approveId);
+        pollVotesCreated += budgetVotes;
+        var budgetApproveCount = 80; // 20 of the 100 voting apartments (i % 5 == 0) voted Reject
+        budgetResolution.Close(eligibleCount: apartments.Count, participantCount: budgetVotes, leadingOptionVoteCount: budgetApproveCount);
+        await pollRepo.UpdateAsync(budgetResolution, ct);
+
+        // Resolution 2 — committee election, still open, live tally visible.
+        var electionResolution = Poll.Create(society.Id, admin.Id,
+            "Elect New Committee Members",
+            "Vote for the resident who will represent your block on the Managing Committee for the next term.",
+            PollType.SingleChoice, ["Ramesh Gupta (Block A)", "Sunita Rao (Block D)", "Vikram Shah (Block G)"],
+            now.AddDays(-5), now.AddDays(10),
+            PollEligibilityUnit.PerApartment, PollAnonymity.Identified, PollVisibility.Immediately,
+            null, null, isAgmResolution: true, allowVoteChange: true, agmSession.Id);
+        await pollRepo.CreateAsync(electionResolution, ct);
+        pollsCreated++;
+
+        var electionOptionIds = electionResolution.Options.Select(o => o.Id).ToArray();
+        pollVotesCreated += await CastApartmentVotesAsync(electionResolution, 40, i => electionOptionIds[i % electionOptionIds.Length]);
+
+        // Resolution 3 — corpus fund increase, still open, participation short of quorum so far.
+        var corpusResolution = Poll.Create(society.Id, admin.Id,
+            "Approve Corpus Fund Increase",
+            "Proposal to increase the monthly corpus fund contribution to build a reserve for major repairs.",
+            PollType.SingleChoice, ["Yes", "No"],
+            now.AddDays(-3), now.AddDays(12),
+            PollEligibilityUnit.PerApartment, PollAnonymity.Identified, PollVisibility.Immediately,
+            null, 50, isAgmResolution: true, allowVoteChange: true, agmSession.Id);
+        await pollRepo.CreateAsync(corpusResolution, ct);
+        pollsCreated++;
+
+        var corpusYesId = corpusResolution.Options[0].Id;
+        var corpusNoId  = corpusResolution.Options[1].Id;
+        pollVotesCreated += await CastApartmentVotesAsync(corpusResolution, 15, i => i % 4 == 0 ? corpusNoId : corpusYesId);
+
+        // Standalone community poll — linked to the Diwali notice, open, resident-level voting.
+        var diwaliNotice = createdNotices.First(n => n.Title.Contains("Diwali", StringComparison.OrdinalIgnoreCase));
+        var timingPoll = Poll.Create(society.Id, admin.Id,
+            "Preferred Diwali Event Timing",
+            "Help us plan the Diwali celebration — which slot works best for your family?",
+            PollType.SingleChoice, ["Evening (6 PM)", "Night (8 PM)"],
+            now.AddDays(-7), now.AddDays(7),
+            PollEligibilityUnit.PerResident, PollAnonymity.Anonymous, PollVisibility.Immediately,
+            diwaliNotice.Id, null, isAgmResolution: false, allowVoteChange: true);
+        await pollRepo.CreateAsync(timingPoll, ct);
+        pollsCreated++;
+
+        var timingOptionIds = timingPoll.Options.Select(o => o.Id).ToArray();
+        pollVotesCreated += await CastResidentVotesAsync(timingPoll, 40, i => timingOptionIds[i % 3 == 0 ? 1 : 0]);
+
+        // Standalone community poll — scheduled to open in the future, no votes yet.
+        var repaintPoll = Poll.Create(society.Id, admin.Id,
+            "Should We Repaint the Common Corridors?",
+            "Proposal to repaint all block corridors and stairwells before the next monsoon season.",
+            PollType.SingleChoice, ["Yes", "No"],
+            now.AddDays(5), now.AddDays(20),
+            PollEligibilityUnit.PerResident, PollAnonymity.Anonymous, PollVisibility.Immediately,
+            null, null, isAgmResolution: false, allowVoteChange: true);
+        await pollRepo.CreateAsync(repaintPoll, ct);
+        pollsCreated++;
+
+        log.Add($"Polls: {pollsCreated}");
+        log.Add($"Poll votes: {pollVotesCreated}");
+
         // ── Validation — re-read every module back from Cosmos to confirm persistence ─
         var validation = new List<string>();
 
@@ -521,6 +837,16 @@ public class SeedDataFunction(
         await ValidateCountAsync("Shifts", () => shiftRepo.GetAllAsync(society.Id, ct), shifts.Count);
         await ValidateCountAsync("Staff", () => staffRepo.GetAllAsync(society.Id, ct), staffList.Count);
         await ValidateCountAsync("Staff attendance", () => staffAttendanceRepo.GetAllAsync(society.Id, ct), attendanceCreated);
+        await ValidateCountAsync("Amenity bookings", () => amenityBookingRepo.GetAllAsync(society.Id, ct), bookingsCreated);
+        await ValidateCountAsync("SOS alerts", () => sosAlertRepo.GetAllAsync(society.Id, ct), sosAlerts.Count);
+        await ValidateCountAsync("Competitions", () => competitionRepo.GetAllAsync(society.Id, ct), competitions.Length);
+        await ValidateCountAsync("Competition entries", () => competitionEntryRepo.GetAllAsync(society.Id, ct), entriesCreated);
+        await ValidateCountAsync("Reward points", () => rewardPointsRepo.GetAllAsync(society.Id, ct), rewardDefs.Length);
+        await ValidateCountAsync("Service providers", () => serviceProviderRepo.GetAllAsync(society.Id, ct), serviceProviders.Count);
+        await ValidateCountAsync("Service provider requests", () => serviceRequestRepo.GetAllAsync(society.Id, ct), serviceRequestsCreated);
+        await ValidateCountAsync("AGM sessions", () => agmSessionRepo.GetAllAsync(society.Id, ct), 1);
+        await ValidateCountAsync("Polls", () => pollRepo.GetAllAsync(society.Id, ct), pollsCreated);
+        await ValidateCountAsync("Poll votes", () => pollVoteRepo.GetAllAsync(society.Id, ct), pollVotesCreated);
 
         // Spot-checks beyond raw counts — confirm specific field values round-tripped correctly.
         var reloadedSociety = await societyRepo.GetByIdAsync(society.Id, society.Id, ct);
@@ -543,6 +869,57 @@ public class SeedDataFunction(
             ? $"OK Staff attendance: {onDutyNow.Count} staff currently on duty"
             : "MISMATCH Staff attendance: expected at least one staff member currently checked in");
 
+        var reloadedBookings = await amenityBookingRepo.GetAllAsync(society.Id, ct);
+        validation.Add(reloadedBookings.Any(b => b.Status == BookingStatus.Approved)
+            ? "OK Amenity bookings: at least one Approved booking persisted"
+            : "MISMATCH Amenity bookings: no Approved booking found");
+
+        var reloadedSos = await sosAlertRepo.GetAllAsync(society.Id, ct);
+        validation.Add(reloadedSos.Count(a => a.Status == SosAlertStatus.Resolved) == 1
+            ? "OK SOS alerts: resolved alert persisted with its status"
+            : "MISMATCH SOS alerts: expected exactly one Resolved alert");
+
+        var reloadedRangoli = await competitionRepo.GetByIdAsync(rangoliComp.Id, society.Id, ct);
+        validation.Add(reloadedRangoli?.Status == CompetitionStatus.Completed
+            ? "OK Competitions: Diwali Rangoli Contest persisted as Completed"
+            : $"MISMATCH Competitions: expected Completed, found {reloadedRangoli?.Status.ToString() ?? "null (not found)"}");
+
+        var reloadedRangoliEntries = await competitionEntryRepo.GetByCompetitionAsync(society.Id, rangoliComp.Id, ct);
+        validation.Add(reloadedRangoliEntries.Count(e => e.Rank is >= 1 and <= 3) == 3
+            ? "OK Competition entries: top-3 ranked entries persisted"
+            : "MISMATCH Competition entries: expected exactly 3 ranked entries");
+
+        var reloadedRewards = await rewardPointsRepo.GetAllAsync(society.Id, ct);
+        validation.Add(reloadedRewards.Any(r => r.Points < 0)
+            ? "OK Reward points: negative-points redemption entry persisted"
+            : "MISMATCH Reward points: no redemption (negative points) entry found");
+
+        var reloadedProviders = await serviceProviderRepo.GetApprovedAsync(society.Id, ct);
+        validation.Add(reloadedProviders.Count == 4
+            ? $"OK Service providers: {reloadedProviders.Count}/4 approved providers persisted"
+            : $"MISMATCH Service providers: expected 4 approved, found {reloadedProviders.Count}");
+
+        var reloadedRequests = await serviceRequestRepo.GetByStatusAsync(society.Id, ServiceRequestStatus.Completed, 1, 10, ct);
+        validation.Add(reloadedRequests.Any(r => r.Rating.HasValue)
+            ? "OK Service provider requests: completed request with a review persisted"
+            : "MISMATCH Service provider requests: no completed+reviewed request found");
+
+        var reloadedBudget = await pollRepo.GetByIdAsync(budgetResolution.Id, society.Id, ct);
+        validation.Add(reloadedBudget?.Status == PollStatus.Closed && reloadedBudget.Outcome == PollOutcome.Passed
+            ? "OK Polls: budget resolution closed with a Passed outcome"
+            : $"MISMATCH Polls: expected Closed/Passed, found {reloadedBudget?.Status.ToString() ?? "null"}/{reloadedBudget?.Outcome?.ToString() ?? "null"}");
+
+        var reloadedBudgetVotes = await pollVoteRepo.GetByPollAsync(society.Id, budgetResolution.Id, ct);
+        validation.Add(reloadedBudgetVotes.Count == budgetVotes
+            ? $"OK Poll votes: {reloadedBudgetVotes.Count}/{budgetVotes} budget resolution votes persisted"
+            : $"MISMATCH Poll votes: expected {budgetVotes}, found {reloadedBudgetVotes.Count}");
+
+        var reloadedAgmSession = await agmSessionRepo.GetByIdAsync(agmSession.Id, society.Id, ct);
+        var reloadedAgmResolutions = (await pollRepo.GetAllAsync(society.Id, ct)).Count(p => p.AgmSessionId == agmSession.Id);
+        validation.Add(reloadedAgmSession is not null && reloadedAgmResolutions == 3
+            ? "OK AGM sessions: session persisted with all 3 linked resolutions"
+            : $"MISMATCH AGM sessions: session {(reloadedAgmSession is null ? "not found" : "found")}, {reloadedAgmResolutions}/3 resolutions linked");
+
         var failedChecks = validation.Count(v => v.StartsWith("MISMATCH", StringComparison.Ordinal));
         log.Add($"Validation: {validation.Count - failedChecks}/{validation.Count} checks passed");
 
@@ -550,9 +927,9 @@ public class SeedDataFunction(
         return new OkObjectResult(new
         {
             societyId = society.Id,
-            adminEmail = "admin@greenvalley.in",
+            adminEmail = $"admin@{society.Name.Replace(" ", "")}.in",
             adminPassword = "Admin@123",
-            securityEmail = "security@greenvalley.in",
+            securityEmail = $"security@{society.Name.Replace(" ", "")}.in",
             securityPassword = "Security@123",
             residentPassword = "Resident@123",
             stats = log,
@@ -564,11 +941,11 @@ public class SeedDataFunction(
     // ── helpers ───────────────────────────────────────────────────────────────────
 
     private User CreateResident(string societyId, string aptId, int aptIndex, int slot,
-        Random rng, UserRole role, ResidentType residentType)
+        Random rng, UserRole role, ResidentType residentType, Society society)
     {
         string first = FirstNames[(aptIndex * 7 + slot * 31) % FirstNames.Length];
         string last  = LastNames[(aptIndex * 13 + slot * 17) % LastNames.Length];
-        string email = $"{first.ToLowerInvariant()}.{last.ToLowerInvariant()}.{aptIndex}{slot}@greenvalley.in";
+        string email = $"{first.ToLowerInvariant()}.{last.ToLowerInvariant()}.{aptIndex}{slot}@{society.Name.Replace(" ", "")}.in";
         string phone = $"9{rng.Next(100_000_000, 999_999_999)}";
         return User.Create(societyId, $"{first} {last}", email, phone, role, residentType, aptId);
     }
