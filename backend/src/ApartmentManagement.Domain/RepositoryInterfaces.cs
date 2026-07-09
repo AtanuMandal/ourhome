@@ -185,6 +185,32 @@ public interface IStaffAttendanceRepository : IRepository<StaffAttendance>
     Task<bool> HasRecordForDateAsync(string societyId, string staffId, DateTime attendanceDate, CancellationToken ct = default);
 }
 
+// ─── SOS Alert ────────────────────────────────────────────────────────────────
+
+public interface ISosAlertRepository : IRepository<SosAlert>
+{
+    /// <summary>Cross-partition — used by the escalation timer, which runs society-agnostic.</summary>
+    Task<IReadOnlyList<SosAlert>> GetActiveAcrossSocietiesAsync(CancellationToken ct = default);
+}
+
+// ─── Poll ─────────────────────────────────────────────────────────────────────
+
+public interface IPollRepository : IRepository<Poll>
+{
+    /// <summary>Cross-partition — used by the status/reminder timers, which run society-agnostic.</summary>
+    Task<IReadOnlyList<Poll>> GetOpenOrScheduledAcrossSocietiesAsync(CancellationToken ct = default);
+}
+
+public interface IPollVoteRepository : IRepository<PollVote>
+{
+    Task<IReadOnlyList<PollVote>> GetByPollAsync(string societyId, string pollId, CancellationToken ct = default);
+    Task<PollVote?> GetByPollAndEligibleUnitAsync(string societyId, string pollId, string eligibleUnitId, CancellationToken ct = default);
+}
+
+public interface IAgmSessionRepository : IRepository<AgmSession>
+{
+}
+
 // ─── Outbox ───────────────────────────────────────────────────────────────────
 
 public interface IOutboxRepository : IRepository<OutboxRecord>

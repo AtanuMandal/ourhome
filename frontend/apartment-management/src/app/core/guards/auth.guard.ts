@@ -50,7 +50,7 @@ export const visitorGuard: CanActivateFn = () => {
   return false;
 };
 
-/** Staff attendance is not resident-facing — only SUAdmin and SUSecurity may access it. */
+/** Staff attendance / SOS alert management is not resident-facing — only SUAdmin and SUSecurity may access it. */
 export const staffGuard: CanActivateFn = () => {
   const auth   = inject(AuthService);
   const router = inject(Router);

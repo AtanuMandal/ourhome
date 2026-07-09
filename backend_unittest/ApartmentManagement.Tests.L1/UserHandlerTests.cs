@@ -1,5 +1,6 @@
 using ApartmentManagement.Application.Commands.User;
 using ApartmentManagement.Application.Interfaces;
+using ApartmentManagement.Application.Mappings;
 using ApartmentManagement.Application.Queries.User;
 using ApartmentManagement.Domain.Entities;
 using ApartmentManagement.Domain.Enums;
@@ -744,8 +745,13 @@ public class GetUsersBySocietyQueryHandlerSearchTests
     private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
     private readonly Mock<ICurrentUserService> _currentUserServiceMock = new();
 
-    private GetUsersBySocietyQueryHandler CreateHandler() =>
-        new(_userRepoMock.Object, _apartmentRepoMock.Object, _currentUserServiceMock.Object);
+    private GetUsersBySocietyQueryHandler CreateHandler()
+    {
+        _apartmentRepoMock
+            .Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<Apartment>)[]);
+        return new(_userRepoMock.Object, _apartmentRepoMock.Object, _currentUserServiceMock.Object);
+    }
 
     [Fact]
     public async Task Handle_WithSearchText_FiltersByNameEmailOrPhone()
@@ -786,6 +792,56 @@ public class GetUsersBySocietyQueryHandlerSearchTests
     }
 }
 
+// ─── GetUsersBySocietyQueryHandler apartment bulk-fetch Tests ─────────────────
+// Locks in the fix: apartments are fetched once for the whole society and mapped to
+// users in memory, instead of one (or more) repository round-trips per user.
+
+public class GetUsersBySocietyQueryHandlerApartmentBulkFetchTests
+{
+    private readonly Mock<IUserRepository> _userRepoMock = new();
+    private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
+    private readonly Mock<ICurrentUserService> _currentUserServiceMock = new();
+
+    private GetUsersBySocietyQueryHandler CreateHandler() =>
+        new(_userRepoMock.Object, _apartmentRepoMock.Object, _currentUserServiceMock.Object);
+
+    [Fact]
+    public async Task Handle_WithMultipleUsers_FetchesApartmentsOnceAndResolvesEachUsersApartmentsFromMemory()
+    {
+        // userA has an explicit household link (the "linked apartments" path).
+        var apt1 = Apartment.Create("soc-001", "101", "A", 1, 2, [], 500, 600, 700);
+        var userA = User.Create("soc-001", "Alice Smith", "alice@example.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
+        userA.LinkApartment(apt1.Id, apt1.ToDisplayLabel(), ResidentType.Owner, makePrimary: true);
+
+        // userB has no household links — resolved via the legacy owner/tenant fallback on the apartment itself.
+        var apt2 = Apartment.Create("soc-001", "202", "B", 2, 3, [], 800, 900, 1000);
+        var userB = User.Create("soc-001", "Bob Jones", "bob@example.com", "+91-1112223333", UserRole.SUUser, ResidentType.Owner);
+        apt2.AssignOwner(userB.Id, userB.FullName);
+
+        _userRepoMock
+            .Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<User>)[userA, userB]);
+        _apartmentRepoMock
+            .Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<Apartment>)[apt1, apt2]);
+
+        var result = await CreateHandler().Handle(
+            new GetUsersBySocietyQuery("soc-001", new PaginationParams { Page = 1, PageSize = 20 }, null),
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Items.Should().HaveCount(2);
+        result.Value!.Items.Single(u => u.FullName == "Alice Smith").Apartments.Should().ContainSingle(a => a.ApartmentId == apt1.Id);
+        result.Value!.Items.Single(u => u.FullName == "Bob Jones").Apartments.Should().ContainSingle(a => a.ApartmentId == apt2.Id);
+
+        // The whole point of the fix: exactly one bulk fetch, zero per-user round-trips.
+        _apartmentRepoMock.Verify(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()), Times.Once);
+        _apartmentRepoMock.Verify(r => r.GetByIdAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _apartmentRepoMock.Verify(r => r.GetByOwnerAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _apartmentRepoMock.Verify(r => r.GetByTenantAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+}
+
 // ─── GetUsersBySocietyQueryHandler / GetUserQueryHandler contact-masking Tests ─
 
 public class GetUsersBySocietyQueryHandlerMaskingTests
@@ -794,8 +850,13 @@ public class GetUsersBySocietyQueryHandlerMaskingTests
     private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
     private readonly Mock<ICurrentUserService> _currentUserServiceMock = new();
 
-    private GetUsersBySocietyQueryHandler CreateHandler() =>
-        new(_userRepoMock.Object, _apartmentRepoMock.Object, _currentUserServiceMock.Object);
+    private GetUsersBySocietyQueryHandler CreateHandler()
+    {
+        _apartmentRepoMock
+            .Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<Apartment>)[]);
+        return new(_userRepoMock.Object, _apartmentRepoMock.Object, _currentUserServiceMock.Object);
+    }
 
     [Fact]
     public async Task Handle_SUUserViewer_MasksOtherResidentsContactInfo()

@@ -1107,6 +1107,60 @@ internal static class UserQueryMapping
             .OrderBy(apartment => apartment.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
+
+    /// <summary>
+    /// Same resolution rules as <see cref="GetResidentApartmentsAsync"/>, but sourced entirely from
+    /// apartments already loaded into memory — used for listing many users at once (e.g.
+    /// <see cref="GetUsersBySocietyQueryHandler"/>) so we issue one apartment fetch for the whole
+    /// society instead of one (or several) per user.
+    /// </summary>
+    internal static IReadOnlyList<ResidentApartmentDto> GetResidentApartments(
+        Domain.Entities.User user,
+        IReadOnlyDictionary<string, Domain.Entities.Apartment> apartmentsById,
+        ILookup<string, Domain.Entities.Apartment> ownedApartmentsByUserId,
+        ILookup<string, Domain.Entities.Apartment> tenantedApartmentsByUserId)
+    {
+        if (user.Apartments.Count > 0)
+        {
+            var linkedApartments = new List<ResidentApartmentDto>(user.Apartments.Count);
+            foreach (var link in user.Apartments)
+            {
+                apartmentsById.TryGetValue(link.ApartmentId, out var apartment);
+                linkedApartments.Add(new ResidentApartmentDto(
+                    link.ApartmentId,
+                    apartment?.ToDisplayLabel() ?? link.Name,
+                    link.ResidentType.ToString()));
+            }
+
+            return linkedApartments
+                .OrderBy(link => link.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        var residentApartments = new List<ResidentApartmentDto>();
+        var seenApartmentIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var apartment in ownedApartmentsByUserId[user.Id].OrderBy(a => a.ApartmentNumber, StringComparer.OrdinalIgnoreCase))
+        {
+            if (seenApartmentIds.Add(apartment.Id))
+                residentApartments.Add(apartment.ToResidentApartmentResponse(ResidentType.Owner));
+        }
+        foreach (var apartment in tenantedApartmentsByUserId[user.Id].OrderBy(a => a.ApartmentNumber, StringComparer.OrdinalIgnoreCase))
+        {
+            if (seenApartmentIds.Add(apartment.Id))
+                residentApartments.Add(apartment.ToResidentApartmentResponse(ResidentType.Tenant));
+        }
+
+        if (!string.IsNullOrWhiteSpace(user.ApartmentId) && seenApartmentIds.Add(user.ApartmentId) &&
+            apartmentsById.TryGetValue(user.ApartmentId, out var primaryApartment))
+        {
+            residentApartments.Add(primaryApartment.ToResidentApartmentResponse(user.ResidentType));
+        }
+
+        return residentApartments
+            .OrderBy(apartment => apartment.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
 }
 
 public record GetUserQuery(string SocietyId, string UserId) : IRequest<Result<UserResponse>>;
@@ -1182,10 +1236,22 @@ public sealed class GetUsersBySocietyQueryHandler(IUserRepository userRepository
                 users = await userRepository.GetAllAsync(request.SocietyId, ct);
             }
 
+            // Fetch every apartment for the society once and map in memory below, instead of
+            // resolving each user's apartment(s) with its own repository round-trip.
+            var allApartments = await apartmentRepository.GetAllAsync(request.SocietyId, ct);
+            var apartmentsById = allApartments.ToDictionary(a => a.Id, StringComparer.OrdinalIgnoreCase);
+            var ownedApartmentsByUserId = allApartments
+                .Where(a => !string.IsNullOrEmpty(a.OwnerId))
+                .ToLookup(a => a.OwnerId!, StringComparer.OrdinalIgnoreCase);
+            var tenantedApartmentsByUserId = allApartments
+                .Where(a => !string.IsNullOrEmpty(a.TenantId))
+                .ToLookup(a => a.TenantId!, StringComparer.OrdinalIgnoreCase);
+
             var items = new List<UserResponse>(users.Count);
             foreach (var user in users.Where(u => !u.IsDeleted))
             {
-                var apartments = await UserQueryMapping.GetResidentApartmentsAsync(user, apartmentRepository, ct);
+                var apartments = UserQueryMapping.GetResidentApartments(
+                    user, apartmentsById, ownedApartmentsByUserId, tenantedApartmentsByUserId);
                 items.Add(user.ToResponse(apartments));
             }
 

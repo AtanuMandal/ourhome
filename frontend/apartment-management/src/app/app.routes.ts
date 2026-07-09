@@ -77,6 +77,24 @@ export const routes: Routes = [
   },
 
   {
+    path: 'sos-alerts',
+    canActivate: [staffGuard],
+    loadChildren: () => import('./features/sos/sos.routes').then(m => m.SOS_ROUTES),
+  },
+
+  {
+    path: 'polls',
+    canActivate: [visitorGuard],
+    loadChildren: () => import('./features/polls/polls.routes').then(m => m.POLLS_ROUTES),
+  },
+
+  {
+    path: 'agm-sessions',
+    canActivate: [visitorGuard],
+    loadChildren: () => import('./features/polls/agm-sessions.routes').then(m => m.AGM_SESSIONS_ROUTES),
+  },
+
+  {
     path: 'maintenance',
     canActivate: [authGuard],
     loadChildren: () => import('./features/maintenance/maintenance.routes').then(m => m.MAINTENANCE_ROUTES),

@@ -1,0 +1,116 @@
+.sos-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 16px;
+  margin-bottom: 16px;
+  border: none;
+  border-radius: 12px;
+  background: #d32f2f;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(211, 47, 47, 0.4);
+
+  .material-icons { font-size: 26px; }
+
+  &:hover { background: #b71c1c; }
+}
+
+.sos-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+
+  &--triggered { background: #ffebee; }
+  &--acknowledged { background: #fff8e1; }
+  &--resolved { background: #e8f5e9; }
+  &--falsealarm { background: #eceff1; }
+
+  &__icon { font-size: 28px; color: #d32f2f; }
+  &--resolved &__icon, &--falsealarm &__icon { color: #43a047; }
+
+  &__content { flex: 1; display: flex; flex-direction: column; }
+  &__title { font-weight: 700; }
+  &__meta { font-size: 13px; opacity: 0.75; }
+}
+
+.sos-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.sos-dialog {
+  background: var(--mat-app-background-color, #fff);
+  border-radius: 12px;
+  padding: 20px;
+  max-width: 420px;
+  width: 100%;
+
+  h2 { margin: 0 0 8px; }
+
+  &__hint { font-size: 13px; opacity: 0.75; margin-bottom: 16px; }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 16px;
+  }
+}
+
+.sos-field-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin: 12px 0 6px;
+}
+
+.sos-category-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.sos-category-option {
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  background: transparent;
+  cursor: pointer;
+
+  &--selected {
+    border-color: #d32f2f;
+    background: rgba(211, 47, 47, 0.1);
+    font-weight: 700;
+  }
+}
+
+textarea {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  padding: 8px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.sos-error {
+  color: #d32f2f;
+  font-size: 13px;
+  margin-top: 8px;
+}

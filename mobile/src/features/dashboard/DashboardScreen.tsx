@@ -13,6 +13,7 @@ import { useAuthStore } from '../../store/authStore';
 import { useDashboard } from './useDashboard';
 import { AppHeader } from '../../shared/components/AppHeader';
 import { CurrencyText } from '../../shared/components/CurrencyText';
+import { SosTriggerCard } from '../sos/SosTriggerCard';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing } from '../../theme/spacing';
@@ -46,7 +47,7 @@ const QUICK_ACTIONS: Record<string, QuickAction[]> = {
     { icon: '🚪', label: 'Visitors', screen: 'Visitors' },
     { icon: '📢', label: 'Notices', screen: 'Notices' },
     { icon: '💰', label: 'Payments', screen: 'VendorPayments' },
-    { icon: '👷', label: 'Staff', screen: 'StaffList' },
+    { icon: '👷', label: 'Staff', screen: 'Staff' },
   ],
   SUSecurity: [
     { icon: '🚪', label: 'Visitors', screen: 'Visitors' },
@@ -54,7 +55,7 @@ const QUICK_ACTIONS: Record<string, QuickAction[]> = {
     { icon: '📝', label: 'Complaint', screen: 'Complaints' },
     { icon: '📢', label: 'Notices', screen: 'Notices' },
     { icon: '🏊', label: 'Amenities', screen: 'Amenities' },
-    { icon: '👷', label: 'Staff', screen: 'StaffList' },
+    { icon: '👷', label: 'Staff', screen: 'Staff' },
     { icon: '👤', label: 'Profile', screen: 'Profile' },
   ],
   SUUser: [
@@ -127,6 +128,8 @@ export function DashboardScreen() {
           <Text style={styles.greeting}>{greeting},</Text>
           <Text style={styles.name}>{user?.fullName ?? 'User'}</Text>
         </View>
+
+        {user?.role === 'SUUser' && <SosTriggerCard />}
 
         <Text style={styles.sectionTitle}>Today's Summary</Text>
         <View style={styles.cards}>

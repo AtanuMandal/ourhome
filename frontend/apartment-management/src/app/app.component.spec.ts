@@ -9,10 +9,10 @@ import { AppComponent } from './app.component';
 import { AuthService } from './core/services/auth.service';
 import { PushNotificationService } from './core/services/push-notification.service';
 
-function configureAppComponentTestBed(matches: boolean) {
+function configureAppComponentTestBed(matches: boolean, role: string = 'SUUser') {
   const authServiceStub = {
     isLoggedIn: () => true,
-    user: () => ({ fullName: 'Alice', role: 'SUUser' }),
+    user: () => ({ fullName: 'Alice', role }),
     logout: jasmine.createSpy(),
   };
   const pushServiceStub = {
@@ -77,5 +77,74 @@ describe('AppComponent — responsive side nav', () => {
 
     component.closeMobileMenu();
     expect(component.sidenavOpened()).toBeFalse();
+  });
+});
+
+describe('AppComponent — role-based side nav visibility', () => {
+  function setupWithRole(role: string) {
+    configureAppComponentTestBed(false, role);
+    const fixture = TestBed.createComponent(AppComponent);
+    fixture.detectChanges();
+    return fixture.componentInstance;
+  }
+
+  it('shows Staff to SUAdmin', () => {
+    const component = setupWithRole('SUAdmin');
+    expect(component.visibleNav().some(item => item.path === '/staff')).toBeTrue();
+  });
+
+  it('shows Staff to SUSecurity', () => {
+    const component = setupWithRole('SUSecurity');
+    expect(component.visibleNav().some(item => item.path === '/staff')).toBeTrue();
+  });
+
+  it('hides Staff from SUUser', () => {
+    const component = setupWithRole('SUUser');
+    expect(component.visibleNav().some(item => item.path === '/staff')).toBeFalse();
+  });
+
+  it('hides Staff from HQ roles', () => {
+    const component = setupWithRole('HQAdmin');
+    expect(component.visibleNav().some(item => item.path === '/staff')).toBeFalse();
+  });
+
+  it('shows SOS Alerts to SUAdmin', () => {
+    const component = setupWithRole('SUAdmin');
+    expect(component.visibleNav().some(item => item.path === '/sos-alerts')).toBeTrue();
+  });
+
+  it('shows SOS Alerts to SUSecurity', () => {
+    const component = setupWithRole('SUSecurity');
+    expect(component.visibleNav().some(item => item.path === '/sos-alerts')).toBeTrue();
+  });
+
+  it('hides SOS Alerts from SUUser', () => {
+    const component = setupWithRole('SUUser');
+    expect(component.visibleNav().some(item => item.path === '/sos-alerts')).toBeFalse();
+  });
+
+  it('hides SOS Alerts from HQ roles', () => {
+    const component = setupWithRole('HQAdmin');
+    expect(component.visibleNav().some(item => item.path === '/sos-alerts')).toBeFalse();
+  });
+
+  it('shows Polls to SUAdmin', () => {
+    const component = setupWithRole('SUAdmin');
+    expect(component.visibleNav().some(item => item.path === '/polls')).toBeTrue();
+  });
+
+  it('shows Polls to SUUser', () => {
+    const component = setupWithRole('SUUser');
+    expect(component.visibleNav().some(item => item.path === '/polls')).toBeTrue();
+  });
+
+  it('shows Polls to SUSecurity', () => {
+    const component = setupWithRole('SUSecurity');
+    expect(component.visibleNav().some(item => item.path === '/polls')).toBeTrue();
+  });
+
+  it('hides Polls from HQ roles', () => {
+    const component = setupWithRole('HQAdmin');
+    expect(component.visibleNav().some(item => item.path === '/polls')).toBeFalse();
   });
 });

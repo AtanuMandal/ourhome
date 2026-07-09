@@ -439,4 +439,38 @@ public static class MappingExtensions
             attendance.Id, attendance.SocietyId, attendance.StaffId, attendance.StaffName, attendance.ShiftId,
             attendance.AttendanceDate, attendance.CheckInTime, attendance.CheckOutTime, attendance.IsLate,
             attendance.Status.ToString());
+
+    public static SosAlertResponse ToResponse(this SosAlert alert, string apartmentLabel) =>
+        new(
+            alert.Id, alert.SocietyId, alert.ApartmentId, apartmentLabel,
+            alert.TriggeredByUserId, alert.TriggeredByUserName, alert.Category.ToString(), alert.Note,
+            alert.Status.ToString(), alert.CreatedAt,
+            alert.AcknowledgedAt, alert.AcknowledgedByUserId, alert.AcknowledgedByUserName,
+            alert.ResolvedAt, alert.ResolvedByUserId, alert.ResolvedByUserName,
+            alert.EscalationCount);
+
+    public static PollResponse ToResponse(
+        this Poll poll,
+        IReadOnlyList<PollOptionTallyResponse>? tally,
+        int? eligibleCount,
+        int? participantCount,
+        bool hasVoted,
+        IReadOnlyList<string>? mySelectedOptionIds) =>
+        new(
+            poll.Id, poll.SocietyId, poll.Title, poll.Description, poll.Type.ToString(),
+            poll.Options.Select(o => new PollOptionResponse(o.Id, o.Text)).ToList(),
+            poll.OpensAt, poll.ClosesAt, poll.EligibilityUnit.ToString(), poll.Anonymity.ToString(),
+            poll.Visibility.ToString(), poll.LinkedNoticeId, poll.QuorumThresholdPercent,
+            poll.IsAgmResolution, poll.AllowVoteChange,
+            poll.Status.ToString(), poll.ClosedAt, poll.ResultsPublished, poll.Outcome?.ToString(),
+            poll.CreatedByUserId, poll.CreatedAt,
+            tally, eligibleCount, participantCount, hasVoted, mySelectedOptionIds, poll.AgmSessionId,
+            poll.TargetAudience.ToString(), poll.TargetBlockNames);
+
+    public static PollSummaryResponse ToSummaryResponse(this Poll poll) =>
+        new(poll.Id, poll.Title, poll.Type.ToString(), poll.OpensAt, poll.ClosesAt,
+            poll.Status.ToString(), poll.IsAgmResolution, poll.ResultsPublished);
+
+    public static AgmSessionSummaryResponse ToSummaryResponse(this AgmSession session, int resolutionCount) =>
+        new(session.Id, session.Title, session.SessionDate, resolutionCount);
 }

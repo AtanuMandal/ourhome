@@ -27,3 +27,12 @@ public enum ServiceRequestStatus { Open, Accepted, InProgress, Completed, Cancel
 public enum StaffCategory { Security, Housekeeping, Gardener, Plumber, Electrician, Other }
 public enum StaffEmploymentType { OnPayroll, Contractor }
 public enum StaffAttendanceStatus { CheckedIn, CheckedOut, Absent, OnLeave }
+public enum SosCategory { Fire, Medical, SecurityIntrusion, Other }
+public enum SosAlertStatus { Triggered, Acknowledged, Resolved, FalseAlarm }
+public enum PollType { SingleChoice, MultipleChoice }
+public enum PollTargetAudience { FullSociety, PerBlock, MultipleBlock }
+public enum PollEligibilityUnit { PerApartment, PerResident }
+public enum PollAnonymity { Anonymous, Identified }
+public enum PollVisibility { Immediately, AfterClose, AdminOnly }
+public enum PollStatus { Scheduled, Open, Closed }
+public enum PollOutcome { Passed, Failed, NoQuorum }

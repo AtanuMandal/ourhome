@@ -23,6 +23,17 @@ import { AmenityBookingScreen } from '../features/amenities/AmenityBookingScreen
 import { ProfileScreen } from '../features/profile/ProfileScreen';
 import { CommitteeScreen } from '../features/society/CommitteeScreen';
 import { ContactUsScreen } from '../features/society/ContactUsScreen';
+import { StaffListScreen } from '../features/staff/StaffListScreen';
+import { StaffFormScreen } from '../features/staff/StaffFormScreen';
+import { StaffAttendanceReportScreen } from '../features/staff/StaffAttendanceReportScreen';
+import { SosAlertListScreen } from '../features/sos/SosAlertListScreen';
+import { SosAlertReportScreen } from '../features/sos/SosAlertReportScreen';
+import { PollListScreen } from '../features/polls/PollListScreen';
+import { PollFormScreen } from '../features/polls/PollFormScreen';
+import { PollDetailScreen } from '../features/polls/PollDetailScreen';
+import { AgmSessionListScreen } from '../features/polls/AgmSessionListScreen';
+import { AgmSessionFormScreen } from '../features/polls/AgmSessionFormScreen';
+import { AgmSessionDetailScreen } from '../features/polls/AgmSessionDetailScreen';
 import { colors } from '../theme/colors';
 
 const Drawer = createDrawerNavigator();
@@ -92,6 +103,58 @@ function AmenitiesStack() {
   );
 }
 
+type StaffParams = {
+  StaffList: undefined;
+  StaffForm: { id?: string };
+  StaffAttendanceReport: undefined;
+};
+const StaffNav = createNativeStackNavigator<StaffParams>();
+function StaffStack() {
+  return (
+    <StaffNav.Navigator screenOptions={noHeader}>
+      <StaffNav.Screen name="StaffList" component={StaffListScreen} />
+      <StaffNav.Screen name="StaffForm" component={StaffFormScreen} />
+      <StaffNav.Screen name="StaffAttendanceReport" component={StaffAttendanceReportScreen} />
+    </StaffNav.Navigator>
+  );
+}
+
+type SosParams = {
+  SosAlertList: undefined;
+  SosAlertReport: undefined;
+};
+const SosNav = createNativeStackNavigator<SosParams>();
+function SosStack() {
+  return (
+    <SosNav.Navigator screenOptions={noHeader}>
+      <SosNav.Screen name="SosAlertList" component={SosAlertListScreen} />
+      <SosNav.Screen name="SosAlertReport" component={SosAlertReportScreen} />
+    </SosNav.Navigator>
+  );
+}
+
+type PollParams = {
+  PollList: undefined;
+  PollForm: { agmSessionId?: string } | undefined;
+  PollDetail: { id: string };
+  AgmSessionList: undefined;
+  AgmSessionForm: undefined;
+  AgmSessionDetail: { id: string };
+};
+const PollNav = createNativeStackNavigator<PollParams>();
+function PollStack() {
+  return (
+    <PollNav.Navigator screenOptions={noHeader}>
+      <PollNav.Screen name="PollList" component={PollListScreen} />
+      <PollNav.Screen name="PollForm" component={PollFormScreen} />
+      <PollNav.Screen name="PollDetail" component={PollDetailScreen} />
+      <PollNav.Screen name="AgmSessionList" component={AgmSessionListScreen} />
+      <PollNav.Screen name="AgmSessionForm" component={AgmSessionFormScreen} />
+      <PollNav.Screen name="AgmSessionDetail" component={AgmSessionDetailScreen} />
+    </PollNav.Navigator>
+  );
+}
+
 // ── Main Drawer Navigator ───────────────────────────────────────��─────────────
 
 function renderDrawer(props: DrawerContentComponentProps) {
@@ -120,6 +183,9 @@ export function AppDrawer() {
       <Drawer.Screen name="FinancialReport" component={FinancialReportScreen} />
       <Drawer.Screen name="VendorPayments"  component={VendorPaymentListScreen} />
       <Drawer.Screen name="Amenities"       component={AmenitiesStack} />
+      <Drawer.Screen name="Staff"           component={StaffStack} />
+      <Drawer.Screen name="SosAlerts"       component={SosStack} />
+      <Drawer.Screen name="Polls"           component={PollStack} />
       <Drawer.Screen name="Committee"       component={CommitteeScreen} />
       <Drawer.Screen name="ContactUs"       component={ContactUsScreen} />
       <Drawer.Screen name="Profile"         component={ProfileScreen} />

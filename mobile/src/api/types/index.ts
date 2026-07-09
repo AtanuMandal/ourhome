@@ -260,6 +260,131 @@ export interface StaffAttendanceReport {
   entries: StaffAttendanceReportEntry[];
 }
 
+export type SosCategory = 'Fire' | 'Medical' | 'SecurityIntrusion' | 'Other';
+export type SosAlertStatus = 'Triggered' | 'Acknowledged' | 'Resolved' | 'FalseAlarm';
+
+export interface SosAlert {
+  id: string;
+  societyId: string;
+  apartmentId: string;
+  apartmentLabel: string;
+  triggeredByUserId: string;
+  triggeredByUserName: string;
+  category: SosCategory;
+  note?: string;
+  status: SosAlertStatus;
+  triggeredAt: string;
+  acknowledgedAt?: string;
+  acknowledgedByUserId?: string;
+  acknowledgedByUserName?: string;
+  resolvedAt?: string;
+  resolvedByUserId?: string;
+  resolvedByUserName?: string;
+  escalationCount: number;
+}
+
+export interface SosCategoryBreakdown {
+  category: SosCategory;
+  count: number;
+}
+
+export interface SosAlertReport {
+  fromDate: string;
+  toDate: string;
+  totalAlerts: number;
+  falseAlarmCount: number;
+  falseAlarmRatePercent: number;
+  averageAcknowledgeSeconds?: number;
+  averageResolveSeconds?: number;
+  byCategory: SosCategoryBreakdown[];
+}
+
+export type PollType = 'SingleChoice' | 'MultipleChoice';
+export type PollTargetAudience = 'FullSociety' | 'PerBlock' | 'MultipleBlock';
+export type PollEligibilityUnit = 'PerApartment' | 'PerResident';
+export type PollAnonymity = 'Anonymous' | 'Identified';
+export type PollVisibility = 'Immediately' | 'AfterClose' | 'AdminOnly';
+export type PollStatus = 'Scheduled' | 'Open' | 'Closed';
+export type PollOutcome = 'Passed' | 'Failed' | 'NoQuorum';
+
+export interface PollOption {
+  id: string;
+  text: string;
+}
+
+export interface PollOptionTally {
+  id: string;
+  text: string;
+  voteCount: number;
+}
+
+export interface Poll {
+  id: string;
+  societyId: string;
+  title: string;
+  description: string;
+  type: PollType;
+  options: PollOption[];
+  opensAt: string;
+  closesAt: string;
+  targetAudience: PollTargetAudience;
+  targetBlockNames: string[];
+  eligibilityUnit: PollEligibilityUnit;
+  anonymity: PollAnonymity;
+  visibility: PollVisibility;
+  linkedNoticeId?: string;
+  quorumThresholdPercent?: number;
+  isAgmResolution: boolean;
+  allowVoteChange: boolean;
+  status: PollStatus;
+  closedAt?: string;
+  resultsPublished: boolean;
+  outcome?: PollOutcome;
+  createdByUserId: string;
+  createdAt: string;
+  tally?: PollOptionTally[];
+  eligibleCount?: number;
+  participantCount?: number;
+  hasVoted: boolean;
+  mySelectedOptionIds?: string[];
+  agmSessionId?: string;
+}
+
+export interface PollSummary {
+  id: string;
+  title: string;
+  type: PollType;
+  opensAt: string;
+  closesAt: string;
+  status: PollStatus;
+  isAgmResolution: boolean;
+  resultsPublished: boolean;
+}
+
+export interface PollVoteResult {
+  pollId: string;
+  selectedOptionIds: string[];
+  votedAt: string;
+}
+
+export interface AgmSessionSummary {
+  id: string;
+  title: string;
+  sessionDate: string;
+  resolutionCount: number;
+}
+
+export interface AgmSessionDetail {
+  id: string;
+  societyId: string;
+  title: string;
+  description: string;
+  sessionDate: string;
+  createdByUserId: string;
+  createdAt: string;
+  resolutions: Poll[];
+}
+
 export interface ApiError {
   error: string;
   details?: string;

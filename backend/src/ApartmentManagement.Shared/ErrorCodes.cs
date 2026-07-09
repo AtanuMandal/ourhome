@@ -69,4 +69,16 @@ public static class ErrorCodes
     public const string ShiftNotFound = "SHIFT_NOT_FOUND";
     public const string StaffAlreadyCheckedIn = "STAFF_ALREADY_CHECKED_IN";
     public const string StaffNotCheckedIn = "STAFF_NOT_CHECKED_IN";
+
+    public const string SosAlertNotFound = "SOS_ALERT_NOT_FOUND";
+    public const string SosAlertAlreadySettled = "SOS_ALERT_ALREADY_SETTLED";
+    public const string UserHasNoApartment = "USER_HAS_NO_APARTMENT";
+
+    public const string PollNotFound = "POLL_NOT_FOUND";
+    public const string PollNotOpen = "POLL_NOT_OPEN";
+    public const string AlreadyVoted = "ALREADY_VOTED";
+    public const string PollAlreadyClosed = "POLL_ALREADY_CLOSED";
+    public const string PollResultsAlreadyPublished = "POLL_RESULTS_ALREADY_PUBLISHED";
+    public const string NotEligibleToVote = "NOT_ELIGIBLE_TO_VOTE";
+    public const string AgmSessionNotFound = "AGM_SESSION_NOT_FOUND";
 }
