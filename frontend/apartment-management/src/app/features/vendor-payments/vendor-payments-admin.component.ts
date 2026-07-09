@@ -1,5 +1,6 @@
 import { CurrencyPipe, DatePipe } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDividerModule } from '@angular/material/divider';
@@ -8,7 +9,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { SearchableSelectComponent } from '../../shared/components/searchable-select/searchable-select.component';
 import { RouterLink } from '@angular/router';
-import { Observable } from 'rxjs';
+import { Observable, Subject, debounceTime } from 'rxjs';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 import { LoadingSpinnerComponent } from '../../shared/components/loading-spinner/loading-spinner.component';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
@@ -78,7 +79,7 @@ import {
           <div class="filters">
             <mat-form-field appearance="fill" class="full-width">
               <mat-label>Search vendors</mat-label>
-              <input matInput [(ngModel)]="vendorSearch" (ngModelChange)="loadVendors()" placeholder="Name, business type, contact...">
+              <input matInput [(ngModel)]="vendorSearch" (ngModelChange)="onVendorSearchChange()" placeholder="Name, business type, contact...">
             </mat-form-field>
           </div>
 
@@ -409,6 +410,8 @@ export class VendorPaymentsAdminComponent {
   private readonly vendorPayments = inject(VendorPaymentService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly fb = inject(FormBuilder);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly vendorSearchChanged = new Subject<void>();
 
   readonly loading = signal(true);
   readonly savingVendor = signal(false);
@@ -503,6 +506,15 @@ export class VendorPaymentsAdminComponent {
 
   constructor() {
     this.loadVendors();
+
+    // Debounce search-as-you-type so we don't fire an HTTP request per keystroke.
+    this.vendorSearchChanged
+      .pipe(debounceTime(300), takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.loadVendors());
+  }
+
+  onVendorSearchChange() {
+    this.vendorSearchChanged.next();
   }
 
   scheduleMonthlyEquivalent() {

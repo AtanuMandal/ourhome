@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, RefreshControl, Alert, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -42,15 +42,15 @@ export function SosAlertListScreen() {
   const acknowledge = useAcknowledgeSosAlert(societyId);
   const resolve = useResolveSosAlert(societyId);
 
-  function handleAcknowledge(alert: SosAlert) {
+  const handleAcknowledge = useCallback((alert: SosAlert) => {
     acknowledge.mutate(alert.id, { onError: (e) => Alert.alert('Could not acknowledge', normalizeError(e)) });
-  }
+  }, [acknowledge]);
 
-  function handleResolve(alert: SosAlert) {
+  const handleResolve = useCallback((alert: SosAlert) => {
     resolve.mutate(alert.id, { onError: (e) => Alert.alert('Could not resolve', normalizeError(e)) });
-  }
+  }, [resolve]);
 
-  function renderItem({ item }: { item: SosAlert }) {
+  const renderItem = useCallback(({ item }: { item: SosAlert }) => {
     return (
       <View style={[styles.card, item.status === 'Triggered' && styles.cardActive]}>
         <Text style={styles.cardTitle}>
@@ -80,7 +80,7 @@ export function SosAlertListScreen() {
         </View>
       </View>
     );
-  }
+  }, [handleAcknowledge, handleResolve, acknowledge.isPending, resolve.isPending]);
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>

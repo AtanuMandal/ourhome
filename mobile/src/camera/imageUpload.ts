@@ -1,7 +1,7 @@
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system';
 
-const BASE_URL = process.env['API_BASE_URL'] ?? 'http://192.168.1.6:7071/api';
+const BASE_URL = process.env['API_BASE_URL'] ?? 'http://192.168.1.5:7071/api';
 
 export async function compressAndUpload(uri: string, societyId: string): Promise<string> {
   // Resize to max 800px and compress to JPEG 75%

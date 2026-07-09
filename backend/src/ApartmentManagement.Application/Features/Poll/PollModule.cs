@@ -92,7 +92,7 @@ internal static class PollNotificationHelper
     public static async Task<PollResponse> BuildPollResponseAsync(
         DomainPoll poll, string requestingUserId, string requestingUserRole,
         IPollVoteRepository pollVoteRepository, IApartmentRepository apartmentRepository, IUserRepository userRepository,
-        CancellationToken ct)
+        CancellationToken ct, Domain.Entities.User? requester = null)
     {
         var isAdmin = string.Equals(requestingUserRole, "SUAdmin", StringComparison.OrdinalIgnoreCase);
         var isSecurity = string.Equals(requestingUserRole, "SUSecurity", StringComparison.OrdinalIgnoreCase);
@@ -124,7 +124,9 @@ internal static class PollNotificationHelper
                 ?? (await ResolveEligibleUnitsAsync(poll, apartmentRepository, userRepository, ct)).Count;
         }
 
-        var requester = await userRepository.GetByIdAsync(requestingUserId, poll.SocietyId, ct);
+        // Callers iterating over many polls for the same requester (e.g. an AGM session's
+        // resolutions) can pass the already-fetched user in to avoid refetching it once per poll.
+        requester ??= await userRepository.GetByIdAsync(requestingUserId, poll.SocietyId, ct);
         var myEligibleUnitId = requester is null
             ? null
             : (poll.EligibilityUnit == PollEligibilityUnit.PerApartment ? requester.ApartmentId : requester.Id);

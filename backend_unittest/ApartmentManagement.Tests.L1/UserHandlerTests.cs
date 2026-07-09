@@ -544,6 +544,45 @@ public class LoginCommandHandlerTests
     }
 }
 
+public class GetUsersByApartmentQueryHandlerTests
+{
+    private readonly Mock<IUserRepository> _userRepoMock = new();
+    private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
+
+    private GetUsersByApartmentQueryHandler CreateHandler() =>
+        new(_userRepoMock.Object, _apartmentRepoMock.Object);
+
+    [Fact]
+    public async Task Handle_WithMultipleResidentsInApartment_BulkFetchesApartmentsInsteadOfPerUser()
+    {
+        var apt = Apartment.Create("soc-001", "101", "A", 1, 2, [], 500, 600, 700);
+        var otherApt = Apartment.Create("soc-001", "102", "A", 1, 2, [], 500, 600, 700);
+        var owner = User.Create("soc-001", "Owner", "owner@test.com", "9000000001", UserRole.SUUser, ResidentType.Owner, apt.Id);
+        var tenant = User.Create("soc-001", "Tenant", "tenant@test.com", "9000000002", UserRole.SUUser, ResidentType.Tenant, apt.Id);
+        var unrelated = User.Create("soc-001", "Other", "other@test.com", "9000000003", UserRole.SUUser, ResidentType.Owner, otherApt.Id);
+
+        _userRepoMock.Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync([owner, tenant, unrelated]);
+        _apartmentRepoMock.Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync([apt, otherApt]);
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(new GetUsersByApartmentQuery("soc-001", apt.Id), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().HaveCount(2);
+        result.Value.Should().Contain(u => u.Email == "owner@test.com");
+        result.Value.Should().Contain(u => u.Email == "tenant@test.com");
+
+        // The apartment lookup must be a single bulk fetch for the society, not one round trip
+        // per matched user (or per user's linked apartment).
+        _apartmentRepoMock.Verify(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()), Times.Once);
+        _apartmentRepoMock.Verify(r => r.GetByIdAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _apartmentRepoMock.Verify(r => r.GetByOwnerAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _apartmentRepoMock.Verify(r => r.GetByTenantAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+}
+
 public class SendOtpCommandHandlerTests
 {
     private readonly Mock<IUserRepository> _userRepoMock = new();

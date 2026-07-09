@@ -187,7 +187,10 @@ export class ApartmentListComponent implements OnInit {
     }
 
     this.loading.set(true);
-    this.svc.list(sid).subscribe({
+    // This admin directory is expected to show every apartment in the society, not just the
+    // first page — pass an explicit large page size (matches the fetch-all convention used
+    // elsewhere in the app) instead of silently truncating to the default page size.
+    this.svc.list(sid, 1, 500).subscribe({
       next: r => {
         this.items.set(r.items ?? []);
         this.loading.set(false);

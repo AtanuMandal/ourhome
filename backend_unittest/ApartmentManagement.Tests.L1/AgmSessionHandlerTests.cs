@@ -120,4 +120,42 @@ public class GetAgmSessionQueryHandlerTests
         result.IsFailure.Should().BeTrue();
         result.ErrorCode.Should().Be(ErrorCodes.AgmSessionNotFound);
     }
+
+    [Fact]
+    public async Task Handle_WithMultipleResolutions_FetchesRequestingUserOnceNotPerResolution()
+    {
+        var session = AgmSession.Create("soc-001", "admin-001", "AGM 2026", "desc", DateTime.UtcNow.AddDays(30));
+        var resolution1 = Poll.Create(
+            "soc-001", "admin-001", "Resolution 1", "desc", PollType.SingleChoice, ["Yes", "No"],
+            DateTime.UtcNow.AddDays(-1), DateTime.UtcNow.AddDays(1), PollEligibilityUnit.PerResident,
+            PollAnonymity.Anonymous, PollVisibility.Immediately, null, null, true, true, session.Id);
+        var resolution2 = Poll.Create(
+            "soc-001", "admin-001", "Resolution 2", "desc", PollType.SingleChoice, ["Yes", "No"],
+            DateTime.UtcNow.AddDays(-1), DateTime.UtcNow.AddDays(1), PollEligibilityUnit.PerResident,
+            PollAnonymity.Anonymous, PollVisibility.Immediately, null, null, true, true, session.Id);
+        var resolution3 = Poll.Create(
+            "soc-001", "admin-001", "Resolution 3", "desc", PollType.SingleChoice, ["Yes", "No"],
+            DateTime.UtcNow.AddDays(-1), DateTime.UtcNow.AddDays(1), PollEligibilityUnit.PerResident,
+            PollAnonymity.Anonymous, PollVisibility.Immediately, null, null, true, true, session.Id);
+
+        _agmSessionRepoMock.Setup(r => r.GetByIdAsync(session.Id, "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync(session);
+        _pollRepoMock.Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<Poll>)[resolution1, resolution2, resolution3]);
+        _pollVoteRepoMock.Setup(r => r.GetByPollAsync("soc-001", It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<PollVote>)[]);
+        _userRepoMock.Setup(r => r.GetByRoleAsync("soc-001", UserRole.SUUser, 1, 500, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<Domain.Entities.User>)[]);
+        var requestingUser = Domain.Entities.User.Create("soc-001", "Admin User", "admin@test.com", "9876543210", UserRole.SUAdmin, ResidentType.SocietyAdmin);
+        _userRepoMock.Setup(r => r.GetByIdAsync("admin-001", "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(requestingUser);
+
+        var result = await CreateHandler().Handle(new GetAgmSessionQuery("soc-001", session.Id, "admin-001", "SUAdmin"), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Resolutions.Should().HaveCount(3);
+
+        // The requesting user is the same for every resolution in the session — must be fetched
+        // once and reused, not refetched on every iteration of the resolutions loop.
+        _userRepoMock.Verify(r => r.GetByIdAsync("admin-001", "soc-001", It.IsAny<CancellationToken>()), Times.Once);
+    }
 }

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   Text,
@@ -33,7 +33,7 @@ export function ComplaintListScreen() {
   const { data, isLoading, fetchNextPage, hasNextPage, refetch } =
     useComplaintList(societyId);
 
-  function renderItem({ item }: { item: Complaint }) {
+  const renderItem = useCallback(({ item }: { item: Complaint }) => {
     return (
       <TouchableOpacity
         style={styles.item}
@@ -50,7 +50,7 @@ export function ComplaintListScreen() {
         </Text>
       </TouchableOpacity>
     );
-  }
+  }, [navigation]);
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>

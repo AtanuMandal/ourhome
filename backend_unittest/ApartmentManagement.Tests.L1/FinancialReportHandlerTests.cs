@@ -54,8 +54,7 @@ public class GetSocietyLedgerQueryHandlerTests
             .Setup(r => r.GetBySocietyAsync(SocietyId, 1, 10_000, null, null, null, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync([vendor]);
 
-        _apartmentRepoMock.Setup(r => r.GetByIdAsync(apt1.Id, SocietyId, It.IsAny<CancellationToken>())).ReturnsAsync(apt1);
-        _apartmentRepoMock.Setup(r => r.GetByIdAsync(apt2.Id, SocietyId, It.IsAny<CancellationToken>())).ReturnsAsync(apt2);
+        _apartmentRepoMock.Setup(r => r.GetAllAsync(SocietyId, It.IsAny<CancellationToken>())).ReturnsAsync([apt1, apt2]);
 
         var handler = CreateHandler();
         var result = await handler.Handle(new GetSocietyLedgerQuery(SocietyId), CancellationToken.None);
@@ -75,6 +74,11 @@ public class GetSocietyLedgerQueryHandlerTests
 
         // Balance nets out: apt1 charge paid (0 net), vendor charge paid (0 net), apt2 pending remains (3000).
         ledger.CurrentBalance.Should().Be(3000m);
+
+        // Apartment display labels must come from a single bulk fetch for the society, not one
+        // round trip per distinct apartment referenced by the charges above.
+        _apartmentRepoMock.Verify(r => r.GetAllAsync(SocietyId, It.IsAny<CancellationToken>()), Times.Once);
+        _apartmentRepoMock.Verify(r => r.GetByIdAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -88,6 +92,7 @@ public class GetSocietyLedgerQueryHandlerTests
         _vendorChargeRepoMock
             .Setup(r => r.GetBySocietyAsync(SocietyId, 1, 10_000, null, null, null, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
+        _apartmentRepoMock.Setup(r => r.GetAllAsync(SocietyId, It.IsAny<CancellationToken>())).ReturnsAsync([]);
 
         var handler = CreateHandler();
         var result = await handler.Handle(new GetSocietyLedgerQuery(SocietyId), CancellationToken.None);

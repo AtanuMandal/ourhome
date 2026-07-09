@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -69,17 +69,17 @@ export function VisitorListScreen() {
   const { mutate: deny } = useDenyVisitor(societyId);
   const { mutate: checkOut } = useCheckOutVisitor(societyId);
 
-  function canApprove(item: Visitor): boolean {
+  const canApprove = useCallback((item: Visitor): boolean => {
     if (item.status !== 'Pending') return false;
     // Only the host resident can approve a visitor — SUAdmin and SUSecurity may deny but not approve.
     return item.hostApartmentId === myApartmentId;
-  }
+  }, [myApartmentId]);
 
-  function canCheckOut(item: Visitor): boolean {
+  const canCheckOut = useCallback((item: Visitor): boolean => {
     return canModerate && item.status === 'CheckedIn';
-  }
+  }, [canModerate]);
 
-  function renderItem({ item }: { item: Visitor }) {
+  const renderItem = useCallback(({ item }: { item: Visitor }) => {
     return (
       <TouchableOpacity
         style={styles.item}
@@ -132,7 +132,7 @@ export function VisitorListScreen() {
         )}
       </TouchableOpacity>
     );
-  }
+  }, [navigation, canApprove, canCheckOut, canModerate, approve, deny, checkOut]);
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
