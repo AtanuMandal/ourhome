@@ -23,7 +23,7 @@ public class VisitorFunctions(ISender mediator, ICurrentUserService currentUser,
         if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
         if (!currentUser.IsInRoles("SUAdmin", "SUSecurity", "SUUser")) return new ForbidResult();
         var request = await req.DeserializeAsync<RegisterVisitorRequest>(ct);
-        if (request is null) return new BadRequestObjectResult("Invalid request body");
+        if (request is null) return HttpHelpers.MissingBody();
 
         var result = await mediator.Send(new RegisterVisitorCommand(
             societyId,
@@ -69,7 +69,7 @@ public class VisitorFunctions(ISender mediator, ICurrentUserService currentUser,
         if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
         if (!currentUser.IsInRoles("SUAdmin", "SUSecurity")) return new ForbidResult();
         var request = await req.DeserializeAsync<CheckInVisitorRequest>(ct);
-        if (request is null) return new BadRequestObjectResult("Invalid request body");
+        if (request is null) return HttpHelpers.MissingBody();
 
         var result = await mediator.Send(new CheckInVisitorCommand(societyId, request.PassCode), ct);
         return result.ToActionResult();
@@ -223,7 +223,7 @@ public class VisitorFunctions(ISender mediator, ICurrentUserService currentUser,
     {
         if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
         var request = await req.DeserializeAsync<ShareVisitorPassRequest>(ct);
-        if (request is null) return new BadRequestObjectResult("Invalid request body");
+        if (request is null) return HttpHelpers.MissingBody();
 
         var frontendUrl = configuration["FrontendUrl"] ?? "https://localhost:4200";
         var result = await mediator.Send(new ShareVisitorPassCommand(societyId, id, request.Email, request.Phone, frontendUrl), ct);

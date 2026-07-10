@@ -17,7 +17,7 @@ public class ComplaintFunctions(ISender mediator)
         string societyId, CancellationToken ct)
     {
         var command = await req.DeserializeAsync<CreateComplaintCommand>(ct);
-        if (command is null) return new BadRequestObjectResult("Invalid request body");
+        if (command is null) return HttpHelpers.MissingBody();
         var result = await mediator.Send(command with { SocietyId = societyId }, ct);
         return result.ToActionResult(201);
     }
@@ -48,7 +48,7 @@ public class ComplaintFunctions(ISender mediator)
         string societyId, string id, CancellationToken ct)
     {
         var command = await req.DeserializeAsync<UpdateComplaintStatusCommand>(ct);
-        if (command is null) return new BadRequestObjectResult("Invalid request body");
+        if (command is null) return HttpHelpers.MissingBody();
         var result = await mediator.Send(command with { SocietyId = societyId, ComplaintId = id }, ct);
         return result.ToActionResult();
     }

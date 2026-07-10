@@ -18,7 +18,7 @@ public class ApartmentFunctions(ISender mediator)
         string societyId, CancellationToken ct)
     {
         var command = await req.DeserializeAsync<CreateApartmentCommand>(ct);
-        if (command is null) return new BadRequestObjectResult("Invalid request body");
+        if (command is null) return HttpHelpers.MissingBody();
         var result = await mediator.Send(command with { SocietyId = societyId }, ct);
         return result.ToActionResult(201);
     }
@@ -58,7 +58,7 @@ public class ApartmentFunctions(ISender mediator)
         string societyId, string id, CancellationToken ct)
     {
         var command = await req.DeserializeAsync<UpdateApartmentCommand>(ct);
-        if (command is null) return new BadRequestObjectResult("Invalid request body");
+        if (command is null) return HttpHelpers.MissingBody();
         var result = await mediator.Send(command with { SocietyId = societyId, ApartmentId = id }, ct);
         return result.ToActionResult();
     }
@@ -79,7 +79,7 @@ public class ApartmentFunctions(ISender mediator)
     {
         var body = await req.DeserializeAsync<ChangeApartmentStatusRequest>(ct);
         if (body is null)
-            return new BadRequestObjectResult("Invalid request body");
+            return HttpHelpers.MissingBody();
 
         var result = await mediator.Send(
             new ChangeApartmentStatusCommand(societyId, id, body.Status, body.Reason), ct);

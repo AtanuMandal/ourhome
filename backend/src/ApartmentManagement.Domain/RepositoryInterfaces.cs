@@ -46,7 +46,6 @@ public interface IUserRepository : IRepository<User>
     Task<IReadOnlyList<User>> GetByEmailAcrossSocietiesAsync(string email, CancellationToken ct = default);
     Task<User?> GetByPhoneAsync(string societyId, string phone, CancellationToken ct = default);
     Task<IReadOnlyList<User>> GetByPhoneAcrossSocietiesAsync(string phone, CancellationToken ct = default);
-    Task<User?> GetByExternalAuthIdAsync(string externalAuthId, CancellationToken ct = default);
     Task<IReadOnlyList<User>> GetByRoleAsync(string societyId, UserRole role, int page, int pageSize, CancellationToken ct = default);
 }
 
@@ -72,7 +71,6 @@ public interface IComplaintRepository : IRepository<Complaint>
 {
     Task<IReadOnlyList<Complaint>> GetByUserAsync(string societyId, string userId, int page, int pageSize, CancellationToken ct = default);
     Task<IReadOnlyList<Complaint>> GetByStatusAsync(string societyId, ComplaintStatus status, int page, int pageSize, CancellationToken ct = default);
-    Task<IReadOnlyList<Complaint>> GetByAssigneeAsync(string societyId, string assignedToUserId, int page, int pageSize, CancellationToken ct = default);
 }
 
 // ─── Notice ───────────────────────────────────────────────────────────────────
@@ -109,7 +107,6 @@ public interface IMaintenanceChargeRepository : IRepository<MaintenanceCharge>
     Task<IReadOnlyList<MaintenanceCharge>> GetBySocietyAsync(string societyId, int page, int pageSize, string? apartmentId, PaymentStatus? status, int? year, int? month, CancellationToken ct = default);
     Task<IReadOnlyList<MaintenanceCharge>> GetByScheduleAsync(string societyId, string scheduleId, CancellationToken ct = default);
     Task<IReadOnlyList<MaintenanceCharge>> GetByStatusAsync(string societyId, PaymentStatus status, int page, int pageSize, CancellationToken ct = default);
-    Task<IReadOnlyList<MaintenanceCharge>> GetDueSoonAsync(string societyId, int withinDays, CancellationToken ct = default);
     Task<MaintenanceCharge?> GetByScheduleAndPeriodAsync(string societyId, string scheduleId, string apartmentId, int year, int month, CancellationToken ct = default);
     Task<IReadOnlyList<MaintenanceCharge>> GetByDueDateRangeAsync(string societyId, DateTime fromInclusiveUtc, DateTime toInclusiveUtc, CancellationToken ct = default);
 }
@@ -158,7 +155,6 @@ public interface IServiceProviderRequestRepository : IRepository<ServiceProvider
 {
     Task<IReadOnlyList<ServiceProviderRequest>> GetByUserAsync(string societyId, string userId, int page, int pageSize, CancellationToken ct = default);
     Task<IReadOnlyList<ServiceProviderRequest>> GetByStatusAsync(string societyId, ServiceRequestStatus status, int page, int pageSize, CancellationToken ct = default);
-    Task<IReadOnlyList<ServiceProviderRequest>> GetByProviderAsync(string societyId, string providerId, int page, int pageSize, CancellationToken ct = default);
 }
 
 // ─── Shift ────────────────────────────────────────────────────────────────────

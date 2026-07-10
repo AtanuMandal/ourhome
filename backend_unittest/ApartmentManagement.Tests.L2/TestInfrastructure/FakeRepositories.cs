@@ -113,9 +113,6 @@ public sealed class FakeUserRepository : FakeRepository<User>, IUserRepository
         return Task.FromResult(result);
     }
 
-    public Task<User?> GetByExternalAuthIdAsync(string externalAuthId, CancellationToken ct = default)
-        => Task.FromResult<User?>(null);
-
     public Task<IReadOnlyList<User>> GetByRoleAsync(string societyId, UserRole role, int page, int pageSize, CancellationToken ct = default)
     {
         IReadOnlyList<User> result = Store.Values
@@ -202,15 +199,6 @@ public sealed class FakeComplaintRepository : FakeRepository<Complaint>, ICompla
         return Task.FromResult(result);
     }
 
-    public Task<IReadOnlyList<Complaint>> GetByAssigneeAsync(string societyId, string assignedToUserId, int page, int pageSize, CancellationToken ct = default)
-    {
-        IReadOnlyList<Complaint> result = Store.Values
-            .Where(c => c.SocietyId == societyId && c.AssignedToUserId == assignedToUserId)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToList();
-        return Task.FromResult(result);
-    }
 }
 
 // ─── Notice ───────────────────────────────────────────────────────────────────
@@ -346,17 +334,6 @@ public sealed class FakeMaintenanceChargeRepository : FakeRepository<Maintenance
             .Where(p => p.SocietyId == societyId && p.Status == status)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .ToList();
-        return Task.FromResult(result);
-    }
-
-    public Task<IReadOnlyList<MaintenanceCharge>> GetDueSoonAsync(string societyId, int withinDays, CancellationToken ct = default)
-    {
-        var cutoff = DateTime.UtcNow.AddDays(withinDays);
-        IReadOnlyList<MaintenanceCharge> result = Store.Values
-            .Where(p => p.SocietyId == societyId &&
-                        (p.Status == PaymentStatus.Pending || p.Status == PaymentStatus.ProofSubmitted) &&
-                        p.DueDate <= cutoff)
             .ToList();
         return Task.FromResult(result);
     }
@@ -634,13 +611,4 @@ public sealed class FakeServiceProviderRequestRepository : FakeRepository<Servic
         return Task.FromResult(result);
     }
 
-    public Task<IReadOnlyList<ServiceProviderRequest>> GetByProviderAsync(string societyId, string providerId, int page, int pageSize, CancellationToken ct = default)
-    {
-        IReadOnlyList<ServiceProviderRequest> result = Store.Values
-            .Where(r => r.SocietyId == societyId && r.AcceptedByProviderId == providerId)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToList();
-        return Task.FromResult(result);
-    }
 }

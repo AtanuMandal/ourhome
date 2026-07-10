@@ -21,7 +21,7 @@ public class StaffFunctions(ISender mediator, ICurrentUserService currentUser)
         if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
         if (!currentUser.IsInRoles("SUAdmin")) return new ForbidResult();
         var request = await req.DeserializeAsync<CreateShiftRequest>(ct);
-        if (request is null) return new BadRequestObjectResult("Invalid request body");
+        if (request is null) return HttpHelpers.MissingBody();
 
         var result = await mediator.Send(
             new CreateShiftCommand(societyId, request.Name, request.StartTime, request.EndTime, request.GraceMinutes), ct);
@@ -47,7 +47,7 @@ public class StaffFunctions(ISender mediator, ICurrentUserService currentUser)
         if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
         if (!currentUser.IsInRoles("SUAdmin")) return new ForbidResult();
         var request = await req.DeserializeAsync<CreateStaffRequest>(ct);
-        if (request is null) return new BadRequestObjectResult("Invalid request body");
+        if (request is null) return HttpHelpers.MissingBody();
 
         var result = await mediator.Send(new CreateStaffCommand(
             societyId, request.FullName, request.Phone, request.Category, request.EmploymentType,
@@ -63,7 +63,7 @@ public class StaffFunctions(ISender mediator, ICurrentUserService currentUser)
         if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
         if (!currentUser.IsInRoles("SUAdmin")) return new ForbidResult();
         var request = await req.DeserializeAsync<UpdateStaffRequest>(ct);
-        if (request is null) return new BadRequestObjectResult("Invalid request body");
+        if (request is null) return HttpHelpers.MissingBody();
 
         var result = await mediator.Send(
             new UpdateStaffCommand(societyId, id, request.FullName, request.Phone, request.PhotoUrl, request.ShiftId), ct);

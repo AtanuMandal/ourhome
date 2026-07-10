@@ -39,8 +39,6 @@ public static class CosmosDbInitializer
         new("maintenance_schedules",         "/societyId"),
         new("maintenance_charges",           "/societyId"),
         new("maintenance_charge_grid_views", "/societyId"),
-        new("fee-schedules",                 "/societyId"),
-        new("fee-payments",                  "/societyId"),
         new("vendors",                       "/societyId"),
         new("vendor_recurring_schedules",    "/societyId"),
         new("vendor_charges",                "/societyId"),

@@ -23,6 +23,21 @@ internal static class ValidationPatterns
     internal const string TenDigitPhone = @"^\d{10}$";
 }
 
+internal static class CommonValidationRules
+{
+    internal static IRuleBuilderOptions<T, string> ValidEmail<T>(this IRuleBuilder<T, string> rule) =>
+        rule.NotEmpty().EmailAddress();
+
+    internal static IRuleBuilderOptions<T, string> ValidPhone<T>(this IRuleBuilder<T, string> rule) =>
+        rule.NotEmpty().Matches(ValidationPatterns.TenDigitPhone).WithMessage("Phone must be exactly 10 digits.");
+
+    internal static IRuleBuilderOptions<T, IReadOnlyList<string>> ValidParkingSlots<T>(this IRuleBuilder<T, IReadOnlyList<string>> rule) =>
+        rule.NotNull().Must(slots => slots.Count <= 10).WithMessage("No more than 10 parking slots can be assigned.");
+
+    internal static IRuleBuilderOptions<T, double> PositiveArea<T>(this IRuleBuilder<T, double> rule, string label) =>
+        rule.GreaterThan(0).WithMessage($"{label} area must be greater than 0.");
+}
+
 // ─── Society ──────────────────────────────────────────────────────────────────
 
 public sealed class CreateSocietyCommandValidator : AbstractValidator<CreateSocietyCommand>
@@ -94,12 +109,11 @@ public sealed class CreateApartmentCommandValidator : AbstractValidator<CreateAp
         RuleFor(x => x.BlockName).NotEmpty();
         RuleFor(x => x.FloorNumber).GreaterThanOrEqualTo(0);
         RuleFor(x => x.NumberOfRooms).InclusiveBetween(1, 20);
-        RuleFor(x => x.ParkingSlots).NotNull().Must(slots => slots.Count <= 10)
-            .WithMessage("No more than 10 parking slots can be assigned.");
+        RuleFor(x => x.ParkingSlots).ValidParkingSlots();
         RuleForEach(x => x.ParkingSlots).NotEmpty().MaximumLength(50);
-        RuleFor(x => x.CarpetArea).GreaterThan(0).WithMessage("Carpet area must be greater than 0.");
-        RuleFor(x => x.BuildUpArea).GreaterThan(0).WithMessage("BuildUp area must be greater than 0.");
-        RuleFor(x => x.SuperBuildArea).GreaterThan(0).WithMessage("SuperBuild area must be greater than 0.");
+        RuleFor(x => x.CarpetArea).PositiveArea("Carpet");
+        RuleFor(x => x.BuildUpArea).PositiveArea("BuildUp");
+        RuleFor(x => x.SuperBuildArea).PositiveArea("SuperBuild");
         RuleFor(x => x)
             .Must(x => string.IsNullOrWhiteSpace(x.OwnerId) || x.InitialResident is null)
             .WithMessage("Provide either ownerId or initialResident when onboarding an occupied apartment.");
@@ -107,7 +121,7 @@ public sealed class CreateApartmentCommandValidator : AbstractValidator<CreateAp
         When(x => x.InitialResident is not null, () =>
         {
             RuleFor(x => x.InitialResident!.FullName).NotEmpty();
-            RuleFor(x => x.InitialResident!.Email).NotEmpty().EmailAddress();
+            RuleFor(x => x.InitialResident!.Email).ValidEmail();
             RuleFor(x => x.InitialResident!.Phone).NotEmpty();
             RuleFor(x => x.InitialResident!.ResidentType)
                 .Must(type => type is ResidentType.Owner or ResidentType.Tenant)
@@ -125,12 +139,11 @@ public sealed class UpdateApartmentCommandValidator : AbstractValidator<UpdateAp
         RuleFor(x => x.BlockName).NotEmpty();
         RuleFor(x => x.FloorNumber).GreaterThanOrEqualTo(0);
         RuleFor(x => x.NumberOfRooms).InclusiveBetween(1, 20);
-        RuleFor(x => x.ParkingSlots).NotNull().Must(slots => slots.Count <= 10)
-            .WithMessage("No more than 10 parking slots can be assigned.");
+        RuleFor(x => x.ParkingSlots).ValidParkingSlots();
         RuleForEach(x => x.ParkingSlots).NotEmpty().MaximumLength(50);
-        RuleFor(x => x.CarpetArea).GreaterThan(0).WithMessage("Carpet area must be greater than 0.");
-        RuleFor(x => x.BuildUpArea).GreaterThan(0).WithMessage("BuildUp area must be greater than 0.");
-        RuleFor(x => x.SuperBuildArea).GreaterThan(0).WithMessage("SuperBuild area must be greater than 0.");
+        RuleFor(x => x.CarpetArea).PositiveArea("Carpet");
+        RuleFor(x => x.BuildUpArea).PositiveArea("BuildUp");
+        RuleFor(x => x.SuperBuildArea).PositiveArea("SuperBuild");
     }
 }
 
@@ -141,11 +154,8 @@ public sealed class CreateUserCommandValidator : AbstractValidator<CreateUserCom
     public CreateUserCommandValidator()
     {
         RuleFor(x => x.FullName).NotEmpty();
-        RuleFor(x => x.Email).NotEmpty().EmailAddress();
-        RuleFor(x => x.Phone)
-            .NotEmpty()
-            .Matches(ValidationPatterns.TenDigitPhone)
-            .WithMessage("Phone must be exactly 10 digits.");
+        RuleFor(x => x.Email).ValidEmail();
+        RuleFor(x => x.Phone).ValidPhone();
         RuleFor(x => x.Role).IsInEnum();
         RuleFor(x => x.ResidentType).IsInEnum();
         RuleFor(x => x.SocietyId).NotEmpty();
@@ -176,11 +186,8 @@ public sealed class TransferApartmentOwnershipCommandValidator : AbstractValidat
         RuleFor(x => x.SocietyId).NotEmpty();
         RuleFor(x => x.ApartmentId).NotEmpty();
         RuleFor(x => x.FullName).NotEmpty();
-        RuleFor(x => x.Email).NotEmpty().EmailAddress();
-        RuleFor(x => x.Phone)
-            .NotEmpty()
-            .Matches(ValidationPatterns.TenDigitPhone)
-            .WithMessage("Phone must be exactly 10 digits.");
+        RuleFor(x => x.Email).ValidEmail();
+        RuleFor(x => x.Phone).ValidPhone();
     }
 }
 
@@ -191,11 +198,8 @@ public sealed class TransferApartmentTenancyCommandValidator : AbstractValidator
         RuleFor(x => x.SocietyId).NotEmpty();
         RuleFor(x => x.ApartmentId).NotEmpty();
         RuleFor(x => x.FullName).NotEmpty();
-        RuleFor(x => x.Email).NotEmpty().EmailAddress();
-        RuleFor(x => x.Phone)
-            .NotEmpty()
-            .Matches(ValidationPatterns.TenDigitPhone)
-            .WithMessage("Phone must be exactly 10 digits.");
+        RuleFor(x => x.Email).ValidEmail();
+        RuleFor(x => x.Phone).ValidPhone();
     }
 }
 
@@ -206,11 +210,8 @@ public sealed class AddHouseholdMemberCommandValidator : AbstractValidator<AddHo
         RuleFor(x => x.SocietyId).NotEmpty();
         RuleFor(x => x.ApartmentId).NotEmpty();
         RuleFor(x => x.FullName).NotEmpty();
-        RuleFor(x => x.Email).NotEmpty().EmailAddress();
-        RuleFor(x => x.Phone)
-            .NotEmpty()
-            .Matches(ValidationPatterns.TenDigitPhone)
-            .WithMessage("Phone must be exactly 10 digits.");
+        RuleFor(x => x.Email).ValidEmail();
+        RuleFor(x => x.Phone).ValidPhone();
         RuleFor(x => x.ResidentType)
             .Must(type => type is ResidentType.FamilyMember or ResidentType.CoOccupant)
             .WithMessage("Only family members or co-occupants can be added with this action.");

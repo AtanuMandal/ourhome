@@ -23,7 +23,7 @@ public class SocietyFunctions(ISender mediator, ICurrentUserService currentUser)
         if (!currentUser.IsInRoles("HQAdmin")) return new ForbidResult();
 
         var command = await req.DeserializeAsync<CreateSocietyCommand>(ct);
-        if (command is null) return new BadRequestObjectResult("Invalid request body");
+        if (command is null) return HttpHelpers.MissingBody();
         var result = await mediator.Send(command, ct);
         return result.ToActionResult(201);
     }
@@ -60,7 +60,7 @@ public class SocietyFunctions(ISender mediator, ICurrentUserService currentUser)
         if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
 
         var body = await req.DeserializeAsync<UpdateSocietyRequest>(ct);
-        if (body is null) return new BadRequestObjectResult("Invalid request body");
+        if (body is null) return HttpHelpers.MissingBody();
         var result = await mediator.Send(
             new UpdateSocietyCommand(
                 id,

@@ -1,9 +1,10 @@
 import { PagedResult } from './user.model';
+import { ChargeStatus } from './charge-status.model';
 
 export type MaintenancePricingType = 'FixedAmount' | 'PerSquareFoot';
 export type MaintenanceAreaBasis = 'CarpetArea' | 'BuildUpArea' | 'SuperBuildUpArea';
 export type MaintenanceFrequency = 'Monthly' | 'Quarterly' | 'Annual';
-export type MaintenanceChargeStatus = 'Pending' | 'ProofSubmitted' | 'Paid' | 'Failed' | 'Rejected' | 'Overdue' | 'Cancelled';
+export type MaintenanceChargeStatus = ChargeStatus;
 
 export interface MaintenanceScheduleChange {
   previousRate: number;
@@ -149,10 +150,7 @@ export interface SubmitMaintenancePaymentProofDto {
   notes?: string | null;
 }
 
-export interface MaintenanceProofUploadResponse {
-  fileName: string;
-  fileUrl: string;
-}
+export type { ChargeDocumentUploadResponse as MaintenanceProofUploadResponse } from './charge-status.model';
 
 export interface MarkMaintenanceChargePaidDto {
   paymentMethod: string;

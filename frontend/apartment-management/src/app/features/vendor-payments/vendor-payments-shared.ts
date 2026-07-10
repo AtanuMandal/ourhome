@@ -1,14 +1,10 @@
 import { VendorCharge, VendorChargeStatus, VendorPaymentFrequency } from '../../core/models/vendor-payment.model';
+import { MONTH_OPTIONS, periodLabel } from '../../shared/utils/period.util';
+
+export { MONTH_OPTIONS, periodLabel };
 
 export const VENDOR_FREQUENCY_OPTIONS: VendorPaymentFrequency[] = ['Weekly', 'BiWeekly', 'Monthly', 'Quarterly', 'Yearly'];
 export const VENDOR_CHARGE_STATUS_OPTIONS: VendorChargeStatus[] = ['Pending', 'ProofSubmitted', 'Rejected', 'Overdue', 'Paid', 'Failed', 'Cancelled'];
-
-export const MONTH_OPTIONS = [
-  { value: 1, label: 'January' }, { value: 2, label: 'February' }, { value: 3, label: 'March' },
-  { value: 4, label: 'April' }, { value: 5, label: 'May' }, { value: 6, label: 'June' },
-  { value: 7, label: 'July' }, { value: 8, label: 'August' }, { value: 9, label: 'September' },
-  { value: 10, label: 'October' }, { value: 11, label: 'November' }, { value: 12, label: 'December' },
-] as const;
 
 export const VENDOR_PAGE_STYLES = `
   .page-content { display: flex; flex-direction: column; gap: 16px; }
@@ -67,10 +63,6 @@ export const VENDOR_PAGE_STYLES = `
 
 export function monthLabel(month: number) {
   return MONTH_OPTIONS.find(item => item.value === month)?.label ?? `Month ${month}`;
-}
-
-export function periodLabel(year: number, month: number) {
-  return new Intl.DateTimeFormat('en-IN', { month: 'long', year: 'numeric' }).format(new Date(year, month - 1, 1));
 }
 
 export function monthYearLabel(value: string | Date | null | undefined) {

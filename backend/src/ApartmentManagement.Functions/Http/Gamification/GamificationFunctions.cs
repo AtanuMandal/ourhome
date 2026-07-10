@@ -16,7 +16,7 @@ public class GamificationFunctions(ISender mediator)
         string societyId, CancellationToken ct)
     {
         var command = await req.DeserializeAsync<CreateCompetitionCommand>(ct);
-        if (command is null) return new BadRequestObjectResult("Invalid request body");
+        if (command is null) return HttpHelpers.MissingBody();
         var result = await mediator.Send(command with { SocietyId = societyId }, ct);
         return result.ToActionResult(201);
     }
@@ -27,7 +27,7 @@ public class GamificationFunctions(ISender mediator)
         string societyId, string id, CancellationToken ct)
     {
         var command = await req.DeserializeAsync<RegisterForCompetitionCommand>(ct);
-        if (command is null) return new BadRequestObjectResult("Invalid request body");
+        if (command is null) return HttpHelpers.MissingBody();
         var result = await mediator.Send(command with { SocietyId = societyId, CompetitionId = id }, ct);
         return result.ToActionResult(201);
     }
@@ -56,7 +56,7 @@ public class GamificationFunctions(ISender mediator)
         string societyId, string userId, CancellationToken ct)
     {
         var command = await req.DeserializeAsync<AwardPointsCommand>(ct);
-        if (command is null) return new BadRequestObjectResult("Invalid request body");
+        if (command is null) return HttpHelpers.MissingBody();
         var result = await mediator.Send(command with { SocietyId = societyId, UserId = userId }, ct);
         return result.ToActionResult(201);
     }

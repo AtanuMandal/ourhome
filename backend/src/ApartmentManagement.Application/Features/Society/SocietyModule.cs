@@ -275,42 +275,6 @@ public sealed class DeactivateSocietyCommandHandler(
     }
 }
 
-// ─── Assign Admin ─────────────────────────────────────────────────────────────
-
-public record AssignAdminCommand(string SocietyId, string UserId) : IRequest<Result<bool>>;
-
-public sealed class AssignAdminCommandHandler(
-    ISocietyRepository societyRepository,
-    IUserRepository userRepository,
-    ILogger<AssignAdminCommandHandler> logger)
-    : IRequestHandler<AssignAdminCommand, Result<bool>>
-{
-    public async Task<Result<bool>> Handle(AssignAdminCommand request, CancellationToken ct)
-    {
-        try
-        {
-            var society = await societyRepository.GetByIdAsync(request.SocietyId, request.SocietyId, ct)
-                ?? throw new NotFoundException("Society", request.SocietyId);
-
-            var user = await userRepository.GetByIdAsync(request.UserId, request.SocietyId, ct)
-                ?? throw new NotFoundException("User", request.UserId);
-
-            society.AssignAdmin(request.UserId);
-            await societyRepository.UpdateAsync(society, ct);
-            return Result<bool>.Success(true);
-        }
-        catch (NotFoundException ex)
-        {
-            return Result<bool>.Failure(ErrorCodes.NotFound, ex.Message);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to assign admin {UserId} to society {SocietyId}", request.UserId, request.SocietyId);
-            return Result<bool>.Failure(ErrorCodes.InternalError, ex.Message);
-        }
-    }
-}
-
 // ─── Configure Fee Structure ──────────────────────────────────────────────────
 
 public record ConfigureFeeStructureCommand(

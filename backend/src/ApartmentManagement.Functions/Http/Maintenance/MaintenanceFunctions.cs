@@ -19,7 +19,7 @@ public class MaintenanceFunctions(ISender mediator)
         string societyId, CancellationToken ct)
     {
         var body = await req.DeserializeAsync<CreateMaintenanceScheduleRequest>(ct);
-        if (body is null) return new BadRequestObjectResult("Invalid request body");
+        if (body is null) return HttpHelpers.MissingBody();
 
         var result = await mediator.Send(
             new CreateMaintenanceScheduleCommand(
@@ -46,7 +46,7 @@ public class MaintenanceFunctions(ISender mediator)
         string societyId, string scheduleId, CancellationToken ct)
     {
         var body = await req.DeserializeAsync<UpdateMaintenanceScheduleRequest>(ct);
-        if (body is null) return new BadRequestObjectResult("Invalid request body");
+        if (body is null) return HttpHelpers.MissingBody();
 
         var result = await mediator.Send(
             new UpdateMaintenanceScheduleCommand(
@@ -66,7 +66,7 @@ public class MaintenanceFunctions(ISender mediator)
         string societyId, string scheduleId, CancellationToken ct)
     {
         var body = await req.DeserializeAsync<DeleteMaintenanceScheduleRequest>(ct);
-        if (body is null) return new BadRequestObjectResult("Invalid request body");
+        if (body is null) return HttpHelpers.MissingBody();
 
         var result = await mediator.Send(
             new DeleteMaintenanceScheduleCommand(societyId, scheduleId, body.ChangeReason),
@@ -189,7 +189,7 @@ public class MaintenanceFunctions(ISender mediator)
         string societyId, CancellationToken ct)
     {
         var body = await req.DeserializeAsync<SubmitMaintenancePaymentProofRequest>(ct);
-        if (body is null) return new BadRequestObjectResult("Invalid request body");
+        if (body is null) return HttpHelpers.MissingBody();
 
         var result = await mediator.Send(
             new SubmitMaintenancePaymentProofCommand(societyId, body.ChargeIds, body.ProofUrl, body.Notes),
@@ -203,7 +203,7 @@ public class MaintenanceFunctions(ISender mediator)
         string societyId, string chargeId, CancellationToken ct)
     {
         var body = await req.DeserializeAsync<MarkMaintenanceChargePaidRequest>(ct);
-        if (body is null) return new BadRequestObjectResult("Invalid request body");
+        if (body is null) return HttpHelpers.MissingBody();
 
         var result = await mediator.Send(
             new MarkMaintenanceChargePaidCommand(societyId, chargeId, body.PaymentMethod, body.TransactionReference, body.ReceiptUrl, body.Notes),
@@ -217,7 +217,7 @@ public class MaintenanceFunctions(ISender mediator)
         string societyId, string chargeId, CancellationToken ct)
     {
         var body = await req.DeserializeAsync<MarkMaintenanceChargePaidRequest>(ct);
-        if (body is null) return new BadRequestObjectResult("Invalid request body");
+        if (body is null) return HttpHelpers.MissingBody();
 
         var result = await mediator.Send(
             new ApproveMaintenancePaymentProofCommand(societyId, chargeId, body.PaymentMethod, body.TransactionReference, body.ReceiptUrl, body.Notes),
@@ -231,7 +231,7 @@ public class MaintenanceFunctions(ISender mediator)
         string societyId, CancellationToken ct)
     {
         var body = await req.DeserializeAsync<CreateMaintenancePenaltyChargeRequest>(ct);
-        if (body is null) return new BadRequestObjectResult("Invalid request body");
+        if (body is null) return HttpHelpers.MissingBody();
 
         var result = await mediator.Send(
             new CreateMaintenancePenaltyChargeCommand(societyId, body.ApartmentId, body.Amount, body.DueDate, body.Reason),

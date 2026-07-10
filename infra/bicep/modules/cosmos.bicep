@@ -43,8 +43,6 @@ var containers = [
   { name: 'maintenance_schedules',         partitionKey: '/societyId' }
   { name: 'maintenance_charges',           partitionKey: '/societyId' }
   { name: 'maintenance_charge_grid_views', partitionKey: '/societyId' }
-  { name: 'fee-schedules',       partitionKey: '/societyId' }
-  { name: 'fee-payments',        partitionKey: '/societyId' }
   { name: 'vendors',                    partitionKey: '/societyId' }
   { name: 'vendor_recurring_schedules', partitionKey: '/societyId' }
   { name: 'vendor_charges',             partitionKey: '/societyId' }
