@@ -15,6 +15,7 @@ import { AppHeader } from '../../shared/components/AppHeader';
 import { LoadingOverlay } from '../../shared/components/LoadingOverlay';
 import { useAuth } from '../../auth/useAuth';
 import { normalizeError } from '../../shared/utils/errors';
+import { validatePassword } from '../../shared/utils/password';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing } from '../../theme/spacing';
@@ -63,12 +64,9 @@ export function ProfileScreen() {
       Alert.alert('Validation', 'Both password fields are required.');
       return;
     }
-    if (newPassword.length < 8) {
-      Alert.alert('Validation', 'New password must be at least 8 characters.');
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      Alert.alert('Validation', 'New password and confirmation do not match.');
+    const passwordError = validatePassword(newPassword, confirmPassword);
+    if (passwordError) {
+      Alert.alert('Validation', passwordError);
       return;
     }
     try {

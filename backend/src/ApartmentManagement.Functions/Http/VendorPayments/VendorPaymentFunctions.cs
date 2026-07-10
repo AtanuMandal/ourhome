@@ -31,7 +31,7 @@ public class VendorPaymentFunctions(ISender mediator)
         CancellationToken ct)
     {
         var body = await req.DeserializeAsync<CreateVendorRequest>(ct);
-        if (body is null) return new BadRequestObjectResult("Invalid request body");
+        if (body is null) return HttpHelpers.MissingBody();
 
         var result = await mediator.Send(new CreateVendorCommand(
             societyId,
@@ -64,7 +64,7 @@ public class VendorPaymentFunctions(ISender mediator)
         CancellationToken ct)
     {
         var body = await req.DeserializeAsync<UpdateVendorRequest>(ct);
-        if (body is null) return new BadRequestObjectResult("Invalid request body");
+        if (body is null) return HttpHelpers.MissingBody();
 
         var result = await mediator.Send(new UpdateVendorCommand(
             societyId,
@@ -121,7 +121,7 @@ public class VendorPaymentFunctions(ISender mediator)
         CancellationToken ct)
     {
         var body = await req.DeserializeAsync<CreateVendorRecurringScheduleRequest>(ct);
-        if (body is null) return new BadRequestObjectResult("Invalid request body");
+        if (body is null) return HttpHelpers.MissingBody();
 
         var result = await mediator.Send(
             new CreateVendorRecurringScheduleCommand(
@@ -145,7 +145,7 @@ public class VendorPaymentFunctions(ISender mediator)
         CancellationToken ct)
     {
         var body = await req.DeserializeAsync<UpdateVendorRecurringScheduleRequest>(ct);
-        if (body is null) return new BadRequestObjectResult("Invalid request body");
+        if (body is null) return HttpHelpers.MissingBody();
 
         var result = await mediator.Send(
             new UpdateVendorRecurringScheduleCommand(societyId, scheduleId, body.EndDate, body.InactiveFromDate),
@@ -175,7 +175,7 @@ public class VendorPaymentFunctions(ISender mediator)
         CancellationToken ct)
     {
         var body = await req.DeserializeAsync<CreateVendorOneTimeChargeRequest>(ct);
-        if (body is null) return new BadRequestObjectResult("Invalid request body");
+        if (body is null) return HttpHelpers.MissingBody();
 
         var result = await mediator.Send(
             new CreateVendorOneTimeChargeCommand(societyId, body.VendorId, body.Amount, body.EffectiveDate, body.Description),
@@ -218,7 +218,7 @@ public class VendorPaymentFunctions(ISender mediator)
         CancellationToken ct)
     {
         var body = await req.DeserializeAsync<MarkVendorChargePaidRequest>(ct);
-        if (body is null) return new BadRequestObjectResult("Invalid request body");
+        if (body is null) return HttpHelpers.MissingBody();
 
         var result = await mediator.Send(
             new MarkVendorChargePaidCommand(

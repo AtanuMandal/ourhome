@@ -1,4 +1,6 @@
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
+import { CdkVirtualScrollViewport } from '@angular/cdk/scrolling';
 import { of } from 'rxjs';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { FinancialReportComponent } from './financial-report.component';
@@ -31,7 +33,7 @@ describe('FinancialReportComponent', () => {
     };
   }
 
-  function setup() {
+  async function setup() {
     const serviceStub = {
       getDashboard: jasmine.createSpy().and.returnValue(of(makeFinancialDashboard())),
       getSocietyLedger: jasmine.createSpy().and.returnValue(of(makeSocietyLedger())),
@@ -51,28 +53,48 @@ describe('FinancialReportComponent', () => {
     });
 
     const fixture = TestBed.createComponent(FinancialReportComponent);
-    fixture.detectChanges();
+    // cdk-virtual-scroll-viewport measures real layout (clientHeight) to decide what to render,
+    // which is always 0 for a detached fixture — attach to the document so it sees real dimensions.
+    document.body.appendChild(fixture.nativeElement);
+    await settleVirtualScroll(fixture);
     return { fixture, component: fixture.componentInstance, serviceStub };
   }
 
-  it('loads the society ledger when the Society Ledger tab is selected', () => {
-    const { component, serviceStub, fixture } = setup();
+  // cdk-virtual-scroll-viewport measures its size and computes its first render range
+  // asynchronously (ResizeObserver + a scheduled frame); force a re-measure and yield a frame
+  // so virtualized rows are actually present in the DOM before assertions run.
+  async function settleVirtualScroll(fixture: ComponentFixture<FinancialReportComponent>) {
+    fixture.detectChanges();
+    for (const vp of fixture.debugElement.queryAll(By.directive(CdkVirtualScrollViewport))) {
+      (vp.componentInstance as CdkVirtualScrollViewport).checkViewportSize();
+    }
+    fixture.detectChanges();
+    await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+    fixture.detectChanges();
+  }
+
+  afterEach(() => {
+    document.querySelectorAll('app-financial-report').forEach(el => el.remove());
+  });
+
+  it('loads the society ledger when the Society Ledger tab is selected', async () => {
+    const { component, serviceStub, fixture } = await setup();
 
     expect(serviceStub.getSocietyLedger).not.toHaveBeenCalled();
 
     component.setTab('society-ledger');
-    fixture.detectChanges();
+    await settleVirtualScroll(fixture);
 
     expect(serviceStub.getSocietyLedger).toHaveBeenCalledWith('soc-1');
     expect(component.societyLedger()).not.toBeNull();
     expect(component.societyLedger()!.currentBalance).toBe(3000);
   });
 
-  it('renders the society-wide ledger entries using the shared ledger table', () => {
-    const { component, fixture } = setup();
+  it('renders the society-wide ledger entries using the shared ledger table', async () => {
+    const { component, fixture } = await setup();
 
     component.setTab('society-ledger');
-    fixture.detectChanges();
+    await settleVirtualScroll(fixture);
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('Overall Society Ledger');
@@ -80,14 +102,14 @@ describe('FinancialReportComponent', () => {
     expect(text).toContain('A-102');
   });
 
-  it('does not reload the society ledger if already loaded', () => {
-    const { component, serviceStub, fixture } = setup();
+  it('does not reload the society ledger if already loaded', async () => {
+    const { component, serviceStub, fixture } = await setup();
 
     component.setTab('society-ledger');
-    fixture.detectChanges();
+    await settleVirtualScroll(fixture);
     component.setTab('dashboard');
     component.setTab('society-ledger');
-    fixture.detectChanges();
+    await settleVirtualScroll(fixture);
 
     expect(serviceStub.getSocietyLedger).toHaveBeenCalledTimes(1);
   });

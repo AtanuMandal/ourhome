@@ -29,7 +29,7 @@ public class HQUserFunctions(ISender mediator, ICurrentUserService currentUser)
         if (!currentUser.IsInRoles("HQAdmin")) return new ForbidResult();
 
         var body = await req.DeserializeAsync<CreateHQUserRequest>(ct);
-        if (body is null) return new BadRequestObjectResult("Invalid request body.");
+        if (body is null) return HttpHelpers.MissingBody();
 
         if (body.Role != UserRole.HQAdmin && body.Role != UserRole.HQUser)
             return new BadRequestObjectResult("Role must be HQAdmin or HQUser for HQ users.");

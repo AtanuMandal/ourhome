@@ -48,6 +48,8 @@ public static class HttpHelpers
         }
     }
 
+    public static IActionResult MissingBody() => new BadRequestObjectResult("Invalid request body");
+
     public static IActionResult ToActionResult<T>(this Result<T> result, int successStatus = 200)
     {
         if (result.IsSuccess)

@@ -147,13 +147,6 @@ public class UserRepository(CosmosClient client, string dbName, ILogger<UserRepo
         return await ExecuteCrossPartitionQueryAsync(q, ct);
     }
 
-    public async Task<DomainUser?> GetByExternalAuthIdAsync(string externalAuthId, CancellationToken ct = default)
-    {
-        var q = new QueryDefinition("SELECT * FROM c WHERE c.externalAuthId = @ext")
-            .WithParameter("@ext", externalAuthId);
-        return (await ExecuteCrossPartitionQueryAsync(q, ct)).FirstOrDefault();
-    }
-
     public async Task<IReadOnlyList<DomainUser>> GetByRoleAsync(string societyId, UserRole role, int page, int pageSize, CancellationToken ct = default)
     {
         var q = new QueryDefinition("SELECT * FROM c WHERE c.societyId = @sid AND c.role = @role OFFSET @offset LIMIT @limit")
@@ -223,13 +216,6 @@ public class ComplaintRepository(CosmosClient client, string dbName, ILogger<Com
         return await ExecuteQueryAsync(q, societyId, ct);
     }
 
-    public async Task<IReadOnlyList<Complaint>> GetByAssigneeAsync(string societyId, string assignedToUserId, int page, int pageSize, CancellationToken ct = default)
-    {
-        var q = new QueryDefinition("SELECT * FROM c WHERE c.societyId = @sid AND c.assignedToUserId = @uid OFFSET @offset LIMIT @limit")
-            .WithParameter("@sid", societyId).WithParameter("@uid", assignedToUserId)
-            .WithParameter("@offset", (page - 1) * pageSize).WithParameter("@limit", pageSize);
-        return await ExecuteQueryAsync(q, societyId, ct);
-    }
 }
 
 public class NoticeRepository(CosmosClient client, string dbName, ILogger<NoticeRepository> logger)
@@ -392,15 +378,6 @@ public class MaintenanceChargeRepository(CosmosClient client, string dbName, ILo
         return await ExecuteQueryAsync(q, societyId, ct);
     }
 
-    public async Task<IReadOnlyList<MaintenanceCharge>> GetDueSoonAsync(string societyId, int withinDays, CancellationToken ct = default)
-    {
-        var start = DateTime.UtcNow.ToString("o");
-        var end = DateTime.UtcNow.AddDays(withinDays).ToString("o");
-        var q = new QueryDefinition("SELECT * FROM c WHERE c.societyId = @sid AND ARRAY_CONTAINS(@statuses, c.status) AND c.dueDate >= @start AND c.dueDate <= @end")
-            .WithParameter("@sid", societyId).WithParameter("@statuses", new[] { PaymentStatus.Pending.ToString(), PaymentStatus.ProofSubmitted.ToString() })
-            .WithParameter("@start", start).WithParameter("@end", end);
-        return await ExecuteQueryAsync(q, societyId, ct);
-    }
 
     public async Task<MaintenanceCharge?> GetByScheduleAndPeriodAsync(string societyId, string scheduleId, string apartmentId, int year, int month, CancellationToken ct = default)
     {
@@ -534,13 +511,6 @@ public class ServiceProviderRequestRepository(CosmosClient client, string dbName
         return await ExecuteQueryAsync(q, societyId, ct);
     }
 
-    public async Task<IReadOnlyList<ServiceProviderRequest>> GetByProviderAsync(string societyId, string providerId, int page, int pageSize, CancellationToken ct = default)
-    {
-        var q = new QueryDefinition("SELECT * FROM c WHERE c.societyId = @sid AND c.acceptedByProviderId = @pid OFFSET @offset LIMIT @limit")
-            .WithParameter("@sid", societyId).WithParameter("@pid", providerId)
-            .WithParameter("@offset", (page - 1) * pageSize).WithParameter("@limit", pageSize);
-        return await ExecuteQueryAsync(q, societyId, ct);
-    }
 }
 
 public class ShiftRepository(CosmosClient client, string dbName, ILogger<ShiftRepository> logger)

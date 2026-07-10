@@ -16,7 +16,7 @@ public class AmenityFunctions(ISender mediator)
         string societyId, CancellationToken ct)
     {
         var command = await req.DeserializeAsync<CreateAmenityCommand>(ct);
-        if (command is null) return new BadRequestObjectResult("Invalid request body");
+        if (command is null) return HttpHelpers.MissingBody();
         var result = await mediator.Send(command with { SocietyId = societyId }, ct);
         return result.ToActionResult(201);
     }
@@ -36,7 +36,7 @@ public class AmenityFunctions(ISender mediator)
         string societyId, CancellationToken ct)
     {
         var command = await req.DeserializeAsync<BookAmenityCommand>(ct);
-        if (command is null) return new BadRequestObjectResult("Invalid request body");
+        if (command is null) return HttpHelpers.MissingBody();
         var result = await mediator.Send(command with { SocietyId = societyId }, ct);
         return result.ToActionResult(201);
     }

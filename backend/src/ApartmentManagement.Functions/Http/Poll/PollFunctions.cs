@@ -23,7 +23,7 @@ public class PollFunctions(ISender mediator, ICurrentUserService currentUser)
         if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
         if (!currentUser.IsInRoles("SUAdmin")) return new ForbidResult();
         var request = await req.DeserializeAsync<CreatePollRequest>(ct);
-        if (request is null) return new BadRequestObjectResult("Invalid request body");
+        if (request is null) return HttpHelpers.MissingBody();
 
         var result = await mediator.Send(new CreatePollCommand(
             societyId, currentUser.UserId, request.Title, request.Description, request.Type, request.Options,
@@ -71,7 +71,7 @@ public class PollFunctions(ISender mediator, ICurrentUserService currentUser)
         if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
         if (!currentUser.IsInRoles("SUUser")) return new ForbidResult();
         var request = await req.DeserializeAsync<CastVoteRequest>(ct);
-        if (request is null) return new BadRequestObjectResult("Invalid request body");
+        if (request is null) return HttpHelpers.MissingBody();
 
         var result = await mediator.Send(new CastVoteCommand(societyId, id, currentUser.UserId, request.SelectedOptionIds), ct);
         return result.ToActionResult();
@@ -109,7 +109,7 @@ public class PollFunctions(ISender mediator, ICurrentUserService currentUser)
         if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
         if (!currentUser.IsInRoles("SUAdmin")) return new ForbidResult();
         var request = await req.DeserializeAsync<CreateAgmSessionRequest>(ct);
-        if (request is null) return new BadRequestObjectResult("Invalid request body");
+        if (request is null) return HttpHelpers.MissingBody();
 
         var result = await mediator.Send(new CreateAgmSessionCommand(
             societyId, currentUser.UserId, request.Title, request.Description, request.SessionDate), ct);

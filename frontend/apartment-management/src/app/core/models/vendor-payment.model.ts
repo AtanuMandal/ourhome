@@ -1,7 +1,8 @@
 import { PagedResult } from './user.model';
+import { ChargeStatus } from './charge-status.model';
 
 export type VendorPaymentFrequency = 'Weekly' | 'BiWeekly' | 'Monthly' | 'Quarterly' | 'Yearly';
-export type VendorChargeStatus = 'Pending' | 'ProofSubmitted' | 'Paid' | 'Failed' | 'Rejected' | 'Overdue' | 'Cancelled';
+export type VendorChargeStatus = ChargeStatus;
 export type VendorChargeType = 'Recurring' | 'AdHoc';
 
 export interface VendorContact {
@@ -179,10 +180,7 @@ export interface MarkVendorChargePaidDto {
   notes?: string | null;
 }
 
-export interface VendorDocumentUploadResponse {
-  fileName: string;
-  fileUrl: string;
-}
+export type { ChargeDocumentUploadResponse as VendorDocumentUploadResponse } from './charge-status.model';
 
 export interface VendorChargeFilters {
   vendorId?: string;

@@ -21,7 +21,7 @@ public class UserFunctions(ISender mediator, ICurrentUserService currentUser)
         if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
         if (!currentUser.IsInRoles("SUAdmin")) return new ForbidResult();
         var body = await req.DeserializeAsync<CreateUserRequest>(ct);
-        if (body is null) return new BadRequestObjectResult("Invalid request body");
+        if (body is null) return HttpHelpers.MissingBody();
         var result = await mediator.Send(
             new CreateUserCommand(societyId, body.FullName, body.Email, body.Phone, body.Role, body.ResidentType, body.ApartmentId, body.InvitedByUserId), ct);
         return result.ToActionResult(201);
@@ -71,7 +71,7 @@ public class UserFunctions(ISender mediator, ICurrentUserService currentUser)
         string societyId, CancellationToken ct)
     {
         var body = await req.DeserializeAsync<RequestOtpByEmailRequest>(ct);
-        if (body is null) return new BadRequestObjectResult("Invalid request body");
+        if (body is null) return HttpHelpers.MissingBody();
         var result = await mediator.Send(new RequestOtpByEmailCommand(societyId, body.Email), ct);
         return result.ToActionResult();
     }
@@ -83,7 +83,7 @@ public class UserFunctions(ISender mediator, ICurrentUserService currentUser)
     {
         var body = await req.DeserializeAsync<LoginRequest>(ct);
         if (body is null)
-            return new BadRequestObjectResult("Invalid request body");
+            return HttpHelpers.MissingBody();
 
         var result = await mediator.Send(new LoginCommand(body.Email, body.Password, body.SelectedUserId), ct);
         return result.ToActionResult();
@@ -96,7 +96,7 @@ public class UserFunctions(ISender mediator, ICurrentUserService currentUser)
     {
         var body = await req.DeserializeAsync<PhoneLoginOtpRequest>(ct);
         if (body is null)
-            return new BadRequestObjectResult("Invalid request body");
+            return HttpHelpers.MissingBody();
 
         var result = await mediator.Send(new RequestPhoneLoginOtpCommand(body.Phone, body.SelectedUserId), ct);
         return result.ToActionResult();
@@ -109,7 +109,7 @@ public class UserFunctions(ISender mediator, ICurrentUserService currentUser)
     {
         var body = await req.DeserializeAsync<PasswordResetRequest>(ct);
         if (body is null)
-            return new BadRequestObjectResult("Invalid request body");
+            return HttpHelpers.MissingBody();
 
         var result = await mediator.Send(new RequestPasswordResetCommand(body.Email, body.SelectedUserId), ct);
         return result.ToActionResult();
@@ -122,7 +122,7 @@ public class UserFunctions(ISender mediator, ICurrentUserService currentUser)
     {
         var body = await req.DeserializeAsync<ConfirmPasswordResetRequest>(ct);
         if (body is null)
-            return new BadRequestObjectResult("Invalid request body");
+            return HttpHelpers.MissingBody();
 
         var result = await mediator.Send(
             new ConfirmPasswordResetCommand(body.SocietyId, body.UserId, body.OtpCode, body.NewPassword), ct);
@@ -145,7 +145,7 @@ public class UserFunctions(ISender mediator, ICurrentUserService currentUser)
         string societyId, string id, CancellationToken ct)
     {
         var body = await req.DeserializeAsync<AttachResidentApartmentRequest>(ct);
-        if (body is null) return new BadRequestObjectResult("Invalid request body");
+        if (body is null) return HttpHelpers.MissingBody();
 
         var result = await mediator.Send(
             new AssignUserApartmentCommand(societyId, id, body.ApartmentId, body.ResidentType), ct);
@@ -189,7 +189,7 @@ public class UserFunctions(ISender mediator, ICurrentUserService currentUser)
     {
         var body = await req.DeserializeAsync<TransferApartmentOwnershipRequest>(ct);
         if (body is null)
-            return new BadRequestObjectResult("Invalid request body");
+            return HttpHelpers.MissingBody();
 
         var result = await mediator.Send(
             new TransferApartmentOwnershipCommand(societyId, apartmentId, body.FullName, body.Email, body.Phone), ct);
@@ -203,7 +203,7 @@ public class UserFunctions(ISender mediator, ICurrentUserService currentUser)
     {
         var body = await req.DeserializeAsync<TransferApartmentTenancyRequest>(ct);
         if (body is null)
-            return new BadRequestObjectResult("Invalid request body");
+            return HttpHelpers.MissingBody();
 
         var result = await mediator.Send(
             new TransferApartmentTenancyCommand(societyId, apartmentId, body.FullName, body.Email, body.Phone), ct);
@@ -217,7 +217,7 @@ public class UserFunctions(ISender mediator, ICurrentUserService currentUser)
     {
         var body = await req.DeserializeAsync<AddHouseholdMemberRequest>(ct);
         if (body is null)
-            return new BadRequestObjectResult("Invalid request body");
+            return HttpHelpers.MissingBody();
 
         var result = await mediator.Send(
             new AddHouseholdMemberCommand(societyId, apartmentId, body.FullName, body.Email, body.Phone, body.ResidentType), ct);
@@ -231,7 +231,7 @@ public class UserFunctions(ISender mediator, ICurrentUserService currentUser)
     {
         if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
         var body = await req.DeserializeAsync<UpdateUserRequest>(ct);
-        if (body is null) return new BadRequestObjectResult("Invalid request body");
+        if (body is null) return HttpHelpers.MissingBody();
         var result = await mediator.Send(new UpdateUserCommand(societyId, id, body.FullName, body.Phone), ct);
         return result.ToActionResult();
     }
@@ -265,7 +265,7 @@ public class UserFunctions(ISender mediator, ICurrentUserService currentUser)
     {
         if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
         var body = await req.DeserializeAsync<ChangePasswordRequest>(ct);
-        if (body is null) return new BadRequestObjectResult("Invalid request body");
+        if (body is null) return HttpHelpers.MissingBody();
         var result = await mediator.Send(new ChangePasswordCommand(societyId, id, body.CurrentPassword, body.NewPassword), ct);
         return result.ToActionResult();
     }
@@ -300,7 +300,7 @@ public class UserFunctions(ISender mediator, ICurrentUserService currentUser)
         string societyId, CancellationToken ct)
     {
         var body = await req.DeserializeAsync<SelfRegisterRequest>(ct);
-        if (body is null) return new BadRequestObjectResult("Invalid request body");
+        if (body is null) return HttpHelpers.MissingBody();
 
         var result = await mediator.Send(
             new SelfRegisterCommand(societyId, body.FullName, body.Email, body.Phone, body.Password), ct);
@@ -314,7 +314,7 @@ public class UserFunctions(ISender mediator, ICurrentUserService currentUser)
     {
         if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
         var body = await req.DeserializeAsync<RequestApartmentJoinRequest>(ct);
-        if (body is null) return new BadRequestObjectResult("Invalid request body");
+        if (body is null) return HttpHelpers.MissingBody();
         var result = await mediator.Send(new RequestApartmentJoinCommand(societyId, id, body.ApartmentId, body.ResidentType), ct);
         return result.ToActionResult();
     }

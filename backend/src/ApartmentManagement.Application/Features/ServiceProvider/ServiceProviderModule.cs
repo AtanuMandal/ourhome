@@ -76,38 +76,6 @@ public sealed class ApproveServiceProviderCommandHandler(
     }
 }
 
-// ─── Reject Service Provider ──────────────────────────────────────────────────
-
-public record RejectServiceProviderCommand(string ProviderId) : IRequest<Result<bool>>;
-
-public sealed class RejectServiceProviderCommandHandler(
-    IServiceProviderRepository serviceProviderRepository,
-    ILogger<RejectServiceProviderCommandHandler> logger)
-    : IRequestHandler<RejectServiceProviderCommand, Result<bool>>
-{
-    public async Task<Result<bool>> Handle(RejectServiceProviderCommand request, CancellationToken ct)
-    {
-        try
-        {
-            var provider = await serviceProviderRepository.GetByIdAsync(request.ProviderId, string.Empty, ct)
-                ?? throw new NotFoundException("ServiceProvider", request.ProviderId);
-
-            provider.Reject();
-            await serviceProviderRepository.UpdateAsync(provider, ct);
-            return Result<bool>.Success(true);
-        }
-        catch (NotFoundException ex)
-        {
-            return Result<bool>.Failure(ErrorCodes.ServiceProviderNotFound, ex.Message);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to reject service provider {ProviderId}", request.ProviderId);
-            return Result<bool>.Failure(ErrorCodes.InternalError, ex.Message);
-        }
-    }
-}
-
 // ─── Create Service Request ───────────────────────────────────────────────────
 
 public record CreateServiceRequestCommand(

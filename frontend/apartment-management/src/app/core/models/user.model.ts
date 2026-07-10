@@ -6,12 +6,6 @@ export interface PagedResult<T> {
   pageSize: number;
 }
 
-export interface ApiResult<T> {
-  data?: T;
-  error?: string;
-  statusCode?: number;
-}
-
 export interface ResidentApartment {
   apartmentId: string;
   name: string;

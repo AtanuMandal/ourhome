@@ -21,7 +21,7 @@ public class NoticeFunctions(ISender mediator, ICurrentUserService currentUser)
         string societyId, CancellationToken ct)
     {
         var command = await req.DeserializeAsync<CreateNoticeCommand>(ct);
-        if (command is null) return new BadRequestObjectResult("Invalid request body");
+        if (command is null) return HttpHelpers.MissingBody();
         try
         {
             var result = await mediator.Send(command with { SocietyId = societyId }, ct);
@@ -70,7 +70,7 @@ public class NoticeFunctions(ISender mediator, ICurrentUserService currentUser)
         string societyId, string id, CancellationToken ct)
     {
         var body = await req.DeserializeAsync<MarkNoticeReadRequest>(ct);
-        if (body is null) return new BadRequestObjectResult("Invalid request body");
+        if (body is null) return HttpHelpers.MissingBody();
 
         var result = await mediator.Send(new MarkNoticeReadCommand(societyId, id, currentUser.UserId, body.IsRead), ct);
         return result.ToActionResult();

@@ -18,6 +18,7 @@ import { useAuth } from '../auth/useAuth';
 import { authApi, type PasswordResetOption } from '../api/endpoints/auth';
 import * as loginPreference from '../auth/loginPreference';
 import type { LoginMethod } from '../auth/loginPreference';
+import { validatePassword } from '../shared/utils/password';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 import { spacing } from '../theme/spacing';
@@ -340,8 +341,8 @@ function ForgotPasswordScreen() {
       Alert.alert('Validation', 'OTP and new password are required.');
       return;
     }
-    if (newPassword.length < 8) { Alert.alert('Validation', 'Password must be at least 8 characters.'); return; }
-    if (newPassword !== confirmPassword) { Alert.alert('Validation', 'Passwords do not match.'); return; }
+    const passwordError = validatePassword(newPassword, confirmPassword);
+    if (passwordError) { Alert.alert('Validation', passwordError); return; }
     if (!selectedOption) { Alert.alert('Error', 'No account selected.'); return; }
 
     setLoading(true);
@@ -486,8 +487,8 @@ function InviteAcceptScreen({ route }: { route: { params?: { token?: string } } 
       Alert.alert('Validation', 'All fields are required.'); return;
     }
     if (!/^\d{10}$/.test(phone.trim())) { Alert.alert('Validation', 'Phone must be 10 digits.'); return; }
-    if (password.length < 8) { Alert.alert('Validation', 'Password must be at least 8 characters.'); return; }
-    if (password !== confirmPassword) { Alert.alert('Validation', 'Passwords do not match.'); return; }
+    const passwordError = validatePassword(password, confirmPassword);
+    if (passwordError) { Alert.alert('Validation', passwordError); return; }
 
     setLoading(true);
     try {

@@ -47,45 +47,6 @@ public sealed class CreateAmenityCommandHandler(
     }
 }
 
-// ─── Update Amenity ───────────────────────────────────────────────────────────
-
-public record UpdateAmenityCommand(
-    string SocietyId, string AmenityId, string Name, string Description, int Capacity, string Rules,
-    int BookingSlotMinutes, string OperatingStart, string OperatingEnd, int AdvanceBookingDays)
-    : IRequest<Result<AmenityResponse>>;
-
-public sealed class UpdateAmenityCommandHandler(
-    IAmenityRepository amenityRepository,
-    ILogger<UpdateAmenityCommandHandler> logger)
-    : IRequestHandler<UpdateAmenityCommand, Result<AmenityResponse>>
-{
-    public async Task<Result<AmenityResponse>> Handle(UpdateAmenityCommand request, CancellationToken ct)
-    {
-        try
-        {
-            var amenity = await amenityRepository.GetByIdAsync(request.AmenityId, request.SocietyId, ct)
-                ?? throw new NotFoundException("Amenity", request.AmenityId);
-
-            var start = TimeOnly.Parse(request.OperatingStart);
-            var end = TimeOnly.Parse(request.OperatingEnd);
-            amenity.Update(request.Name, request.Description, request.Capacity, request.Rules,
-                request.BookingSlotMinutes, start, end, request.AdvanceBookingDays);
-
-            var updated = await amenityRepository.UpdateAsync(amenity, ct);
-            return Result<AmenityResponse>.Success(updated.ToResponse());
-        }
-        catch (NotFoundException ex)
-        {
-            return Result<AmenityResponse>.Failure(ErrorCodes.AmenityNotFound, ex.Message);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to update amenity {AmenityId}", request.AmenityId);
-            return Result<AmenityResponse>.Failure(ErrorCodes.InternalError, ex.Message);
-        }
-    }
-}
-
 // ─── Book Amenity ─────────────────────────────────────────────────────────────
 
 public record BookAmenityCommand(

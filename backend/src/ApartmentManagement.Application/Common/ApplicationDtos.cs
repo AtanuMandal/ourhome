@@ -90,8 +90,6 @@ public record ApartmentResidentHistoryResponse(
     IReadOnlyList<ApartmentResidentHistoryDto> OwnershipHistory,
     IReadOnlyList<ApartmentResidentHistoryDto> TenantHistory);
 
-public record RemoveResidentApartmentResponse(string UserId, string ApartmentId);
-
 // ─── User ─────────────────────────────────────────────────────────────────────
 
 public record CreateUserRequest(
@@ -632,10 +630,4 @@ public record SeedTestDataResponse(
     int Failed,
     IReadOnlyList<SeededApartmentInfo> Apartments,
     IReadOnlyList<string> Errors);
-
-// ─── Common ───────────────────────────────────────────────────────────────────
-
-public record IdResponse(string Id);
-public record MessageResponse(string Message);
-
 

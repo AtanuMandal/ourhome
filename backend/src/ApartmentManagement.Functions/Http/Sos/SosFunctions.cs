@@ -22,7 +22,7 @@ public class SosFunctions(ISender mediator, ICurrentUserService currentUser)
         if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
         if (!currentUser.IsInRoles("SUUser")) return new ForbidResult();
         var request = await req.DeserializeAsync<TriggerSosAlertRequest>(ct);
-        if (request is null) return new BadRequestObjectResult("Invalid request body");
+        if (request is null) return HttpHelpers.MissingBody();
 
         var result = await mediator.Send(
             new TriggerSosAlertCommand(societyId, currentUser.UserId, request.Category, request.Note), ct);

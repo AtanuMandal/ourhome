@@ -1,4 +1,5 @@
 import { CurrencyPipe, DatePipe, NgClass, NgTemplateOutlet, PercentPipe } from '@angular/common';
+import { ScrollingModule } from '@angular/cdk/scrolling';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -8,7 +9,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { RouterLink } from '@angular/router';
 import { Apartment, formatApartmentLabel } from '../../core/models/apartment.model';
-import { ApartmentLedger, CashFlow, CashFlowMonth, FinancialDashboard, SocietyLedger } from '../../core/models/financial-report.model';
+import { ApartmentLedger, CashFlow, CashFlowMonth, FinancialDashboard, LedgerEntry, SocietyLedger } from '../../core/models/financial-report.model';
 import { ApartmentService } from '../../core/services/apartment.service';
 import { AuthService } from '../../core/services/auth.service';
 import { FinancialReportService } from '../../core/services/financial-report.service';
@@ -16,6 +17,7 @@ import { EmptyStateComponent } from '../../shared/components/empty-state/empty-s
 import { LoadingSpinnerComponent } from '../../shared/components/loading-spinner/loading-spinner.component';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 import { SearchableSelectComponent } from '../../shared/components/searchable-select/searchable-select.component';
+import { exportLedgerToExcel, exportLedgerToPdf, LedgerMetaRow } from '../../shared/utils/ledger-export.util';
 
 type Tab = 'dashboard' | 'cashflow' | 'ledger' | 'society-ledger';
 
@@ -60,13 +62,29 @@ const STYLES = `
   .ledger-credit { color: #16a34a; }
   .outstanding-chip { display: inline-block; background: #fee2e2; color: #7f1d1d; padding: 4px 12px; border-radius: 999px; font-size: .8rem; font-weight: 700; margin-top: 4px; }
   .outstanding-chip.zero { background: #dcfce7; color: #14532d; }
+
+  .ledger-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .refresh-chip { display: inline-flex; align-items: center; gap: 4px; font-size: .8rem; color: #64748b; }
+  .refresh-chip mat-icon { font-size: 16px; width: 16px; height: 16px; animation: ledger-spin 1s linear infinite; }
+  @keyframes ledger-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+  .ledger-grid { width: 100%; font-size: .875rem; border: 1px solid #f1f5f9; border-radius: 8px; overflow: hidden; }
+  .ledger-grid__header, .ledger-row { display: flex; align-items: center; }
+  .ledger-grid__header { background: #f8fafc; font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #64748b; }
+  .ledger-row { border-top: 1px solid #f1f5f9; }
+  .ledger-row:hover { background: #fafbfc; }
+  .ledger-col { padding: 10px 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; box-sizing: border-box; }
+  .ledger-col--date { flex: 0 0 130px; }
+  .ledger-col--desc { flex: 1 1 auto; min-width: 0; }
+  .ledger-col--num { flex: 0 0 140px; text-align: right; font-variant-numeric: tabular-nums; }
+  .ledger-viewport { width: 100%; }
 `;
 
 @Component({
   selector: 'app-financial-report',
   standalone: true,
   imports: [
-    CurrencyPipe, DatePipe, NgClass, NgTemplateOutlet, ReactiveFormsModule, RouterLink,
+    CurrencyPipe, DatePipe, NgClass, NgTemplateOutlet, ReactiveFormsModule, RouterLink, ScrollingModule,
     MatButtonModule, MatFormFieldModule, MatIconModule, MatInputModule, MatProgressBarModule,
     PageHeaderComponent, LoadingSpinnerComponent, EmptyStateComponent, SearchableSelectComponent,
   ],
@@ -332,9 +350,12 @@ const STYLES = `
               <input matInput type="number" formControlName="toYear" placeholder="2025">
             </mat-form-field>
             <button mat-flat-button color="primary" type="submit"
-              [disabled]="loading() || !ledgerForm.get('apartmentId')?.value">
+              [disabled]="loading() || ledgerRefreshing() || !ledgerForm.get('apartmentId')?.value">
               <mat-icon>search</mat-icon> Load Ledger
             </button>
+            @if (ledgerRefreshing()) {
+              <span class="refresh-chip"><mat-icon>autorenew</mat-icon> Refreshing…</span>
+            }
           </form>
         </div>
 
@@ -347,9 +368,17 @@ const STYLES = `
                   <p style="font-size:.875rem;color:#64748b;margin:4px 0 0">{{ ledger()!.primaryResidentName }}</p>
                 }
               </div>
-              <span class="outstanding-chip" [ngClass]="ledger()!.currentOutstanding === 0 ? 'zero' : ''">
-                Outstanding: {{ ledger()!.currentOutstanding | currency:'INR':'symbol':'1.0-0' }}
-              </span>
+              <div class="ledger-toolbar">
+                <span class="outstanding-chip" [ngClass]="ledger()!.currentOutstanding === 0 ? 'zero' : ''">
+                  Outstanding: {{ ledger()!.currentOutstanding | currency:'INR':'symbol':'1.0-0' }}
+                </span>
+                <button mat-stroked-button type="button" [disabled]="exporting()" (click)="exportApartmentLedger('excel')">
+                  <mat-icon>grid_on</mat-icon> Excel
+                </button>
+                <button mat-stroked-button type="button" [disabled]="exporting()" (click)="exportApartmentLedger('pdf')">
+                  <mat-icon>picture_as_pdf</mat-icon> PDF
+                </button>
+              </div>
             </div>
             <ng-container [ngTemplateOutlet]="ledgerTable"
               [ngTemplateOutletContext]="{ entries: ledger()!.entries, emptyMessage: 'No transactions found for this apartment.' }">
@@ -370,9 +399,17 @@ const STYLES = `
           <div class="card">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:16px">
               <p class="card-title" style="margin:0">Overall Society Ledger</p>
-              <span class="outstanding-chip" [ngClass]="societyLedger()!.currentBalance === 0 ? 'zero' : ''">
-                Balance: {{ societyLedger()!.currentBalance | currency:'INR':'symbol':'1.0-0' }}
-              </span>
+              <div class="ledger-toolbar">
+                <span class="outstanding-chip" [ngClass]="societyLedger()!.currentBalance === 0 ? 'zero' : ''">
+                  Balance: {{ societyLedger()!.currentBalance | currency:'INR':'symbol':'1.0-0' }}
+                </span>
+                <button mat-stroked-button type="button" [disabled]="exporting()" (click)="exportSocietyLedger('excel')">
+                  <mat-icon>grid_on</mat-icon> Excel
+                </button>
+                <button mat-stroked-button type="button" [disabled]="exporting()" (click)="exportSocietyLedger('pdf')">
+                  <mat-icon>picture_as_pdf</mat-icon> PDF
+                </button>
+              </div>
             </div>
             <ng-container [ngTemplateOutlet]="ledgerTable"
               [ngTemplateOutletContext]="{ entries: societyLedger()!.entries, emptyMessage: 'No transactions found for this society.' }">
@@ -387,48 +424,50 @@ const STYLES = `
         }
         <div class="card">
           <form class="filter-row" (ngSubmit)="loadSocietyLedger()">
-            <button mat-flat-button color="primary" type="submit" [disabled]="loading()">
+            <button mat-flat-button color="primary" type="submit" [disabled]="loading() || societyLedgerRefreshing()">
               <mat-icon>refresh</mat-icon> Load Ledger
             </button>
+            @if (societyLedgerRefreshing()) {
+              <span class="refresh-chip"><mat-icon>autorenew</mat-icon> Refreshing…</span>
+            }
           </form>
         </div>
       }
     </div>
 
-    <!-- Shared ledger entries table — used by both Apartment Ledger and Society Ledger tabs -->
+    <!-- Shared ledger entries grid — used by both Apartment Ledger and Society Ledger tabs.
+         Only the first ~40 rows' worth of viewport is rendered up front; cdk-virtual-scroll-viewport
+         recycles DOM rows as the user scrolls, so a multi-thousand-row ledger never renders more
+         than a screenful of <div> rows at once. -->
     <ng-template #ledgerTable let-entries="entries" let-emptyMessage="emptyMessage">
-      <div class="table-shell">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Description</th>
-              <th style="text-align:right">Debit (₹)</th>
-              <th style="text-align:right">Credit (₹)</th>
-              <th style="text-align:right">Balance (₹)</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (entry of entries; track entry.date + entry.description) {
-              <tr>
-                <td style="white-space:nowrap">{{ entry.date | date:'dd MMM yyyy' }}</td>
-                <td>{{ entry.description }}</td>
-                <td class="num ledger-debit">
-                  {{ entry.debit != null ? (entry.debit | currency:'INR':'symbol':'1.0-0') : '—' }}
-                </td>
-                <td class="num ledger-credit">
-                  {{ entry.credit != null ? (entry.credit | currency:'INR':'symbol':'1.0-0') : '—' }}
-                </td>
-                <td class="num" [ngClass]="entry.balance > 0 ? 'text-red' : 'text-green'">
-                  {{ entry.balance | currency:'INR':'symbol':'1.0-0' }}
-                </td>
-              </tr>
-            }
-          </tbody>
-          @if (entries.length === 0) {
-            <tbody><tr><td colspan="5" class="empty-hint">{{ emptyMessage }}</td></tr></tbody>
-          }
-        </table>
+      <div class="ledger-grid">
+        <div class="ledger-grid__header">
+          <div class="ledger-col ledger-col--date">Date</div>
+          <div class="ledger-col ledger-col--desc">Description</div>
+          <div class="ledger-col ledger-col--num">Debit (₹)</div>
+          <div class="ledger-col ledger-col--num">Credit (₹)</div>
+          <div class="ledger-col ledger-col--num">Balance (₹)</div>
+        </div>
+        @if (entries.length === 0) {
+          <div class="empty-hint">{{ emptyMessage }}</div>
+        } @else {
+          <cdk-virtual-scroll-viewport itemSize="44" class="ledger-viewport"
+            [style.height.px]="viewportHeight(entries.length)">
+            <div class="ledger-row" *cdkVirtualFor="let entry of entries; trackBy: trackLedgerEntry">
+              <div class="ledger-col ledger-col--date">{{ entry.date | date:'dd MMM yyyy' }}</div>
+              <div class="ledger-col ledger-col--desc" [title]="entry.description">{{ entry.description }}</div>
+              <div class="ledger-col ledger-col--num ledger-debit">
+                {{ entry.debit != null ? (entry.debit | currency:'INR':'symbol':'1.0-0') : '—' }}
+              </div>
+              <div class="ledger-col ledger-col--num ledger-credit">
+                {{ entry.credit != null ? (entry.credit | currency:'INR':'symbol':'1.0-0') : '—' }}
+              </div>
+              <div class="ledger-col ledger-col--num" [ngClass]="entry.balance > 0 ? 'text-red' : 'text-green'">
+                {{ entry.balance | currency:'INR':'symbol':'1.0-0' }}
+              </div>
+            </div>
+          </cdk-virtual-scroll-viewport>
+        }
       </div>
     </ng-template>
   `,
@@ -447,6 +486,16 @@ export class FinancialReportComponent implements OnInit {
   readonly cashFlow      = signal<CashFlow | null>(null);
   readonly ledger        = signal<ApartmentLedger | null>(null);
   readonly societyLedger = signal<SocietyLedger | null>(null);
+
+  // Refresh flags kept separate from `loading` so a filter-driven reload of a ledger that's
+  // already showing data doesn't blank the grid or trip the page-wide progress bar — the
+  // existing rows stay visible with a small inline "Refreshing…" indicator instead.
+  readonly ledgerRefreshing        = signal(false);
+  readonly societyLedgerRefreshing = signal(false);
+  readonly exporting                = signal(false);
+
+  private readonly LEDGER_ROW_HEIGHT   = 44;
+  private readonly LEDGER_INITIAL_ROWS = 40;
 
   private readonly apartments = signal<Apartment[]>([]);
   readonly apartmentOptions = computed(() =>
@@ -511,26 +560,85 @@ export class FinancialReportComponent implements OnInit {
     const aptId = this.ledgerForm.get('apartmentId')?.value;
     if (!aptId || !this.societyId) return;
     const v = this.ledgerForm.value;
-    this.loading.set(true);
+    const isRefresh = !!this.ledger();
+    if (isRefresh) this.ledgerRefreshing.set(true); else this.loading.set(true);
     this.error.set(null);
     this.service.getApartmentLedger(
       this.societyId, aptId,
       v.fromYear ?? undefined,
       v.toYear   ?? undefined
     ).subscribe({
-      next: d  => { this.ledger.set(d); this.loading.set(false); },
-      error: () => { this.error.set('Failed to load apartment ledger.'); this.loading.set(false); },
+      next: d  => { this.ledger.set(d); this.loading.set(false); this.ledgerRefreshing.set(false); },
+      error: () => {
+        this.error.set('Failed to load apartment ledger.');
+        this.loading.set(false);
+        this.ledgerRefreshing.set(false);
+      },
     });
   }
 
   loadSocietyLedger() {
     if (!this.societyId) return;
-    this.loading.set(true);
+    const isRefresh = !!this.societyLedger();
+    if (isRefresh) this.societyLedgerRefreshing.set(true); else this.loading.set(true);
     this.error.set(null);
     this.service.getSocietyLedger(this.societyId).subscribe({
-      next: d  => { this.societyLedger.set(d); this.loading.set(false); },
-      error: () => { this.error.set('Failed to load society ledger.'); this.loading.set(false); },
+      next: d  => { this.societyLedger.set(d); this.loading.set(false); this.societyLedgerRefreshing.set(false); },
+      error: () => {
+        this.error.set('Failed to load society ledger.');
+        this.loading.set(false);
+        this.societyLedgerRefreshing.set(false);
+      },
     });
+  }
+
+  viewportHeight(entryCount: number): number {
+    return Math.max(1, Math.min(entryCount, this.LEDGER_INITIAL_ROWS)) * this.LEDGER_ROW_HEIGHT;
+  }
+
+  trackLedgerEntry(_index: number, entry: LedgerEntry): string {
+    return entry.date + entry.description;
+  }
+
+  async exportApartmentLedger(format: 'excel' | 'pdf') {
+    const data = this.ledger();
+    if (!data || this.exporting()) return;
+    this.exporting.set(true);
+    try {
+      const title = `Apartment Ledger — ${data.apartmentLabel}`;
+      const meta: LedgerMetaRow[] = [
+        { label: 'Apartment', value: data.apartmentLabel },
+        ...(data.primaryResidentName ? [{ label: 'Resident', value: data.primaryResidentName }] : []),
+        { label: 'Outstanding', value: this.formatCurrencyForExport(data.currentOutstanding) },
+      ];
+      const filenameBase = this.toFilenameSlug(`apartment-ledger-${data.apartmentLabel}`);
+      if (format === 'excel') await exportLedgerToExcel(title, meta, data.entries, `${filenameBase}.xlsx`);
+      else await exportLedgerToPdf(title, meta, data.entries, `${filenameBase}.pdf`);
+    } finally {
+      this.exporting.set(false);
+    }
+  }
+
+  async exportSocietyLedger(format: 'excel' | 'pdf') {
+    const data = this.societyLedger();
+    if (!data || this.exporting()) return;
+    this.exporting.set(true);
+    try {
+      const title = 'Society Ledger';
+      const meta: LedgerMetaRow[] = [{ label: 'Balance', value: this.formatCurrencyForExport(data.currentBalance) }];
+      if (format === 'excel') await exportLedgerToExcel(title, meta, data.entries, 'society-ledger.xlsx');
+      else await exportLedgerToPdf(title, meta, data.entries, 'society-ledger.pdf');
+    } finally {
+      this.exporting.set(false);
+    }
+  }
+
+  private formatCurrencyForExport(value: number): string {
+    return value.toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
+  }
+
+  private toFilenameSlug(value: string): string {
+    return value.replace(/[^\w-]+/g, '_');
   }
 
   private currentFyStart(): number {

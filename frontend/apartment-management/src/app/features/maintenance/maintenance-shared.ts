@@ -6,6 +6,9 @@ import {
   MaintenanceFrequency,
   MaintenancePricingType,
 } from '../../core/models/maintenance.model';
+import { MONTH_OPTIONS, periodLabel } from '../../shared/utils/period.util';
+
+export { MONTH_OPTIONS, periodLabel };
 
 export interface ChargeSection {
   key: string;
@@ -44,13 +47,6 @@ export function formatFrequencyLabel(frequency: MaintenanceFrequency) {
 }
 
 export const CHARGE_STATUS_OPTIONS: MaintenanceChargeStatus[] = ['Pending', 'ProofSubmitted', 'Rejected', 'Overdue', 'Paid', 'Failed', 'Cancelled'];
-
-export const MONTH_OPTIONS = [
-  { value: 1, label: 'January' }, { value: 2, label: 'February' }, { value: 3, label: 'March' },
-  { value: 4, label: 'April' }, { value: 5, label: 'May' }, { value: 6, label: 'June' },
-  { value: 7, label: 'July' }, { value: 8, label: 'August' }, { value: 9, label: 'September' },
-  { value: 10, label: 'October' }, { value: 11, label: 'November' }, { value: 12, label: 'December' },
-] as const;
 
 export const MAINTENANCE_PAGE_STYLES = `
   .card--spaced { display: flex; flex-direction: column; gap: 16px; }
@@ -159,10 +155,6 @@ export function formatAreaBasisLabel(areaBasis: MaintenanceAreaBasis) {
     case 'SuperBuildUpArea': return 'Super built-up area';
     default: return areaBasis;
   }
-}
-
-export function periodLabel(year: number, month: number) {
-  return new Intl.DateTimeFormat('en-IN', { month: 'long', year: 'numeric' }).format(new Date(year, month - 1, 1));
 }
 
 export function sortCharges(charges: MaintenanceCharge[]) {
