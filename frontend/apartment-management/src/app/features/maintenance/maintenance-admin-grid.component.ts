@@ -8,7 +8,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { SearchableSelectComponent } from '../../shared/components/searchable-select/searchable-select.component';
 import { RouterLink } from '@angular/router';
 import { Observable } from 'rxjs';
-import { MaintenanceChargeGrid, MaintenanceChargeStatus, MaintenanceGridCharge } from '../../core/models/maintenance.model';
+import { MaintenanceCharge, MaintenanceChargeGrid, MaintenanceChargeStatus, MaintenanceGridCharge } from '../../core/models/maintenance.model';
 import { AuthService } from '../../core/services/auth.service';
 import { MaintenanceService } from '../../core/services/maintenance.service';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
@@ -169,10 +169,11 @@ import { CHARGE_STATUS_OPTIONS, MAINTENANCE_PAGE_STYLES, MONTH_OPTIONS } from '.
             <div>
               <h2 class="section-title">Apartment payment grid</h2>
                <p class="section-copy">Apartments are listed on the Y axis and {{ viewDescriptor() }} for FY {{ financialYearLabel(filterForm.controls.financialYearStart.value ?? currentFinancialYearStart()) }}.</p>
+              <p class="section-copy">Showing {{ displayRows().length }} of {{ totalRowCount() }} apartments{{ displayRows().length < totalRowCount() ? ' — scroll down to load more' : '' }}.</p>
             </div>
           </div>
 
-          <div class="grid-shell">
+          <div class="grid-shell" (scroll)="onGridScroll($event)">
             <table class="payment-grid">
               <thead>
                 @if (periodSummaries().length) {
@@ -490,8 +491,16 @@ export class MaintenanceAdminGridComponent {
       .map(month => ({ key: `M${month.value}`, label: month.label, months: [month.value] }));
   });
 
+  // Rendering every apartment row's full month-by-month breakdown at once makes the page
+  // unresponsive for larger societies, so only a growing window of rows is ever turned into
+  // template-bound objects — the rest of the already-fetched data stays untouched until the
+  // admin scrolls near the bottom of the grid (see onGridScroll).
+  readonly visibleRowCount = signal(20);
+
+  readonly totalRowCount = computed(() => this.grid()?.rows?.length ?? 0);
+
   readonly displayRows = computed<GridDisplayRow[]>(() =>
-    (this.grid()?.rows ?? []).map(row => ({
+    (this.grid()?.rows ?? []).slice(0, this.visibleRowCount()).map(row => ({
       apartmentId: row.apartmentId,
       apartmentNumber: row.apartmentNumber,
       residentName: row.residentName,
@@ -562,10 +571,21 @@ export class MaintenanceAdminGridComponent {
     }).subscribe({
       next: grid => {
         this.grid.set(grid);
+        this.visibleRowCount.set(20);
         this.loading.set(false);
       },
       error: () => this.loading.set(false),
     });
+  }
+
+  /** Reveals another page of rows once the admin scrolls near the bottom of the grid. */
+  onGridScroll(event: Event): void {
+    const target = event.target as HTMLElement;
+    const distanceFromBottom = target.scrollHeight - target.scrollTop - target.clientHeight;
+    if (distanceFromBottom > 300) return;
+    if (this.visibleRowCount() >= this.totalRowCount()) return;
+
+    this.visibleRowCount.update(count => Math.min(count + 20, this.totalRowCount()));
   }
 
   approveProof(charge: MaintenanceGridCharge) {
@@ -605,14 +625,14 @@ export class MaintenanceAdminGridComponent {
       dueDate: formValue.dueDate || this.toDateInputValue(new Date()),
       reason: formValue.reason?.trim() || '',
     }).subscribe({
-      next: () => {
+      next: charge => {
         this.creatingPenalty.set(false);
         this.penaltyForm.patchValue({
           amount: null,
           reason: '',
           dueDate: this.toDateInputValue(new Date()),
         });
-        this.loadGrid();
+        this.addChargeToGrid(charge);
         this.snackBar.open('Penalty charge created.', 'Dismiss', { duration: 4000 });
       },
       error: () => this.creatingPenalty.set(false),
@@ -636,11 +656,119 @@ export class MaintenanceAdminGridComponent {
     requestFactory().subscribe({
       next: () => {
         this.processingChargeId.set(null);
-        this.loadGrid();
+        this.applySettlementToCharge(chargeId);
         this.snackBar.open(successMessage, 'Dismiss', { duration: 4000 });
       },
       error: () => this.processingChargeId.set(null),
     });
+  }
+
+  /**
+   * Approving a proof or marking a charge paid always transitions it to Paid with exactly the
+   * settlement details just submitted, so the outcome can be applied locally without waiting on
+   * a full grid refetch — the approve/mark-paid endpoints only return a success flag, not the
+   * updated charge.
+   */
+  private applySettlementToCharge(chargeId: string): void {
+    const settlement = this.settlementPayload();
+    this.patchChargeInGrid(chargeId, {
+      status: 'Paid',
+      isOverdue: false,
+      paidAt: new Date().toISOString(),
+      paymentMethod: settlement.paymentMethod,
+      transactionReference: settlement.transactionReference,
+      receiptUrl: settlement.receiptUrl,
+      notes: settlement.notes,
+    });
+  }
+
+  /** Immutably updates one charge wherever it appears in the loaded grid, without refetching. */
+  private patchChargeInGrid(chargeId: string, patch: Partial<MaintenanceGridCharge>): void {
+    const current = this.grid();
+    if (!current) return;
+
+    this.grid.set({
+      ...current,
+      rows: current.rows.map(row => {
+        if (!row.months.some(cell => cell.charges.some(charge => charge.id === chargeId))) return row;
+        return {
+          ...row,
+          months: row.months.map(cell => {
+            if (!cell.charges.some(charge => charge.id === chargeId)) return cell;
+            const charges = cell.charges.map(charge => (charge.id === chargeId ? { ...charge, ...patch } : charge));
+            return {
+              ...cell,
+              charges,
+              totalAmount: charges.reduce((sum, charge) => sum + charge.amount, 0),
+              hasOverdue: charges.some(charge => charge.isOverdue),
+            };
+          }),
+        };
+      }),
+    });
+
+    // The dialog may be showing the charge that was just settled — keep it in sync too.
+    if (this.proofCharge()?.id === chargeId) {
+      this.proofCharge.update(charge => (charge ? { ...charge, ...patch } : charge));
+    }
+  }
+
+  /**
+   * Splices a freshly created penalty charge into the loaded grid, respecting whichever
+   * status/date filters are currently active so a charge that wouldn't otherwise be visible
+   * doesn't suddenly appear until the admin reloads.
+   */
+  private addChargeToGrid(charge: MaintenanceCharge): void {
+    const current = this.grid();
+    if (!current || !current.months.includes(charge.chargeMonth)) return;
+
+    const statusFilter = this.filterForm.controls.status.value;
+    if (statusFilter && charge.status !== statusFilter) return;
+
+    const chargeDueDate = charge.dueDate.slice(0, 10);
+    const fromDate = this.filterForm.controls.fromDate.value;
+    if (fromDate && chargeDueDate < fromDate) return;
+    const toDate = this.filterForm.controls.toDate.value;
+    if (toDate && chargeDueDate > toDate) return;
+
+    const gridCharge: MaintenanceGridCharge = {
+      id: charge.id,
+      scheduleId: charge.scheduleId,
+      scheduleName: charge.scheduleName,
+      amount: charge.amount,
+      status: charge.status,
+      dueDate: charge.dueDate,
+      isOverdue: charge.isOverdue,
+      paidAt: charge.paidAt,
+      paymentMethod: charge.paymentMethod,
+      transactionReference: charge.transactionReference,
+      receiptUrl: charge.receiptUrl,
+      notes: charge.notes,
+      proofs: charge.proofs,
+    };
+
+    let apartmentRowExists = false;
+    const rows = current.rows.map(row => {
+      if (row.apartmentId !== charge.apartmentId) return row;
+      apartmentRowExists = true;
+      return {
+        ...row,
+        months: row.months.map(cell => {
+          if (cell.month !== charge.chargeMonth) return cell;
+          const charges = [...cell.charges, gridCharge];
+          return {
+            ...cell,
+            charges,
+            totalAmount: charges.reduce((sum, c) => sum + c.amount, 0),
+            hasOverdue: charges.some(c => c.isOverdue),
+          };
+        }),
+      };
+    });
+
+    // The apartment isn't part of the currently filtered view — nothing to splice in.
+    if (!apartmentRowExists) return;
+    this.grid.set({ ...current, rows });
   }
 
   private toDateInputValue(value: Date) {

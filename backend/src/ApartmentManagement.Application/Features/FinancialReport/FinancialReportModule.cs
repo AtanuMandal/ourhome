@@ -110,6 +110,7 @@ public sealed class GetFinancialDashboardQueryHandler(
     IMaintenanceChargeRepository maintenanceChargeRepo,
     IVendorChargeRepository vendorChargeRepo,
     IApartmentRepository apartmentRepo,
+    ISocietyRepository societyRepo,
     ICurrentUserService currentUser,
     ILogger<GetFinancialDashboardQueryHandler> logger)
     : IRequestHandler<GetFinancialDashboardQuery, Result<FinancialDashboardDto>>
@@ -125,6 +126,10 @@ public sealed class GetFinancialDashboardQueryHandler(
             if (!currentUser.IsInRoles("SUAdmin", "HQAdmin", "HQUser"))
                 return Result<FinancialDashboardDto>.Failure(ErrorCodes.Forbidden,
                     "Only society admins may access the financial dashboard.");
+
+            var society = await societyRepo.GetByIdAsync(request.SocietyId, request.SocietyId, ct);
+            if (society is null)
+                return Result<FinancialDashboardDto>.Failure(ErrorCodes.SocietyNotFound, "Society not found.");
 
             var now = DateTime.UtcNow;
             var month = now.Month;
@@ -142,7 +147,9 @@ public sealed class GetFinancialDashboardQueryHandler(
             var mainBilled      = active.Sum(c => c.Amount);
             var mainCollected   = active.Where(c => c.Status == PaymentStatus.Paid).Sum(c => c.Amount);
             var mainPending     = active.Where(c => c.Status is PaymentStatus.Pending or PaymentStatus.ProofSubmitted).Sum(c => c.Amount);
-            var mainOverdue     = active.Where(c => c.Status == PaymentStatus.Overdue).Sum(c => c.Amount);
+            // "Overdue" is never a persisted status (see MappingExtensions.IsOverdue) — it must be
+            // computed from the due date and the society's grace period, not compared against the enum.
+            var mainOverdue     = active.Where(c => c.IsOverdue(society.MaintenanceOverdueThresholdDays)).Sum(c => c.Amount);
 
             var billed  = active.Count;
             var paid    = active.Count(c => c.Status == PaymentStatus.Paid);
@@ -155,7 +162,7 @@ public sealed class GetFinancialDashboardQueryHandler(
 
             // Top 5 overdue apartments
             var overdueGroups = mainCharges
-                .Where(c => c.Status == PaymentStatus.Overdue)
+                .Where(c => c.IsOverdue(society.MaintenanceOverdueThresholdDays))
                 .GroupBy(c => c.ApartmentId)
                 .Select(g => (AptId: g.Key, Amount: g.Sum(c => c.Amount),
                               OldestDue: g.Min(c => c.DueDate)))
@@ -191,7 +198,8 @@ public sealed class GetFinancialDashboardQueryHandler(
             // in the next few days are found even when they fall just past a calendar-month boundary.
             var upcomingChargeEntities = (await maintenanceChargeRepo.GetByDueDateRangeAsync(
                 request.SocietyId, now.Date, nextWindow, ct))
-                .Where(c => c.Status is PaymentStatus.Pending or PaymentStatus.Overdue)
+                // A charge due in this future window can't already be overdue, so only Pending applies here.
+                .Where(c => c.Status is PaymentStatus.Pending)
                 .OrderBy(c => c.DueDate)
                 .ToList();
 

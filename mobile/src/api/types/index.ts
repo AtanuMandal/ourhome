@@ -127,6 +127,13 @@ export interface Complaint {
 }
 
 // Matches backend MaintenanceChargeDto
+export interface MaintenancePaymentProof {
+  proofUrl: string;
+  notes?: string;
+  submittedByUserId: string;
+  submittedAt: string;
+}
+
 export interface MaintenanceCharge {
   id: string;
   societyId: string;
@@ -145,6 +152,7 @@ export interface MaintenanceCharge {
   transactionReference?: string;
   receiptUrl?: string;
   notes?: string;
+  proofs: MaintenancePaymentProof[];
   createdAt: string;
   updatedAt: string;
 }

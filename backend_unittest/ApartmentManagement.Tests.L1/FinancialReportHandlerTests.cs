@@ -3,6 +3,7 @@ using ApartmentManagement.Application.Interfaces;
 using ApartmentManagement.Domain.Entities;
 using ApartmentManagement.Domain.Enums;
 using ApartmentManagement.Domain.Repositories;
+using ApartmentManagement.Domain.ValueObjects;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -119,6 +120,7 @@ public class GetFinancialDashboardQueryHandlerUpcomingChargesTests
     private readonly Mock<IMaintenanceChargeRepository> _maintenanceChargeRepoMock = new();
     private readonly Mock<IVendorChargeRepository> _vendorChargeRepoMock = new();
     private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
+    private readonly Mock<ISocietyRepository> _societyRepoMock = new();
     private readonly Mock<ICurrentUserService> _currentUserMock = new();
     private readonly Mock<ILogger<GetFinancialDashboardQueryHandler>> _loggerMock = new();
 
@@ -126,11 +128,15 @@ public class GetFinancialDashboardQueryHandlerUpcomingChargesTests
 
     private GetFinancialDashboardQueryHandler CreateHandler() =>
         new(_maintenanceChargeRepoMock.Object, _vendorChargeRepoMock.Object, _apartmentRepoMock.Object,
-            _currentUserMock.Object, _loggerMock.Object);
+            _societyRepoMock.Object, _currentUserMock.Object, _loggerMock.Object);
 
     private void SetupBaseline(IReadOnlyList<MaintenanceCharge> dueRangeCharges)
     {
         _currentUserMock.Setup(c => c.IsInRoles(It.IsAny<string[]>())).Returns(true);
+
+        var society = Society.Create(SocietyId, new Address("1 Main St", "Mumbai", "MH", "400001", "India"),
+            "admin@test.com", "9876543210", 1, 10);
+        _societyRepoMock.Setup(r => r.GetByIdAsync(SocietyId, SocietyId, It.IsAny<CancellationToken>())).ReturnsAsync(society);
 
         _maintenanceChargeRepoMock
             .Setup(r => r.GetBySocietyAsync(SocietyId, 1, 10_000, null, null, It.IsAny<int?>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
@@ -204,5 +210,56 @@ public class GetFinancialDashboardQueryHandlerUpcomingChargesTests
         result.IsSuccess.Should().BeTrue();
         result.Value!.UpcomingCharges.Should().ContainSingle();
         result.Value.UpcomingCharges[0].DaysUntilDue.Should().Be(7);
+    }
+}
+
+public class GetFinancialDashboardQueryHandlerOverdueTests
+{
+    private readonly Mock<IMaintenanceChargeRepository> _maintenanceChargeRepoMock = new();
+    private readonly Mock<IVendorChargeRepository> _vendorChargeRepoMock = new();
+    private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
+    private readonly Mock<ISocietyRepository> _societyRepoMock = new();
+    private readonly Mock<ICurrentUserService> _currentUserMock = new();
+    private readonly Mock<ILogger<GetFinancialDashboardQueryHandler>> _loggerMock = new();
+
+    private const string SocietyId = "society-001";
+
+    private GetFinancialDashboardQueryHandler CreateHandler() =>
+        new(_maintenanceChargeRepoMock.Object, _vendorChargeRepoMock.Object, _apartmentRepoMock.Object,
+            _societyRepoMock.Object, _currentUserMock.Object, _loggerMock.Object);
+
+    [Fact]
+    public async Task Handle_WithPastDuePendingCharge_ReportsItAsOverdueWithoutALiteralOverdueStatus()
+    {
+        _currentUserMock.Setup(c => c.IsInRoles(It.IsAny<string[]>())).Returns(true);
+
+        var society = Society.Create(SocietyId, new Address("1 Main St", "Mumbai", "MH", "400001", "India"),
+            "admin@test.com", "9876543210", 1, 10); // MaintenanceOverdueThresholdDays defaults to 7.
+        _societyRepoMock.Setup(r => r.GetByIdAsync(SocietyId, SocietyId, It.IsAny<CancellationToken>())).ReturnsAsync(society);
+
+        var apt = Apartment.Create(SocietyId, "101", "A", 1, 2, [], 500, 600, 700);
+        var now = DateTime.UtcNow;
+
+        // Stored (and stays) as "Pending" — MaintenanceCharge never transitions to a literal Overdue status.
+        var overdueCharge = MaintenanceCharge.Create(SocietyId, apt.Id, "sched-1", "Monthly Maintenance", 4000m, now.Date.AddDays(-15));
+        var currentCharge = MaintenanceCharge.Create(SocietyId, apt.Id, "sched-1", "Monthly Maintenance", 2000m, now.Date.AddDays(2));
+
+        _maintenanceChargeRepoMock
+            .Setup(r => r.GetBySocietyAsync(SocietyId, 1, 10_000, null, null, now.Year, now.Month, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([overdueCharge, currentCharge]);
+        _vendorChargeRepoMock
+            .Setup(r => r.GetBySocietyAsync(SocietyId, 1, 10_000, null, null, It.IsAny<int?>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        _maintenanceChargeRepoMock
+            .Setup(r => r.GetByDueDateRangeAsync(SocietyId, It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        _apartmentRepoMock.Setup(r => r.GetByIdAsync(apt.Id, SocietyId, It.IsAny<CancellationToken>())).ReturnsAsync(apt);
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(new GetFinancialDashboardQuery(SocietyId), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.MaintenanceOverdue.Should().Be(4000m);
+        result.Value.TopOverdueApartments.Should().ContainSingle(a => a.ApartmentId == apt.Id && a.OverdueAmount == 4000m);
     }
 }

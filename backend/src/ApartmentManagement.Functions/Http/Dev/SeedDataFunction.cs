@@ -1,4 +1,5 @@
 using ApartmentManagement.Application.Interfaces;
+using ApartmentManagement.Application.Mappings;
 using ApartmentManagement.Domain.Entities;
 using ApartmentManagement.Domain.Enums;
 using ApartmentManagement.Domain.Repositories;
@@ -94,7 +95,7 @@ public class SeedDataFunction(
 
         // ── 1. Society ────────────────────────────────────────────────────────────
         var society = Society.Create(
-            $"Green Valley Residency {rng.Next(0,1000)}",
+            $"Green Valley {rng.Next(0,1000)}",
             new Address("12 Garden Road", "Bengaluru", "Karnataka", "560001", "India"),
             "admin@greenvalley.in", "9845000001",
             Blocks.Length, Blocks.Length * FloorsPerBlock * UnitsPerFloor);
@@ -148,7 +149,7 @@ public class SeedDataFunction(
                         area, buildUp, superBuild);
                     await apartmentRepo.CreateAsync(apt, ct);
                     apartments.Add(apt);
-
+                    
                     // Resident pattern by round-robin
                     int pattern = aptIndex % 3; // 0=1owner, 1=2owners, 2=1owner+1tenant
                     aptIndex++;
@@ -158,9 +159,12 @@ public class SeedDataFunction(
                     owner1.SetPasswordHash(authService.HashPassword("Resident@123"));
                     owner1.Verify();
                     owner1.AssignApartment(apt.Id);
+                    owner1.LinkApartment(apt.Id, apt.ToDisplayLabel(), ResidentType.Owner, makePrimary: true);
                     await userRepo.CreateAsync(owner1, ct);
                     allResidents.Add(owner1);
-
+                    apt.AddResident(owner1.Id ,owner1.Email, ResidentType.Owner);
+                    apt.AssignOwner(owner1.Id, owner1.FullName);
+                    await apartmentRepo.UpdateAsync(apt, ct);
                     if (pattern == 1)
                     {
                         var owner2 = CreateResident(society.Id, apt.Id, aptIndex, 1, rng,
@@ -168,8 +172,11 @@ public class SeedDataFunction(
                         owner2.SetPasswordHash(authService.HashPassword("Resident@123"));
                         owner2.Verify();
                         owner2.AssignApartment(apt.Id);
+                        owner2.LinkApartment(apt.Id, apt.ToDisplayLabel(), ResidentType.Owner, makePrimary: false);
                         await userRepo.CreateAsync(owner2, ct);
                         allResidents.Add(owner2);
+                        apt.AddResident(owner2.Id, owner1.Email, ResidentType.Owner);
+                        await apartmentRepo.UpdateAsync(apt, ct);
                     }
                     else if (pattern == 2)
                     {
@@ -178,8 +185,11 @@ public class SeedDataFunction(
                         tenant.SetPasswordHash(authService.HashPassword("Resident@123"));
                         tenant.Verify();
                         tenant.AssignApartment(apt.Id);
+                        tenant.LinkApartment(apt.Id, apt.ToDisplayLabel(), ResidentType.Tenant, makePrimary: false);
                         await userRepo.CreateAsync(tenant, ct);
                         allResidents.Add(tenant);
+                        apt.AddResident(tenant.Id, tenant.Email, ResidentType.Tenant);
+                        await apartmentRepo.UpdateAsync(apt, ct);
                     }
                 }
             }

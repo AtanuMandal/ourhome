@@ -61,15 +61,32 @@ public sealed class GetMaintenanceChargesQueryHandler(
             var society = await societyRepository.GetByIdAsync(request.SocietyId, request.SocietyId, ct)
                 ?? throw new NotFoundException("Society", request.SocietyId);
 
-            var charges = await chargeRepository.GetBySocietyAsync(
-                request.SocietyId,
-                request.Pagination.Page,
-                request.Pagination.PageSize,
-                effectiveApartmentId,
-                request.Status,
-                request.Year,
-                request.Month,
-                ct);
+            IReadOnlyList<MaintenanceCharge> charges;
+            if (request.Status == PaymentStatus.Overdue)
+            {
+                // "Overdue" is never a persisted charge status (see MappingExtensions.IsOverdue) —
+                // pushing it down as a literal Status match to the repository would always return
+                // zero rows. Fetch unfiltered-by-status instead and compute + paginate in memory.
+                var unfiltered = await chargeRepository.GetBySocietyAsync(
+                    request.SocietyId, 1, 10_000, effectiveApartmentId, null, request.Year, request.Month, ct);
+                var overdue = unfiltered.Where(c => c.IsOverdue(society.MaintenanceOverdueThresholdDays)).ToList();
+                charges = overdue
+                    .Skip((request.Pagination.Page - 1) * request.Pagination.PageSize)
+                    .Take(request.Pagination.PageSize)
+                    .ToList();
+            }
+            else
+            {
+                charges = await chargeRepository.GetBySocietyAsync(
+                    request.SocietyId,
+                    request.Pagination.Page,
+                    request.Pagination.PageSize,
+                    effectiveApartmentId,
+                    request.Status,
+                    request.Year,
+                    request.Month,
+                    ct);
+            }
 
             // Resolve apartment display labels with as few round trips as possible: when the
             // request is already scoped to a single apartment, every charge shares it, so fetch
@@ -208,10 +225,16 @@ public sealed class GetMaintenanceChargeGridQueryHandler(
                         .Select(cell =>
                         {
                             var charges = cell.Charges
-                                .Where(charge => !request.Status.HasValue || string.Equals(charge.Status, request.Status.Value.ToString(), StringComparison.OrdinalIgnoreCase))
+                                .Select(charge => ToGridChargeDto(charge, society.MaintenanceOverdueThresholdDays))
+                                // "Overdue" is never a persisted status (see MappingExtensions.IsOverdue)
+                                // — a literal string match against it would always exclude everything,
+                                // so that filter option is matched against the computed IsOverdue flag instead.
+                                .Where(charge => !request.Status.HasValue
+                                    || (request.Status.Value == PaymentStatus.Overdue
+                                        ? charge.IsOverdue
+                                        : string.Equals(charge.Status, request.Status.Value.ToString(), StringComparison.OrdinalIgnoreCase)))
                                 .Where(charge => !request.FromDate.HasValue || charge.DueDate.Date >= request.FromDate.Value.Date)
                                 .Where(charge => !request.ToDate.HasValue || charge.DueDate.Date <= request.ToDate.Value.Date)
-                                .Select(charge => ToGridChargeDto(charge, society.MaintenanceOverdueThresholdDays))
                                 .ToList();
 
                             return new MaintenanceChargeGridCellDto(
