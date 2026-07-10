@@ -5,7 +5,9 @@ import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { MaintenanceScreen } from '../../../src/features/maintenance/MaintenanceScreen';
 import { maintenanceApi } from '../../../src/api/endpoints/maintenance';
-import { pickImage } from '../../../src/camera/ImagePicker';
+import { pickImageFile } from '../../../src/camera/ImagePicker';
+import { pickProofDocument } from '../../../src/camera/DocumentPicker';
+import { viewRemoteFile } from '../../../src/camera/fileViewer';
 import type { MaintenanceCharge } from '../../../src/api/types';
 
 jest.mock('@expo/vector-icons', () => {
@@ -53,7 +55,15 @@ jest.mock('../../../src/api/endpoints/maintenance', () => ({
 }));
 
 jest.mock('../../../src/camera/ImagePicker', () => ({
-  pickImage: jest.fn(),
+  pickImageFile: jest.fn(),
+}));
+
+jest.mock('../../../src/camera/DocumentPicker', () => ({
+  pickProofDocument: jest.fn(),
+}));
+
+jest.mock('../../../src/camera/fileViewer', () => ({
+  viewRemoteFile: jest.fn(),
 }));
 
 jest.mock('../../../src/camera/imageUpload', () => ({
@@ -119,19 +129,72 @@ describe('MaintenanceScreen', () => {
 
   test('picking a proof photo uploads it and shows a preview', async () => {
     mockCharges = [makeCharge()];
-    (pickImage as jest.Mock).mockResolvedValue('file://photo.jpg');
+    (pickImageFile as jest.Mock).mockResolvedValue({ uri: 'file://photo.jpg', name: 'photo.jpg', mimeType: 'image/jpeg' });
     (maintenanceApi.uploadPaymentProof as jest.Mock).mockResolvedValue({ fileName: 'receipt.jpg', fileUrl: 'files/proofs/receipt.jpg' });
 
     renderScreen();
     fireEvent.press(screen.getByText('Pick proof photo'));
 
-    await waitFor(() => expect(maintenanceApi.uploadPaymentProof).toHaveBeenCalledWith('soc-1', 'file://photo.jpg'));
+    await waitFor(() =>
+      expect(maintenanceApi.uploadPaymentProof).toHaveBeenCalledWith('soc-1', {
+        uri: 'file://photo.jpg',
+        name: 'photo.jpg',
+        mimeType: 'image/jpeg',
+      })
+    );
     expect(await screen.findByText('receipt.jpg')).toBeTruthy();
+  });
+
+  test('picking a proof document uploads it and shows a file-type thumbnail', async () => {
+    mockCharges = [makeCharge()];
+    (pickProofDocument as jest.Mock).mockResolvedValue({ uri: 'file://receipt.pdf', name: 'receipt.pdf', mimeType: 'application/pdf' });
+    (maintenanceApi.uploadPaymentProof as jest.Mock).mockResolvedValue({ fileName: 'receipt.pdf', fileUrl: 'files/proofs/receipt.pdf' });
+
+    renderScreen();
+    fireEvent.press(screen.getByText('Pick proof document'));
+
+    await waitFor(() =>
+      expect(maintenanceApi.uploadPaymentProof).toHaveBeenCalledWith('soc-1', {
+        uri: 'file://receipt.pdf',
+        name: 'receipt.pdf',
+        mimeType: 'application/pdf',
+      })
+    );
+    expect(await screen.findByText('receipt.pdf')).toBeTruthy();
+    expect(await screen.findByText('PDF')).toBeTruthy();
+  });
+
+  test('tapping a non-image proof thumbnail downloads and opens it', async () => {
+    mockCharges = [makeCharge({ proofs: [{ proofUrl: 'files/proofs/receipt.pdf', submittedByUserId: 'u1', submittedAt: '2026-07-02T00:00:00Z' }] })];
+    (viewRemoteFile as jest.Mock).mockResolvedValue(undefined);
+
+    renderScreen();
+    fireEvent.press(screen.getByLabelText('View proof file'));
+
+    await waitFor(() => expect(viewRemoteFile).toHaveBeenCalledWith('files/proofs/receipt.pdf', 'proof.pdf'));
+  });
+
+  test('shows an alert when opening a non-image proof fails', async () => {
+    jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    mockCharges = [makeCharge({ proofs: [{ proofUrl: 'files/proofs/receipt.pdf', submittedByUserId: 'u1', submittedAt: '2026-07-02T00:00:00Z' }] })];
+    (viewRemoteFile as jest.Mock).mockRejectedValue(new Error('network error'));
+
+    renderScreen();
+    fireEvent.press(screen.getByLabelText('View proof file'));
+
+    await waitFor(() => expect(Alert.alert).toHaveBeenCalledWith('Could not open file', expect.any(String)));
+  });
+
+  test('an image proof renders inline instead of a file-type tile', () => {
+    mockCharges = [makeCharge({ proofs: [{ proofUrl: 'files/proofs/receipt.jpg', submittedByUserId: 'u1', submittedAt: '2026-07-02T00:00:00Z' }] })];
+    renderScreen();
+
+    expect(screen.queryByLabelText('View proof file')).toBeNull();
   });
 
   test('submitting proof requires at least one selected charge and an uploaded proof', async () => {
     mockCharges = [makeCharge()];
-    (pickImage as jest.Mock).mockResolvedValue('file://photo.jpg');
+    (pickImageFile as jest.Mock).mockResolvedValue({ uri: 'file://photo.jpg', name: 'photo.jpg', mimeType: 'image/jpeg' });
     (maintenanceApi.uploadPaymentProof as jest.Mock).mockResolvedValue({ fileName: 'receipt.jpg', fileUrl: 'files/proofs/receipt.jpg' });
 
     renderScreen();
@@ -151,7 +214,7 @@ describe('MaintenanceScreen', () => {
   test('shows an alert when the proof upload fails', async () => {
     jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     mockCharges = [makeCharge()];
-    (pickImage as jest.Mock).mockResolvedValue('file://photo.jpg');
+    (pickImageFile as jest.Mock).mockResolvedValue({ uri: 'file://photo.jpg', name: 'photo.jpg', mimeType: 'image/jpeg' });
     (maintenanceApi.uploadPaymentProof as jest.Mock).mockRejectedValue(new Error('network error'));
 
     renderScreen();

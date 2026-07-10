@@ -102,7 +102,7 @@
 
     .material-icons { font-size: 20px; color: white; }
 
-    &.complaint { background: #ef5350; }
+    &.complaint { background: var(--warn); }
     &.notice    { background: var(--primary-light); }
   }
 
@@ -149,8 +149,8 @@
 
   &__icon {
     font-size: 22px;
-    &--in  { color: #16a34a; }
-    &--out { color: #dc2626; }
+    &--in  { color: var(--success); }
+    &--out { color: var(--warn); }
   }
 
   &__content {
@@ -212,6 +212,6 @@
   gap: 8px;
   text-align: center;
 
-  .material-icons { font-size: 40px; color: #d1d5db; }
+  .material-icons { font-size: 40px; color: var(--border); }
   p { font-size: 13px; color: var(--text-secondary); margin: 0; }
 }

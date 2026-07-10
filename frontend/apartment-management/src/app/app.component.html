@@ -1,33 +1,51 @@
 @if (isLoggedIn() && !isAuthRoute()) {
   <mat-sidenav-container class="app-container" autosize>
-    <mat-sidenav #sidenav class="side-nav" [mode]="sidenavMode()" [opened]="sidenavOpened()"
+    <mat-sidenav #sidenav class="side-nav" [class.side-nav--collapsed]="collapsed()"
+                 [mode]="sidenavMode()" [opened]="sidenavOpened()"
                  (openedChange)="onSidenavOpenedChange($event)" fixedInViewport>
-      <div class="side-nav__brand">
-        <img src="assets/branding/logo.png" alt="Aptiq" class="brand-logo">
+      <div class="side-nav__brand" [class.side-nav__brand--collapsed]="collapsed()">
+        @if (!collapsed()) {
+          <img src="assets/branding/logo.png" alt="Aptiq" class="brand-logo">
+        }
+        @if (!isMobile()) {
+          <button mat-icon-button class="collapse-toggle" (click)="toggleCollapse()"
+                  [matTooltip]="collapsed() ? 'Expand menu' : 'Collapse menu'" matTooltipPosition="right"
+                  [attr.aria-label]="collapsed() ? 'Expand menu' : 'Collapse menu'">
+            <mat-icon>{{ collapsed() ? 'chevron_right' : 'chevron_left' }}</mat-icon>
+          </button>
+        }
       </div>
-      <div class="side-nav__user">
-        <div class="avatar avatar--lg">{{ userInitials() }}</div>
-        <div class="user-info">
-          <span class="user-name">{{ user()?.fullName ?? user()?.name }}</span>
-          <span class="user-role">{{ user()?.role }}</span>
-        </div>
+      <div class="side-nav__user" [class.side-nav__user--collapsed]="collapsed()">
+        <div class="avatar avatar--lg" [matTooltip]="collapsed() ? (user()?.fullName ?? user()?.name ?? '') : ''" matTooltipPosition="right">{{ userInitials() }}</div>
+        @if (!collapsed()) {
+          <div class="user-info">
+            <span class="user-name">{{ user()?.fullName ?? user()?.name }}</span>
+            <span class="user-role">{{ user()?.role }}</span>
+          </div>
+        }
       </div>
       <mat-divider></mat-divider>
       <mat-nav-list class="side-nav__list">
         @for (item of visibleNav(); track item.path) {
           <a mat-list-item [routerLink]="item.path" routerLinkActive="active-link"
              [routerLinkActiveOptions]="{ exact: item.path === '/dashboard' }"
+             [matTooltip]="collapsed() ? item.label : ''" matTooltipPosition="right"
              (click)="closeMobileMenu()">
             <mat-icon matListItemIcon>{{ item.icon }}</mat-icon>
-            <span matListItemTitle>{{ item.label }}</span>
+            @if (!collapsed()) {
+              <span matListItemTitle>{{ item.label }}</span>
+            }
           </a>
         }
       </mat-nav-list>
       <div class="side-nav__footer">
         <mat-divider></mat-divider>
-        <button mat-button class="logout-btn" (click)="logout()">
+        <button mat-button class="logout-btn" (click)="logout()"
+                [matTooltip]="collapsed() ? 'Sign out' : ''" matTooltipPosition="right">
           <mat-icon>logout</mat-icon>
-          <span>Sign out</span>
+          @if (!collapsed()) {
+            <span>Sign out</span>
+          }
         </button>
       </div>
     </mat-sidenav>

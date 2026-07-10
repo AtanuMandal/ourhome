@@ -1,6 +1,6 @@
-import * as FileSystem from 'expo-file-system';
 import api from '../client';
 import { getToken } from '../../auth/tokenStore';
+import type { PickedFile } from '../../camera/ImagePicker';
 import type { MaintenanceCharge, PaginatedResponse } from '../types';
 
 const BASE_URL = process.env['API_BASE_URL'] ?? 'http://192.168.1.5:7071/api';
@@ -24,24 +24,29 @@ export const maintenanceApi = {
 
   // Backend: POST /maintenance/payments/proof/upload — multipart form field "file".
   // Returns an app-relative path (served via the file proxy), not a raw blob/SAS URL.
-  uploadPaymentProof: async (societyId: string, uri: string): Promise<MaintenanceProofUploadResult> => {
+  // Uses fetch/FormData (rather than expo-file-system's uploadAsync) so the real filename and
+  // mime type — needed to tell images apart from PDF/Word/Excel documents at render time — are
+  // sent exactly as picked, instead of whatever expo-file-system infers from the local uri.
+  uploadPaymentProof: async (societyId: string, file: PickedFile): Promise<MaintenanceProofUploadResult> => {
     const token = await getToken();
-    const response = await FileSystem.uploadAsync(
-      `${BASE_URL}/societies/${societyId}/maintenance/payments/proof/upload`,
-      uri,
-      {
-        httpMethod: 'POST',
-        uploadType: FileSystem.FileSystemUploadType.MULTIPART,
-        fieldName: 'file',
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      }
-    );
+    const form = new FormData();
+    form.append('file', {
+      uri: file.uri,
+      name: file.name,
+      type: file.mimeType,
+    } as unknown as Blob);
 
-    if (response.status < 200 || response.status >= 300) {
+    const response = await fetch(`${BASE_URL}/societies/${societyId}/maintenance/payments/proof/upload`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: form,
+    });
+
+    if (!response.ok) {
       throw new Error(`Upload failed with status ${response.status}`);
     }
 
-    return JSON.parse(response.body) as MaintenanceProofUploadResult;
+    return (await response.json()) as MaintenanceProofUploadResult;
   },
 
   // Backend: POST /maintenance/payments/proof — body: { chargeIds: string[], proofUrl, notes? }

@@ -10,8 +10,10 @@ import { MatListModule } from '@angular/material/list';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { BottomNavComponent } from './shared/components/bottom-nav/bottom-nav.component';
 import { AuthService } from './core/services/auth.service';
+import { ThemeService } from './core/services/theme.service';
 import { PushNotificationService } from './core/services/push-notification.service';
 import { SwUpdate, VersionReadyEvent } from '@angular/service-worker';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -26,7 +28,7 @@ interface SideNavItem { path: string; icon: string; label: string; }
   imports: [
     RouterOutlet, RouterLink, RouterLinkActive,
     MatToolbarModule, MatSidenavModule, MatListModule,
-    MatIconModule, MatButtonModule, MatDividerModule,
+    MatIconModule, MatButtonModule, MatDividerModule, MatTooltipModule,
     BottomNavComponent,
   ],
   templateUrl: './app.component.html',
@@ -38,6 +40,7 @@ export class AppComponent {
   private readonly sw       = inject(SwUpdate, { optional: true });
   private readonly snackBar = inject(MatSnackBar);
   private readonly breakpointObserver = inject(BreakpointObserver);
+  private readonly theme   = inject(ThemeService); // instantiated eagerly so it applies the society theme on every route
   readonly push             = inject(PushNotificationService);
 
   readonly isLoggedIn = this.auth.isLoggedIn;
@@ -56,6 +59,18 @@ export class AppComponent {
   toggleMobileMenu() { this.mobileMenuOpen.update(v => !v); }
   closeMobileMenu()  { this.mobileMenuOpen.set(false); }
   onSidenavOpenedChange(opened: boolean) { this.mobileMenuOpen.set(opened); }
+
+  // Desktop-only collapse to an icon rail — mobile's "over" mode already toggles open/closed,
+  // so collapsing there too would be a redundant, confusing second way to hide the same drawer.
+  private static readonly COLLAPSE_KEY = 'ourhome-sidenav-collapsed';
+  private readonly collapsedPreference = signal(localStorage.getItem(AppComponent.COLLAPSE_KEY) === 'true');
+  readonly collapsed = computed(() => !this.isMobile() && this.collapsedPreference());
+
+  toggleCollapse(): void {
+    const next = !this.collapsedPreference();
+    this.collapsedPreference.set(next);
+    localStorage.setItem(AppComponent.COLLAPSE_KEY, String(next));
+  }
 
   private static readonly NAV_SUUSER: SideNavItem[] = [
     { path: '/dashboard',                        icon: 'home',            label: 'Dashboard' },

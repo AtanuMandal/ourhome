@@ -17,6 +17,7 @@ describe('HqSocietyEditComponent', () => {
       status: 'Active', adminUserIds: ['a1'],
       societyUsers: [{ userId: 'u1', fullName: 'Bob', email: 'bob@gv.com', roleTitle: 'Chairman' }],
       committees: [{ name: 'Managing Committee', members: [] }],
+      themeId: 'ocean',
       createdAt: '2026-01-01T00:00:00Z',
       ...overrides,
     };
@@ -89,5 +90,26 @@ describe('HqSocietyEditComponent', () => {
     component.save();
 
     expect(societyServiceStub.update).not.toHaveBeenCalled();
+  });
+
+  it('pre-fills the theme picker from the loaded society', () => {
+    const { component } = setup(makeSociety({ themeId: 'violet' }));
+
+    expect(component.form.controls.themeId.value).toBe('violet');
+  });
+
+  it('defaults an unset theme to ocean', () => {
+    const { component } = setup(makeSociety({ themeId: '' }));
+
+    expect(component.form.controls.themeId.value).toBe('ocean');
+  });
+
+  it('submits the newly selected theme', () => {
+    const { component, societyServiceStub } = setup(makeSociety({ themeId: 'ocean' }));
+
+    component.form.controls.themeId.setValue('slate');
+    component.save();
+
+    expect(societyServiceStub.update).toHaveBeenCalledWith('s1', jasmine.objectContaining({ themeId: 'slate' }));
   });
 });

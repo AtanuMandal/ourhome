@@ -40,6 +40,7 @@ public static class MappingExtensions
                     committee.Members.Select(member =>
                         new SocietyUserAssignmentDto(member.UserId, member.FullName, member.Email, member.RoleTitle)).ToList()))
                 .ToList(),
+            society.ThemeId,
             society.CreatedAt);
 
     public static ApartmentResponse ToResponse(this Apartment apartment) =>

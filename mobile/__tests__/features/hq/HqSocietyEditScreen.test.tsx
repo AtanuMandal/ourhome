@@ -26,7 +26,7 @@ function makeSociety(overrides: Partial<Society> = {}): Society {
     address: { street: '1 Main St', city: 'Bengaluru', state: 'Karnataka', postalCode: '560001', country: 'India' },
     contactEmail: 'admin@gv.com', contactPhone: '9876543210',
     totalBlocks: 2, totalApartments: 40, maintenanceOverdueThresholdDays: 7, status: 'Active',
-    societyUsers: [], committees: [],
+    societyUsers: [], committees: [], themeId: 'ocean',
     ...overrides,
   };
 }
@@ -115,6 +115,7 @@ describe('HqSocietyEditScreen', () => {
         state: 'Maharashtra',
         postalCode: '411001',
         country: 'India',
+        themeId: 'ocean',
       },
     });
   });
@@ -125,5 +126,35 @@ describe('HqSocietyEditScreen', () => {
     renderScreen();
 
     expect(screen.getByTestId('input-name').props.value).toBe('');
+  });
+
+  test('pre-selects the swatch matching the society theme', () => {
+    mockSociety = makeSociety({ themeId: 'violet' });
+    renderScreen();
+
+    expect(screen.getByTestId('theme-swatch-violet').props.accessibilityState).toMatchObject({ selected: true });
+    expect(screen.getByTestId('theme-swatch-ocean').props.accessibilityState).toMatchObject({ selected: false });
+  });
+
+  test('falls back to the default swatch for an unrecognized theme id', () => {
+    mockSociety = makeSociety({ themeId: 'retired-theme' });
+    renderScreen();
+
+    expect(screen.getByTestId('theme-swatch-ocean').props.accessibilityState).toMatchObject({ selected: true });
+  });
+
+  test('tapping a swatch changes the selection and is included when saving', async () => {
+    mockUpdateMutate.mockResolvedValue(undefined);
+    renderScreen();
+
+    fireEvent.press(screen.getByTestId('theme-swatch-emerald'));
+
+    expect(screen.getByTestId('theme-swatch-emerald').props.accessibilityState).toMatchObject({ selected: true });
+    expect(screen.getByTestId('theme-swatch-ocean').props.accessibilityState).toMatchObject({ selected: false });
+
+    fireEvent.press(screen.getByText('Save Changes'));
+
+    await waitFor(() => expect(mockUpdateMutate).toHaveBeenCalled());
+    expect(mockUpdateMutate.mock.calls[0][0].data).toMatchObject({ themeId: 'emerald' });
   });
 });

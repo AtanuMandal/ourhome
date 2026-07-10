@@ -5,16 +5,18 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 import { LoadingSpinnerComponent } from '../../shared/components/loading-spinner/loading-spinner.component';
 import { SocietyService } from '../../core/services/society.service';
 import { Society } from '../../core/models/society.model';
+import { THEMES, DEFAULT_THEME_ID } from '../../core/services/theme.service';
 
 @Component({
   selector: 'app-hq-society-edit',
   standalone: true,
-  imports: [ReactiveFormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatDividerModule,
+  imports: [ReactiveFormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatDividerModule, MatIconModule,
             PageHeaderComponent, LoadingSpinnerComponent],
   template: `
     <app-page-header title="Edit Society" [showBack]="true"></app-page-header>
@@ -71,6 +73,29 @@ import { Society } from '../../core/models/society.model';
               <input matInput formControlName="contactPhone">
             </mat-form-field>
 
+            <mat-divider style="margin:16px 0"></mat-divider>
+            <div class="section-title">Theme</div>
+            <p class="section-copy">Pick the color theme this society's members see across the web and mobile app.</p>
+            <div class="theme-picker" role="radiogroup" aria-label="Society theme">
+              @for (theme of themes; track theme.id) {
+                <button
+                  type="button"
+                  class="theme-swatch"
+                  [class.theme-swatch--selected]="form.controls.themeId.value === theme.id"
+                  role="radio"
+                  [attr.aria-checked]="form.controls.themeId.value === theme.id"
+                  [attr.aria-label]="theme.label"
+                  (click)="form.controls.themeId.setValue(theme.id)">
+                  <span class="theme-swatch__dot" [style.background]="theme.primary">
+                    @if (form.controls.themeId.value === theme.id) {
+                      <mat-icon class="theme-swatch__check">check</mat-icon>
+                    }
+                  </span>
+                  <span class="theme-swatch__label">{{ theme.label }}</span>
+                </button>
+              }
+            </div>
+
             <button mat-raised-button color="primary" type="submit"
                     class="full-width primary-action" [disabled]="saving() || form.invalid">
               Save Changes
@@ -86,6 +111,20 @@ import { Society } from '../../core/models/society.model';
     .section-title { font-size:15px; font-weight:600; margin-bottom:4px; }
     .section-copy { color:var(--text-secondary); font-size:13px; margin-bottom:16px; }
     .primary-action { margin-top:16px; height:48px; }
+    .theme-picker { display:flex; flex-wrap:wrap; gap:12px; margin-bottom:16px; }
+    .theme-swatch {
+      display:flex; flex-direction:column; align-items:center; gap:6px;
+      background:none; border:1px solid transparent; border-radius:var(--radius-sm);
+      padding:8px; cursor:pointer; font:inherit;
+    }
+    .theme-swatch:hover { background: rgba(0,0,0,0.04); }
+    .theme-swatch--selected { border-color: var(--primary); }
+    .theme-swatch__dot {
+      width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1);
+    }
+    .theme-swatch__check { color:#fff; font-size:20px; width:20px; height:20px; }
+    .theme-swatch__label { font-size:12px; color:var(--text-secondary); }
   `],
 })
 export class HqSocietyEditComponent implements OnInit {
@@ -97,6 +136,7 @@ export class HqSocietyEditComponent implements OnInit {
 
   readonly loading = signal(true);
   readonly saving = signal(false);
+  readonly themes = THEMES;
   private society: Society | null = null;
 
   readonly form = this.fb.group({
@@ -108,6 +148,7 @@ export class HqSocietyEditComponent implements OnInit {
     country: ['', Validators.required],
     contactEmail: ['', [Validators.required, Validators.email]],
     contactPhone: ['', Validators.required],
+    themeId: [DEFAULT_THEME_ID, Validators.required],
   });
 
   ngOnInit() {
@@ -129,6 +170,7 @@ export class HqSocietyEditComponent implements OnInit {
           country: society.address.country,
           contactEmail: society.contactEmail ?? '',
           contactPhone: society.contactPhone ?? '',
+          themeId: society.themeId || DEFAULT_THEME_ID,
         });
         this.loading.set(false);
       },
@@ -154,6 +196,7 @@ export class HqSocietyEditComponent implements OnInit {
       state: value.state.trim(),
       postalCode: value.postalCode.trim(),
       country: value.country.trim(),
+      themeId: value.themeId,
       // societyUsers/committees intentionally omitted — HQ admin never manages the society's
       // governance or admin-user assignment from this screen.
     }).subscribe({

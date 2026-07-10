@@ -10,6 +10,24 @@ public sealed class Society : BaseEntity
     public sealed record SocietyUserReference(string UserId, string FullName, string Email, string RoleTitle);
     public sealed record SocietyCommittee(string Name, IReadOnlyList<SocietyUserReference> Members);
 
+    public const string DefaultThemeId = "ocean";
+
+    /// <summary>
+    /// The fixed catalog of theme ids HQAdmin can assign per society. An id outside this set
+    /// (e.g. a stale value from a since-retired theme) is never rejected outright — it's silently
+    /// normalized back to the default so a client is never hard-blocked by an unrecognized theme.
+    /// </summary>
+    private static readonly HashSet<string> ValidThemeIds = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "ocean", "emerald", "sunset", "violet", "slate", "teal"
+    };
+
+    private static string NormalizeThemeId(string themeId)
+    {
+        var trimmed = themeId.Trim().ToLowerInvariant();
+        return ValidThemeIds.Contains(trimmed) ? trimmed : DefaultThemeId;
+    }
+
     public string Name { get; private set; } = string.Empty;
     public Address Address { get; private set; } = null!;
     public string ContactEmail { get; private set; } = string.Empty;
@@ -18,6 +36,7 @@ public sealed class Society : BaseEntity
     public int TotalApartments { get; private set; }
     public MaintenanceFeeStructure? FeeStructure { get; private set; }
     public int MaintenanceOverdueThresholdDays { get; private set; } = 7;
+    public string ThemeId { get; private set; } = DefaultThemeId;
     public SocietyStatus Status { get; private set; }
     public List<string> AdminUserIds { get; private set; } = [];
     public List<string> AmenityIds { get; private set; } = [];
@@ -120,7 +139,8 @@ public sealed class Society : BaseEntity
         int totalBlocks,
         int totalApartments,
         int? maintenanceOverdueThresholdDays = null,
-        Address? address = null)
+        Address? address = null,
+        string? themeId = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name, nameof(name));
         Name = name.Trim();
@@ -134,6 +154,8 @@ public sealed class Society : BaseEntity
             address.Validate();
             Address = address;
         }
+        if (!string.IsNullOrWhiteSpace(themeId))
+            ThemeId = NormalizeThemeId(themeId);
         TouchUpdatedAt();
     }
 

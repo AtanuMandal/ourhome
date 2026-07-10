@@ -6,6 +6,7 @@ import {
   FlatList,
   TextInput,
   TouchableOpacity,
+  ActivityIndicator,
   RefreshControl,
   Alert,
   StyleSheet,
@@ -14,8 +15,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSocietyId } from '../../shared/hooks/useSocietyId';
 import { useMaintenanceList, useSubmitPaymentProof } from './hooks/useMaintenance';
 import { maintenanceApi } from '../../api/endpoints/maintenance';
-import { pickImage } from '../../camera/ImagePicker';
+import { pickImageFile, type PickedFile } from '../../camera/ImagePicker';
+import { pickProofDocument } from '../../camera/DocumentPicker';
+import { viewRemoteFile } from '../../camera/fileViewer';
 import { resolveFileUrl } from '../../camera/imageUpload';
+import { isImageUrl, fileKindLabel, extensionOf } from '../../shared/utils/fileType';
 import { AppHeader } from '../../shared/components/AppHeader';
 import { StatusChip } from '../../shared/components/StatusChip';
 import { EmptyState } from '../../shared/components/EmptyState';
@@ -26,6 +30,45 @@ import { typography } from '../../theme/typography';
 import { spacing } from '../../theme/spacing';
 import { formatDate } from '../../shared/utils/date';
 import type { MaintenanceCharge } from '../../api/types';
+
+/** A payment-proof thumbnail: images render inline (existing behavior, unchanged); non-image
+ *  files (PDF/Word/Excel) render a file-type tile that downloads and opens the file via the
+ *  OS share sheet when tapped — there's no browser "new tab" on mobile, so this is the
+ *  equivalent affordance for viewing a document proof. */
+function ProofThumb({ url, fileName }: { url: string; fileName?: string }) {
+  const [opening, setOpening] = useState(false);
+
+  if (isImageUrl(url)) {
+    return <Image source={{ uri: resolveFileUrl(url) }} style={styles.proofThumb} />;
+  }
+
+  async function handleView(): Promise<void> {
+    if (opening) return;
+    setOpening(true);
+    try {
+      await viewRemoteFile(url, fileName ?? `proof.${extensionOf(url) || 'file'}`);
+    } catch (e) {
+      Alert.alert('Could not open file', normalizeError(e));
+    } finally {
+      setOpening(false);
+    }
+  }
+
+  return (
+    <TouchableOpacity
+      style={styles.proofThumb}
+      onPress={() => void handleView()}
+      disabled={opening}
+      accessibilityLabel="View proof file"
+    >
+      {opening ? (
+        <ActivityIndicator size="small" color={colors.primary} />
+      ) : (
+        <Text style={styles.proofThumbLabel}>{fileKindLabel(url)}</Text>
+      )}
+    </TouchableOpacity>
+  );
+}
 
 const STATUS_FILTERS = ['All', 'Pending', 'Paid', 'Overdue'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -57,13 +100,13 @@ export function MaintenanceScreen() {
     );
   }
 
-  async function handlePickProof(): Promise<void> {
-    const uri = await pickImage();
-    if (!uri) return;
+  async function handlePickFile(picker: () => Promise<PickedFile | null>): Promise<void> {
+    const file = await picker();
+    if (!file) return;
 
     setUploading(true);
     try {
-      const result = await maintenanceApi.uploadPaymentProof(societyId, uri);
+      const result = await maintenanceApi.uploadPaymentProof(societyId, file);
       setUploadedProof(result);
     } catch (e) {
       Alert.alert('Could not upload proof', normalizeError(e));
@@ -124,7 +167,7 @@ export function MaintenanceScreen() {
             <Text style={styles.proofListTitle}>Submitted proofs</Text>
             {item.proofs.map((proof) => (
               <View key={proof.proofUrl + proof.submittedAt} style={styles.proofItem}>
-                <Image source={{ uri: resolveFileUrl(proof.proofUrl) }} style={styles.proofThumb} />
+                <ProofThumb url={proof.proofUrl} />
                 <Text style={styles.proofItemText}>{formatDate(proof.submittedAt)}</Text>
               </View>
             ))}
@@ -164,13 +207,19 @@ export function MaintenanceScreen() {
             Select one or more unpaid charges above, upload a proof, and submit for admin approval.
           </Text>
 
-          <TouchableOpacity style={styles.pickButton} onPress={() => void handlePickProof()} disabled={uploading}>
-            <Text style={styles.pickButtonText}>{uploading ? 'Uploading...' : 'Pick proof photo'}</Text>
-          </TouchableOpacity>
+          <View style={styles.pickRow}>
+            <TouchableOpacity style={[styles.pickButton, styles.pickButtonFlex]} onPress={() => void handlePickFile(pickImageFile)} disabled={uploading}>
+              <Text style={styles.pickButtonText}>{uploading ? 'Uploading...' : 'Pick proof photo'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.pickButton, styles.pickButtonFlex]} onPress={() => void handlePickFile(pickProofDocument)} disabled={uploading}>
+              <Text style={styles.pickButtonText}>{uploading ? 'Uploading...' : 'Pick proof document'}</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.proofFormCopy}>Accepted: JPEG, PNG, PDF, Word, or Excel.</Text>
 
           {uploadedProof && (
             <View style={styles.proofItem}>
-              <Image source={{ uri: resolveFileUrl(uploadedProof.fileUrl) }} style={styles.proofThumb} />
+              <ProofThumb url={uploadedProof.fileUrl} fileName={uploadedProof.fileName} />
               <Text style={styles.proofItemText}>{uploadedProof.fileName}</Text>
             </View>
           )}
@@ -273,7 +322,8 @@ const styles = StyleSheet.create({
   proofList: { marginTop: spacing.sm, gap: spacing.xs },
   proofListTitle: { fontSize: typography.fontSize.xs, color: colors.text.secondary },
   proofItem: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.xs },
-  proofThumb: { width: 48, height: 48, borderRadius: 8, backgroundColor: colors.border },
+  proofThumb: { width: 48, height: 48, borderRadius: 8, backgroundColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  proofThumbLabel: { fontSize: 10, fontWeight: typography.fontWeight.bold, color: colors.text.secondary },
   proofItemText: { fontSize: typography.fontSize.xs, color: colors.text.secondary, flexShrink: 1 },
   proofForm: {
     backgroundColor: colors.surface,
@@ -284,9 +334,11 @@ const styles = StyleSheet.create({
   },
   proofFormTitle: { fontSize: typography.fontSize.base, fontWeight: typography.fontWeight.semibold, color: colors.text.primary },
   proofFormCopy: { fontSize: typography.fontSize.xs, color: colors.text.secondary },
+  pickRow: { flexDirection: 'row', gap: spacing.sm },
   pickButton: {
     borderWidth: 1, borderColor: colors.primary, borderRadius: 8, padding: spacing.sm, alignItems: 'center',
   },
+  pickButtonFlex: { flex: 1 },
   pickButtonText: { color: colors.primary, fontWeight: typography.fontWeight.medium },
   notesInput: {
     borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: spacing.sm,

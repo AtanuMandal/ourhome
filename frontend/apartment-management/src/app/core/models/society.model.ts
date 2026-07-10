@@ -19,6 +19,7 @@ export interface Society {
   adminUserIds: string[];
   societyUsers: SocietyUserAssignment[];
   committees: SocietyCommittee[];
+  themeId: string;
   createdAt: string;
 }
 
@@ -81,6 +82,8 @@ export interface UpdateSocietyDto {
   state?: string;
   postalCode?: string;
   country?: string;
+  // Omitted (undefined) means "leave the theme unchanged".
+  themeId?: string;
 }
 
 /** Platform-level occupancy snapshot for HQAdmin/HQUser — no financial data. */

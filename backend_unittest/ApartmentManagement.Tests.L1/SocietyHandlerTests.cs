@@ -357,6 +357,33 @@ public class UpdateSocietyCommandHandlerCommitteeTests
         result.Value.SocietyUsers.Should().ContainSingle(u => u.Email == "bob@gv.com");
         _userRepoMock.Verify(r => r.GetByEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
+
+    [Fact]
+    public async Task Handle_HQAdminUpdatingTheme_ChangesThemeAndReturnsItInResponse()
+    {
+        var society = Society.Create("GV", new Address("1 Main St", "Mumbai", "MH", "400001", "India"),
+            "admin@gv.com", "+91-9876543210", 2, 40);
+
+        _currentUserServiceMock.Setup(s => s.UserId).Returns("hq-admin-id");
+        _currentUserServiceMock.Setup(s => s.Role).Returns("HQAdmin");
+        _societyRepoMock
+            .Setup(r => r.GetByIdAsync(society.Id, society.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(society);
+        _societyRepoMock
+            .Setup(r => r.UpdateAsync(It.IsAny<Society>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Society s, CancellationToken _) => s);
+
+        var handler = CreateHandler();
+        var command = new UpdateSocietyCommand(
+            society.Id, "GV", "admin@gv.com", "+91-9876543210", 2, 40, 7,
+            SocietyUsers: null, Committees: null,
+            ThemeId: "sunset");
+
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.ThemeId.Should().Be("sunset");
+    }
 }
 
 public class GetSocietySummaryReportQueryHandlerTests

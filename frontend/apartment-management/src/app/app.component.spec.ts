@@ -80,6 +80,47 @@ describe('AppComponent — responsive side nav', () => {
   });
 });
 
+describe('AppComponent — collapsible side nav', () => {
+  function setup(matches: boolean) {
+    configureAppComponentTestBed(matches);
+    const fixture = TestBed.createComponent(AppComponent);
+    fixture.detectChanges();
+    return fixture.componentInstance;
+  }
+
+  beforeEach(() => localStorage.removeItem('ourhome-sidenav-collapsed'));
+  afterEach(() => localStorage.removeItem('ourhome-sidenav-collapsed'));
+
+  it('starts expanded by default on desktop', () => {
+    const component = setup(false);
+    expect(component.collapsed()).toBeFalse();
+  });
+
+  it('toggleCollapse collapses and expands the desktop rail, persisting the preference', () => {
+    const component = setup(false);
+
+    component.toggleCollapse();
+    expect(component.collapsed()).toBeTrue();
+    expect(localStorage.getItem('ourhome-sidenav-collapsed')).toBe('true');
+
+    component.toggleCollapse();
+    expect(component.collapsed()).toBeFalse();
+    expect(localStorage.getItem('ourhome-sidenav-collapsed')).toBe('false');
+  });
+
+  it('restores a previously-collapsed preference on the next load', () => {
+    localStorage.setItem('ourhome-sidenav-collapsed', 'true');
+    const component = setup(false);
+    expect(component.collapsed()).toBeTrue();
+  });
+
+  it('never collapses on mobile, even if a desktop collapse preference was saved', () => {
+    localStorage.setItem('ourhome-sidenav-collapsed', 'true');
+    const component = setup(true);
+    expect(component.collapsed()).toBeFalse();
+  });
+});
+
 describe('AppComponent — role-based side nav visibility', () => {
   function setupWithRole(role: string) {
     configureAppComponentTestBed(false, role);

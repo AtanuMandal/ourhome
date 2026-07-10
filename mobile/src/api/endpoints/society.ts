@@ -25,6 +25,7 @@ export interface Society {
   status: string;
   societyUsers: SocietyUserAssignment[];
   committees: SocietyCommittee[];
+  themeId: string;
 }
 
 export interface UpdateSocietyRequest {
@@ -43,6 +44,7 @@ export interface UpdateSocietyRequest {
   state?: string;
   postalCode?: string;
   country?: string;
+  themeId?: string;
 }
 
 /** Platform-level occupancy snapshot for HQAdmin/HQUser — no financial data. */

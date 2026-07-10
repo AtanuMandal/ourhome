@@ -4,7 +4,8 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation, DrawerActions } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/authStore';
-import { colors } from '../../theme/colors';
+import { useThemeColors } from '../hooks/useThemeColors';
+import type { ColorTokens } from '../../theme/themes';
 
 interface AppHeaderProps {
   title: string;
@@ -12,10 +13,14 @@ interface AppHeaderProps {
   showBack?: boolean;
 }
 
+// Rendered at the top of every post-login screen, so it reacts to the theme immediately via
+// useThemeColors() rather than freezing at cold-start's default (see colors.ts / RootNavigator.tsx).
 export function AppHeader({ title, showMenu, showBack }: AppHeaderProps) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const user = useAuthStore((s) => s.user);
+  const colors = useThemeColors();
+  const styles = getStyles(colors);
 
   const initials =
     (user?.fullName ?? 'U')
@@ -35,7 +40,7 @@ export function AppHeader({ title, showMenu, showBack }: AppHeaderProps) {
             style={styles.iconBtn}
             accessibilityLabel="Open menu"
           >
-            <MaterialIcons name="menu" size={26} color="#fff" />
+            <MaterialIcons name="menu" size={26} color={colors.onPrimary} />
           </TouchableOpacity>
         )}
         {showBack && (
@@ -44,7 +49,7 @@ export function AppHeader({ title, showMenu, showBack }: AppHeaderProps) {
             style={styles.iconBtn}
             accessibilityLabel="Go back"
           >
-            <MaterialIcons name="arrow-back" size={24} color="#fff" />
+            <MaterialIcons name="arrow-back" size={24} color={colors.onPrimary} />
           </TouchableOpacity>
         )}
       </View>
@@ -66,35 +71,37 @@ export function AppHeader({ title, showMenu, showBack }: AppHeaderProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: colors.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingBottom: 14,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-  },
-  side: { width: 48 },
-  iconBtn: { padding: 6 },
-  title: {
-    flex: 1,
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.22)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: { color: '#fff', fontSize: 13, fontWeight: '700' },
-});
+function getStyles(colors: ColorTokens) {
+  return StyleSheet.create({
+    container: {
+      backgroundColor: colors.primary,
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 8,
+      paddingBottom: 14,
+      elevation: 4,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.15,
+      shadowRadius: 3,
+    },
+    side: { width: 48 },
+    iconBtn: { padding: 6 },
+    title: {
+      flex: 1,
+      color: colors.onPrimary,
+      fontSize: 18,
+      fontWeight: '600',
+      textAlign: 'center',
+    },
+    avatar: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: 'rgba(255,255,255,0.22)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    avatarText: { color: colors.onPrimary, fontSize: 13, fontWeight: '700' },
+  });
+}

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useAuthStore } from '../store/authStore';
+import { useThemeStore } from '../store/themeStore';
 import * as tokenStore from './tokenStore';
 import { authenticateWithBiometric } from './biometric';
 import { setAuthEventListener } from '../api/client';
@@ -43,13 +44,21 @@ function decodeJwtPayload(token: string): JwtPayload {
 
 interface AuthContextValue {
   isReady: boolean;
+  /** True once the current society's theme has been resolved (or immediately, if logged out —
+   *  there's nothing to resolve). RootNavigator waits on this before mounting AppDrawer so its
+   *  screens' module-level styles are built from the right theme, not the fallback. */
+  isThemeReady: boolean;
 }
 
-const AuthContext = createContext<AuthContextValue>({ isReady: false });
+const AuthContext = createContext<AuthContextValue>({ isReady: false, isThemeReady: false });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isReady, setIsReady] = useState(false);
   const { setUser, clearAuth } = useAuthStore();
+  const themeStatus = useThemeStore((s) => s.status);
+  const resolveTheme = useThemeStore((s) => s.resolveTheme);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const societyId = useAuthStore((s) => s.user?.societyId);
 
   useEffect(() => {
     async function restoreSession(): Promise<void> {
@@ -103,10 +112,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   }, [clearAuth, setUser]);
 
+  // Resolve the theme once we know which society the current user belongs to (either from
+  // session restore above, or a fresh login/OTP-verify elsewhere setting authStore's user).
+  useEffect(() => {
+    if (isAuthenticated && societyId) {
+      void resolveTheme(societyId);
+    }
+  }, [isAuthenticated, societyId, resolveTheme]);
+
+  const isThemeReady = !isAuthenticated || themeStatus === 'resolved';
+
   if (!isReady) return null;
 
   return (
-    <AuthContext.Provider value={{ isReady }}>
+    <AuthContext.Provider value={{ isReady, isThemeReady }}>
       {children}
     </AuthContext.Provider>
   );
