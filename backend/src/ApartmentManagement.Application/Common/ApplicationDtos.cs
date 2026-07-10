@@ -502,15 +502,6 @@ public sealed record PublicVisitorPassResponse(
 
 public sealed record ShareVisitorPassRequest(string? Email, string? Phone);
 
-public record FeeScheduleResponse(
-    string Id, string SocietyId, string ApartmentId, string Description,
-    decimal Amount, string Frequency, int DueDay, DateTime NextDueDate, bool IsActive);
-
-public record FeePaymentResponse(
-    string Id, string SocietyId, string ApartmentId, string FeeScheduleId,
-    string Description, decimal Amount, string Status, DateTime DueDate,
-    DateTime? PaidAt, string? PaymentMethod, string? TransactionId, string? ReceiptUrl);
-
 public record CompetitionResponse(
     string Id, string SocietyId, string Title, string Description,
     DateTime StartDate, DateTime EndDate, string Status, string Prize, int? MaxParticipants, DateTime CreatedAt);
