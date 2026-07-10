@@ -2,6 +2,10 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
+    // Metro/Babel handle the actual module transform at runtime — this only affects what tsc's
+    // type-checker accepts, and RootNavigator.tsx's dynamic import() (used to defer loading
+    // AppDrawer until the society theme resolves) requires a modern module target to type-check.
+    "module": "esnext",
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"]

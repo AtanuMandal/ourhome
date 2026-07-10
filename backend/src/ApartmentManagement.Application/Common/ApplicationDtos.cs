@@ -26,7 +26,9 @@ public record UpdateSocietyRequest(
     IReadOnlyList<SocietyUserAssignmentRequest>? SocietyUsers,
     IReadOnlyList<SocietyCommitteeRequest>? Committees,
     // Omitted (all-null) means "leave the address unchanged".
-    string? Street = null, string? City = null, string? State = null, string? PostalCode = null, string? Country = null);
+    string? Street = null, string? City = null, string? State = null, string? PostalCode = null, string? Country = null,
+    // Omitted (null) means "leave the theme unchanged".
+    string? ThemeId = null);
 
 public record SocietyResponse(
     string Id, string Name, AddressDto Address, string ContactEmail, string ContactPhone,
@@ -34,6 +36,7 @@ public record SocietyResponse(
     int MaintenanceOverdueThresholdDays,
     IReadOnlyList<SocietyUserAssignmentDto> SocietyUsers,
     IReadOnlyList<SocietyCommitteeDto> Committees,
+    string ThemeId,
     DateTime CreatedAt);
 
 /// <summary>

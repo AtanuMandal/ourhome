@@ -90,7 +90,9 @@ public record UpdateSocietyCommand(
     IReadOnlyList<SocietyCommitteeRequest>? Committees,
     // Address fields are optional — omitted (all-null) means "leave the address unchanged".
     // Populated by the HQAdmin society-edit flow, which manages address but never SocietyUsers/Committees.
-    string? Street = null, string? City = null, string? State = null, string? PostalCode = null, string? Country = null)
+    string? Street = null, string? City = null, string? State = null, string? PostalCode = null, string? Country = null,
+    // Omitted (null) means "leave the theme unchanged".
+    string? ThemeId = null)
     : IRequest<Result<SocietyResponse>>;
 
 public sealed class UpdateSocietyCommandHandler(
@@ -130,7 +132,7 @@ public sealed class UpdateSocietyCommandHandler(
             }
 
             society.Update(request.Name, request.ContactEmail, request.ContactPhone,
-                request.TotalBlocks, request.TotalApartments, request.MaintenanceOverdueThresholdDays, address);
+                request.TotalBlocks, request.TotalApartments, request.MaintenanceOverdueThresholdDays, address, request.ThemeId);
 
             // SocietyUsers/Committees are omitted (null) by callers that only manage name/address/contact
             // (e.g. the HQAdmin society-edit flow) — only touch leadership when the caller actually sent it.

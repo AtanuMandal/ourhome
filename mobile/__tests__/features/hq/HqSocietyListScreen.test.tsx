@@ -27,7 +27,7 @@ function makeSociety(overrides: Partial<Society> = {}): Society {
     address: { street: '1 Main St', city: 'Bengaluru', state: 'Karnataka', postalCode: '560001', country: 'India' },
     contactEmail: 'admin@gv.com', contactPhone: '9876543210',
     totalBlocks: 2, totalApartments: 40, maintenanceOverdueThresholdDays: 7, status: 'Active',
-    societyUsers: [], committees: [],
+    societyUsers: [], committees: [], themeId: 'ocean',
     ...overrides,
   };
 }

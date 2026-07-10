@@ -12,7 +12,7 @@ import { EmptyStateComponent } from '../../shared/components/empty-state/empty-s
 import { LoadingSpinnerComponent } from '../../shared/components/loading-spinner/loading-spinner.component';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 import { StatusChipComponent } from '../../shared/components/status-chip/status-chip.component';
-import { SecureImageComponent } from '../../shared/components/secure-image/secure-image.component';
+import { FilePreviewComponent } from '../../shared/components/file-preview/file-preview.component';
 import { ImageLightboxComponent } from '../../shared/components/image-lightbox/image-lightbox.component';
 import { MaintenancePageBase } from './maintenance-page-base';
 import { MAINTENANCE_PAGE_STYLES, formatFrequencyLabel } from './maintenance-shared';
@@ -34,7 +34,7 @@ import { MAINTENANCE_PAGE_STYLES, formatFrequencyLabel } from './maintenance-sha
     LoadingSpinnerComponent,
     EmptyStateComponent,
     StatusChipComponent,
-    SecureImageComponent,
+    FilePreviewComponent,
     ImageLightboxComponent,
   ],
   template: `
@@ -72,12 +72,13 @@ import { MAINTENANCE_PAGE_STYLES, formatFrequencyLabel } from './maintenance-sha
               <form [formGroup]="proofForm" (ngSubmit)="submitProof()" class="stack">
                 <div class="stack">
                   <label class="section-copy" for="maintenance-proof-file">Proof file</label>
-                  <input id="maintenance-proof-file" type="file" (change)="onProofFileSelected($event)">
+                  <input id="maintenance-proof-file" type="file" [accept]="acceptedProofTypes" (change)="onProofFileSelected($event)">
+                  <span class="section-copy">Accepted: JPEG, PNG, PDF, Word, or Excel.</span>
                   @if (uploadedProof(); as uploadedProof) {
                     <div class="proof-item">
                       <span class="proof-list__title">{{ uploadedProof.fileName }}</span>
-                      <app-secure-image [src]="uploadedProof.fileUrl" alt="Payment proof preview" imgClass="proof-thumb"
-                        [clickable]="true" (imageClick)="lightboxSrc.set(uploadedProof.fileUrl)"></app-secure-image>
+                      <app-file-preview [src]="uploadedProof.fileUrl" alt="Payment proof preview" imgClass="proof-thumb"
+                        [clickable]="true" (imageClick)="lightboxSrc.set(uploadedProof.fileUrl)"></app-file-preview>
                     </div>
                   }
                 </div>
@@ -149,8 +150,8 @@ import { MAINTENANCE_PAGE_STYLES, formatFrequencyLabel } from './maintenance-sha
                           <div class="section-copy proof-list__title">Submitted proofs</div>
                           @for (proof of charge.proofs; track proof.proofUrl + proof.submittedAt) {
                             <div class="proof-item">
-                              <app-secure-image [src]="proof.proofUrl" alt="Payment proof" imgClass="proof-thumb"
-                                [clickable]="true" (imageClick)="lightboxSrc.set(proof.proofUrl)"></app-secure-image>
+                              <app-file-preview [src]="proof.proofUrl" alt="Payment proof" imgClass="proof-thumb"
+                                [clickable]="true" (imageClick)="lightboxSrc.set(proof.proofUrl)"></app-file-preview>
                               <span>{{ proof.submittedAt | date:'medium' }}</span>
                               @if (proof.notes) {
                                 <span>{{ proof.notes }}</span>
@@ -239,6 +240,9 @@ export class MaintenanceUserComponent extends MaintenancePageBase {
     notes: [''],
   });
 
+  readonly acceptedProofTypes = '.jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx';
+  private readonly acceptedProofExtensions = new Set(['jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx', 'xls', 'xlsx']);
+
   readonly selectableCharges = computed(() => this.charges().filter(charge => this.isSelectableCharge(charge)));
 
   protected get isAdminView() {
@@ -272,6 +276,13 @@ export class MaintenanceUserComponent extends MaintenancePageBase {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!societyId || !file) return;
+
+    const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
+    if (!this.acceptedProofExtensions.has(extension)) {
+      this.snackBar.open('Unsupported file type. Please upload a JPEG, PNG, PDF, Word, or Excel file.', 'Dismiss', { duration: 5000 });
+      input.value = '';
+      return;
+    }
 
     this.uploadingProof.set(true);
     this.maintenance.uploadProof(societyId, file).subscribe({

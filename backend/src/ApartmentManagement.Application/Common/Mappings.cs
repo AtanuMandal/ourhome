@@ -40,6 +40,7 @@ public static class MappingExtensions
                     committee.Members.Select(member =>
                         new SocietyUserAssignmentDto(member.UserId, member.FullName, member.Email, member.RoleTitle)).ToList()))
                 .ToList(),
+            society.ThemeId,
             society.CreatedAt);
 
     public static ApartmentResponse ToResponse(this Apartment apartment) =>
@@ -311,6 +312,14 @@ public static class MappingExtensions
             schedule.CreatedAt,
             schedule.UpdatedAt);
 
+    /// <summary>
+    /// Whether a charge is overdue right now. "Overdue" is never a persisted <see cref="Domain.Enums.PaymentStatus"/>
+    /// value — a charge stays Pending/ProofSubmitted/etc. until paid — so this must be computed from
+    /// the due date and the society's grace period rather than compared against the enum.
+    /// </summary>
+    public static bool IsOverdue(this MaintenanceCharge charge, int overdueThresholdDays) =>
+        charge.Status != Domain.Enums.PaymentStatus.Paid && charge.DueDate.Date.AddDays(overdueThresholdDays) < DateTime.UtcNow.Date;
+
     public static MaintenanceChargeDto ToResponse(this MaintenanceCharge charge, string apartmentNumber, int overdueThresholdDays) =>
         new(
             charge.Id,
@@ -324,7 +333,7 @@ public static class MappingExtensions
             charge.Amount,
             charge.Status.ToString(),
             charge.DueDate,
-            charge.Status != Domain.Enums.PaymentStatus.Paid && charge.DueDate.Date.AddDays(overdueThresholdDays) < DateTime.UtcNow.Date,
+            charge.IsOverdue(overdueThresholdDays),
             charge.PaidAt,
             charge.PaymentMethod,
             charge.TransactionReference,

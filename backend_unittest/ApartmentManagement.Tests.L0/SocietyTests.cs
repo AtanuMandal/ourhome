@@ -282,6 +282,58 @@ public class SocietyTests
     }
 
     [Fact]
+    public void Create_DefaultsThemeIdToOcean()
+    {
+        var society = Society.Create("GV", ValidAddress(), "admin@gv.com", "+91-9876543210", 2, 40);
+
+        society.ThemeId.Should().Be("ocean");
+    }
+
+    [Fact]
+    public void Update_WithValidThemeId_ChangesTheme()
+    {
+        var society = Society.Create("GV", ValidAddress(), "admin@gv.com", "+91-9876543210", 2, 40);
+
+        society.Update("GV", "admin@gv.com", "+91-9876543210", 2, 40, themeId: "emerald");
+
+        society.ThemeId.Should().Be("emerald");
+    }
+
+    [Fact]
+    public void Update_WithoutThemeId_LeavesThemeUnchanged()
+    {
+        var society = Society.Create("GV", ValidAddress(), "admin@gv.com", "+91-9876543210", 2, 40);
+        society.Update("GV", "admin@gv.com", "+91-9876543210", 2, 40, themeId: "violet");
+
+        society.Update("Green Valley Updated", "admin@gv.com", "+91-9876543210", 2, 40);
+
+        society.ThemeId.Should().Be("violet");
+    }
+
+    [Theory]
+    [InlineData("Emerald")]
+    [InlineData("  teal  ")]
+    public void Update_WithThemeIdInDifferentCaseOrWhitespace_NormalizesIt(string themeId)
+    {
+        var society = Society.Create("GV", ValidAddress(), "admin@gv.com", "+91-9876543210", 2, 40);
+
+        society.Update("GV", "admin@gv.com", "+91-9876543210", 2, 40, themeId: themeId);
+
+        society.ThemeId.Should().Be(themeId.Trim().ToLowerInvariant());
+    }
+
+    [Fact]
+    public void Update_WithUnknownThemeId_FallsBackToOceanInsteadOfThrowing()
+    {
+        var society = Society.Create("GV", ValidAddress(), "admin@gv.com", "+91-9876543210", 2, 40);
+        society.Update("GV", "admin@gv.com", "+91-9876543210", 2, 40, themeId: "violet");
+
+        society.Update("GV", "admin@gv.com", "+91-9876543210", 2, 40, themeId: "some-retired-theme");
+
+        society.ThemeId.Should().Be("ocean");
+    }
+
+    [Fact]
     public void Create_WithZeroTotalApartments_ThrowsArgumentOutOfRangeException()
     {
         // Arrange & Act

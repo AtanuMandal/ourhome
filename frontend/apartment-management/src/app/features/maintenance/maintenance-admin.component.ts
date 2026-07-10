@@ -14,7 +14,7 @@ import { EmptyStateComponent } from '../../shared/components/empty-state/empty-s
 import { LoadingSpinnerComponent } from '../../shared/components/loading-spinner/loading-spinner.component';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 import { StatusChipComponent } from '../../shared/components/status-chip/status-chip.component';
-import { SecureImageComponent } from '../../shared/components/secure-image/secure-image.component';
+import { FilePreviewComponent } from '../../shared/components/file-preview/file-preview.component';
 import { ImageLightboxComponent } from '../../shared/components/image-lightbox/image-lightbox.component';
 import { MaintenancePageBase } from './maintenance-page-base';
 import {
@@ -45,7 +45,7 @@ import {
     EmptyStateComponent,
     StatusChipComponent,
     SearchableSelectComponent,
-    SecureImageComponent,
+    FilePreviewComponent,
     ImageLightboxComponent,
   ],
   template: `
@@ -287,8 +287,8 @@ import {
                               <div class="section-copy proof-list__title">Submitted proofs</div>
                               @for (proof of charge.proofs; track proof.proofUrl + proof.submittedAt) {
                                 <div class="proof-item">
-                                  <app-secure-image [src]="proof.proofUrl" alt="Payment proof" imgClass="proof-thumb"
-                                    [clickable]="true" (imageClick)="lightboxSrc.set(proof.proofUrl)"></app-secure-image>
+                                  <app-file-preview [src]="proof.proofUrl" alt="Payment proof" imgClass="proof-thumb"
+                                    [clickable]="true" (imageClick)="lightboxSrc.set(proof.proofUrl)"></app-file-preview>
                                   <span>{{ proof.submittedAt | date:'medium' }}</span>
                                   @if (proof.notes) {
                                     <span>{{ proof.notes }}</span>

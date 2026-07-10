@@ -92,6 +92,27 @@ public class SocietyIntegrationTests : IntegrationTestBase
     }
 
     [Fact]
+    public async Task CreateSociety_ThenUpdateTheme_ThenGet_RoundTripsTheme()
+    {
+        var created = (await Mediator.Send(ValidCreateSocietyCommand("Theme Test Society"))).Value!.Society;
+        created.ThemeId.Should().Be("ocean");
+
+        var createdAdmin = UserRepo.Store.Values.Single(u => u.SocietyId == created.Id && u.Role == UserRole.SUAdmin);
+        CurrentUserService.UserId = createdAdmin.Id;
+
+        var updateResult = await Mediator.Send(new UpdateSocietyCommand(
+            created.Id, created.Name, created.ContactEmail, created.ContactPhone,
+            created.TotalBlocks, created.TotalApartments, created.MaintenanceOverdueThresholdDays,
+            SocietyUsers: null, Committees: null, ThemeId: "violet"));
+
+        updateResult.IsSuccess.Should().BeTrue();
+        updateResult.Value!.ThemeId.Should().Be("violet");
+
+        var getResult = await Mediator.Send(new GetSocietyQuery(created.Id));
+        getResult.Value!.ThemeId.Should().Be("violet");
+    }
+
+    [Fact]
     public async Task UpdateSociety_WhenNotFound_ReturnsFailure()
     {
         var cmd = new UpdateSocietyCommand("bad-id", "X", "x@x.com", "+1", 1, 1, 7, [], []);

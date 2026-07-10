@@ -21,20 +21,8 @@ $app-theme: mat.define-light-theme((
 @include mat.all-component-themes($app-theme);
 
 // ─── CSS Custom Properties ────────────────────────────────────────────────────
+// Structural tokens (not color) — identical across every theme.
 :root {
-  --primary:        #1565c0;
-  --primary-light:  #1976d2;
-  --primary-dark:   #0d47a1;
-  --accent:         #009688;
-  --accent-light:   #4db6ac;
-  --warn:           #f44336;
-  --success:        #43a047;
-  --warning:        #fb8c00;
-  --surface:        #ffffff;
-  --background:     #f5f7fa;
-  --on-surface:     #1a1a2e;
-  --text-secondary: #6b7280;
-  --border:         #e5e7eb;
   --shadow-sm:      0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
   --shadow-md:      0 4px 6px rgba(0,0,0,.07), 0 2px 4px rgba(0,0,0,.06);
   --shadow-lg:      0 10px 15px rgba(0,0,0,.1), 0 4px 6px rgba(0,0,0,.05);
@@ -46,6 +34,109 @@ $app-theme: mat.define-light-theme((
   --safe-bottom:    env(safe-area-inset-bottom, 0px);
   --header-h:       56px;
   --transition:     200ms cubic-bezier(.4,0,.2,1);
+}
+
+// ─── Theme color tokens ────────────────────────────────────────────────────────
+// One block per society theme (HQAdmin assigns a theme id per society; ThemeService
+// stamps it onto <html data-theme="..."> right after login). The base :root block
+// below doubles as the pre-hydration fallback (before ThemeService runs) and as the
+// "ocean" theme's own values, since :root[data-theme] has higher specificity and
+// will win once the attribute is set.
+:root {
+  --primary:        #1565c0;
+  --primary-dark:   #0d47a1;
+  --accent:         #00695c;
+  --on-primary:     #ffffff;
+  --on-accent:      #ffffff;
+  --warn:           #c62828;
+  --success:        #2e7d32;
+  --warning:        #b45309;
+  --surface:        #ffffff;
+  --background:     #f5f7fa;
+  --on-surface:     #1a1f27;
+  --text-secondary: #5b6472;
+  --border:         #7e8ca0;
+  --primary-light:  color-mix(in srgb, var(--primary) 80%, white);
+}
+
+:root[data-theme='emerald'] {
+  --primary:        #15803d;
+  --primary-dark:   #14532d;
+  --accent:         #0f766e;
+  --on-primary:     #ffffff;
+  --on-accent:      #ffffff;
+  --warn:           #c62828;
+  --success:        #2e7d32;
+  --warning:        #b45309;
+  --surface:        #ffffff;
+  --background:     #f4faf6;
+  --on-surface:     #14251c;
+  --text-secondary: #4b6358;
+  --border:         #7c9c89;
+}
+
+:root[data-theme='sunset'] {
+  --primary:        #c2410c;
+  --primary-dark:   #9a3412;
+  --accent:         #6d28d9;
+  --on-primary:     #ffffff;
+  --on-accent:      #ffffff;
+  --warn:           #c62828;
+  --success:        #2e7d32;
+  --warning:        #b45309;
+  --surface:        #ffffff;
+  --background:     #fff8f3;
+  --on-surface:     #2b1b12;
+  --text-secondary: #6b5347;
+  --border:         #a5825f;
+}
+
+:root[data-theme='violet'] {
+  --primary:        #6d28d9;
+  --primary-dark:   #5b21b6;
+  --accent:         #a21caf;
+  --on-primary:     #ffffff;
+  --on-accent:      #ffffff;
+  --warn:           #c62828;
+  --success:        #2e7d32;
+  --warning:        #b45309;
+  --surface:        #ffffff;
+  --background:     #faf8ff;
+  --on-surface:     #201a2b;
+  --text-secondary: #5d5570;
+  --border:         #9a8bb8;
+}
+
+:root[data-theme='slate'] {
+  --primary:        #60a5fa;
+  --primary-dark:   #3b82f6;
+  --accent:         #2dd4bf;
+  --on-primary:     #0f172a;
+  --on-accent:      #0f172a;
+  --warn:           #f87171;
+  --success:        #4ade80;
+  --warning:        #fbbf24;
+  --surface:        #1e293b;
+  --background:     #0f172a;
+  --on-surface:     #f1f5f9;
+  --text-secondary: #94a3b8;
+  --border:         #64748b;
+}
+
+:root[data-theme='teal'] {
+  --primary:        #0e7490;
+  --primary-dark:   #155e75;
+  --accent:         #be123c;
+  --on-primary:     #ffffff;
+  --on-accent:      #ffffff;
+  --warn:           #c62828;
+  --success:        #2e7d32;
+  --warning:        #b45309;
+  --surface:        #ffffff;
+  --background:     #f2fbfc;
+  --on-surface:     #0f2027;
+  --text-secondary: #4b6672;
+  --border:         #6d9ca4;
 }
 
 // ─── Reset / Base ──────────────────────────────────────────────────────────────

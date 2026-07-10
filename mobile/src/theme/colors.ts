@@ -1,20 +1,10 @@
-// Matches the Angular frontend's CSS custom properties in styles.scss
-export const colors = {
-  primary: '#1565c0',       // --primary (Material Blue 700)
-  primaryLight: '#1976d2',  // --primary-light (Material Blue 600)
-  primaryDark: '#0d47a1',   // --primary-dark (Material Blue 900)
-  accent: '#009688',        // --accent (Material Teal 500)
-  accentLight: '#4db6ac',   // --accent-light
-  success: '#43a047',       // --success
-  warning: '#fb8c00',       // --warning
-  error: '#f44336',         // --warn
-  background: '#f5f7fa',    // --background
-  surface: '#ffffff',       // --surface
-  text: {
-    primary: '#1a1a2e',     // --on-surface
-    secondary: '#6b7280',   // --text-secondary
-    disabled: '#9ca3af',
-  },
-  border: '#e5e7eb',        // --border
-  activeTabBg: 'rgba(25, 118, 210, 0.10)',
-} as const;
+import { useThemeStore } from '../store/themeStore';
+import { themes } from './themes';
+
+// Resolved once, at the moment this module is first evaluated. Screens reached only through
+// AppDrawer (the post-login app) are deliberately NOT imported until RootNavigator's gating
+// confirms the society's theme has already been resolved (see RootNavigator.tsx) — so by the
+// time any of those screens' module-level StyleSheet.create() calls run, useThemeStore already
+// holds the right theme. Pre-login (AuthStack) screens are imported eagerly and always see the
+// default theme here, which is correct since no society is known yet at that point.
+export const colors = themes[useThemeStore.getState().themeId] ?? themes.ocean;

@@ -72,7 +72,8 @@ public class SocietyFunctions(ISender mediator, ICurrentUserService currentUser)
                 body.MaintenanceOverdueThresholdDays,
                 body.SocietyUsers,
                 body.Committees,
-                body.Street, body.City, body.State, body.PostalCode, body.Country),
+                body.Street, body.City, body.State, body.PostalCode, body.Country,
+                body.ThemeId),
             ct);
         return result.ToActionResult();
     }

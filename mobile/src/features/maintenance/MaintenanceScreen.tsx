@@ -1,40 +1,140 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
+  Image,
   FlatList,
+  TextInput,
   TouchableOpacity,
+  ActivityIndicator,
   RefreshControl,
+  Alert,
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSocietyId } from '../../shared/hooks/useSocietyId';
-import { useMaintenanceList } from './hooks/useMaintenance';
+import { useMaintenanceList, useSubmitPaymentProof } from './hooks/useMaintenance';
+import { maintenanceApi } from '../../api/endpoints/maintenance';
+import { pickImageFile, type PickedFile } from '../../camera/ImagePicker';
+import { pickProofDocument } from '../../camera/DocumentPicker';
+import { viewRemoteFile } from '../../camera/fileViewer';
+import { resolveFileUrl } from '../../camera/imageUpload';
+import { isImageUrl, fileKindLabel, extensionOf } from '../../shared/utils/fileType';
 import { AppHeader } from '../../shared/components/AppHeader';
 import { StatusChip } from '../../shared/components/StatusChip';
 import { EmptyState } from '../../shared/components/EmptyState';
 import { CurrencyText } from '../../shared/components/CurrencyText';
+import { normalizeError } from '../../shared/utils/errors';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing } from '../../theme/spacing';
-import { formatDate, isOverdue } from '../../shared/utils/date';
+import { formatDate } from '../../shared/utils/date';
 import type { MaintenanceCharge } from '../../api/types';
 
+/** A payment-proof thumbnail: images render inline (existing behavior, unchanged); non-image
+ *  files (PDF/Word/Excel) render a file-type tile that downloads and opens the file via the
+ *  OS share sheet when tapped — there's no browser "new tab" on mobile, so this is the
+ *  equivalent affordance for viewing a document proof. */
+function ProofThumb({ url, fileName }: { url: string; fileName?: string }) {
+  const [opening, setOpening] = useState(false);
+
+  if (isImageUrl(url)) {
+    return <Image source={{ uri: resolveFileUrl(url) }} style={styles.proofThumb} />;
+  }
+
+  async function handleView(): Promise<void> {
+    if (opening) return;
+    setOpening(true);
+    try {
+      await viewRemoteFile(url, fileName ?? `proof.${extensionOf(url) || 'file'}`);
+    } catch (e) {
+      Alert.alert('Could not open file', normalizeError(e));
+    } finally {
+      setOpening(false);
+    }
+  }
+
+  return (
+    <TouchableOpacity
+      style={styles.proofThumb}
+      onPress={() => void handleView()}
+      disabled={opening}
+      accessibilityLabel="View proof file"
+    >
+      {opening ? (
+        <ActivityIndicator size="small" color={colors.primary} />
+      ) : (
+        <Text style={styles.proofThumbLabel}>{fileKindLabel(url)}</Text>
+      )}
+    </TouchableOpacity>
+  );
+}
+
 const STATUS_FILTERS = ['All', 'Pending', 'Paid', 'Overdue'];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// A charge that hasn't been paid and isn't already awaiting admin review can have proof submitted.
+function isSelectableCharge(charge: MaintenanceCharge): boolean {
+  return charge.status === 'Pending' || charge.status === 'Rejected';
+}
 
 export function MaintenanceScreen() {
   const societyId = useSocietyId();
   const [selectedStatus, setSelectedStatus] = useState('All');
+  const [selectedChargeIds, setSelectedChargeIds] = useState<string[]>([]);
+  const [notes, setNotes] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [uploadedProof, setUploadedProof] = useState<{ fileName: string; fileUrl: string } | null>(null);
 
   const params =
     selectedStatus !== 'All' ? { status: selectedStatus } : undefined;
   const { data, isLoading, fetchNextPage, hasNextPage, refetch } =
     useMaintenanceList(societyId, params);
+  const { mutate: submitProof, isPending: submitting } = useSubmitPaymentProof(societyId);
 
-  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const selectableCount = data.filter(isSelectableCharge).length;
 
-  function renderItem({ item }: { item: MaintenanceCharge }) {
-    const overdue = item.status !== 'Paid' && isOverdue(item.dueDate);
+  function toggleChargeSelection(chargeId: string): void {
+    setSelectedChargeIds((prev) =>
+      prev.includes(chargeId) ? prev.filter((id) => id !== chargeId) : [...prev, chargeId]
+    );
+  }
+
+  async function handlePickFile(picker: () => Promise<PickedFile | null>): Promise<void> {
+    const file = await picker();
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const result = await maintenanceApi.uploadPaymentProof(societyId, file);
+      setUploadedProof(result);
+    } catch (e) {
+      Alert.alert('Could not upload proof', normalizeError(e));
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function handleSubmitProof(): void {
+    if (selectedChargeIds.length === 0 || !uploadedProof) return;
+
+    submitProof(
+      { chargeIds: selectedChargeIds, proofUrl: uploadedProof.fileUrl, notes: notes.trim() || undefined },
+      {
+        onSuccess: () => {
+          setSelectedChargeIds([]);
+          setUploadedProof(null);
+          setNotes('');
+          Alert.alert('Submitted', 'Payment proof submitted for review.');
+        },
+        onError: (e) => Alert.alert('Could not submit proof', normalizeError(e)),
+      }
+    );
+  }
+
+  const renderItem = useCallback(({ item }: { item: MaintenanceCharge }) => {
+    const selectable = isSelectableCharge(item);
+    const selected = selectedChargeIds.includes(item.id);
     return (
       <View style={styles.item}>
         <View style={styles.itemTop}>
@@ -46,13 +146,37 @@ export function MaintenanceScreen() {
         </Text>
         <View style={styles.itemBottom}>
           <StatusChip status={item.status} />
-          <Text style={[styles.dueDate, overdue && styles.overdue]}>
+          <Text style={[styles.dueDate, item.isOverdue && styles.overdue]}>
             Due: {formatDate(item.dueDate)}
           </Text>
         </View>
+        {selectable && (
+          <TouchableOpacity
+            style={styles.selectRow}
+            onPress={() => toggleChargeSelection(item.id)}
+            accessibilityLabel={selected ? 'Deselect charge' : 'Select charge for proof submission'}
+          >
+            <View style={[styles.checkbox, selected && styles.checkboxChecked]}>
+              {selected && <Text style={styles.checkboxMark}>✓</Text>}
+            </View>
+            <Text style={styles.selectRowText}>Include in proof submission</Text>
+          </TouchableOpacity>
+        )}
+        {item.proofs.length > 0 && (
+          <View style={styles.proofList}>
+            <Text style={styles.proofListTitle}>Submitted proofs</Text>
+            {item.proofs.map((proof) => (
+              <View key={proof.proofUrl + proof.submittedAt} style={styles.proofItem}>
+                <ProofThumb url={proof.proofUrl} />
+                <Text style={styles.proofItemText}>{formatDate(proof.submittedAt)}</Text>
+              </View>
+            ))}
+          </View>
+        )}
       </View>
     );
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedChargeIds]);
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -75,6 +199,52 @@ export function MaintenanceScreen() {
           </TouchableOpacity>
         ))}
       </View>
+
+      {selectableCount > 0 && (
+        <View style={styles.proofForm}>
+          <Text style={styles.proofFormTitle}>Submit payment proof</Text>
+          <Text style={styles.proofFormCopy}>
+            Select one or more unpaid charges above, upload a proof, and submit for admin approval.
+          </Text>
+
+          <View style={styles.pickRow}>
+            <TouchableOpacity style={[styles.pickButton, styles.pickButtonFlex]} onPress={() => void handlePickFile(pickImageFile)} disabled={uploading}>
+              <Text style={styles.pickButtonText}>{uploading ? 'Uploading...' : 'Pick proof photo'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.pickButton, styles.pickButtonFlex]} onPress={() => void handlePickFile(pickProofDocument)} disabled={uploading}>
+              <Text style={styles.pickButtonText}>{uploading ? 'Uploading...' : 'Pick proof document'}</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.proofFormCopy}>Accepted: JPEG, PNG, PDF, Word, or Excel.</Text>
+
+          {uploadedProof && (
+            <View style={styles.proofItem}>
+              <ProofThumb url={uploadedProof.fileUrl} fileName={uploadedProof.fileName} />
+              <Text style={styles.proofItemText}>{uploadedProof.fileName}</Text>
+            </View>
+          )}
+
+          <TextInput
+            style={styles.notesInput}
+            placeholder="Optional transaction details"
+            placeholderTextColor={colors.text.disabled}
+            value={notes}
+            onChangeText={setNotes}
+            multiline
+          />
+
+          <TouchableOpacity
+            style={[styles.submitButton, (selectedChargeIds.length === 0 || !uploadedProof || submitting) && styles.submitButtonDisabled]}
+            onPress={handleSubmitProof}
+            disabled={selectedChargeIds.length === 0 || !uploadedProof || submitting}
+          >
+            <Text style={styles.submitButtonText}>
+              Submit proof for {selectedChargeIds.length} charge{selectedChargeIds.length === 1 ? '' : 's'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <FlatList
         data={data}
         keyExtractor={(item) => item.id}
@@ -141,4 +311,40 @@ const styles = StyleSheet.create({
   overdue: { color: colors.error },
   separator: { height: 1, backgroundColor: colors.border },
   emptyContainer: { flex: 1 },
+  selectRow: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.sm, gap: spacing.xs },
+  checkbox: {
+    width: 20, height: 20, borderRadius: 4, borderWidth: 1, borderColor: colors.border,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  checkboxChecked: { backgroundColor: colors.primary, borderColor: colors.primary },
+  checkboxMark: { color: '#FFF', fontSize: typography.fontSize.xs, fontWeight: typography.fontWeight.bold },
+  selectRowText: { fontSize: typography.fontSize.sm, color: colors.text.primary },
+  proofList: { marginTop: spacing.sm, gap: spacing.xs },
+  proofListTitle: { fontSize: typography.fontSize.xs, color: colors.text.secondary },
+  proofItem: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.xs },
+  proofThumb: { width: 48, height: 48, borderRadius: 8, backgroundColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  proofThumbLabel: { fontSize: 10, fontWeight: typography.fontWeight.bold, color: colors.text.secondary },
+  proofItemText: { fontSize: typography.fontSize.xs, color: colors.text.secondary, flexShrink: 1 },
+  proofForm: {
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+    gap: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  proofFormTitle: { fontSize: typography.fontSize.base, fontWeight: typography.fontWeight.semibold, color: colors.text.primary },
+  proofFormCopy: { fontSize: typography.fontSize.xs, color: colors.text.secondary },
+  pickRow: { flexDirection: 'row', gap: spacing.sm },
+  pickButton: {
+    borderWidth: 1, borderColor: colors.primary, borderRadius: 8, padding: spacing.sm, alignItems: 'center',
+  },
+  pickButtonFlex: { flex: 1 },
+  pickButtonText: { color: colors.primary, fontWeight: typography.fontWeight.medium },
+  notesInput: {
+    borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: spacing.sm,
+    fontSize: typography.fontSize.sm, color: colors.text.primary, minHeight: 44,
+  },
+  submitButton: { backgroundColor: colors.primary, borderRadius: 8, padding: spacing.sm, alignItems: 'center' },
+  submitButtonDisabled: { opacity: 0.5 },
+  submitButtonText: { color: '#FFF', fontWeight: typography.fontWeight.semibold },
 });

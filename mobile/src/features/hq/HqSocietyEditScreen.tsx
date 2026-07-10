@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, StyleSheet } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useHqSociety, useUpdateSociety } from './hooks/useHq';
@@ -7,8 +8,11 @@ import { AppHeader } from '../../shared/components/AppHeader';
 import { LoadingOverlay } from '../../shared/components/LoadingOverlay';
 import { normalizeError } from '../../shared/utils/errors';
 import { colors } from '../../theme/colors';
+import { themes, THEME_LABELS, DEFAULT_THEME_ID, resolveThemeId, type ThemeId } from '../../theme/themes';
 import { typography } from '../../theme/typography';
 import { spacing } from '../../theme/spacing';
+
+const THEME_IDS = Object.keys(themes) as ThemeId[];
 
 interface HqSocietyEditScreenProps {
   route: { params: { id: string; name?: string } };
@@ -28,6 +32,7 @@ export function HqSocietyEditScreen({ route }: HqSocietyEditScreenProps) {
   const [country, setCountry] = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [contactPhone, setContactPhone] = useState('');
+  const [themeId, setThemeId] = useState<ThemeId>(DEFAULT_THEME_ID);
 
   useEffect(() => {
     if (!society) return;
@@ -39,6 +44,7 @@ export function HqSocietyEditScreen({ route }: HqSocietyEditScreenProps) {
     setCountry(society.address.country);
     setContactEmail(society.contactEmail);
     setContactPhone(society.contactPhone);
+    setThemeId(resolveThemeId(society.themeId));
   }, [society]);
 
   async function handleSave(): Promise<void> {
@@ -68,6 +74,7 @@ export function HqSocietyEditScreen({ route }: HqSocietyEditScreenProps) {
           state: state.trim(),
           postalCode: postalCode.trim(),
           country: country.trim(),
+          themeId,
           // societyUsers/committees intentionally omitted — HQ admin never manages the
           // society's governance or admin-user assignment from this screen.
         },
@@ -109,6 +116,29 @@ export function HqSocietyEditScreen({ route }: HqSocietyEditScreenProps) {
         <Text style={styles.label}>Contact Phone *</Text>
         <TextInput testID="input-contactPhone" style={styles.input} value={contactPhone} onChangeText={setContactPhone} keyboardType="phone-pad" placeholderTextColor={colors.text.disabled} />
 
+        <Text style={styles.sectionTitle}>Theme</Text>
+        <Text style={styles.sectionCopy}>Pick the color theme this society's members see across the web and mobile app.</Text>
+        <View style={styles.themeRow}>
+          {THEME_IDS.map((id) => {
+            const selected = themeId === id;
+            return (
+              <TouchableOpacity
+                key={id}
+                testID={`theme-swatch-${id}`}
+                style={styles.themeSwatch}
+                accessibilityLabel={THEME_LABELS[id]}
+                accessibilityState={{ selected }}
+                onPress={() => setThemeId(id)}
+              >
+                <View style={[styles.themeDot, { backgroundColor: themes[id].primary }, selected && styles.themeDotSelected]}>
+                  {selected && <MaterialIcons name="check" size={18} color="#fff" />}
+                </View>
+                <Text style={styles.themeLabel}>{THEME_LABELS[id]}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
         <TouchableOpacity style={styles.saveButton} onPress={() => void handleSave()} disabled={isPending}>
           <Text style={styles.saveButtonText}>Save Changes</Text>
         </TouchableOpacity>
@@ -126,4 +156,12 @@ const styles = StyleSheet.create({
   sectionCopy: { fontSize: typography.fontSize.xs, color: colors.text.secondary, marginBottom: spacing.sm },
   saveButton: { backgroundColor: colors.primary, borderRadius: 8, padding: spacing.md, alignItems: 'center', marginTop: spacing.lg },
   saveButtonText: { color: '#FFF', fontSize: typography.fontSize.base, fontWeight: typography.fontWeight.semibold },
+  themeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginTop: spacing.xs },
+  themeSwatch: { alignItems: 'center', gap: 4, width: 76 },
+  themeDot: {
+    width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: 'rgba(0,0,0,0.1)',
+  },
+  themeDotSelected: { borderWidth: 2, borderColor: colors.primary },
+  themeLabel: { fontSize: typography.fontSize.xs, color: colors.text.secondary, textAlign: 'center' },
 });

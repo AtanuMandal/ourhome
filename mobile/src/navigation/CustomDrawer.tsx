@@ -5,7 +5,8 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../store/authStore';
 import { useAuth } from '../auth/useAuth';
-import { colors } from '../theme/colors';
+import { useThemeColors } from '../shared/hooks/useThemeColors';
+import type { ColorTokens } from '../theme/themes';
 import { typography } from '../theme/typography';
 
 type MIName = React.ComponentProps<typeof MaterialIcons>['name'];
@@ -90,10 +91,14 @@ function getRoleLabel(role?: string): string {
   }
 }
 
+// Rendered for the whole post-login session (via AppDrawer), so it reacts to the theme
+// immediately via useThemeColors() rather than freezing at cold-start's default.
 export function CustomDrawer({ navigation, state }: DrawerContentComponentProps) {
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
   const { logout } = useAuth();
+  const colors = useThemeColors();
+  const styles = getStyles(colors);
 
   const initials =
     (user?.fullName ?? 'U')
@@ -170,75 +175,77 @@ export function CustomDrawer({ navigation, state }: DrawerContentComponentProps)
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.surface },
-  brand: {
-    alignItems: 'center',
-    paddingVertical: 20,
-    paddingHorizontal: 16,
-  },
-  brandName: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: colors.primary,
-    letterSpacing: 0.5,
-  },
-  userInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    gap: 12,
-  },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.primaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  userMeta: { flex: 1 },
-  userName: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.medium,
-    color: colors.text.primary,
-  },
-  userRole: {
-    fontSize: typography.fontSize.xs,
-    color: colors.text.secondary,
-    marginTop: 2,
-  },
-  divider: { height: 1, backgroundColor: colors.border, marginHorizontal: 8 },
-  menu: { flex: 1, paddingVertical: 8, paddingHorizontal: 8 },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    marginBottom: 2,
-  },
-  menuItemActive: { backgroundColor: colors.activeTabBg },
-  menuIcon: { marginRight: 12 },
-  menuLabel: {
-    fontSize: typography.fontSize.sm,
-    color: colors.text.secondary,
-    fontWeight: '400',
-  },
-  menuLabelActive: { color: colors.primaryLight, fontWeight: '500' },
-  footer: { paddingHorizontal: 8 },
-  logoutBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-  },
-  logoutLabel: {
-    fontSize: typography.fontSize.sm,
-    color: colors.text.secondary,
-    fontWeight: '400',
-  },
-});
+function getStyles(colors: ColorTokens) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.surface },
+    brand: {
+      alignItems: 'center',
+      paddingVertical: 20,
+      paddingHorizontal: 16,
+    },
+    brandName: {
+      fontSize: 22,
+      fontWeight: '700',
+      color: colors.primary,
+      letterSpacing: 0.5,
+    },
+    userInfo: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingBottom: 16,
+      gap: 12,
+    },
+    avatar: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: colors.primaryLight,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    avatarText: { color: colors.onPrimary, fontSize: 16, fontWeight: '600' },
+    userMeta: { flex: 1 },
+    userName: {
+      fontSize: typography.fontSize.sm,
+      fontWeight: typography.fontWeight.medium,
+      color: colors.text.primary,
+    },
+    userRole: {
+      fontSize: typography.fontSize.xs,
+      color: colors.text.secondary,
+      marginTop: 2,
+    },
+    divider: { height: 1, backgroundColor: colors.border, marginHorizontal: 8 },
+    menu: { flex: 1, paddingVertical: 8, paddingHorizontal: 8 },
+    menuItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      borderRadius: 8,
+      marginBottom: 2,
+    },
+    menuItemActive: { backgroundColor: colors.activeTabBg },
+    menuIcon: { marginRight: 12 },
+    menuLabel: {
+      fontSize: typography.fontSize.sm,
+      color: colors.text.secondary,
+      fontWeight: '400',
+    },
+    menuLabelActive: { color: colors.primaryLight, fontWeight: '500' },
+    footer: { paddingHorizontal: 8 },
+    logoutBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      borderRadius: 8,
+    },
+    logoutLabel: {
+      fontSize: typography.fontSize.sm,
+      color: colors.text.secondary,
+      fontWeight: '400',
+    },
+  });
+}
