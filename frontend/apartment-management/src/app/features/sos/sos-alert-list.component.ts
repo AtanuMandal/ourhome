@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -59,15 +59,17 @@ const STATUS_OPTIONS: (SosAlertStatus | '')[] = ['', 'Triggered', 'Acknowledged'
                 }
               </div>
               <span class="status-chip" [class]="'status-chip--' + a.status.toLowerCase()">{{ a.status }}</span>
-              @if (a.status === 'Triggered') {
-                <button mat-stroked-button color="primary" type="button" [disabled]="actioning() === a.id" (click)="acknowledge(a)">
-                  Acknowledge
-                </button>
-              }
-              @if (a.status === 'Triggered' || a.status === 'Acknowledged') {
-                <button mat-stroked-button color="warn" type="button" [disabled]="actioning() === a.id" (click)="resolve(a)">
-                  Resolve
-                </button>
+              @if (canAct()) {
+                @if (a.status === 'Triggered') {
+                  <button mat-stroked-button color="primary" type="button" [disabled]="actioning() === a.id" (click)="acknowledge(a)">
+                    Acknowledge
+                  </button>
+                }
+                @if (a.status === 'Triggered' || a.status === 'Acknowledged') {
+                  <button mat-stroked-button color="warn" type="button" [disabled]="actioning() === a.id" (click)="resolve(a)">
+                    Resolve
+                  </button>
+                }
               }
             </div>
           }
@@ -104,6 +106,8 @@ export class SosAlertListComponent implements OnInit {
   readonly items = signal<SosAlert[]>([]);
   readonly statusFilter = signal<SosAlertStatus | ''>('');
   readonly isAdmin = this.auth.isAdmin;
+  /** Only SUAdmin/SUSecurity can acknowledge/resolve — everyone else can view only. */
+  readonly canAct  = computed(() => this.auth.isAdmin() || this.auth.isSecurity());
 
   categoryLabel(category: SosAlert['category']) {
     return SOS_CATEGORY_LABELS[category];

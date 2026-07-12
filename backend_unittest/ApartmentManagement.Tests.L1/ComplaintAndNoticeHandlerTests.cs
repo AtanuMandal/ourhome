@@ -1,5 +1,6 @@
 using ApartmentManagement.Application.Commands.Complaint;
 using ApartmentManagement.Application.Commands.Notice;
+using ApartmentManagement.Application.Queries.Notice;
 using ApartmentManagement.Application.Interfaces;
 using ApartmentManagement.Domain.Entities;
 using ApartmentManagement.Domain.Enums;
@@ -152,6 +153,119 @@ public class CreateNoticeCommandHandlerTests
     }
 }
 
+public class UpdateNoticeCommandHandlerTests
+{
+    private readonly Mock<INoticeRepository> _noticeRepoMock = new();
+    private readonly Mock<ICurrentUserService> _currentUserMock = new();
+    private readonly Mock<ILogger<UpdateNoticeCommandHandler>> _loggerMock = new();
+
+    private UpdateNoticeCommandHandler CreateHandler() =>
+        new(_noticeRepoMock.Object, _currentUserMock.Object, _loggerMock.Object);
+
+    [Fact]
+    public async Task Handle_AsSUAdmin_UpdatesNoticeAndReturnsSuccess()
+    {
+        // Arrange
+        var notice = Notice.Create("soc-001", "user-001", "Old Title", "Old Content",
+            NoticeCategory.General, DateTime.UtcNow.AddMinutes(-5));
+        var noticeId = notice.Id;
+
+        _currentUserMock.Setup(c => c.IsInRoles(It.IsAny<string[]>())).Returns(true);
+        _noticeRepoMock
+            .Setup(r => r.GetByIdAsync(noticeId, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(notice);
+        _noticeRepoMock
+            .Setup(r => r.UpdateAsync(It.IsAny<Notice>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Notice n, CancellationToken _) => n);
+
+        var handler = CreateHandler();
+        var command = new UpdateNoticeCommand("soc-001", noticeId, "New Title", "New Content", null);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        notice.Title.Should().Be("New Title");
+        notice.Content.Should().Be("New Content");
+    }
+
+    [Fact]
+    public async Task Handle_AsNonAdmin_ReturnsForbiddenAndDoesNotUpdate()
+    {
+        // Arrange
+        _currentUserMock.Setup(c => c.IsInRoles(It.IsAny<string[]>())).Returns(false);
+
+        var handler = CreateHandler();
+        var command = new UpdateNoticeCommand("soc-001", "notice-001", "New Title", "New Content", null);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.Forbidden);
+        _noticeRepoMock.Verify(r => r.GetByIdAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+}
+
+public class GetNoticeReadReceiptsQueryHandlerTests
+{
+    private readonly Mock<INoticeRepository> _noticeRepoMock = new();
+    private readonly Mock<IUserRepository> _userRepoMock = new();
+    private readonly Mock<ICurrentUserService> _currentUserMock = new();
+
+    private GetNoticeReadReceiptsQueryHandler CreateHandler() =>
+        new(_noticeRepoMock.Object, _userRepoMock.Object, _currentUserMock.Object);
+
+    [Fact]
+    public async Task Handle_AsSUAdmin_PartitionsResidentsIntoReadAndUnread()
+    {
+        // Arrange
+        var notice = Notice.Create("soc-001", "admin-1", "Title", "Content",
+            NoticeCategory.General, DateTime.UtcNow.AddMinutes(-5));
+
+        var readUser = User.Create("soc-001", "Alice Resident", "alice@test.com", "9000000001", UserRole.SUUser, ResidentType.Owner, "apt-1");
+        var unreadUser = User.Create("soc-001", "Bob Resident", "bob@test.com", "9000000002", UserRole.SUUser, ResidentType.Tenant, "apt-2");
+        var adminUser = User.Create("soc-001", "Carol Admin", "carol@test.com", "9000000003", UserRole.SUAdmin, ResidentType.SocietyAdmin);
+        notice.MarkAsRead(readUser.Id);
+
+        _currentUserMock.Setup(c => c.IsInRoles(It.IsAny<string[]>())).Returns(true);
+        _noticeRepoMock
+            .Setup(r => r.GetByIdAsync(notice.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(notice);
+        _userRepoMock
+            .Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync([readUser, unreadUser, adminUser]);
+
+        var handler = CreateHandler();
+
+        // Act
+        var result = await handler.Handle(new GetNoticeReadReceiptsQuery("soc-001", notice.Id), CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Read.Should().ContainSingle(r => r.UserId == readUser.Id && r.FullName == "Alice Resident");
+        result.Value.Unread.Should().ContainSingle(r => r.FullName == "Bob Resident");
+        // Admin accounts aren't residents and shouldn't appear in either list.
+        result.Value.Read.Should().NotContain(r => r.FullName == "Carol Admin");
+        result.Value.Unread.Should().NotContain(r => r.FullName == "Carol Admin");
+    }
+
+    [Fact]
+    public async Task Handle_AsNonAdmin_ReturnsForbidden()
+    {
+        _currentUserMock.Setup(c => c.IsInRoles(It.IsAny<string[]>())).Returns(false);
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(new GetNoticeReadReceiptsQuery("soc-001", "notice-001"), CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.Forbidden);
+        _noticeRepoMock.Verify(r => r.GetByIdAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+}
+
 public class ArchiveNoticeCommandHandlerTests
 {
     private readonly Mock<INoticeRepository> _noticeRepoMock = new();
@@ -203,5 +317,63 @@ public class ArchiveNoticeCommandHandlerTests
         // Assert
         result.IsFailure.Should().BeTrue();
         result.ErrorCode.Should().Be(ErrorCodes.NoticeNotFound);
+    }
+}
+
+public class MarkNoticeReadCommandHandlerTests
+{
+    private readonly Mock<INoticeRepository> _noticeRepoMock = new();
+    private readonly Mock<ILogger<MarkNoticeReadCommandHandler>> _loggerMock = new();
+
+    private MarkNoticeReadCommandHandler CreateHandler() =>
+        new(_noticeRepoMock.Object, _loggerMock.Object);
+
+    [Fact]
+    public async Task Handle_MarksNoticeAsReadForUser()
+    {
+        // Arrange
+        var notice = Notice.Create("soc-001", "admin-1", "Title", "Content",
+            NoticeCategory.General, DateTime.UtcNow.AddMinutes(-5));
+
+        _noticeRepoMock
+            .Setup(r => r.GetByIdAsync(notice.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(notice);
+        _noticeRepoMock
+            .Setup(r => r.UpdateAsync(It.IsAny<Notice>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Notice n, CancellationToken _) => n);
+
+        var handler = CreateHandler();
+        var command = new MarkNoticeReadCommand("soc-001", notice.Id, "user-001");
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert — there is no way to express "mark unread" through this command anymore;
+        // once read, a notice can only ever be read for that user.
+        result.IsSuccess.Should().BeTrue();
+        notice.IsReadByUser("user-001").Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Handle_CalledTwice_StaysReadAndIsIdempotent()
+    {
+        var notice = Notice.Create("soc-001", "admin-1", "Title", "Content",
+            NoticeCategory.General, DateTime.UtcNow.AddMinutes(-5));
+
+        _noticeRepoMock
+            .Setup(r => r.GetByIdAsync(notice.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(notice);
+        _noticeRepoMock
+            .Setup(r => r.UpdateAsync(It.IsAny<Notice>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Notice n, CancellationToken _) => n);
+
+        var handler = CreateHandler();
+        var command = new MarkNoticeReadCommand("soc-001", notice.Id, "user-001");
+
+        await handler.Handle(command, CancellationToken.None);
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        notice.IsReadByUser("user-001").Should().BeTrue();
     }
 }

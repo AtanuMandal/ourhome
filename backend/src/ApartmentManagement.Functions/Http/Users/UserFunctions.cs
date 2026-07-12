@@ -282,6 +282,20 @@ public class UserFunctions(ISender mediator, ICurrentUserService currentUser)
         return result.ToActionResult(201);
     }
 
+    [Function("ShareInviteLink")]
+    public async Task<IActionResult> ShareInviteLink(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "societies/{societyId}/invite-link/share")] HttpRequest req,
+        string societyId, CancellationToken ct)
+    {
+        if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
+        if (!currentUser.IsInRoles("SUAdmin", "HQAdmin", "SUUser")) return new ForbidResult();
+        var body = await req.DeserializeAsync<ShareInviteLinkRequest>(ct);
+        if (body is null) return HttpHelpers.MissingBody();
+        var frontendBaseUrl = $"{req.Scheme}://{req.Host}";
+        var result = await mediator.Send(new ShareInviteLinkCommand(societyId, body.ApartmentId, body.Email, frontendBaseUrl), ct);
+        return result.ToActionResult();
+    }
+
     [Function("ValidateInviteToken")]
     public async Task<IActionResult> ValidateInviteToken(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "invite/validate")] HttpRequest req,
@@ -303,7 +317,7 @@ public class UserFunctions(ISender mediator, ICurrentUserService currentUser)
         if (body is null) return HttpHelpers.MissingBody();
 
         var result = await mediator.Send(
-            new SelfRegisterCommand(societyId, body.FullName, body.Email, body.Phone, body.Password), ct);
+            new SelfRegisterCommand(societyId, body.FullName, body.Email, body.Phone, body.Password, body.InviteToken), ct);
         return result.ToActionResult(201);
     }
 

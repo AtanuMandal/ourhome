@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useInfiniteList } from '../../../shared/hooks/useInfiniteList';
-import { noticesApi, type CreateNoticeRequest } from '../../../api/endpoints/notices';
+import { noticesApi, type CreateNoticeRequest, type UpdateNoticeRequest } from '../../../api/endpoints/notices';
 import type { Notice } from '../../../api/types';
 
 export function useNoticeList(
@@ -40,5 +40,24 @@ export function useCreateNotice(societyId: string) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['notices', societyId] });
     },
+  });
+}
+
+export function useUpdateNotice(societyId: string, id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: UpdateNoticeRequest) => noticesApi.updateNotice(societyId, id, data),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['notices', societyId] });
+      void queryClient.invalidateQueries({ queryKey: ['notice', societyId, id] });
+    },
+  });
+}
+
+export function useNoticeReadReceipts(societyId: string, id: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['notice-read-receipts', societyId, id],
+    queryFn: () => noticesApi.getReadReceipts(societyId, id),
+    enabled: !!societyId && !!id && enabled,
   });
 }

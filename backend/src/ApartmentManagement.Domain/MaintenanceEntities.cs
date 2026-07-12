@@ -122,9 +122,12 @@ public sealed class MaintenanceSchedule : BaseEntity
         }
         else
         {
-            InactiveFromDate = effectiveDueDate;
+            // The effective month's own charge stays billed — deactivation only cancels charges
+            // from the *next* billing cycle onward, so push the cutoff one cycle past the
+            // effective due date rather than using it directly.
+            InactiveFromDate = AdvanceDate(effectiveDueDate);
             if (NextDueDate.Date >= effectiveDueDate.Date)
-                NextDueDate = effectiveDueDate;
+                NextDueDate = InactiveFromDate.Value;
         }
         ChangeHistory = history;
         TouchUpdatedAt();

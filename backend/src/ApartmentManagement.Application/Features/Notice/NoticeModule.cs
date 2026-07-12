@@ -61,6 +61,7 @@ public record UpdateNoticeCommand(string SocietyId, string NoticeId, string Titl
 
 public sealed class UpdateNoticeCommandHandler(
     INoticeRepository noticeRepository,
+    ICurrentUserService currentUser,
     ILogger<UpdateNoticeCommandHandler> logger)
     : IRequestHandler<UpdateNoticeCommand, Result<NoticeResponse>>
 {
@@ -68,6 +69,9 @@ public sealed class UpdateNoticeCommandHandler(
     {
         try
         {
+            if (!currentUser.IsInRoles("SUAdmin", "HQAdmin"))
+                return Result<NoticeResponse>.Failure(ErrorCodes.Forbidden, "Only society admins can edit notices.");
+
             var notice = await noticeRepository.GetByIdAsync(request.NoticeId, request.SocietyId, ct)
                 ?? throw new NotFoundException("Notice", request.NoticeId);
 
@@ -119,9 +123,10 @@ public sealed class ArchiveNoticeCommandHandler(
     }
 }
 
-// ─── Mark Notice Read/Unread ─────────────────────────────────────────────────
+// ─── Mark Notice Read ─────────────────────────────────────────────────────────
+// One-way: once a notice is marked read, it cannot be marked unread again.
 
-public record MarkNoticeReadCommand(string SocietyId, string NoticeId, string UserId, bool IsRead) : IRequest<Result<bool>>;
+public record MarkNoticeReadCommand(string SocietyId, string NoticeId, string UserId) : IRequest<Result<bool>>;
 
 public sealed class MarkNoticeReadCommandHandler(
     INoticeRepository noticeRepository,
@@ -135,10 +140,7 @@ public sealed class MarkNoticeReadCommandHandler(
             var notice = await noticeRepository.GetByIdAsync(request.NoticeId, request.SocietyId, ct)
                 ?? throw new NotFoundException("Notice", request.NoticeId);
 
-            if (request.IsRead)
-                notice.MarkAsRead(request.UserId);
-            else
-                notice.MarkAsUnread(request.UserId);
+            notice.MarkAsRead(request.UserId);
 
             await noticeRepository.UpdateAsync(notice, ct);
             return Result<bool>.Success(true);
@@ -265,6 +267,54 @@ public sealed class GetArchivedNoticesQueryHandler(INoticeRepository noticeRepos
         catch (Exception ex)
         {
             return Result<PagedResult<NoticeResponse>>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
+public record GetNoticeReadReceiptsQuery(string SocietyId, string NoticeId) : IRequest<Result<NoticeReadReceiptsResponse>>;
+
+public sealed class GetNoticeReadReceiptsQueryHandler(
+    INoticeRepository noticeRepository,
+    IUserRepository userRepository,
+    ICurrentUserService currentUser)
+    : IRequestHandler<GetNoticeReadReceiptsQuery, Result<NoticeReadReceiptsResponse>>
+{
+    public async Task<Result<NoticeReadReceiptsResponse>> Handle(GetNoticeReadReceiptsQuery request, CancellationToken ct)
+    {
+        try
+        {
+            if (!currentUser.IsInRoles("SUAdmin", "HQAdmin"))
+                return Result<NoticeReadReceiptsResponse>.Failure(ErrorCodes.Forbidden, "Only society admins can view notice read receipts.");
+
+            var notice = await noticeRepository.GetByIdAsync(request.NoticeId, request.SocietyId, ct)
+                ?? throw new NotFoundException("Notice", request.NoticeId);
+
+            var allUsers = await userRepository.GetAllAsync(request.SocietyId, ct);
+            var residents = allUsers.Where(u => u.Role == UserRole.SUUser).ToList();
+
+            // A notice targeting specific apartments only concerns residents of those apartments;
+            // an untargeted (society-wide) notice concerns every resident.
+            var targeted = notice.TargetApartmentIds.Count == 0
+                ? residents
+                : residents.Where(u =>
+                    (u.ApartmentId is not null && notice.TargetApartmentIds.Contains(u.ApartmentId, StringComparer.OrdinalIgnoreCase)) ||
+                    u.Apartments.Any(a => notice.TargetApartmentIds.Contains(a.ApartmentId, StringComparer.OrdinalIgnoreCase)))
+                    .ToList();
+
+            var read = targeted.Where(u => notice.IsReadByUser(u.Id))
+                .Select(u => new NoticeReadReceiptEntry(u.Id, u.FullName)).ToList();
+            var unread = targeted.Where(u => !notice.IsReadByUser(u.Id))
+                .Select(u => new NoticeReadReceiptEntry(u.Id, u.FullName)).ToList();
+
+            return Result<NoticeReadReceiptsResponse>.Success(new NoticeReadReceiptsResponse(read, unread));
+        }
+        catch (NotFoundException ex)
+        {
+            return Result<NoticeReadReceiptsResponse>.Failure(ErrorCodes.NoticeNotFound, ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return Result<NoticeReadReceiptsResponse>.Failure(ErrorCodes.InternalError, ex.Message);
         }
     }
 }

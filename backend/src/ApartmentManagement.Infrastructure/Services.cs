@@ -28,7 +28,7 @@ public class JwtAuthService(IOptions<InfrastructureSettings> options) : IAuthSer
 
     public Task<string> GenerateJwtTokenAsync(
         string userId, string email, string role, string societyId,
-        string? apartmentId = null, CancellationToken ct = default)
+        string? apartmentId = null, string? residentType = null, CancellationToken ct = default)
     {
         var key   = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_s.JwtSecret));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -44,6 +44,8 @@ public class JwtAuthService(IOptions<InfrastructureSettings> options) : IAuthSer
 
         if (!string.IsNullOrWhiteSpace(apartmentId))
             claims.Add(new Claim("apartmentId", apartmentId));
+        if (!string.IsNullOrWhiteSpace(residentType))
+            claims.Add(new Claim("residentType", residentType));
 
         var token = new JwtSecurityToken(
             issuer:            _s.JwtIssuer,

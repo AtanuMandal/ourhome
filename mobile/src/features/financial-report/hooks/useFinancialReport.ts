@@ -1,11 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { financialReportApi } from '../../../api/endpoints/financial-report';
 
-export function useFinancialSocietySummary(societyId: string) {
+export function useFinancialSocietySummary(societyId: string, enabled: boolean = true) {
   return useQuery({
     queryKey: ['financial-society-summary', societyId],
     queryFn: () => financialReportApi.getSocietySummary(societyId),
-    enabled: !!societyId,
+    enabled: !!societyId && enabled,
   });
 }
 

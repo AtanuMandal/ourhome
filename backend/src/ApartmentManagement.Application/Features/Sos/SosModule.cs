@@ -296,12 +296,8 @@ public sealed class GetSosAlertQueryHandler(ISosAlertRepository alertRepository,
             var alert = await alertRepository.GetByIdAsync(request.AlertId, request.SocietyId, ct)
                 ?? throw new NotFoundException("SosAlert", request.AlertId);
 
-            var isAdminOrSecurity = string.Equals(request.RequestingUserRole, "SUAdmin", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(request.RequestingUserRole, "SUSecurity", StringComparison.OrdinalIgnoreCase);
-            var isOwnAlert = string.Equals(alert.TriggeredByUserId, request.RequestingUserId, StringComparison.OrdinalIgnoreCase);
-            if (!isAdminOrSecurity && !isOwnAlert)
-                throw new ForbiddenException("You can only view your own SOS alerts.");
-
+            // Any authenticated society member can view an SOS alert — only SUAdmin/SUSecurity
+            // can act on it (acknowledge/resolve), enforced separately at the command handlers.
             var apartment = await apartmentRepository.GetByIdAsync(alert.ApartmentId, request.SocietyId, ct);
             return Result<SosAlertResponse>.Success(alert.ToResponse(apartment?.ToDisplayLabel() ?? alert.ApartmentId));
         }

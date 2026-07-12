@@ -1,15 +1,16 @@
 import React from 'react';
 import { renderHook, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useFinancialDashboard, useSocietyLedger } from '../../../src/features/financial-report/hooks/useFinancialReport';
-import type { FinancialDashboardDto, SocietyLedgerDto } from '../../../src/api/endpoints/financial-report';
+import { useFinancialDashboard, useFinancialSocietySummary, useSocietyLedger } from '../../../src/features/financial-report/hooks/useFinancialReport';
+import type { FinancialDashboardDto, SocietyLedgerDto, SocietySummaryDto } from '../../../src/api/endpoints/financial-report';
 
 const mockGetDashboard = jest.fn<Promise<FinancialDashboardDto>, [string]>();
 const mockGetSocietyLedger = jest.fn<Promise<SocietyLedgerDto>, [string, string?, string?]>();
+const mockGetSocietySummary = jest.fn<Promise<SocietySummaryDto>, [string]>();
 
 jest.mock('../../../src/api/endpoints/financial-report', () => ({
   financialReportApi: {
-    getSocietySummary: jest.fn(),
+    getSocietySummary: (...args: [string]) => mockGetSocietySummary(...args),
     getDashboard: (...args: [string]) => mockGetDashboard(...args),
     getPersonalStatement: jest.fn(),
     getSocietyLedger: (...args: [string, string?, string?]) => mockGetSocietyLedger(...args),
@@ -77,6 +78,29 @@ describe('useFinancialReport', () => {
     const { result } = renderHook(() => useSocietyLedger('soc-1', false), { wrapper: createWrapper() });
 
     expect(mockGetSocietyLedger).not.toHaveBeenCalled();
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.data).toBeUndefined();
+  });
+
+  test('useFinancialSocietySummary fetches by default', async () => {
+    mockGetSocietySummary.mockResolvedValue({
+      currentMonth: 7, currentYear: 2026,
+      totalDueCurrentMonth: 0, totalCollectedCurrentMonth: 0, collectionPercentageCurrentMonth: 0,
+      vendorExpensesCurrentMonth: 0, netCurrentMonth: 0,
+      totalCollectedYtd: 0, totalVendorExpensesYtd: 0, netYtd: 0,
+      expenseBreakdownYtd: [],
+    });
+
+    const { result } = renderHook(() => useFinancialSocietySummary('soc-1'), { wrapper: createWrapper() });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(mockGetSocietySummary).toHaveBeenCalledWith('soc-1');
+  });
+
+  test('useFinancialSocietySummary does not fetch when disabled (tenant)', async () => {
+    const { result } = renderHook(() => useFinancialSocietySummary('soc-1', false), { wrapper: createWrapper() });
+
+    expect(mockGetSocietySummary).not.toHaveBeenCalled();
     expect(result.current.isLoading).toBe(false);
     expect(result.current.data).toBeUndefined();
   });

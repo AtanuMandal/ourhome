@@ -64,7 +64,7 @@ describe('SosAlertListScreen', () => {
     mockAlertData = [];
   });
 
-  function setUser(role: 'SUAdmin' | 'SUSecurity') {
+  function setUser(role: 'SUAdmin' | 'SUSecurity' | 'SUUser') {
     useAuthStore.setState({
       user: { id: 'viewer1', societyId: 'soc-1', fullName: 'Viewer', email: 'v@a.com', phone: '1', role, residentType: 'SocietyAdmin', apartmentId: undefined, isVerified: true, isActive: true },
       token: 'tok',
@@ -124,5 +124,16 @@ describe('SosAlertListScreen', () => {
 
     await waitFor(() => expect(screen.getByText(/A-101/)).toBeTruthy());
     expect(screen.getByText('View Report →')).toBeTruthy();
+  });
+
+  test('a plain resident can view the alert but cannot Acknowledge or Resolve it', async () => {
+    setUser('SUUser');
+    mockAlertData = [makeAlert({ id: '1' })];
+
+    renderScreen();
+
+    await waitFor(() => expect(screen.getByText(/A-101/)).toBeTruthy());
+    expect(screen.queryByText('Acknowledge')).toBeNull();
+    expect(screen.queryByText('Resolve')).toBeNull();
   });
 });

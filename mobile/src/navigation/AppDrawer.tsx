@@ -65,7 +65,7 @@ function VisitorsStack() {
 type NoticesParams = {
   NoticeList: undefined;
   NoticeDetail: { id: string };
-  NoticeCreate: undefined;
+  NoticeCreate: { id?: string } | undefined;
 };
 const NS = createNativeStackNavigator<NoticesParams>();
 function NoticesStack() {

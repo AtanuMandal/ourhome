@@ -89,3 +89,22 @@ export const hqAdminGuard: CanActivateFn = () => {
   router.navigate(['/dashboard']);
   return false;
 };
+
+/** Aggregate/society-wide financial reporting (e.g. society summary) — tenants keep their own
+ *  apartment ledger/personal statement, but not society-wide reports. */
+export const notTenantGuard: CanActivateFn = () => {
+  const auth   = inject(AuthService);
+  const router = inject(Router);
+
+  if (!auth.isLoggedIn()) {
+    router.navigate(['/auth/login']);
+    return false;
+  }
+
+  if (auth.isTenant()) {
+    router.navigate(['/dashboard']);
+    return false;
+  }
+
+  return true;
+};

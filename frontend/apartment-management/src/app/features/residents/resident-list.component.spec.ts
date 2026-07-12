@@ -30,7 +30,7 @@ describe('ResidentListComponent', () => {
       list: jasmine.createSpy().and.returnValue(of({ items: users, total: users.length, page: 1, pageSize: 500 })),
       getPendingJoinRequests: jasmine.createSpy().and.returnValue(of([])),
       delete: jasmine.createSpy().and.returnValue(of(undefined)),
-      generateInviteLink: jasmine.createSpy(),
+      shareInviteLink: jasmine.createSpy().and.returnValue(of(undefined)),
       ...userServiceOverrides,
     };
     const authServiceStub = {
@@ -124,5 +124,37 @@ describe('ResidentListComponent', () => {
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('bo***@***.com');
     expect(text).toContain('+91-98XXXXXX10');
+  });
+
+  it('sends the registration link by email instead of displaying it on screen', () => {
+    const { component, userServiceStub } = setup([]);
+
+    component.shareEmail.set('newresident@example.com');
+    component.sendInviteLink();
+
+    expect(userServiceStub.shareInviteLink).toHaveBeenCalledWith('soc-1', 'newresident@example.com');
+    expect(component.shareEmail()).toBe('');
+    expect(component.sendingLink()).toBeFalse();
+  });
+
+  it('does not attempt to send when the email field is empty', () => {
+    const { component, userServiceStub } = setup([]);
+
+    component.shareEmail.set('');
+    component.sendInviteLink();
+
+    expect(userServiceStub.shareInviteLink).not.toHaveBeenCalled();
+  });
+
+  it('resets the sending flag without clearing the email when sending fails', () => {
+    const { component } = setup([], {
+      shareInviteLink: jasmine.createSpy().and.returnValue(throwError(() => new Error('failed'))),
+    });
+
+    component.shareEmail.set('newresident@example.com');
+    component.sendInviteLink();
+
+    expect(component.sendingLink()).toBeFalse();
+    expect(component.shareEmail()).toBe('newresident@example.com');
   });
 });

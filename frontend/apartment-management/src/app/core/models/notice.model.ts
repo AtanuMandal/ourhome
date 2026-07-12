@@ -26,3 +26,19 @@ export interface PostNoticeDto {
   expiresAt?: string;
   targetApartmentIds?: string[];
 }
+
+export interface UpdateNoticeDto {
+  title: string;
+  content: string;
+  expiresAt?: string;
+}
+
+export interface NoticeReadReceiptEntry {
+  userId: string;
+  fullName: string;
+}
+
+export interface NoticeReadReceipts {
+  read: NoticeReadReceiptEntry[];
+  unread: NoticeReadReceiptEntry[];
+}

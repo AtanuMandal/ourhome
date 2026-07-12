@@ -77,8 +77,10 @@ export const routes: Routes = [
   },
 
   {
+    // Any authenticated society member can view active SOS alerts; only SUAdmin/SUSecurity can
+    // act on them (acknowledge/resolve) — that's gated at the component/button level below.
     path: 'sos-alerts',
-    canActivate: [staffGuard],
+    canActivate: [authGuard],
     loadChildren: () => import('./features/sos/sos.routes').then(m => m.SOS_ROUTES),
   },
 

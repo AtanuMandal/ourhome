@@ -27,6 +27,8 @@ public class CurrentUserService(IHttpContextAccessor httpContextAccessor) : ICur
 
     public string? ApartmentId => Principal?.FindFirst("apartmentId")?.Value;
 
+    public string? ResidentType => Principal?.FindFirst("residentType")?.Value;
+
     public bool IsAuthenticated => Principal?.Identity?.IsAuthenticated ?? false;
 
     public bool IsInRole(string role) => Principal?.IsInRole(role) ?? false;

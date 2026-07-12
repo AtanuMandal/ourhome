@@ -25,14 +25,19 @@ describe('SosAlertListComponent', () => {
     };
   }
 
-  function setup(alerts: SosAlert[], serviceOverrides: Partial<Record<string, unknown>> = {}, isAdmin = true) {
+  function setup(
+    alerts: SosAlert[],
+    serviceOverrides: Partial<Record<string, unknown>> = {},
+    isAdmin = true,
+    isSecurity = false,
+  ) {
     const sosServiceStub = {
       list: jasmine.createSpy().and.returnValue(of({ items: alerts, total: alerts.length, page: 1, pageSize: 50 })),
       acknowledge: jasmine.createSpy().and.returnValue(of(alert({ id: 'a1', status: 'Acknowledged', acknowledgedByUserName: 'Guard' }))),
       resolve: jasmine.createSpy().and.returnValue(of(alert({ id: 'a1', status: 'Resolved', resolvedByUserName: 'Guard' }))),
       ...serviceOverrides,
     };
-    const authServiceStub = { societyId: () => 'soc-1', isAdmin: () => isAdmin };
+    const authServiceStub = { societyId: () => 'soc-1', isAdmin: () => isAdmin, isSecurity: () => isSecurity };
     const snackBarStub = { open: jasmine.createSpy() };
 
     TestBed.configureTestingModule({
@@ -82,5 +87,29 @@ describe('SosAlertListComponent', () => {
 
     expect(sosServiceStub.resolve).toHaveBeenCalledWith('soc-1', 'a1');
     expect(component.items()[0].status).toBe('Resolved');
+  });
+
+  it('shows Acknowledge/Resolve actions for an admin', () => {
+    const { fixture } = setup([alert({ id: 'a1', status: 'Triggered' })], {}, true, false);
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+
+    expect(text).toContain('Acknowledge');
+    expect(text).toContain('Resolve');
+  });
+
+  it('shows Acknowledge/Resolve actions for security', () => {
+    const { fixture } = setup([alert({ id: 'a1', status: 'Triggered' })], {}, false, true);
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+
+    expect(text).toContain('Acknowledge');
+    expect(text).toContain('Resolve');
+  });
+
+  it('hides Acknowledge/Resolve actions for a plain resident (view-only)', () => {
+    const { fixture } = setup([alert({ id: 'a1', status: 'Triggered' })], {}, false, false);
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+
+    expect(text).not.toContain('Acknowledge');
+    expect(text).not.toContain('Resolve');
   });
 });

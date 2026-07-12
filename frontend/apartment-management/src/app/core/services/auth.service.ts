@@ -31,6 +31,10 @@ export class AuthService {
 
   readonly isSecurity = computed(() => this._state().user?.role === 'SUSecurity');
 
+  /** Tenants keep self-service access to their own ledger/statement — this only gates
+   *  aggregate/society-wide financial reporting views. */
+  readonly isTenant = computed(() => this._state().user?.residentType === 'Tenant');
+
   readonly isHqAdmin = computed(() => this._state().user?.role === 'HQAdmin');
   readonly isHqUser  = computed(() => this._state().user?.role === 'HQUser');
   readonly isHq      = computed(() => this.isHqAdmin() || this.isHqUser());

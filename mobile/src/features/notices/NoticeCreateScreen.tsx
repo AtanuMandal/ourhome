@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useSocietyId } from '../../shared/hooks/useSocietyId';
-import { useCreateNotice } from './hooks/useNotices';
+import { useCreateNotice, useNotice, useUpdateNotice } from './hooks/useNotices';
 import { AppHeader } from '../../shared/components/AppHeader';
 import { LoadingOverlay } from '../../shared/components/LoadingOverlay';
 import { SearchableSelect } from '../../shared/components/SearchableSelect';
@@ -30,10 +30,20 @@ const CATEGORIES: { label: string; value: CreateNoticeRequest['category'] }[] = 
   { label: 'Bylaw', value: 'Bylaw' },
 ];
 
-export function NoticeCreateScreen() {
+interface NoticeCreateScreenProps {
+  route?: { params?: { id?: string } };
+}
+
+export function NoticeCreateScreen({ route }: NoticeCreateScreenProps) {
   const navigation = useNavigation();
   const societyId = useSocietyId();
-  const { mutateAsync: createNotice, isPending } = useCreateNotice(societyId);
+  const noticeId = route?.params?.id;
+  const isEditMode = !!noticeId;
+
+  const { mutateAsync: createNotice, isPending: isCreating } = useCreateNotice(societyId);
+  const { data: existingNotice, isLoading: isLoadingNotice } = useNotice(societyId, noticeId ?? '');
+  const { mutateAsync: updateNotice, isPending: isUpdating } = useUpdateNotice(societyId, noticeId ?? '');
+  const isPending = isCreating || isUpdating || (isEditMode && isLoadingNotice);
 
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState<CreateNoticeRequest['category']>('General');
@@ -41,12 +51,32 @@ export function NoticeCreateScreen() {
   const [publishAt, setPublishAt] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
 
+  useEffect(() => {
+    if (existingNotice) {
+      setTitle(existingNotice.title);
+      setCategory(existingNotice.category as CreateNoticeRequest['category']);
+      setContent(existingNotice.content);
+      setExpiresAt(existingNotice.expiresAt ?? '');
+    }
+  }, [existingNotice]);
+
   async function handleSubmit(): Promise<void> {
     if (!title.trim() || !content.trim()) {
       Alert.alert('Validation', 'Title and content are required.');
       return;
     }
     try {
+      if (isEditMode) {
+        await updateNotice({
+          title: title.trim(),
+          content: content.trim(),
+          expiresAt: expiresAt.trim() || undefined,
+        });
+        Alert.alert('Success', 'Notice updated successfully.', [
+          { text: 'OK', onPress: () => navigation.goBack() },
+        ]);
+        return;
+      }
       await createNotice({
         title: title.trim(),
         category,
@@ -64,7 +94,7 @@ export function NoticeCreateScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      <AppHeader title="Post Notice" showBack />
+      <AppHeader title={isEditMode ? 'Edit Notice' : 'Post Notice'} showBack />
       <LoadingOverlay visible={isPending} />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Text style={styles.label}>Title *</Text>
@@ -77,13 +107,17 @@ export function NoticeCreateScreen() {
           returnKeyType="next"
         />
 
-        <Text style={styles.label}>Category *</Text>
-        <SearchableSelect
-          options={CATEGORIES}
-          value={category}
-          onChange={(v) => setCategory(v as CreateNoticeRequest['category'])}
-          placeholder="Select category"
-        />
+        {!isEditMode && (
+          <>
+            <Text style={styles.label}>Category *</Text>
+            <SearchableSelect
+              options={CATEGORIES}
+              value={category}
+              onChange={(v) => setCategory(v as CreateNoticeRequest['category'])}
+              placeholder="Select category"
+            />
+          </>
+        )}
 
         <Text style={styles.label}>Content *</Text>
         <TextInput
@@ -97,14 +131,18 @@ export function NoticeCreateScreen() {
           textAlignVertical="top"
         />
 
-        <Text style={styles.label}>Publish Date (optional)</Text>
-        <TextInput
-          style={styles.input}
-          value={publishAt}
-          onChangeText={setPublishAt}
-          placeholder="YYYY-MM-DDTHH:MM (leave blank = now)"
-          placeholderTextColor={colors.text.disabled}
-        />
+        {!isEditMode && (
+          <>
+            <Text style={styles.label}>Publish Date (optional)</Text>
+            <TextInput
+              style={styles.input}
+              value={publishAt}
+              onChangeText={setPublishAt}
+              placeholder="YYYY-MM-DDTHH:MM (leave blank = now)"
+              placeholderTextColor={colors.text.disabled}
+            />
+          </>
+        )}
 
         <Text style={styles.label}>Expiry Date (optional)</Text>
         <TextInput
@@ -120,7 +158,7 @@ export function NoticeCreateScreen() {
           onPress={() => void handleSubmit()}
           disabled={isPending}
         >
-          <Text style={styles.submitButtonText}>Post Notice</Text>
+          <Text style={styles.submitButtonText}>{isEditMode ? 'Save Changes' : 'Post Notice'}</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>

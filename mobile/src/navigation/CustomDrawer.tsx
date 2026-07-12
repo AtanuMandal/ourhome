@@ -45,6 +45,9 @@ const MENU_SUUSER: MenuItem[] = [
   { name: 'Amenities',       icon: 'event-available', label: 'Amenities' },
   { name: 'Maintenance',     icon: 'receipt-long',    label: 'Maintenance' },
   { name: 'FinancialReport', icon: 'bar-chart',       label: 'My Statement' },
+  // Any resident can view active SOS alerts — only SUAdmin/SUSecurity can act on them
+  // (enforced in SosAlertListScreen), so this is a read-only entry for residents.
+  { name: 'SosAlerts',       icon: 'emergency',       label: 'SOS Alerts' },
   { name: 'ContactUs',       icon: 'support-agent',   label: 'Contact Us' },
   { name: 'Profile',         icon: 'manage-accounts', label: 'My Profile' },
 ];

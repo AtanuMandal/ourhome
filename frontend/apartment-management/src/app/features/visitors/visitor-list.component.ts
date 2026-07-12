@@ -9,6 +9,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatSelectModule } from '@angular/material/select';
 import { SearchableSelectComponent } from '../../shared/components/searchable-select/searchable-select.component';
 import { Visitor, VisitorListFilters, VisitorStatus } from '../../core/models/visitor.model';
 import { AuthService } from '../../core/services/auth.service';
@@ -32,6 +33,7 @@ import { ImageLightboxComponent } from '../../shared/components/image-lightbox/i
     MatIconModule,
     MatInputModule,
     MatProgressBarModule,
+    MatSelectModule,
     PageHeaderComponent,
     SearchableSelectComponent,
     StatusChipComponent,
@@ -62,15 +64,27 @@ import { ImageLightboxComponent } from '../../shared/components/image-lightbox/i
             <h3>Visitor history</h3>
             <p>Search by visitor name, resident, date, or status.</p>
             @if (isDefaultFilterState()) {
-              <p class="filters-card__hint">Showing all pending visitors and the 10 most recent. Filter or export CSV for the full history.</p>
+              <p class="filters-card__hint">Showing all pending visitors and the {{ recordCount() }} most recent approved/denied. Filter or export CSV for the full history.</p>
             }
           </div>
-          @if (canManageVisitors()) {
-            <button mat-stroked-button color="primary" type="button" (click)="exportCsv()">
-              <mat-icon>download</mat-icon>
-              Export CSV
-            </button>
-          }
+          <div class="filters-card__header-actions">
+            @if (canManageVisitors() && isDefaultFilterState()) {
+              <mat-form-field appearance="fill" class="record-count-field">
+                <mat-label>Show</mat-label>
+                <mat-select [value]="recordCount()" (selectionChange)="onRecordCountChange($event.value)">
+                  @for (n of recordCountOptions; track n) {
+                    <mat-option [value]="n">{{ n }} records</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            }
+            @if (canManageVisitors()) {
+              <button mat-stroked-button color="primary" type="button" (click)="exportCsv()">
+                <mat-icon>download</mat-icon>
+                Export CSV
+              </button>
+            }
+          </div>
         </div>
 
         <form [formGroup]="filtersForm" class="filters-grid">
@@ -173,7 +187,10 @@ import { ImageLightboxComponent } from '../../shared/components/image-lightbox/i
           </a>
         </app-empty-state>
       } @else {
-        <div class="visitor-list">
+        @if (backgroundRefreshing()) {
+          <div class="background-refresh-hint">Updating…</div>
+        }
+        <div class="visitor-list" [class.visitor-list--pulse]="justRefreshed()">
           @for (visitor of items(); track visitor.id) {
             <div class="visitor-card">
               <div class="vc-avatar-wrap">
@@ -260,7 +277,16 @@ export class VisitorListComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
+  private static readonly RECORD_COUNT_KEY = 'ourhome-visitor-list-record-count';
+  static readonly RECORD_COUNT_OPTIONS = [10, 25, 50, 100] as const;
+
   readonly loading = signal(true);
+  // Set only by the 10s auto-refresh timer when the list already has data — keeps the existing
+  // rows visible (no spinner, no blanking) while the background fetch is in flight.
+  readonly backgroundRefreshing = signal(false);
+  // Briefly toggled true right after a background refresh applies new data, driving a subtle
+  // CSS highlight instead of the old jarring full-list replace.
+  readonly justRefreshed = signal(false);
   readonly items = signal<Visitor[]>([]);
   readonly errorMessage = signal('');
   readonly successMessage = signal('');
@@ -275,6 +301,22 @@ export class VisitorListComponent implements OnInit, OnDestroy {
       .map(s => ({ value: s, label: s })),
   ];
   readonly canScanQr = signal(typeof window !== 'undefined' && 'BarcodeDetector' in window);
+
+  readonly recordCountOptions = VisitorListComponent.RECORD_COUNT_OPTIONS;
+  readonly recordCount = signal(this.loadStoredRecordCount());
+
+  onRecordCountChange(value: number) {
+    this.recordCount.set(value);
+    localStorage.setItem(VisitorListComponent.RECORD_COUNT_KEY, String(value));
+    this.loadVisitors();
+  }
+
+  private loadStoredRecordCount(): number {
+    const stored = Number(localStorage.getItem(VisitorListComponent.RECORD_COUNT_KEY));
+    return VisitorListComponent.RECORD_COUNT_OPTIONS.includes(stored as typeof VisitorListComponent.RECORD_COUNT_OPTIONS[number])
+      ? stored
+      : 25;
+  }
 
   private _stream: MediaStream | null = null;
   private _scanRafId: number | null = null;
@@ -295,12 +337,13 @@ export class VisitorListComponent implements OnInit, OnDestroy {
     this.handleDeepLink();
     this.loadVisitors();
 
-    // Auto-refresh every 30 s so pending approvals update in near-realtime
-    interval(30_000)
+    // Auto-refresh every 10 s so pending approvals update in near-realtime. Background
+    // refreshes never blank the list — see loading()/backgroundRefreshing() below.
+    interval(10_000)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => {
-        if (!this.loading()) {
-          this.loadVisitors();
+        if (!this.loading() && !this.backgroundRefreshing()) {
+          this.loadVisitors(true);
         }
       });
   }
@@ -334,56 +377,76 @@ export class VisitorListComponent implements OnInit, OnDestroy {
     });
   }
 
-  loadVisitors() {
+  loadVisitors(isBackgroundRefresh = false) {
     const societyId = this.auth.societyId();
     if (!societyId) {
       this.loading.set(false);
       return;
     }
 
-    this.loading.set(true);
+    // A background (auto-refresh) tick with data already on screen never blanks the list —
+    // only a manual/initial load shows the full loading spinner.
+    const useBackgroundFlag = isBackgroundRefresh && this.items().length > 0;
+    if (useBackgroundFlag) this.backgroundRefreshing.set(true);
+    else this.loading.set(true);
     this.errorMessage.set('');
 
     if (this.isDefaultFilterState()) {
-      this.loadDefaultView(societyId);
+      this.loadDefaultView(societyId, useBackgroundFlag);
       return;
     }
 
     this.visitorService.list(societyId, 1, 100, this.buildFilters()).subscribe({
       next: response => {
         this.items.set(response.items ?? []);
-        this.loading.set(false);
+        this.finishLoad(useBackgroundFlag);
       },
       error: error => {
         this.errorMessage.set(error?.error?.message ?? 'Unable to load visitors right now.');
-        this.loading.set(false);
+        this.finishLoad(useBackgroundFlag);
       }
     });
   }
 
-  /** No filter applied — show every Pending visitor plus the 10 most recent overall, not the whole history. Use Export CSV for more. */
+  /** No filter applied — show every Pending visitor plus the N most recent Approved/Denied, not the whole history. Use Export CSV for more. */
   isDefaultFilterState(): boolean {
     const f = this.filtersForm.getRawValue();
     return !f.search && !f.residentName && !f.status && !f.fromDate && !f.toDate;
   }
 
-  private loadDefaultView(societyId: string) {
-    const pending$ = this.visitorService.list(societyId, 1, 200, { ...this.buildFilters(), status: 'Pending' });
-    const recent$ = this.visitorService.list(societyId, 1, 10, this.buildFilters());
+  private loadDefaultView(societyId: string, useBackgroundFlag: boolean) {
+    const n = this.recordCount();
+    const pending$  = this.visitorService.list(societyId, 1, 200, { ...this.buildFilters(), status: 'Pending' });
+    const approved$ = this.visitorService.list(societyId, 1, n, { ...this.buildFilters(), status: 'Approved' });
+    const denied$   = this.visitorService.list(societyId, 1, n, { ...this.buildFilters(), status: 'Denied' });
 
-    forkJoin([pending$, recent$]).subscribe({
-      next: ([pendingRes, recentRes]) => {
+    forkJoin([pending$, approved$, denied$]).subscribe({
+      next: ([pendingRes, approvedRes, deniedRes]) => {
         const merged = new Map<string, Visitor>();
         for (const visitor of pendingRes.items ?? []) merged.set(visitor.id, visitor);
-        for (const visitor of recentRes.items ?? []) if (!merged.has(visitor.id)) merged.set(visitor.id, visitor);
+
+        const recent = [...(approvedRes.items ?? []), ...(deniedRes.items ?? [])]
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          .slice(0, n);
+        for (const visitor of recent) if (!merged.has(visitor.id)) merged.set(visitor.id, visitor);
+
         this.items.set([...merged.values()]);
-        this.loading.set(false);
+        this.finishLoad(useBackgroundFlag);
       },
       error: error => {
         this.errorMessage.set(error?.error?.message ?? 'Unable to load visitors right now.');
-        this.loading.set(false);
+        this.finishLoad(useBackgroundFlag);
       }
     });
+  }
+
+  private finishLoad(wasBackgroundRefresh: boolean) {
+    this.loading.set(false);
+    this.backgroundRefreshing.set(false);
+    if (wasBackgroundRefresh) {
+      this.justRefreshed.set(true);
+      setTimeout(() => this.justRefreshed.set(false), 600);
+    }
   }
 
   resetFilters() {

@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { adminGuard } from '../../core/guards/auth.guard';
+import { adminGuard, notTenantGuard } from '../../core/guards/auth.guard';
 
 export const FINANCIAL_REPORT_ROUTES: Routes = [
   {
@@ -15,6 +15,7 @@ export const FINANCIAL_REPORT_ROUTES: Routes = [
   },
   {
     path: 'society-summary',
+    canActivate: [notTenantGuard],
     loadComponent: () =>
       import('./society-summary.component').then(m => m.SocietySummaryComponent),
   },

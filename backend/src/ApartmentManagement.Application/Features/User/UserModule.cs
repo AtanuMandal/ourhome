@@ -535,7 +535,7 @@ public sealed class VerifyOtpCommandHandler(
             user.Verify();
             await userRepository.UpdateAsync(user, ct);
 
-            var token    = await authService.GenerateJwtTokenAsync(user.Id, user.Email, user.Role.ToString(), user.SocietyId, user.ApartmentId, ct);
+            var token    = await authService.GenerateJwtTokenAsync(user.Id, user.Email, user.Role.ToString(), user.SocietyId, user.ApartmentId, user.ResidentType.ToString(), ct);
             var authUser = user.ToAuthUser();
 
             return Result<VerifyOtpResponse>.Success(new VerifyOtpResponse(token, authUser));
@@ -632,7 +632,7 @@ public sealed class LoginCommandHandler(
                 return Result<LoginResponse>.Failure(ErrorCodes.SocietyNotActive,
                     "Your society has been disabled by the platform administrator. Please contact your housing society for assistance.");
 
-            var token = await authService.GenerateJwtTokenAsync(selected.Id, selected.Email, selected.Role.ToString(), selected.SocietyId, selected.ApartmentId, ct);
+            var token = await authService.GenerateJwtTokenAsync(selected.Id, selected.Email, selected.Role.ToString(), selected.SocietyId, selected.ApartmentId, selected.ResidentType.ToString(), ct);
             return Result<LoginResponse>.Success(new LoginResponse(false, token, selected.ToAuthUser(), []));
         }
         catch (Exception ex)
@@ -1387,6 +1387,45 @@ public sealed class GenerateInviteLinkCommandHandler(IAuthService authService, I
     }
 }
 
+// ─── Share Invite Link ────────────────────────────────────────────────────────
+
+public record ShareInviteLinkCommand(string SocietyId, string? ApartmentId, string Email, string FrontendBaseUrl)
+    : IRequest<Result<bool>>;
+
+public sealed class ShareInviteLinkCommandHandler(
+    IAuthService authService,
+    ISocietyRepository societyRepository,
+    INotificationService notificationService,
+    ILogger<ShareInviteLinkCommandHandler> logger)
+    : IRequestHandler<ShareInviteLinkCommand, Result<bool>>
+{
+    public async Task<Result<bool>> Handle(ShareInviteLinkCommand request, CancellationToken ct)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(request.Email))
+                return Result<bool>.Failure(ErrorCodes.ValidationFailed, "Email is required.");
+
+            var society = await societyRepository.GetByIdAsync(request.SocietyId, request.SocietyId, ct);
+            if (society is null)
+                return Result<bool>.Failure(ErrorCodes.SocietyNotFound, "Society not found.");
+
+            var token = await authService.GenerateInviteTokenAsync(request.SocietyId, request.ApartmentId, ct);
+            var inviteUrl = $"{request.FrontendBaseUrl.TrimEnd('/')}/auth/register?token={token}";
+            var subject = $"You're invited to join {society.Name} on OurHome";
+            var message = $"You have been invited to register on OurHome for {society.Name}.\n\nComplete your registration: {inviteUrl}\n\nThis link expires in 7 days.";
+
+            await notificationService.SendEmailAsync(request.Email, subject, message, ct);
+            return Result<bool>.Success(true);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to share invite link.");
+            return Result<bool>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
 // ─── Validate Invite Token ────────────────────────────────────────────────────
 
 public record ValidateInviteTokenQuery(string Token)
@@ -1407,7 +1446,7 @@ public sealed class ValidateInviteTokenQueryHandler(IAuthService authService)
 
 // ─── Self Register ────────────────────────────────────────────────────────────
 
-public record SelfRegisterCommand(string SocietyId, string FullName, string Email, string Phone, string Password)
+public record SelfRegisterCommand(string SocietyId, string FullName, string Email, string Phone, string Password, string? InviteToken = null)
     : IRequest<Result<UserResponse>>;
 
 public sealed class SelfRegisterCommandHandler(
@@ -1429,6 +1468,16 @@ public sealed class SelfRegisterCommandHandler(
 
             user.SetPasswordHash(authService.HashPassword(request.Password));
             user.Verify(); // invite token already proves identity — no OTP step needed
+
+            // An apartment-scoped invite link (shared by an owner) registers the apartment under
+            // whoever completes registration — as a pending join awaiting the usual SUAdmin approval,
+            // not an automatic assignment.
+            if (!string.IsNullOrWhiteSpace(request.InviteToken))
+            {
+                var claims = await authService.ValidateInviteTokenAsync(request.InviteToken, ct);
+                if (claims is not null && !string.IsNullOrWhiteSpace(claims.ApartmentId))
+                    user.RequestApartmentJoin(claims.ApartmentId, ResidentType.Owner);
+            }
 
             await userRepository.CreateAsync(user, ct);
             return Result<UserResponse>.Success(user.ToResponse());

@@ -59,6 +59,13 @@
     margin-right: 4px;
     color: var(--text-secondary);
   }
+  .nc-read-tick {
+    flex-shrink: 0;
+    align-self: center;
+    margin-right: 12px;
+    color: #2e7d32;
+    display: flex;
+  }
 }
 
 .fab {

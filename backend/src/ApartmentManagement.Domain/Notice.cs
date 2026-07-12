@@ -39,13 +39,6 @@ public sealed class Notice : BaseEntity
         }
     }
 
-    public void MarkAsUnread(string userId)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(userId, nameof(userId));
-        if (ReadByUserIds.Remove(userId))
-            TouchUpdatedAt();
-    }
-
     public static Notice Create(string societyId, string postedByUserId, string title, string content,
         NoticeCategory category, DateTime publishAt, DateTime? expiresAt = null,
         IEnumerable<string>? targetApartmentIds = null)

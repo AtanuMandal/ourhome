@@ -360,7 +360,7 @@ public class VerifyOtpCommandHandlerTests
             .ReturnsAsync((User u, CancellationToken _) => u);
 
         _authServiceMock
-            .Setup(a => a.GenerateJwtTokenAsync(user.Id, user.Email, user.Role.ToString(), user.SocietyId, It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Setup(a => a.GenerateJwtTokenAsync(user.Id, user.Email, user.Role.ToString(), user.SocietyId, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync("token");
 
         var handler = CreateHandler();
@@ -444,7 +444,7 @@ public class VerifyOtpCommandHandlerTests
         result.IsFailure.Should().BeTrue();
         result.ErrorCode.Should().Be(ErrorCodes.SocietyNotActive);
         _authServiceMock.Verify(a => a.GenerateJwtTokenAsync(
-            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 }
 
@@ -473,7 +473,7 @@ public class LoginCommandHandlerTests
         _userRepoMock.Setup(r => r.GetByEmailAcrossSocietiesAsync("alice@gv.com", It.IsAny<CancellationToken>()))
             .ReturnsAsync([user]);
         _authServiceMock.Setup(a => a.VerifyPassword("secret", "hashed-secret")).Returns(true);
-        _authServiceMock.Setup(a => a.GenerateJwtTokenAsync(user.Id, user.Email, user.Role.ToString(), user.SocietyId, user.ApartmentId, It.IsAny<CancellationToken>()))
+        _authServiceMock.Setup(a => a.GenerateJwtTokenAsync(user.Id, user.Email, user.Role.ToString(), user.SocietyId, user.ApartmentId, It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync("token");
 
         var handler = CreateHandler();
@@ -503,7 +503,7 @@ public class LoginCommandHandlerTests
         result.IsFailure.Should().BeTrue();
         result.ErrorCode.Should().Be(ErrorCodes.SocietyNotActive);
         _authServiceMock.Verify(a => a.GenerateJwtTokenAsync(
-            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -519,7 +519,7 @@ public class LoginCommandHandlerTests
         _authServiceMock.Setup(a => a.VerifyPassword("secret", "hashed-secret")).Returns(true);
         _societyRepoMock.Setup(r => r.GetByIdAsync(society.Id, society.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(society);
-        _authServiceMock.Setup(a => a.GenerateJwtTokenAsync(user.Id, user.Email, user.Role.ToString(), user.SocietyId, user.ApartmentId, It.IsAny<CancellationToken>()))
+        _authServiceMock.Setup(a => a.GenerateJwtTokenAsync(user.Id, user.Email, user.Role.ToString(), user.SocietyId, user.ApartmentId, It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync("token");
 
         var handler = CreateHandler();
@@ -697,6 +697,150 @@ public class SelfRegisterCommandHandlerTests
         result.IsFailure.Should().BeTrue();
         result.ErrorCode.Should().Be(ErrorCodes.UserAlreadyExists);
         _userRepoMock.Verify(r => r.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_WithApartmentScopedInviteToken_CreatesPendingApartmentJoin()
+    {
+        // Arrange — an owner shared their apartment-scoped invite link; whoever completes
+        // registration with it should get a pending join for that apartment, awaiting SUAdmin approval.
+        User? captured = null;
+        _userRepoMock
+            .Setup(r => r.GetByEmailAsync("soc-001", "alice@example.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
+        _userRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
+            .Callback<User, CancellationToken>((u, _) => captured = u)
+            .ReturnsAsync((User u, CancellationToken _) => u);
+        _authServiceMock.Setup(a => a.HashPassword("Password1!")).Returns("hashed-password");
+        _authServiceMock
+            .Setup(a => a.ValidateInviteTokenAsync("apt-scoped-token", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new InviteTokenClaims("soc-001", "apt-001"));
+
+        var handler = CreateHandler();
+        var command = new SelfRegisterCommand("soc-001", "Alice Smith", "alice@example.com", "+91-9876543210", "Password1!", "apt-scoped-token");
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        captured.Should().NotBeNull();
+        captured!.PendingApartmentId.Should().Be("apt-001");
+        captured!.PendingResidentType.Should().Be(ResidentType.Owner.ToString());
+    }
+
+    [Fact]
+    public async Task Handle_WithSocietyWideInviteToken_DoesNotCreatePendingApartmentJoin()
+    {
+        // Arrange — a society-wide invite (no apartment) should register an unlinked account, same as before.
+        User? captured = null;
+        _userRepoMock
+            .Setup(r => r.GetByEmailAsync("soc-001", "alice@example.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
+        _userRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
+            .Callback<User, CancellationToken>((u, _) => captured = u)
+            .ReturnsAsync((User u, CancellationToken _) => u);
+        _authServiceMock.Setup(a => a.HashPassword("Password1!")).Returns("hashed-password");
+        _authServiceMock
+            .Setup(a => a.ValidateInviteTokenAsync("society-wide-token", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new InviteTokenClaims("soc-001", null));
+
+        var handler = CreateHandler();
+        var command = new SelfRegisterCommand("soc-001", "Alice Smith", "alice@example.com", "+91-9876543210", "Password1!", "society-wide-token");
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        captured.Should().NotBeNull();
+        captured!.PendingApartmentId.Should().BeNull();
+    }
+}
+
+// ─── ShareInviteLinkCommandHandler Tests ──────────────────────────────────────
+
+public class ShareInviteLinkCommandHandlerTests
+{
+    private readonly Mock<IAuthService> _authServiceMock = new();
+    private readonly Mock<ISocietyRepository> _societyRepoMock = new();
+    private readonly Mock<INotificationService> _notificationMock = new();
+    private readonly Mock<ILogger<ShareInviteLinkCommandHandler>> _loggerMock = new();
+
+    private ShareInviteLinkCommandHandler CreateHandler() =>
+        new(_authServiceMock.Object, _societyRepoMock.Object, _notificationMock.Object, _loggerMock.Object);
+
+    private static Society CreateSociety() =>
+        Society.Create("Green Valley", new Address("1 Main St", "Mumbai", "MH", "400001", "India"),
+            "admin@gv.com", "+91-9876543210", 1, 10);
+
+    [Fact]
+    public async Task Handle_ValidRequest_EmailsTheInviteLinkAndDoesNotReturnItToTheCaller()
+    {
+        // Arrange
+        var society = CreateSociety();
+        _societyRepoMock
+            .Setup(r => r.GetByIdAsync(society.Id, society.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(society);
+        _authServiceMock
+            .Setup(a => a.GenerateInviteTokenAsync(society.Id, "apt-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync("invite-token");
+
+        string? sentTo = null, sentBody = null;
+        _notificationMock
+            .Setup(n => n.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback<string, string, string, CancellationToken>((to, _, body, _) => { sentTo = to; sentBody = body; })
+            .Returns(Task.CompletedTask);
+
+        var handler = CreateHandler();
+        var command = new ShareInviteLinkCommand(society.Id, "apt-001", "friend@example.com", "https://app.example.com");
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        sentTo.Should().Be("friend@example.com");
+        sentBody.Should().Contain("https://app.example.com/auth/register?token=invite-token");
+    }
+
+    [Fact]
+    public async Task Handle_MissingEmail_ReturnsValidationFailureWithoutSendingOrGeneratingAToken()
+    {
+        // Arrange
+        var handler = CreateHandler();
+        var command = new ShareInviteLinkCommand("soc-001", null, "", "https://app.example.com");
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.ValidationFailed);
+        _authServiceMock.Verify(a => a.GenerateInviteTokenAsync(It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
+        _notificationMock.Verify(n => n.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_SocietyNotFound_ReturnsFailure()
+    {
+        // Arrange
+        _societyRepoMock
+            .Setup(r => r.GetByIdAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Society?)null);
+
+        var handler = CreateHandler();
+        var command = new ShareInviteLinkCommand("soc-001", null, "friend@example.com", "https://app.example.com");
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.SocietyNotFound);
+        _notificationMock.Verify(n => n.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 }
 

@@ -13,6 +13,7 @@ function configureAppComponentTestBed(matches: boolean, role: string = 'SUUser')
   const authServiceStub = {
     isLoggedIn: () => true,
     user: () => ({ fullName: 'Alice', role }),
+    isTenant: () => false,
     logout: jasmine.createSpy(),
   };
   const pushServiceStub = {
@@ -187,5 +188,28 @@ describe('AppComponent — role-based side nav visibility', () => {
   it('hides Polls from HQ roles', () => {
     const component = setupWithRole('HQAdmin');
     expect(component.visibleNav().some(item => item.path === '/polls')).toBeFalse();
+  });
+
+  it('shows Society Finances to a non-tenant SUUser', () => {
+    const component = setupWithRole('SUUser');
+    expect(component.visibleNav().some(item => item.path === '/financial-report/society-summary')).toBeTrue();
+  });
+
+  it('hides Society Finances from a tenant, but keeps My Statement', () => {
+    configureAppComponentTestBed(false, 'SUUser');
+    TestBed.overrideProvider(AuthService, {
+      useValue: {
+        isLoggedIn: () => true,
+        user: () => ({ fullName: 'Alice', role: 'SUUser' }),
+        isTenant: () => true,
+        logout: jasmine.createSpy(),
+      },
+    });
+    const fixture = TestBed.createComponent(AppComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+
+    expect(component.visibleNav().some(item => item.path === '/financial-report/society-summary')).toBeFalse();
+    expect(component.visibleNav().some(item => item.path === '/financial-report/my-statement')).toBeTrue();
   });
 });
