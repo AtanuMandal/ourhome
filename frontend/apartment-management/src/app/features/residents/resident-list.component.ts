@@ -6,7 +6,6 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { Clipboard } from '@angular/cdk/clipboard';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 import { LoadingSpinnerComponent } from '../../shared/components/loading-spinner/loading-spinner.component';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
@@ -67,19 +66,18 @@ interface RoleGroup { role: string; label: string; users: User[]; }
 
         @if (isAdmin()) {
           <div class="invite-section">
-            <button mat-stroked-button color="primary" type="button"
-                    (click)="generateInviteLink()" [disabled]="generatingLink()">
-              <mat-icon>link</mat-icon>
-              {{ generatingLink() ? 'Generating…' : 'Generate Registration Link' }}
-            </button>
-            @if (inviteUrl()) {
-              <div class="invite-link-box">
-                <span class="invite-url">{{ inviteUrl() }}</span>
-                <button mat-icon-button type="button" (click)="copyInviteLink()">
-                  <mat-icon>content_copy</mat-icon>
-                </button>
-              </div>
-            }
+            <div class="invite-section__row">
+              <mat-form-field appearance="outline" class="invite-email-field">
+                <mat-label>Registrant's email</mat-label>
+                <input matInput type="email" [ngModel]="shareEmail()" (ngModelChange)="shareEmail.set($event)"
+                       placeholder="name@example.com">
+              </mat-form-field>
+              <button mat-stroked-button color="primary" type="button"
+                      (click)="sendInviteLink()" [disabled]="sendingLink() || !shareEmail()">
+                <mat-icon>mail_outline</mat-icon>
+                {{ sendingLink() ? 'Sending…' : 'Send Registration Link' }}
+              </button>
+            </div>
           </div>
         }
 
@@ -129,9 +127,8 @@ interface RoleGroup { role: string; label: string; users: User[]; }
     .pending-detail { font-size:12px; color:var(--text-secondary); }
     .pending-actions { display:flex; gap:8px; flex-shrink:0; }
     .invite-section { display:flex; flex-direction:column; gap:8px; margin-bottom:16px; }
-    .invite-link-box { display:flex; align-items:center; gap:8px; background:#e8f5e9; border:1px solid #a5d6a7;
-      border-radius:8px; padding:8px 12px; }
-    .invite-url { font-size:12px; font-family:monospace; color:var(--text-secondary); word-break:break-all; flex:1; }
+    .invite-section__row { display:flex; align-items:flex-start; gap:8px; flex-wrap:wrap; }
+    .invite-email-field { flex:1; min-width:220px; }
     .rc-name { font-weight:500; font-size:14px; }
     .search-field { width:100%; margin-bottom:12px; }
     .section-title { font-size:14px; font-weight:600; color:var(--text-secondary); margin:16px 0 8px; text-transform:uppercase; letter-spacing:.02em; }
@@ -144,15 +141,14 @@ export class ResidentListComponent implements OnInit {
   private readonly userSvc = inject(UserService);
   private readonly auth    = inject(AuthService);
   private readonly snackBar = inject(MatSnackBar);
-  private readonly clipboard = inject(Clipboard);
 
   readonly loading = signal(true);
   readonly actioning = signal(false);
-  readonly generatingLink = signal(false);
+  readonly sendingLink = signal(false);
   readonly deleting = signal<string | null>(null);
   readonly items   = signal<User[]>([]);
   readonly pendingRequests = signal<User[]>([]);
-  readonly inviteUrl = signal<string | null>(null);
+  readonly shareEmail = signal('');
   readonly isAdmin = this.auth.isAdmin;
   readonly search = signal('');
 
@@ -226,25 +222,19 @@ export class ResidentListComponent implements OnInit {
     });
   }
 
-  generateInviteLink() {
+  sendInviteLink() {
     const sid = this.auth.societyId();
-    if (!sid) return;
-    this.generatingLink.set(true);
-    this.userSvc.generateInviteLink(sid).subscribe({
-      next: link => {
-        const url = `${window.location.origin}${link.inviteUrl}`;
-        this.inviteUrl.set(url);
-        this.generatingLink.set(false);
+    const email = this.shareEmail().trim();
+    if (!sid || !email) return;
+    this.sendingLink.set(true);
+    this.userSvc.shareInviteLink(sid, email).subscribe({
+      next: () => {
+        this.sendingLink.set(false);
+        this.shareEmail.set('');
+        this.snackBar.open(`Registration link sent to ${email}.`, 'Dismiss', { duration: 3000 });
       },
-      error: () => this.generatingLink.set(false),
+      error: () => this.sendingLink.set(false),
     });
-  }
-
-  copyInviteLink() {
-    const url = this.inviteUrl();
-    if (!url) return;
-    this.clipboard.copy(url);
-    this.snackBar.open('Link copied!', 'Dismiss', { duration: 3000 });
   }
 
   approveRequest(user: User) {

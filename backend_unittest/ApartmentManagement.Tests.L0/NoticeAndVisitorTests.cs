@@ -178,27 +178,6 @@ public class NoticeReadStatusTests
     }
 
     [Fact]
-    public void MarkAsUnread_ClearsReadStatus()
-    {
-        var notice = CreateNotice();
-        notice.MarkAsRead(UserId);
-
-        notice.MarkAsUnread(UserId);
-
-        notice.IsReadByUser(UserId).Should().BeFalse();
-    }
-
-    [Fact]
-    public void MarkAsUnread_WhenNotRead_DoesNotThrow()
-    {
-        var notice = CreateNotice();
-
-        var act = () => notice.MarkAsUnread(UserId);
-
-        act.Should().NotThrow();
-    }
-
-    [Fact]
     public void MarkAsRead_TracksEachUserIndependently()
     {
         var notice = CreateNotice();

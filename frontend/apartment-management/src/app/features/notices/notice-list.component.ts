@@ -38,13 +38,19 @@ import { Notice } from '../../core/models/notice.model';
                 <p class="nc-body">{{ n.content }}</p>
                 <span class="nc-date">{{ n.publishAt | date:'mediumDate' }}</span>
               </a>
-              <button
-                mat-icon-button
-                class="nc-read-toggle"
-                [title]="n.isReadByCurrentUser ? 'Mark as unread' : 'Mark as read'"
-                (click)="toggleRead(n, $event)">
-                <mat-icon>{{ n.isReadByCurrentUser ? 'mark_email_read' : 'mark_email_unread' }}</mat-icon>
-              </button>
+              @if (n.isReadByCurrentUser) {
+                <span class="nc-read-tick" title="Read">
+                  <mat-icon>check_circle</mat-icon>
+                </span>
+              } @else {
+                <button
+                  mat-icon-button
+                  class="nc-read-toggle"
+                  title="Mark as read"
+                  (click)="markRead(n, $event)">
+                  <mat-icon>mark_email_unread</mat-icon>
+                </button>
+              }
             </div>
           }
         </div>
@@ -76,17 +82,17 @@ export class NoticeListComponent implements OnInit {
     });
   }
 
-  toggleRead(notice: Notice, event: Event) {
+  /** One-way: marks a notice read. There is no way to mark it unread again. */
+  markRead(notice: Notice, event: Event) {
     event.preventDefault();
     event.stopPropagation();
     const sid = this.auth.societyId();
     if (!sid) return;
 
-    const newState = !notice.isReadByCurrentUser;
-    this.svc.markRead(sid, notice.id, newState).subscribe({
+    this.svc.markRead(sid, notice.id).subscribe({
       next: () => {
         this.items.update(list =>
-          list.map(n => n.id === notice.id ? { ...n, isReadByCurrentUser: newState } : n)
+          list.map(n => n.id === notice.id ? { ...n, isReadByCurrentUser: true } : n)
         );
       }
     });

@@ -21,30 +21,31 @@ describe('ImageLightboxComponent', () => {
     return { component: fixture.componentInstance, fixture };
   }
 
-  it('starts at 100% (scale 1) whenever opened', () => {
+  it('starts at 80% (scale 0.8) whenever opened', () => {
     const { component } = setup();
     component.open = true;
     component.src = 'files/maintenance-proofs/soc-1/x.jpg';
     component.ngOnChanges();
 
-    expect(component.scale()).toBe(1);
+    expect(component.scale()).toBe(0.8);
   });
 
-  it('zoomIn increases scale up to the configured maximum', () => {
+  it('allows zooming out below the old 100% floor down to 20%', () => {
     const { component } = setup();
+    expect(component.minScale).toBe(0.2);
+    for (let i = 0; i < 20; i++) component.zoomOut();
+    expect(component.scale()).toBe(component.minScale);
+    expect(component.scale()).toBeLessThan(1);
+  });
+
+  it('zoomIn increases scale up to the configured maximum of 250%', () => {
+    const { component } = setup();
+    expect(component.maxScale).toBe(2.5);
     for (let i = 0; i < 20; i++) component.zoomIn();
     expect(component.scale()).toBe(component.maxScale);
   });
 
-  it('zoomOut decreases scale down to the configured minimum', () => {
-    const { component } = setup();
-    component.zoomIn();
-    component.zoomIn();
-    for (let i = 0; i < 20; i++) component.zoomOut();
-    expect(component.scale()).toBe(component.minScale);
-  });
-
-  it('close resets the scale and emits the closed event', () => {
+  it('close resets the scale to the default 80% and emits the closed event', () => {
     const { component } = setup();
     component.zoomIn();
     component.zoomIn();
@@ -53,7 +54,7 @@ describe('ImageLightboxComponent', () => {
     component.closed.subscribe(spy);
     component.close();
 
-    expect(component.scale()).toBe(component.minScale);
+    expect(component.scale()).toBe(0.8);
     expect(spy).toHaveBeenCalled();
   });
 });

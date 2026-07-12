@@ -34,8 +34,9 @@ public class SosFunctions(ISender mediator, ICurrentUserService currentUser)
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "societies/{societyId}/sos-alerts")] HttpRequest req,
         string societyId, CancellationToken ct)
     {
+        // Any authenticated society member can view active SOS alerts — only SUAdmin/SUSecurity
+        // can acknowledge/resolve them (see AcknowledgeSosAlert/ResolveSosAlert below).
         if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
-        if (!currentUser.IsInRoles("SUAdmin", "SUSecurity")) return new ForbidResult();
 
         int.TryParse(req.Query["page"], out var page);
         int.TryParse(req.Query["pageSize"], out var pageSize);

@@ -25,10 +25,14 @@ type Tab = 'summary' | 'ledger';
 export function FinancialReportScreen() {
   const societyId = useSocietyId();
   const role = useAuthStore((s) => s.user?.role);
+  const residentType = useAuthStore((s) => s.user?.residentType);
   const isAdmin = role === 'SUAdmin' || role === 'HQAdmin' || role === 'HQUser';
+  // Society summary is aggregate/society-wide reporting — tenants keep their own
+  // apartment ledger/statement elsewhere but not this view.
+  const isTenant = role === 'SUUser' && residentType === 'Tenant';
 
   const [tab, setTab] = useState<Tab>('summary');
-  const { data: summary, isLoading, refetch } = useFinancialSocietySummary(societyId);
+  const { data: summary, isLoading, refetch } = useFinancialSocietySummary(societyId, !isTenant);
   const {
     data: ledger,
     isLoading: ledgerLoading,
@@ -110,7 +114,11 @@ export function FinancialReportScreen() {
           />
         }
       >
-        {summary != null && (
+        {isTenant && (
+          <Text style={styles.emptyText}>Society financial summary is not available for tenants.</Text>
+        )}
+
+        {!isTenant && summary != null && (
           <>
             <View style={styles.summarySection}>
               <Text style={styles.sectionTitle}>Current Month — {periodLabel}</Text>

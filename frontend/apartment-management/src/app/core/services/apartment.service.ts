@@ -133,6 +133,10 @@ export class UserService {
     return this.api.post<InviteLink>(`societies/${societyId}/invite-link`, { apartmentId });
   }
 
+  shareInviteLink(societyId: string, email: string, apartmentId?: string) {
+    return this.api.post<void>(`societies/${societyId}/invite-link/share`, { apartmentId, email });
+  }
+
   requestApartmentJoin(societyId: string, userId: string, dto: { apartmentId: string; residentType: 'Owner' | 'Tenant' }) {
     return this.api.post<User>(`societies/${societyId}/users/${userId}/apartment-join-request`, dto);
   }

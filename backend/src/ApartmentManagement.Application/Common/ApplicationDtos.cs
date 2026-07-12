@@ -157,6 +157,7 @@ public record AddHouseholdMemberRequest(
 
 public record GenerateInviteLinkRequest(string? ApartmentId = null);
 public record InviteLinkResponse(string Token, string InviteUrl);
+public record ShareInviteLinkRequest(string? ApartmentId, string Email);
 public record ValidateInviteTokenResponse(bool Valid, string? SocietyId, string? ApartmentId);
 public record SelfRegisterRequest(string FullName, string Email, string Phone, string Password, string InviteToken);
 public record RequestApartmentJoinRequest(string ApartmentId, [property: JsonConverter(typeof(JsonStringEnumConverter))] ResidentType ResidentType);
@@ -215,9 +216,6 @@ public sealed record CreateNoticeRequest(
     DateTime PublishAt, DateTime? ExpiresAt = null,
     IEnumerable<string>? TargetApartmentIds = null);
 
-public sealed record UpdateNoticeRequest(string? Title, string? Content, DateTime? ExpiresAt);
-
-public sealed record MarkNoticeReadRequest(bool IsRead);
 
 // ─── Visitor ─────────────────────────────────────────────────────────────────
 
@@ -452,6 +450,12 @@ public record NoticeResponse(
     string PostedByUserId, bool IsArchived, DateTime PublishAt, DateTime? ExpiresAt,
     bool IsActive, DateTime CreatedAt, IReadOnlyList<string> TargetApartmentIds,
     bool IsReadByCurrentUser = false);
+
+public record NoticeReadReceiptEntry(string UserId, string FullName);
+
+public record NoticeReadReceiptsResponse(
+    IReadOnlyList<NoticeReadReceiptEntry> Read,
+    IReadOnlyList<NoticeReadReceiptEntry> Unread);
 
 public record VisitorResponse(
     string Id,

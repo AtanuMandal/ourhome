@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { of, Subject } from 'rxjs';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { provideRouter } from '@angular/router';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
@@ -68,22 +68,23 @@ describe('VisitorListComponent — approve/deny visibility', () => {
   });
 });
 
-describe('VisitorListComponent — default pending + last 10 view', () => {
-  function makeVisitor(id: string, status: string): Visitor {
-    return { id, status, hostApartmentId: 'apt-1', visitorName: `Visitor ${id}` } as Visitor;
+describe('VisitorListComponent — default pending + recent approved/denied view', () => {
+  function makeVisitor(id: string, status: string, createdAt = '2026-01-01T00:00:00Z'): Visitor {
+    return { id, status, hostApartmentId: 'apt-1', visitorName: `Visitor ${id}`, createdAt } as Visitor;
   }
 
   function setup() {
-    const pendingItems = [makeVisitor('p1', 'Pending'), makeVisitor('p2', 'Pending')];
-    // "Recent 10" overlaps with one pending item (p1) plus other statuses — the component must dedupe by id.
-    const recentItems = [makeVisitor('p1', 'Pending'), makeVisitor('c1', 'CheckedOut'), makeVisitor('d1', 'Denied')];
+    const pendingItems  = [makeVisitor('p1', 'Pending'), makeVisitor('p2', 'Pending')];
+    // Approved overlaps with one pending item (p1) — the component must dedupe by id.
+    const approvedItems = [makeVisitor('p1', 'Pending'), makeVisitor('a1', 'Approved', '2026-01-02T00:00:00Z')];
+    const deniedItems   = [makeVisitor('d1', 'Denied', '2026-01-03T00:00:00Z')];
 
     const visitorServiceStub = {
       list: jasmine.createSpy().and.callFake((_sid: string, _page: number, pageSize: number, filters: { status?: string }) => {
-        if (filters?.status === 'Pending') {
-          return of({ items: pendingItems, total: pendingItems.length, page: 1, pageSize });
-        }
-        return of({ items: recentItems, total: recentItems.length, page: 1, pageSize });
+        if (filters?.status === 'Pending')  return of({ items: pendingItems, total: pendingItems.length, page: 1, pageSize });
+        if (filters?.status === 'Approved') return of({ items: approvedItems, total: approvedItems.length, page: 1, pageSize });
+        if (filters?.status === 'Denied')   return of({ items: deniedItems, total: deniedItems.length, page: 1, pageSize });
+        return of({ items: [], total: 0, page: 1, pageSize });
       }),
     };
     const authServiceStub = {
@@ -110,12 +111,33 @@ describe('VisitorListComponent — default pending + last 10 view', () => {
     return { component: fixture.componentInstance, visitorServiceStub };
   }
 
-  it('merges all pending visitors with the 10 most recent, de-duplicated by id, when no filter is applied', () => {
+  it('merges all pending visitors with the most recent approved/denied, de-duplicated by id, when no filter is applied', () => {
     const { component, visitorServiceStub } = setup();
 
     expect(component.isDefaultFilterState()).toBeTrue();
-    expect(visitorServiceStub.list).toHaveBeenCalledTimes(2);
-    expect(component.items().map(v => v.id).sort()).toEqual(['c1', 'd1', 'p1', 'p2'].sort());
+    expect(visitorServiceStub.list).toHaveBeenCalledTimes(3);
+    expect(component.items().map(v => v.id).sort()).toEqual(['a1', 'd1', 'p1', 'p2'].sort());
+  });
+
+  it('defaults the record count to 25 and persists a change to localStorage', () => {
+    localStorage.removeItem('ourhome-visitor-list-record-count');
+    const { component } = setup();
+
+    expect(component.recordCount()).toBe(25);
+
+    component.onRecordCountChange(50);
+
+    expect(component.recordCount()).toBe(50);
+    expect(localStorage.getItem('ourhome-visitor-list-record-count')).toBe('50');
+    localStorage.removeItem('ourhome-visitor-list-record-count');
+  });
+
+  it('reads a previously-persisted record count preference on load', () => {
+    localStorage.setItem('ourhome-visitor-list-record-count', '100');
+    const { component } = setup();
+
+    expect(component.recordCount()).toBe(100);
+    localStorage.removeItem('ourhome-visitor-list-record-count');
   });
 
   it('falls back to the single filtered call once any filter is applied', () => {
@@ -127,6 +149,90 @@ describe('VisitorListComponent — default pending + last 10 view', () => {
 
     expect(component.isDefaultFilterState()).toBeFalse();
     expect(visitorServiceStub.list).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('VisitorListComponent — silent background auto-refresh', () => {
+  function makeVisitor(id: string, status: string): Visitor {
+    return { id, status, hostApartmentId: 'apt-1', visitorName: `Visitor ${id}`, createdAt: '2026-01-01T00:00:00Z' } as Visitor;
+  }
+
+  function setup() {
+    const visitorServiceStub = {
+      list: jasmine.createSpy().and.returnValue(of({ items: [makeVisitor('v1', 'Pending')], total: 1, page: 1, pageSize: 100 })),
+    };
+    const authServiceStub = {
+      societyId: () => 'soc-1',
+      isAdmin: () => true,
+      isSecurity: () => false,
+      canManageVisitors: () => true,
+      user: () => ({ role: 'SUAdmin', apartmentId: '' }),
+    };
+    const activatedRouteStub = { snapshot: { queryParamMap: convertToParamMap({}) } };
+
+    TestBed.configureTestingModule({
+      imports: [VisitorListComponent, NoopAnimationsModule],
+      providers: [
+        provideRouter([]),
+        { provide: VisitorService, useValue: visitorServiceStub },
+        { provide: AuthService, useValue: authServiceStub },
+        { provide: ActivatedRoute, useValue: activatedRouteStub },
+      ],
+    });
+
+    const fixture = TestBed.createComponent(VisitorListComponent);
+    fixture.detectChanges();
+    return { component: fixture.componentInstance, visitorServiceStub };
+  }
+
+  function setupWithHangingRefetch() {
+    // Resolves instantly for the initial ngOnInit load, then is swapped to a Subject that never
+    // emits so the *next* call to loadVisitors() can be observed mid-flight.
+    const visitorServiceStub = {
+      list: jasmine.createSpy().and.returnValue(
+        of({ items: [makeVisitor('v1', 'Pending')], total: 1, page: 1, pageSize: 100 })
+      ),
+    };
+    const authServiceStub = {
+      societyId: () => 'soc-1', isAdmin: () => true, isSecurity: () => false,
+      canManageVisitors: () => true, user: () => ({ role: 'SUAdmin', apartmentId: '' }),
+    };
+    TestBed.configureTestingModule({
+      imports: [VisitorListComponent, NoopAnimationsModule],
+      providers: [
+        provideRouter([]),
+        { provide: VisitorService, useValue: visitorServiceStub },
+        { provide: AuthService, useValue: authServiceStub },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap({}) } } },
+      ],
+    });
+    const fixture = TestBed.createComponent(VisitorListComponent);
+    fixture.detectChanges(); // ngOnInit's initial load resolves synchronously: items=[v1], loading=false
+
+    const hanging$ = new Subject<{ items: Visitor[]; total: number; page: number; pageSize: number }>();
+    visitorServiceStub.list.and.returnValue(hanging$);
+
+    return fixture.componentInstance;
+  }
+
+  it('a background refresh does not toggle the main loading flag, keeping existing rows visible', () => {
+    const component = setupWithHangingRefetch();
+    expect(component.items().length).toBeGreaterThan(0);
+
+    component.loadVisitors(true);
+
+    // Still mid-flight (the Subject hasn't emitted yet) — background flag set, main flag untouched.
+    expect(component.loading()).toBeFalse();
+    expect(component.backgroundRefreshing()).toBeTrue();
+  });
+
+  it('a manual (non-background) load still uses the full loading flag', () => {
+    const component = setupWithHangingRefetch();
+
+    component.loadVisitors(false);
+
+    expect(component.loading()).toBeTrue();
+    expect(component.backgroundRefreshing()).toBeFalse();
   });
 });
 

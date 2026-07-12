@@ -55,10 +55,13 @@ export function NoticeListScreen() {
         <View style={styles.itemContent}>
           <View style={styles.titleRow}>
             <Text style={styles.title} numberOfLines={2}>{item.title}</Text>
-            {!item.isReadByCurrentUser && (
+            {item.isReadByCurrentUser ? (
+              <Text style={styles.readTick} accessibilityLabel="Read">✓</Text>
+            ) : (
               <TouchableOpacity
                 style={styles.markReadBtn}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityLabel="Mark as read"
                 onPress={(e) => handleMarkRead(item.id, e)}
               >
                 <Text style={styles.markReadText}>✓</Text>
@@ -145,6 +148,7 @@ const styles = StyleSheet.create({
     padding: 2,
   },
   markReadText: { fontSize: typography.fontSize.sm, color: colors.primary },
+  readTick: { fontSize: typography.fontSize.sm, color: '#2e7d32', marginLeft: spacing.xs, padding: 2 },
   meta: { fontSize: typography.fontSize.xs, color: colors.text.disabled, marginBottom: 4 },
   preview: { fontSize: typography.fontSize.sm, color: colors.text.secondary },
   separator: { height: 1, backgroundColor: colors.border },

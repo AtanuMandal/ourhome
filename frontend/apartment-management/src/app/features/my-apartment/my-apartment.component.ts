@@ -8,13 +8,13 @@ import { SearchableSelectComponent } from '../../shared/components/searchable-se
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatCardModule } from '@angular/material/card';
-import { Clipboard } from '@angular/cdk/clipboard';
+import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 import { LoadingSpinnerComponent } from '../../shared/components/loading-spinner/loading-spinner.component';
 import { AuthService } from '../../core/services/auth.service';
 import { UserService, ApartmentService } from '../../core/services/apartment.service';
-import { User, InviteLink } from '../../core/models/user.model';
+import { User } from '../../core/models/user.model';
 import { Apartment, formatApartmentLabel } from '../../core/models/apartment.model';
 
 @Component({
@@ -22,6 +22,7 @@ import { Apartment, formatApartmentLabel } from '../../core/models/apartment.mod
   standalone: true,
   imports: [
     ReactiveFormsModule,
+    FormsModule,
     MatButtonModule,
     MatFormFieldModule,
     MatInputModule,
@@ -48,11 +49,18 @@ import { Apartment, formatApartmentLabel } from '../../core/models/apartment.mod
                   <span class="apt-name">{{ apt.name }}</span>
                   <span class="apt-type">{{ apt.residentType }}</span>
                 </div>
-                <button mat-stroked-button color="primary" type="button"
-                        (click)="generateInviteLink(apt.apartmentId)"
-                        [disabled]="generatingLink()">
-                  Share Invite Link
-                </button>
+                <div class="invite-row">
+                  <mat-form-field appearance="outline" class="invite-email-field">
+                    <mat-label>Registrant's email</mat-label>
+                    <input matInput type="email" [ngModel]="shareEmail()" (ngModelChange)="shareEmail.set($event)"
+                           placeholder="name@example.com">
+                  </mat-form-field>
+                  <button mat-stroked-button color="primary" type="button"
+                          (click)="sendInviteLink(apt.apartmentId)"
+                          [disabled]="sendingLink() || !shareEmail()">
+                    Send Invite Link
+                  </button>
+                </div>
               </div>
             }
           </div>
@@ -97,37 +105,23 @@ import { Apartment, formatApartmentLabel } from '../../core/models/apartment.mod
           </div>
         }
 
-        @if (generatedLink()) {
-          <div class="card invite-card">
-            <div class="section-title">Invite Link Generated</div>
-            <p class="help-text">Share this link with the person you want to add. It expires in 7 days.</p>
-            <div class="link-box">
-              <span class="link-text">{{ baseUrl() + generatedLink()!.inviteUrl }}</span>
-            </div>
-            <button mat-stroked-button color="primary" type="button" (click)="copyLink()">
-              Copy Link
-            </button>
-          </div>
-        }
       }
     </div>
   `,
   styles: [`
     .section-title { font-size:15px; font-weight:600; margin-bottom:12px; }
-    .apartment-pill { display:flex; justify-content:space-between; align-items:center; gap:12px;
+    .apartment-pill { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:flex-start; gap:12px;
       padding:12px; border:1px solid var(--border); border-radius:12px; margin-bottom:8px; background:#fafafa; }
     .apt-info { display:flex; flex-direction:column; gap:4px; }
     .apt-name { font-size:14px; font-weight:500; }
     .apt-type { font-size:12px; color:var(--primary-light); font-weight:600; }
+    .invite-row { display:flex; align-items:flex-start; gap:8px; flex-wrap:wrap; }
+    .invite-email-field { width:220px; }
     .pending-card { background:#fff8e1; border:1px solid #ffe082; }
     .pending-info { display:flex; gap:12px; padding:6px 0; font-size:14px;
       .label { color:var(--text-secondary); font-size:13px; width:100px; } }
     .help-text { color:var(--text-secondary); font-size:13px; margin:0 0 16px; }
     .full-width { width:100%; }
-    .invite-card { background:#e8f5e9; border:1px solid #a5d6a7; }
-    .link-box { background:white; border:1px solid var(--border); border-radius:8px; padding:10px 12px;
-      margin-bottom:12px; word-break:break-all; }
-    .link-text { font-size:12px; font-family:monospace; color:var(--text-secondary); }
   `],
 })
 export class MyApartmentComponent implements OnInit {
@@ -136,11 +130,11 @@ export class MyApartmentComponent implements OnInit {
   private readonly userSvc = inject(UserService);
   private readonly apartmentSvc = inject(ApartmentService);
   private readonly snackBar = inject(MatSnackBar);
-  private readonly clipboard = inject(Clipboard);
 
   readonly loading = signal(true);
   readonly submittingJoin = signal(false);
-  readonly generatingLink = signal(false);
+  readonly sendingLink = signal(false);
+  readonly shareEmail = signal('');
   readonly residentTypeOptions = [
     { value: 'Owner', label: 'Owner' },
     { value: 'Tenant', label: 'Tenant' },
@@ -151,14 +145,11 @@ export class MyApartmentComponent implements OnInit {
     this.apartments().map(a => ({ value: a.id, label: formatApartmentLabel(a) }))
   );
   private readonly allApartments = signal<Apartment[]>([]); // full list for name lookups
-  readonly generatedLink = signal<InviteLink | null>(null);
 
   readonly joinForm = this.fb.group({
     apartmentId: ['', Validators.required],
     residentType: ['Owner' as 'Owner' | 'Tenant', Validators.required],
   });
-
-  readonly baseUrl = signal(window.location.origin);
 
   formatApartmentLabel(apt: Apartment) { return formatApartmentLabel(apt); }
 
@@ -207,24 +198,19 @@ export class MyApartmentComponent implements OnInit {
     });
   }
 
-  generateInviteLink(apartmentId: string) {
+  sendInviteLink(apartmentId: string) {
     const sid = this.auth.societyId();
-    if (!sid) return;
+    const email = this.shareEmail().trim();
+    if (!sid || !email) return;
 
-    this.generatingLink.set(true);
-    this.userSvc.generateInviteLink(sid, apartmentId).subscribe({
-      next: link => {
-        this.generatedLink.set(link);
-        this.generatingLink.set(false);
+    this.sendingLink.set(true);
+    this.userSvc.shareInviteLink(sid, email, apartmentId).subscribe({
+      next: () => {
+        this.sendingLink.set(false);
+        this.shareEmail.set('');
+        this.snackBar.open(`Registration link sent to ${email}.`, 'Dismiss', { duration: 3000 });
       },
-      error: () => this.generatingLink.set(false),
+      error: () => this.sendingLink.set(false),
     });
-  }
-
-  copyLink() {
-    const link = this.generatedLink();
-    if (!link) return;
-    this.clipboard.copy(this.baseUrl() + link.inviteUrl);
-    this.snackBar.open('Link copied to clipboard!', 'Dismiss', { duration: 3000 });
   }
 }

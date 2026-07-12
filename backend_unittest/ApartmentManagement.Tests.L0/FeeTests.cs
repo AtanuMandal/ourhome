@@ -146,6 +146,40 @@ public class MaintenanceScheduleTests
     }
 
     [Fact]
+    public void UpdateStatus_WhenDeactivated_StillAppliesToTheEffectiveMonthButNotTheNextMonth()
+    {
+        // Arrange
+        var schedule = MaintenanceSchedule.Create(
+            SocietyId,
+            ApartmentId,
+            "Maintenance",
+            null,
+            1000m,
+            MaintenancePricingType.FixedAmount,
+            null,
+            FeeFrequency.Monthly,
+            5,
+            4,
+            2026,
+            3,
+            2027);
+
+        // Act — deactivate effective August 2026
+        schedule.UpdateStatus(
+            false,
+            8,
+            2026,
+            "admin-001",
+            "Admin User",
+            "Deactivating maintenance");
+
+        // Assert — the effective month's own charge is still covered; only the month after is not
+        schedule.IsActive.Should().BeFalse();
+        schedule.AppliesToDueDate(new DateTime(2026, 8, 5, 0, 0, 0, DateTimeKind.Utc)).Should().BeTrue();
+        schedule.AppliesToDueDate(new DateTime(2026, 9, 5, 0, 0, 0, DateTimeKind.Utc)).Should().BeFalse();
+    }
+
+    [Fact]
     public void CalculateNextDueDate_ReturnsCorrectFutureDate()
     {
         // Arrange

@@ -4,9 +4,10 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { SecureImageComponent } from '../secure-image/secure-image.component';
 
-const MIN_SCALE = 1;
-const MAX_SCALE = 4;
-const SCALE_STEP = 0.5;
+const MIN_SCALE = 0.2;
+const MAX_SCALE = 2.5;
+const DEFAULT_SCALE = 0.8;
+const SCALE_STEP = 0.2;
 
 /** Full-screen preview popup with zoom in/out for a secured image, e.g. a maintenance payment proof. */
 @Component({
@@ -82,10 +83,10 @@ export class ImageLightboxComponent implements OnChanges {
 
   readonly minScale = MIN_SCALE;
   readonly maxScale = MAX_SCALE;
-  readonly scale = signal(MIN_SCALE);
+  readonly scale = signal(DEFAULT_SCALE);
 
   ngOnChanges(): void {
-    if (this.open) this.scale.set(MIN_SCALE);
+    if (this.open) this.scale.set(DEFAULT_SCALE);
   }
 
   zoomIn(): void {
@@ -103,7 +104,7 @@ export class ImageLightboxComponent implements OnChanges {
   }
 
   close(): void {
-    this.scale.set(MIN_SCALE);
+    this.scale.set(DEFAULT_SCALE);
     this.closed.emit();
   }
 }

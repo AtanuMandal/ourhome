@@ -47,6 +47,36 @@
   margin-top: 4px !important;
 }
 
+.filters-card__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.record-count-field {
+  width: 130px;
+
+  ::ng-deep .mat-mdc-text-field-wrapper {
+    padding-bottom: 0;
+  }
+}
+
+.background-refresh-hint {
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 4px 0;
+}
+
+.visitor-list--pulse {
+  animation: visitor-list-pulse 0.6s ease-out;
+}
+
+@keyframes visitor-list-pulse {
+  0%   { background-color: rgba(25, 118, 210, 0.08); }
+  100% { background-color: transparent; }
+}
+
 .filters-grid,
 .form-grid {
   display: grid;

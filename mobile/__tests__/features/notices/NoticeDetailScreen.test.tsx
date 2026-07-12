@@ -3,15 +3,32 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react-nativ
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NoticeDetailScreen } from '../../../src/features/notices/NoticeDetailScreen';
+import { useAuthStore } from '../../../src/store/authStore';
 import type { Notice, PaginatedResponse, PollSummary } from '../../../src/api/types';
+import type { NoticeReadReceipts } from '../../../src/api/endpoints/notices';
+
+function setUser(role: 'SUAdmin' | 'SUUser') {
+  useAuthStore.setState({
+    user: { id: 'u1', societyId: 'soc-1', fullName: 'Test User', email: 'user@test.com', phone: '9000000000',
+      role, residentType: 'Owner', apartmentId: 'apt-1', isVerified: true, isActive: true },
+    token: 'token',
+    isAuthenticated: true,
+  });
+}
 
 const mockMarkRead = jest.fn();
+const mockUseNoticeReadReceipts = jest.fn();
 let mockNotice: Notice | undefined;
 let mockLinkedPolls: PaginatedResponse<PollSummary> | undefined;
+let mockReadReceipts: NoticeReadReceipts | undefined;
 
 jest.mock('../../../src/features/notices/hooks/useNotices', () => ({
   useNotice: () => ({ data: mockNotice, isLoading: false }),
   useMarkNoticeRead: () => ({ mutate: mockMarkRead }),
+  useNoticeReadReceipts: (...args: unknown[]) => {
+    mockUseNoticeReadReceipts(...args);
+    return { data: mockReadReceipts, isLoading: false };
+  },
 }));
 
 jest.mock('../../../src/features/polls/hooks/usePolls', () => ({
@@ -53,6 +70,7 @@ describe('NoticeDetailScreen', () => {
     jest.clearAllMocks();
     mockNotice = undefined;
     mockLinkedPolls = undefined;
+    mockReadReceipts = undefined;
   });
 
   test('shows a linked-poll banner when a poll references this notice', async () => {
@@ -75,5 +93,55 @@ describe('NoticeDetailScreen', () => {
 
     await waitFor(() => expect(screen.getByText('AGM Announcement')).toBeTruthy());
     expect(screen.queryByText(/associated poll/)).toBeNull();
+  });
+
+  test('shows an Edit action for SUAdmin', async () => {
+    setUser('SUAdmin');
+    mockNotice = makeNotice();
+    mockLinkedPolls = { items: [], total: 0, page: 1, pageSize: 1 };
+
+    renderScreen();
+
+    await waitFor(() => expect(screen.getByLabelText('Edit notice')).toBeTruthy());
+  });
+
+  test('hides the Edit action for a resident', async () => {
+    setUser('SUUser');
+    mockNotice = makeNotice();
+    mockLinkedPolls = { items: [], total: 0, page: 1, pageSize: 1 };
+
+    renderScreen();
+
+    await waitFor(() => expect(screen.getByText('AGM Announcement')).toBeTruthy());
+    expect(screen.queryByLabelText('Edit notice')).toBeNull();
+  });
+
+  test('hides the Read report action for a resident', async () => {
+    setUser('SUUser');
+    mockNotice = makeNotice();
+    mockLinkedPolls = { items: [], total: 0, page: 1, pageSize: 1 };
+
+    renderScreen();
+
+    await waitFor(() => expect(screen.getByText('AGM Announcement')).toBeTruthy());
+    expect(screen.queryByLabelText('Read report')).toBeNull();
+  });
+
+  test('shows the read/unread report for SUAdmin when toggled', async () => {
+    setUser('SUAdmin');
+    mockNotice = makeNotice();
+    mockLinkedPolls = { items: [], total: 0, page: 1, pageSize: 1 };
+    mockReadReceipts = {
+      read: [{ userId: 'u1', fullName: 'Alice Resident' }],
+      unread: [{ userId: 'u2', fullName: 'Bob Resident' }],
+    };
+
+    renderScreen();
+
+    await waitFor(() => expect(screen.getByLabelText('Read report')).toBeTruthy());
+    fireEvent.press(screen.getByLabelText('Read report'));
+
+    await waitFor(() => expect(screen.getByText(/Alice Resident/)).toBeTruthy());
+    expect(screen.getByText(/Bob Resident/)).toBeTruthy();
   });
 });

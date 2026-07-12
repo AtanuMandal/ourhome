@@ -788,6 +788,143 @@ public class CreateMaintenanceScheduleCommandHandlerTests
         _scheduleRepoMock.Verify(r => r.CreateAsync(It.IsAny<MaintenanceSchedule>(), It.IsAny<CancellationToken>()), Times.Once);
         _chargeRepoMock.Verify(r => r.CreateAsync(It.IsAny<MaintenanceCharge>(), It.IsAny<CancellationToken>()), Times.Exactly(6));
     }
+
+    [Fact]
+    public async Task Handle_WithActiveScheduleForDifferentApartment_Succeeds()
+    {
+        // Arrange — an active schedule already exists for a different apartment; the new
+        // schedule targets its own apartment, so scopes don't overlap.
+        var existingApartment = Apartment.Create("soc-001", "A-101", "A", 1, 3, [], 500, 600, 700);
+        var newApartment = Apartment.Create("soc-001", "A-102", "A", 1, 3, [], 500, 600, 700);
+        var existingSchedule = MaintenanceSchedule.Create(
+            "soc-001", existingApartment.Id, "Existing", null, 2000m,
+            MaintenancePricingType.FixedAmount, null, FeeFrequency.Monthly, 5, 4, 2026, 3, 2027);
+
+        _currentUserMock.Setup(x => x.IsInRoles(It.IsAny<string[]>())).Returns(true);
+        _scheduleRepoMock
+            .Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync([existingSchedule]);
+        _scheduleRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<MaintenanceSchedule>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MaintenanceSchedule s, CancellationToken _) => s);
+        _apartmentRepoMock
+            .Setup(r => r.GetByIdAsync(newApartment.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(newApartment);
+        _apartmentRepoMock
+            .Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync([newApartment]);
+        _chargeRepoMock
+            .Setup(r => r.GetByScheduleAndPeriodAsync("soc-001", It.IsAny<string>(), newApartment.Id, It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MaintenanceCharge?)null);
+        _chargeRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<MaintenanceCharge>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MaintenanceCharge c, CancellationToken _) => c);
+        _chargeRepoMock
+            .Setup(r => r.GetByScheduleAsync("soc-001", It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        _chargeRepoMock
+            .Setup(r => r.GetByDueDateRangeAsync("soc-001", It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string _, DateTime __, DateTime ___, CancellationToken ____) => new List<MaintenanceCharge>());
+        _gridViewRepoMock
+            .Setup(r => r.GetByFinancialYearAsync("soc-001", It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MaintenanceChargeGridView?)null);
+        _gridViewRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<MaintenanceChargeGridView>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MaintenanceChargeGridView view, CancellationToken _) => view);
+
+        var handler = CreateHandler();
+        var command = new CreateMaintenanceScheduleCommand(
+            "soc-001", "New apartment schedule", null, newApartment.Id, 2500m,
+            MaintenancePricingType.FixedAmount, null, FeeFrequency.Monthly, 5, 4, 2026, 9, 2026);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Handle_WithActiveScheduleForSameApartment_ReturnsConflict()
+    {
+        // Arrange — an active schedule already exists for the SAME apartment with an overlapping window.
+        var apartment = Apartment.Create("soc-001", "A-101", "A", 1, 3, [], 500, 600, 700);
+        var existingSchedule = MaintenanceSchedule.Create(
+            "soc-001", apartment.Id, "Existing", null, 2000m,
+            MaintenancePricingType.FixedAmount, null, FeeFrequency.Monthly, 5, 4, 2026, 3, 2027);
+
+        _currentUserMock.Setup(x => x.IsInRoles(It.IsAny<string[]>())).Returns(true);
+        _scheduleRepoMock
+            .Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync([existingSchedule]);
+
+        var handler = CreateHandler();
+        var command = new CreateMaintenanceScheduleCommand(
+            "soc-001", "Overlapping same-apartment schedule", null, apartment.Id, 2500m,
+            MaintenancePricingType.FixedAmount, null, FeeFrequency.Monthly, 5, 6, 2026, 9, 2026);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.Conflict);
+        _scheduleRepoMock.Verify(r => r.CreateAsync(It.IsAny<MaintenanceSchedule>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_WithActiveSocietyWideScheduleAndNewApartmentSpecificSchedule_Succeeds()
+    {
+        // Arrange — an active society-wide schedule (ApartmentId null) shouldn't block a new
+        // apartment-specific schedule with an overlapping window; different scopes.
+        var apartment = Apartment.Create("soc-001", "A-101", "A", 1, 3, [], 500, 600, 700);
+        var societyWideSchedule = MaintenanceSchedule.Create(
+            "soc-001", null, "Society-wide", null, 2000m,
+            MaintenancePricingType.FixedAmount, null, FeeFrequency.Monthly, 5, 4, 2026, 3, 2027);
+
+        _currentUserMock.Setup(x => x.IsInRoles(It.IsAny<string[]>())).Returns(true);
+        _scheduleRepoMock
+            .Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync([societyWideSchedule]);
+        _scheduleRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<MaintenanceSchedule>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MaintenanceSchedule s, CancellationToken _) => s);
+        _apartmentRepoMock
+            .Setup(r => r.GetByIdAsync(apartment.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(apartment);
+        _apartmentRepoMock
+            .Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync([apartment]);
+        _chargeRepoMock
+            .Setup(r => r.GetByScheduleAndPeriodAsync("soc-001", It.IsAny<string>(), apartment.Id, It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MaintenanceCharge?)null);
+        _chargeRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<MaintenanceCharge>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MaintenanceCharge c, CancellationToken _) => c);
+        _chargeRepoMock
+            .Setup(r => r.GetByScheduleAsync("soc-001", It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        _chargeRepoMock
+            .Setup(r => r.GetByDueDateRangeAsync("soc-001", It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string _, DateTime __, DateTime ___, CancellationToken ____) => new List<MaintenanceCharge>());
+        _gridViewRepoMock
+            .Setup(r => r.GetByFinancialYearAsync("soc-001", It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MaintenanceChargeGridView?)null);
+        _gridViewRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<MaintenanceChargeGridView>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MaintenanceChargeGridView view, CancellationToken _) => view);
+
+        var handler = CreateHandler();
+        var command = new CreateMaintenanceScheduleCommand(
+            "soc-001", "Apartment override", null, apartment.Id, 2500m,
+            MaintenancePricingType.FixedAmount, null, FeeFrequency.Monthly, 5, 4, 2026, 9, 2026);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+    }
 }
 
 public class SubmitMaintenancePaymentProofCommandHandlerTests

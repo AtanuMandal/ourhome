@@ -259,15 +259,16 @@ public class GetSosAlertQueryHandlerTests
     }
 
     [Fact]
-    public async Task Handle_ByUnrelatedResident_ReturnsForbidden()
+    public async Task Handle_ByUnrelatedResident_StillReturnsAlert()
     {
+        // Any authenticated society member can view an SOS alert — only acting on it
+        // (acknowledge/resolve) is restricted to SUAdmin/SUSecurity.
         var alert = SosAlert.Create("soc-001", "apt-001", "user-001", "Jane Resident", SosCategory.Fire, null);
         _alertRepoMock.Setup(r => r.GetByIdAsync(alert.Id, "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync(alert);
 
         var result = await CreateHandler().Handle(new GetSosAlertQuery("soc-001", alert.Id, "other-user", "SUUser"), CancellationToken.None);
 
-        result.IsFailure.Should().BeTrue();
-        result.ErrorCode.Should().Be(ErrorCodes.Forbidden);
+        result.IsSuccess.Should().BeTrue();
     }
 }
 

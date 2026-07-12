@@ -115,6 +115,81 @@ public class GetSocietyLedgerQueryHandlerTests
     }
 }
 
+public class GetSocietySummaryQueryHandlerTests
+{
+    private readonly Mock<IMaintenanceChargeRepository> _maintenanceChargeRepoMock = new();
+    private readonly Mock<IVendorChargeRepository> _vendorChargeRepoMock = new();
+    private readonly Mock<ICurrentUserService> _currentUserMock = new();
+    private readonly Mock<ILogger<GetSocietySummaryQueryHandler>> _loggerMock = new();
+
+    private const string SocietyId = "society-001";
+
+    private GetSocietySummaryQueryHandler CreateHandler() =>
+        new(_maintenanceChargeRepoMock.Object, _vendorChargeRepoMock.Object, _currentUserMock.Object, _loggerMock.Object);
+
+    private void SetupEmptyCharges()
+    {
+        _maintenanceChargeRepoMock
+            .Setup(r => r.GetBySocietyAsync(SocietyId, 1, 10_000, null, null, It.IsAny<int?>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        _vendorChargeRepoMock
+            .Setup(r => r.GetBySocietyAsync(SocietyId, 1, 10_000, null, null, It.IsAny<int?>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        _maintenanceChargeRepoMock
+            .Setup(r => r.GetByDueDateRangeAsync(SocietyId, It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        _vendorChargeRepoMock
+            .Setup(r => r.GetByYearAsync(SocietyId, It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+    }
+
+    [Fact]
+    public async Task Handle_AsTenant_ReturnsForbidden()
+    {
+        _currentUserMock.Setup(c => c.IsInRole("SUUser")).Returns(true);
+        _currentUserMock.Setup(c => c.IsInRoles(It.IsAny<string[]>())).Returns(true);
+        _currentUserMock.Setup(c => c.ResidentType).Returns("Tenant");
+        SetupEmptyCharges();
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(new GetSocietySummaryQuery(SocietyId), CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ApartmentManagement.Shared.Constants.ErrorCodes.Forbidden);
+    }
+
+    [Theory]
+    [InlineData("Owner")]
+    [InlineData("FamilyMember")]
+    [InlineData("CoOccupant")]
+    [InlineData(null)]
+    public async Task Handle_AsNonTenantSUUser_Succeeds(string? residentType)
+    {
+        _currentUserMock.Setup(c => c.IsInRole("SUUser")).Returns(true);
+        _currentUserMock.Setup(c => c.IsInRoles(It.IsAny<string[]>())).Returns(true);
+        _currentUserMock.Setup(c => c.ResidentType).Returns(residentType);
+        SetupEmptyCharges();
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(new GetSocietySummaryQuery(SocietyId), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Handle_AsSUAdmin_Succeeds()
+    {
+        _currentUserMock.Setup(c => c.IsInRole("SUUser")).Returns(false);
+        _currentUserMock.Setup(c => c.IsInRoles(It.IsAny<string[]>())).Returns(true);
+        SetupEmptyCharges();
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(new GetSocietySummaryQuery(SocietyId), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+    }
+}
+
 public class GetFinancialDashboardQueryHandlerUpcomingChargesTests
 {
     private readonly Mock<IMaintenanceChargeRepository> _maintenanceChargeRepoMock = new();

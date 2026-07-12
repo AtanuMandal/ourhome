@@ -273,6 +273,17 @@ public sealed class CreateNoticeCommandValidator : AbstractValidator<CreateNotic
     }
 }
 
+public sealed class UpdateNoticeCommandValidator : AbstractValidator<UpdateNoticeCommand>
+{
+    public UpdateNoticeCommandValidator()
+    {
+        RuleFor(x => x.SocietyId).NotEmpty();
+        RuleFor(x => x.NoticeId).NotEmpty();
+        RuleFor(x => x.Title).NotEmpty();
+        RuleFor(x => x.Content).NotEmpty();
+    }
+}
+
 public sealed class MarkNoticeReadCommandValidator : AbstractValidator<MarkNoticeReadCommand>
 {
     public MarkNoticeReadCommandValidator()

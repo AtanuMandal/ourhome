@@ -137,7 +137,8 @@ public class FeeGamificationIntegrationTests : IntegrationTestBase
 
         updateResult.IsSuccess.Should().BeTrue();
         updateResult.Value!.IsActive.Should().BeFalse();
-        updateResult.Value.InactiveFromDate.Should().Be(new DateTime(2026, 7, 10, 0, 0, 0, DateTimeKind.Utc));
+        // The effective month itself (July) stays billed; only the following cycle (August) onward is cut off.
+        updateResult.Value.InactiveFromDate.Should().Be(new DateTime(2026, 8, 10, 0, 0, 0, DateTimeKind.Utc));
         updateResult.Value.ChangeHistory.Should().ContainSingle();
     }
 
@@ -174,16 +175,19 @@ public class FeeGamificationIntegrationTests : IntegrationTestBase
             .Where(charge => charge.ScheduleId == schedule.Id)
             .ToList();
 
-        scheduleCharges.Should().HaveCount(2);
+        // The effective month (June) still gets billed; only July onward is cancelled — April, May, June remain.
+        scheduleCharges.Should().HaveCount(3);
         scheduleCharges
             .Select(charge => charge.DueDate)
             .Should()
-            .OnlyContain(dueDate => dueDate < new DateTime(2026, 6, 5, 0, 0, 0, DateTimeKind.Utc));
+            .OnlyContain(dueDate => dueDate < new DateTime(2026, 7, 5, 0, 0, 0, DateTimeKind.Utc));
     }
 
     [Fact]
-    public async Task CreateMaintenanceSchedule_WhenAnotherActiveScheduleExists_ReturnsConflict()
+    public async Task CreateMaintenanceSchedule_ForADifferentApartmentScope_Succeeds()
     {
+        // A society-wide schedule and an apartment-specific schedule are different scopes —
+        // only one active schedule per scope is enforced, not one active schedule for the whole society.
         var context = await SeedMaintenanceContextAsync();
 
         var firstResult = await Mediator.Send(new CreateMaintenanceScheduleCommand(
@@ -191,6 +195,45 @@ public class FeeGamificationIntegrationTests : IntegrationTestBase
             "Primary schedule",
             null,
             null,
+            1200m,
+            MaintenancePricingType.FixedAmount,
+            null,
+            FeeFrequency.Monthly,
+            5,
+            4,
+            2026,
+            12,
+            2026));
+
+        var secondResult = await Mediator.Send(new CreateMaintenanceScheduleCommand(
+            context.Society.Id,
+            "Second schedule",
+            null,
+            context.Apartment.Id,
+            900m,
+            MaintenancePricingType.FixedAmount,
+            null,
+            FeeFrequency.Monthly,
+            5,
+            5,
+            2026,
+            3,
+            2027));
+
+        firstResult.IsSuccess.Should().BeTrue();
+        secondResult.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CreateMaintenanceSchedule_WhenAnotherActiveScheduleExistsInSameScope_ReturnsConflict()
+    {
+        var context = await SeedMaintenanceContextAsync();
+
+        var firstResult = await Mediator.Send(new CreateMaintenanceScheduleCommand(
+            context.Society.Id,
+            "Primary schedule",
+            null,
+            context.Apartment.Id,
             1200m,
             MaintenancePricingType.FixedAmount,
             null,

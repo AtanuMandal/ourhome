@@ -33,6 +33,8 @@ export function SosAlertListScreen() {
   const societyId = useSocietyId();
   const role = useAuthStore((s) => s.user?.role ?? '');
   const isAdmin = role === 'SUAdmin';
+  // Any resident can view alerts; only SUAdmin/SUSecurity can acknowledge/resolve them.
+  const canAct = role === 'SUAdmin' || role === 'SUSecurity';
   const [statusFilter, setStatusFilter] = useState<SosAlertStatus | undefined>(undefined);
 
   const { data, isLoading, fetchNextPage, hasNextPage, refetch } = useSosAlertList(
@@ -66,12 +68,12 @@ export function SosAlertListScreen() {
             <Text style={styles.statusChipText}>{item.status}</Text>
           </View>
           <View style={styles.actions}>
-            {item.status === 'Triggered' && (
+            {canAct && item.status === 'Triggered' && (
               <TouchableOpacity style={styles.ackButton} onPress={() => handleAcknowledge(item)} disabled={acknowledge.isPending}>
                 <Text style={styles.ackButtonText}>Acknowledge</Text>
               </TouchableOpacity>
             )}
-            {(item.status === 'Triggered' || item.status === 'Acknowledged') && (
+            {canAct && (item.status === 'Triggered' || item.status === 'Acknowledged') && (
               <TouchableOpacity style={styles.resolveButton} onPress={() => handleResolve(item)} disabled={resolve.isPending}>
                 <Text style={styles.resolveButtonText}>Resolve</Text>
               </TouchableOpacity>
@@ -80,7 +82,7 @@ export function SosAlertListScreen() {
         </View>
       </View>
     );
-  }, [handleAcknowledge, handleResolve, acknowledge.isPending, resolve.isPending]);
+  }, [handleAcknowledge, handleResolve, acknowledge.isPending, resolve.isPending, canAct]);
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>

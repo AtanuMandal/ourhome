@@ -468,6 +468,12 @@ public sealed class GetSocietySummaryQueryHandler(
                 return Result<SocietySummaryDto>.Failure(ErrorCodes.Forbidden,
                     "Authentication required to view society summary.");
 
+            // Society summary is aggregate financial reporting — tenants (as opposed to owners/
+            // family members/co-occupants) get their own statement/ledger but not society-wide reports.
+            if (currentUser.IsInRole("SUUser") && string.Equals(currentUser.ResidentType, "Tenant", StringComparison.OrdinalIgnoreCase))
+                return Result<SocietySummaryDto>.Failure(ErrorCodes.Forbidden,
+                    "Tenants do not have access to society financial reports.");
+
             var now    = DateTime.UtcNow;
             var month  = now.Month;
             var year   = now.Year;

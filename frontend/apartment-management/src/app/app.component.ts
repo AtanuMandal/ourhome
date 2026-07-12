@@ -163,12 +163,21 @@ export class AppComponent {
   }
 
   readonly visibleNav = computed<SideNavItem[]>(() => {
-    switch (this.user()?.role) {
-      case 'SUUser':     return AppComponent.NAV_SUUSER;
-      case 'SUAdmin':    return AppComponent.NAV_SUADMIN;
-      case 'SUSecurity': return AppComponent.NAV_SECURITY;
-      default:           return AppComponent.NAV_HQ;
+    const items = (() => {
+      switch (this.user()?.role) {
+        case 'SUUser':     return AppComponent.NAV_SUUSER;
+        case 'SUAdmin':    return AppComponent.NAV_SUADMIN;
+        case 'SUSecurity': return AppComponent.NAV_SECURITY;
+        default:           return AppComponent.NAV_HQ;
+      }
+    })();
+
+    // Society Finances is aggregate/society-wide reporting — tenants keep My Statement
+    // (their own ledger) but not this.
+    if (this.auth.isTenant()) {
+      return items.filter(item => item.path !== '/financial-report/society-summary');
     }
+    return items;
   });
 
   logout() { this.auth.logout(); }

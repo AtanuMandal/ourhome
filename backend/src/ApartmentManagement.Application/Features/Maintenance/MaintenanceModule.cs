@@ -46,7 +46,9 @@ public sealed class CreateMaintenanceScheduleCommandHandler(
             var newActiveFromDate = new DateTime(request.StartYear, request.StartMonth, request.DueDay, 0, 0, 0, DateTimeKind.Utc);
             var newActiveUntilDate = new DateTime(request.EndYear, request.EndMonth, request.DueDay, 0, 0, 0, DateTimeKind.Utc);
             var allSchedules = await scheduleRepository.GetAllAsync(request.SocietyId, ct);
-            if (allSchedules.Any(schedule => MaintenanceScheduleWindowHelper.ScheduleWindowsOverlap(schedule.ActiveFromDate, schedule.ScheduleWindowEndDate(), newActiveFromDate, newActiveUntilDate)))
+            if (allSchedules.Any(schedule =>
+                    MaintenanceScheduleWindowHelper.SameScope(schedule.ApartmentId, request.ApartmentId) &&
+                    MaintenanceScheduleWindowHelper.ScheduleWindowsOverlap(schedule.ActiveFromDate, schedule.ScheduleWindowEndDate(), newActiveFromDate, newActiveUntilDate)))
                 return Result<MaintenanceScheduleDto>.Failure(ErrorCodes.Conflict, "Another maintenance schedule is already active during the selected period.");
 
             var schedule = MaintenanceSchedule.Create(
@@ -119,6 +121,7 @@ public sealed class UpdateMaintenanceScheduleCommandHandler(
                 var allSchedules = await scheduleRepository.GetAllAsync(request.SocietyId, ct);
                 if (allSchedules.Any(existingSchedule =>
                         !string.Equals(existingSchedule.Id, schedule.Id, StringComparison.OrdinalIgnoreCase) &&
+                        MaintenanceScheduleWindowHelper.SameScope(existingSchedule.ApartmentId, schedule.ApartmentId) &&
                         MaintenanceScheduleWindowHelper.ScheduleWindowsOverlap(existingSchedule.ActiveFromDate, existingSchedule.ScheduleWindowEndDate(), effectiveDueDate, schedule.ScheduleWindowEndDate())))
                 {
                     return Result<MaintenanceScheduleDto>.Failure(ErrorCodes.Conflict, "Another maintenance schedule is already active during the selected period.");
@@ -854,5 +857,12 @@ file static class MaintenanceScheduleWindowHelper
     public static bool ScheduleWindowsOverlap(DateTime firstStart, DateTime firstEndInclusive, DateTime secondStart, DateTime secondEndInclusive)
     {
         return firstStart <= secondEndInclusive && secondStart <= firstEndInclusive;
+    }
+
+    /// <summary>Society-wide (null/empty ApartmentId) and per-apartment schedules are independent
+    /// scopes — "no more than one active schedule at a time" only applies within the same scope.</summary>
+    public static bool SameScope(string? apartmentIdA, string? apartmentIdB)
+    {
+        return string.Equals(apartmentIdA ?? string.Empty, apartmentIdB ?? string.Empty, StringComparison.OrdinalIgnoreCase);
     }
 }

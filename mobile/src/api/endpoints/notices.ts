@@ -9,6 +9,22 @@ export interface CreateNoticeRequest {
   expiresAt?: string;
 }
 
+export interface UpdateNoticeRequest {
+  title: string;
+  content: string;
+  expiresAt?: string;
+}
+
+export interface NoticeReadReceiptEntry {
+  userId: string;
+  fullName: string;
+}
+
+export interface NoticeReadReceipts {
+  read: NoticeReadReceiptEntry[];
+  unread: NoticeReadReceiptEntry[];
+}
+
 export const noticesApi = {
   getNotices: (
     societyId: string,
@@ -32,5 +48,15 @@ export const noticesApi = {
   createNotice: (societyId: string, data: CreateNoticeRequest) =>
     api
       .post<Notice>(`/societies/${societyId}/notices`, data)
+      .then((r) => r.data),
+
+  updateNotice: (societyId: string, id: string, data: UpdateNoticeRequest) =>
+    api
+      .put<Notice>(`/societies/${societyId}/notices/${id}`, data)
+      .then((r) => r.data),
+
+  getReadReceipts: (societyId: string, id: string) =>
+    api
+      .get<NoticeReadReceipts>(`/societies/${societyId}/notices/${id}/read-receipts`)
       .then((r) => r.data),
 };

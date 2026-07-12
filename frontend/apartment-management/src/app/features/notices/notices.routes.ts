@@ -10,6 +10,10 @@ export const NOTICE_ROUTES: Routes = [
     loadComponent: () => import('./notice-form.component').then(m => m.NoticeFormComponent),
   },
   {
+    path: 'edit/:id',
+    loadComponent: () => import('./notice-form.component').then(m => m.NoticeFormComponent),
+  },
+  {
     path: ':id',
     loadComponent: () => import('./notice-detail.component').then(m => m.NoticeDetailComponent),
   },
