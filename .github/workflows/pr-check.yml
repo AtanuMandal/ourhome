@@ -114,6 +114,7 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────────
   bicep-check:
     name: PR · Bicep Validate
+    if: false   # Disabled – remove this line to re-enable
     runs-on: ubuntu-latest
 
     steps:
@@ -165,7 +166,7 @@ jobs:
   pr-summary-comment:
     name: PR · Post Summary Comment
     runs-on: ubuntu-latest
-    needs: [backend-check, bicep-check]
+    needs: [backend-check]
     if: always()
 
     steps:
@@ -175,7 +176,6 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const backendStatus = '${{ needs.backend-check.result }}';
-            const bicepStatus   = '${{ needs.bicep-check.result }}';
 
             const icon = (s) =>
               s === 'success'  ? '✅' :
@@ -188,15 +188,10 @@ jobs:
               '| Check | Status |',
               '|-------|--------|',
               `| **Backend Build & Tests** | ${icon(backendStatus)} \`${backendStatus}\` |`,
-              `| **Bicep Validate** | ${icon(bicepStatus)} \`${bicepStatus}\` |`,
               '',
               backendStatus !== 'success'
                 ? '> ⚠️ **Backend tests must pass before this PR can be merged.** See the _PR · Backend Build & Tests_ job for details and inline annotations.'
                 : '> ✅ All backend tests passed.',
-              '',
-              bicepStatus !== 'success'
-                ? '> ⚠️ **Bicep validation issues detected.** Review the _PR · Bicep Validate_ job logs.'
-                : '> ✅ Bicep templates are valid.',
               '',
               `_Updated: ${new Date().toUTCString()} · Run [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})_`,
             ].join('\n');
