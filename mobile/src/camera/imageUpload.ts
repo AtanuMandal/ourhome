@@ -1,5 +1,5 @@
 import * as ImageManipulator from 'expo-image-manipulator';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 
 const BASE_URL = process.env['API_BASE_URL'] ?? 'http://192.168.1.5:7071/api';
 
