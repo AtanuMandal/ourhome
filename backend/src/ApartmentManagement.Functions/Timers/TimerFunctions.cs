@@ -1,5 +1,6 @@
 using ApartmentManagement.Application.Commands.Maintenance;
 using ApartmentManagement.Application.Commands.Notice;
+using ApartmentManagement.Application.Commands.Visitor;
 using ApartmentManagement.Application.Commands.Gamification;
 using ApartmentManagement.Application.Commands.Staff;
 using ApartmentManagement.Application.Commands.Sos;
@@ -123,6 +124,22 @@ public class TimerFunctions(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error in UpdatePollStatuses timer");
+        }
+    }
+
+    /// <summary>Runs every 30 minutes — checks out visitors who have been checked in for more than 24 hours.</summary>
+    [Function("AutoCheckOutOverdueVisitors")]
+    public async Task AutoCheckOutOverdueVisitors(
+        [TimerTrigger("0 */30 * * * *")] TimerInfo timer, CancellationToken ct)
+    {
+        logger.LogInformation("AutoCheckOutOverdueVisitors timer triggered");
+        try
+        {
+            await mediator.Send(new AutoCheckOutOverdueVisitorsCommand(), ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error in AutoCheckOutOverdueVisitors timer");
         }
     }
 

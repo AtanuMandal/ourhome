@@ -11,6 +11,30 @@
       <app-sos-trigger></app-sos-trigger>
     }
 
+    <!-- Apartment joining invitation (accept / deny) -->
+    @if (pendingInvitationApartmentId()) {
+      <section class="section">
+        <div class="invite-card">
+          <div class="invite-card__icon">
+            <span class="material-icons">home_work</span>
+          </div>
+          <div class="invite-card__content">
+            <span class="invite-card__title">Apartment joining invitation</span>
+            <span class="invite-card__sub">
+              You have been invited to join {{ pendingInvitationApartmentLabel() || 'an apartment' }}.
+            </span>
+          </div>
+          <div class="invite-card__actions">
+            <button mat-raised-button color="primary" [disabled]="invitationBusy()" (click)="acceptInvitation()">Accept</button>
+            <button mat-stroked-button color="warn" [disabled]="invitationBusy()" (click)="denyInvitation()">Deny</button>
+          </div>
+        </div>
+        @if (invitationError()) {
+          <p class="invite-card__error">{{ invitationError() }}</p>
+        }
+      </section>
+    }
+
     <!-- Quick actions -->
     <section class="section">
       <h2 class="section-title">Quick Actions</h2>

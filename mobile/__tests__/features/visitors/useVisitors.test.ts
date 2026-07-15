@@ -93,7 +93,7 @@ describe('useVisitors', () => {
     expect(result.current.hasNextPage).toBe(false);
   });
 
-  test('useVisitorDefaultView merges pending visitors with the 10 most recent, de-duplicated by id', async () => {
+  test('useVisitorDefaultView merges pending and checked-in visitors with the 10 most recent, de-duplicated by id', async () => {
     const makeVisitor = (id: string, status: string): Visitor => ({
       id,
       societyId: 'soc1',
@@ -107,11 +107,16 @@ describe('useVisitors', () => {
     });
 
     const pendingItems = [makeVisitor('p1', 'Pending'), makeVisitor('p2', 'Pending')];
+    // Checked-in visitors are on the premises — always included so security can check them out.
+    const checkedInItems = [makeVisitor('ci1', 'CheckedIn')];
     const recentItems = [makeVisitor('p1', 'Pending'), makeVisitor('c1', 'CheckedOut')];
 
     mockGetVisitors.mockImplementation((_societyId, params) => {
       if (params?.status === 'Pending') {
         return Promise.resolve({ items: pendingItems, total: 2, page: 1, pageSize: 200 });
+      }
+      if (params?.status === 'CheckedIn') {
+        return Promise.resolve({ items: checkedInItems, total: 1, page: 1, pageSize: 200 });
       }
       return Promise.resolve({ items: recentItems, total: 2, page: 1, pageSize: 10 });
     });
@@ -120,7 +125,7 @@ describe('useVisitors', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    expect(result.current.data?.map(v => v.id).sort()).toEqual(['c1', 'p1', 'p2']);
+    expect(result.current.data?.map(v => v.id).sort()).toEqual(['c1', 'ci1', 'p1', 'p2']);
   });
 
   test('useVisitorLookups returns companies and purposes for the society', async () => {

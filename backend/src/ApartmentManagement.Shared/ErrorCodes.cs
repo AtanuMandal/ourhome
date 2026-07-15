@@ -63,6 +63,7 @@ public static class ErrorCodes
 
     public const string InvalidInviteToken = "INVALID_INVITE_TOKEN";
     public const string NoPendingApartmentRequest = "NO_PENDING_APARTMENT_REQUEST";
+    public const string ApartmentUserCapReached = "APARTMENT_USER_CAP_REACHED";
 
     public const string StaffNotFound = "STAFF_NOT_FOUND";
     public const string StaffInactive = "STAFF_INACTIVE";

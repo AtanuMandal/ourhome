@@ -6,14 +6,19 @@ import {
   TouchableOpacity,
   RefreshControl,
   StyleSheet,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, DrawerActions } from '@react-navigation/native';
+import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../../store/authStore';
 import { useDashboard } from './useDashboard';
+import { useProfile, useSettleApartmentInvitation } from '../profile/hooks/useProfile';
+import { apartmentsApi } from '../../api/endpoints/apartments';
 import { AppHeader } from '../../shared/components/AppHeader';
 import { CurrencyText } from '../../shared/components/CurrencyText';
 import { SosTriggerCard } from '../sos/SosTriggerCard';
+import { normalizeError } from '../../shared/utils/errors';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing } from '../../theme/spacing';
@@ -104,9 +109,62 @@ function QuickActionGrid({ role }: { role: string }) {
   );
 }
 
+/**
+ * Shown when another resident shared an apartment joining link with this already-registered
+ * account — the invited user accepts or declines the invitation right on the dashboard.
+ */
+function ApartmentInvitationCard({ societyId, userId, apartmentId }: {
+  societyId: string;
+  userId: string;
+  apartmentId: string;
+}) {
+  const { mutateAsync: settle, isPending } = useSettleApartmentInvitation(societyId, userId);
+  const { data: apartment } = useQuery({
+    queryKey: ['apartments', societyId, apartmentId],
+    queryFn: () => apartmentsApi.getApartment(societyId, apartmentId),
+    enabled: !!societyId && !!apartmentId,
+  });
+
+  const label = apartment
+    ? `${apartment.blockName ? apartment.blockName + ' ' : ''}${apartment.floorNumber}-${apartment.apartmentNumber}`
+    : 'an apartment';
+
+  async function respond(accept: boolean): Promise<void> {
+    try {
+      await settle(accept);
+    } catch (e) {
+      Alert.alert('Error', normalizeError(e));
+    }
+  }
+
+  return (
+    <View style={styles.inviteCard}>
+      <Text style={styles.inviteTitle}>Apartment joining invitation</Text>
+      <Text style={styles.inviteSub}>You have been invited to join {label}.</Text>
+      <View style={styles.inviteActions}>
+        <TouchableOpacity
+          style={[styles.inviteBtn, styles.inviteBtnAccept]}
+          disabled={isPending}
+          onPress={() => void respond(true)}
+        >
+          <Text style={styles.inviteBtnAcceptText}>Accept</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.inviteBtn, styles.inviteBtnDeny]}
+          disabled={isPending}
+          onPress={() => void respond(false)}
+        >
+          <Text style={styles.inviteBtnDenyText}>Deny</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
 export function DashboardScreen() {
   const user = useAuthStore((s) => s.user);
   const { data, isLoading, refetch } = useDashboard();
+  const { data: profile } = useProfile(user?.societyId ?? '', user?.id ?? '');
 
   const greeting = getGreeting();
   const isAdmin = user?.role === 'SUAdmin' || user?.role === 'HQAdmin';
@@ -130,6 +188,14 @@ export function DashboardScreen() {
         </View>
 
         {user?.role === 'SUUser' && <SosTriggerCard />}
+
+        {!!profile?.pendingApartmentId && user && (
+          <ApartmentInvitationCard
+            societyId={user.societyId}
+            userId={user.id}
+            apartmentId={profile.pendingApartmentId}
+          />
+        )}
 
         <Text style={styles.sectionTitle}>Today's Summary</Text>
         <View style={styles.cards}>
@@ -184,6 +250,36 @@ function getGreeting(): string {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: spacing.md },
+  inviteCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  inviteTitle: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.text.primary,
+  },
+  inviteSub: {
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
+    marginTop: 2,
+    marginBottom: spacing.sm,
+  },
+  inviteActions: { flexDirection: 'row', gap: spacing.sm },
+  inviteBtn: {
+    flex: 1,
+    borderRadius: 8,
+    padding: spacing.sm,
+    alignItems: 'center',
+  },
+  inviteBtnAccept: { backgroundColor: colors.primary },
+  inviteBtnAcceptText: { color: '#FFF', fontWeight: typography.fontWeight.semibold },
+  inviteBtnDeny: { borderWidth: 1, borderColor: colors.error },
+  inviteBtnDenyText: { color: colors.error, fontWeight: typography.fontWeight.semibold },
   header: { marginBottom: spacing.lg },
   greeting: {
     fontSize: typography.fontSize.base,

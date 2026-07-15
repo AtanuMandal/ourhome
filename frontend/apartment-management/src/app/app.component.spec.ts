@@ -14,6 +14,10 @@ function configureAppComponentTestBed(matches: boolean, role: string = 'SUUser')
     isLoggedIn: () => true,
     user: () => ({ fullName: 'Alice', role }),
     isTenant: () => false,
+    apartments: () => [],
+    selectedApartmentId: () => null,
+    setSelectedApartment: jasmine.createSpy(),
+    refreshUserProfile: jasmine.createSpy(),
     logout: jasmine.createSpy(),
   };
   const pushServiceStub = {
@@ -202,6 +206,10 @@ describe('AppComponent — role-based side nav visibility', () => {
         isLoggedIn: () => true,
         user: () => ({ fullName: 'Alice', role: 'SUUser' }),
         isTenant: () => true,
+        apartments: () => [],
+        selectedApartmentId: () => null,
+        setSelectedApartment: jasmine.createSpy(),
+        refreshUserProfile: jasmine.createSpy(),
         logout: jasmine.createSpy(),
       },
     });

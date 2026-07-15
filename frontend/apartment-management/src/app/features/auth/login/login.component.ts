@@ -1,7 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, Validators, ReactiveFormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
@@ -27,6 +27,18 @@ export class LoginComponent {
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+
+  constructor() {
+    // Apartment-invitation emails link here with the invitee's address prepopulated
+    // (e.g. /auth/login?email=user@example.com) — switch to the email flow and prefill.
+    const email = this.route.snapshot.queryParamMap.get('email');
+    if (email) {
+      this.method.set('email');
+      this.auth.setLoginMethod('email');
+      this.form.patchValue({ email });
+    }
+  }
 
   readonly loading = signal(false);
   readonly error = signal('');

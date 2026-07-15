@@ -16,17 +16,23 @@ export function useVisitorList(
   });
 }
 
-/** No filter applied — all Pending visitors plus the 10 most recent overall, not the whole history. */
+/**
+ * No filter applied — all Pending and CheckedIn visitors plus the 10 most recent overall, not
+ * the whole history. Checked-in visitors are on the premises right now, so they must always be
+ * visible for security to check out on exit — they never age out of this view.
+ */
 export function useVisitorDefaultView(societyId: string, enabled = true) {
   return useQuery({
     queryKey: ['visitors-default', societyId],
     queryFn: async () => {
-      const [pendingRes, recentRes] = await Promise.all([
+      const [pendingRes, checkedInRes, recentRes] = await Promise.all([
         visitorsApi.getVisitors(societyId, { status: 'Pending', page: 1, pageSize: 200 }),
+        visitorsApi.getVisitors(societyId, { status: 'CheckedIn', page: 1, pageSize: 200 }),
         visitorsApi.getVisitors(societyId, { page: 1, pageSize: 10 }),
       ]);
       const merged = new Map<string, Visitor>();
       for (const visitor of pendingRes.items) merged.set(visitor.id, visitor);
+      for (const visitor of checkedInRes.items) if (!merged.has(visitor.id)) merged.set(visitor.id, visitor);
       for (const visitor of recentRes.items) if (!merged.has(visitor.id)) merged.set(visitor.id, visitor);
       return [...merged.values()];
     },
@@ -53,6 +59,8 @@ export function useVisitorLookups(societyId: string) {
 function invalidateVisitorLists(queryClient: ReturnType<typeof useQueryClient>, societyId: string) {
   void queryClient.invalidateQueries({ queryKey: ['visitors', societyId] });
   void queryClient.invalidateQueries({ queryKey: ['visitors-default', societyId] });
+  // The detail/pass screen caches a single visitor — refresh it too after any status change.
+  void queryClient.invalidateQueries({ queryKey: ['visitor', societyId] });
 }
 
 export function useRegisterVisitor(societyId: string) {

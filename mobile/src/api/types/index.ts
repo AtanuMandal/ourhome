@@ -21,6 +21,11 @@ export interface User {
   isActive: boolean;
   // Populated from UserResponse.Apartments — contains formatted display labels
   apartments?: ResidentApartmentInfo[];
+  /** App-relative file URL of the profile picture (served via authenticated files endpoint). */
+  profilePictureUrl?: string;
+  /** Apartment joining invitation awaiting this user's accept/deny. */
+  pendingApartmentId?: string;
+  pendingResidentType?: string;
 }
 
 export interface LoginRequest {
@@ -41,6 +46,7 @@ export interface AuthUserDto {
   apartmentId: string | null;
   isVerified: boolean;
   permissions: string[];
+  profilePictureUrl?: string | null;
 }
 
 export interface LoginOptionDto {
@@ -87,6 +93,9 @@ export interface Visitor {
   validUntil?: string;
   visitorImageUrl?: string;
   isPassExpired: boolean;
+  /** Checked in past the society's overstay threshold — render in red. */
+  isOverstay?: boolean;
+  isAutoCheckedOut?: boolean;
 }
 
 // Matches backend NoticeResponse
@@ -104,6 +113,8 @@ export interface Notice {
   createdAt: string;
   targetApartmentIds: string[];
   isReadByCurrentUser: boolean;
+  /** Full name of the poster — always show this instead of the raw user id. */
+  postedByName?: string;
 }
 
 // Matches backend ComplaintResponse

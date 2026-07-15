@@ -13,7 +13,7 @@ describe('HqSocietyFormComponent', () => {
       society: {
         id: 's1', name: 'Green Valley',
         address: { street: '1 Main St', city: 'Bengaluru', state: 'Karnataka', postalCode: '560001', country: 'India' },
-        totalBlocks: 2, totalApartments: 40, maintenanceOverdueThresholdDays: 7,
+        totalBlocks: 2, totalApartments: 40, maintenanceOverdueThresholdDays: 7, maxUsersPerApartment: 10, visitorOverstayThresholdHours: 5,
         status: 'Draft', adminUserIds: [], societyUsers: [], committees: [], themeId: 'ocean', createdAt: '2026-01-01T00:00:00Z',
       },
       admin: { id: 'a1', fullName: 'Raj Kumar', email: 'raj@gv.com', role: 'SUAdmin' },

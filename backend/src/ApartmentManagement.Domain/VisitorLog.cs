@@ -27,6 +27,7 @@ public sealed class VisitorLog : BaseEntity
     public string? VehicleNumber { get; private set; }
     public DateTime? ValidUntil { get; private set; }
     public string? VisitorImageUrl { get; private set; }
+    public bool IsAutoCheckedOut { get; private set; }
 
     /// <summary>Duration of the visit, available after checkout.</summary>
     public TimeSpan? Duration => CheckOutTime.HasValue && CheckInTime.HasValue
@@ -124,6 +125,26 @@ public sealed class VisitorLog : BaseEntity
         CheckOutTime = DateTime.UtcNow;
         TouchUpdatedAt();
     }
+
+    /// <summary>
+    /// System-initiated checkout for visitors who never checked out. Unlike <see cref="CheckOut"/>,
+    /// this marks the record so reports can distinguish it from a security-performed checkout.
+    /// </summary>
+    public void AutoCheckOut()
+    {
+        if (Status != VisitorStatus.CheckedIn)
+            throw new InvalidOperationException("Visitor must be checked in before auto check-out.");
+        Status = VisitorStatus.CheckedOut;
+        CheckOutTime = DateTime.UtcNow;
+        IsAutoCheckedOut = true;
+        TouchUpdatedAt();
+    }
+
+    /// <summary>True when the visitor is still checked in past the society's overstay threshold.</summary>
+    public bool IsOverstaying(int thresholdHours, DateTime? nowUtc = null) =>
+        Status == VisitorStatus.CheckedIn &&
+        CheckInTime.HasValue &&
+        (nowUtc ?? DateTime.UtcNow) - CheckInTime.Value > TimeSpan.FromHours(thresholdHours);
 
     public void UpdateQrCode(string qrCode)
     {

@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit, computed } from '@angular/core';
+import { Component, inject, signal, OnInit, computed, effect } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -14,6 +14,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { ComplaintService } from '../../core/services/complaint.service';
 import { NoticeService } from '../../core/services/notice.service';
 import { FinancialReportService } from '../../core/services/financial-report.service';
+import { ApartmentService, UserService } from '../../core/services/apartment.service';
 import { Complaint } from '../../core/models/complaint.model';
 import { Notice } from '../../core/models/notice.model';
 import { FinancialDashboard } from '../../core/models/financial-report.model';
@@ -68,6 +69,8 @@ export class DashboardComponent implements OnInit {
   private readonly complaints      = inject(ComplaintService);
   private readonly notices         = inject(NoticeService);
   private readonly financialReport = inject(FinancialReportService);
+  private readonly apartmentSvc    = inject(ApartmentService);
+  private readonly userSvc         = inject(UserService);
 
   readonly user      = this.auth.user;
   readonly societyId = this.auth.societyId;
@@ -78,6 +81,21 @@ export class DashboardComponent implements OnInit {
   readonly recentComplaints = signal<Complaint[]>([]);
   readonly recentNotices    = signal<Notice[]>([]);
   readonly financialSummary = signal<FinancialDashboard | null>(null);
+
+  // Apartment joining invitation — shown when another resident shared a joining link with this
+  // (already-registered) account; the invited user accepts or declines it right here.
+  readonly pendingInvitationApartmentId = computed(() => this.user()?.pendingApartmentId ?? null);
+  readonly pendingInvitationApartmentLabel = signal('');
+  readonly invitationBusy  = signal(false);
+  readonly invitationError = signal('');
+
+  constructor() {
+    // pendingApartmentId arrives asynchronously via AuthService.refreshUserProfile(), so react
+    // to it rather than reading it once in ngOnInit.
+    effect(() => {
+      if (this.pendingInvitationApartmentId()) this.loadInvitationLabel();
+    });
+  }
 
   readonly quickActions = computed<QuickAction[]>(() =>
     ROLE_ACTIONS[this.user()?.role ?? ''] ?? ROLE_ACTIONS['default']!
@@ -112,6 +130,49 @@ export class DashboardComponent implements OnInit {
         this.loading.set(false);
       },
       error: () => this.loading.set(false),
+    });
+  }
+
+  private loadInvitationLabel() {
+    const sid = this.societyId();
+    const apartmentId = this.pendingInvitationApartmentId();
+    if (!sid || !apartmentId) return;
+
+    this.apartmentSvc.get(sid, apartmentId).subscribe({
+      next: apt => this.pendingInvitationApartmentLabel.set(
+        `${apt.blockName ? apt.blockName + ' ' : ''}${apt.floorNumber}-${apt.apartmentNumber}`),
+      error: () => this.pendingInvitationApartmentLabel.set(''),
+    });
+  }
+
+  acceptInvitation() { this.settleInvitation(true); }
+  denyInvitation()   { this.settleInvitation(false); }
+
+  private settleInvitation(accept: boolean) {
+    const sid = this.societyId();
+    const uid = this.user()?.id;
+    if (!sid || !uid) return;
+
+    this.invitationBusy.set(true);
+    this.invitationError.set('');
+    const call = accept
+      ? this.userSvc.approveApartmentJoin(sid, uid)
+      : this.userSvc.denyApartmentJoin(sid, uid);
+
+    call.subscribe({
+      next: updated => {
+        this.invitationBusy.set(false);
+        this.auth.updateUser({
+          apartments: updated.apartments,
+          apartmentId: updated.apartmentId ?? this.user()?.apartmentId,
+          pendingApartmentId: undefined,
+          pendingResidentType: undefined,
+        });
+      },
+      error: err => {
+        this.invitationBusy.set(false);
+        this.invitationError.set(err?.error?.message ?? 'Unable to update the invitation right now.');
+      },
     });
   }
 }

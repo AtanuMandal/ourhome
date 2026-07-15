@@ -48,7 +48,9 @@ import { Society, SocietyCommittee, SocietyUserAssignment } from '../../core/mod
           <div class="detail-row"><span class="label">PIN</span><span>{{ society()?.address?.postalCode }}</span></div>
           <div class="detail-row"><span class="label">Country</span><span>{{ society()?.address?.country }}</span></div>
            <div class="detail-row"><span class="label">Apartments</span><span>{{ society()?.totalApartments }}</span></div>
+           <div class="detail-row"><span class="label">User cap per apartment</span><span>{{ society()?.maxUsersPerApartment }} user(s)</span></div>
            <div class="detail-row"><span class="label">Overdue threshold</span><span>{{ society()?.maintenanceOverdueThresholdDays }} day(s)</span></div>
+           <div class="detail-row"><span class="label">Visitor overstay threshold</span><span>{{ society()?.visitorOverstayThresholdHours }} hour(s)</span></div>
            @if (society()?.contactEmail) {
              <div class="detail-row"><span class="label">Email</span><span>{{ society()?.contactEmail }}</span></div>
           }
@@ -114,11 +116,17 @@ import { Society, SocietyCommittee, SocietyUserAssignment } from '../../core/mod
                <mat-form-field appearance="fill">
                  <mat-label>Total Apartments</mat-label>
                  <input matInput type="number" formControlName="totalApartments" min="1">
+                 <mat-hint>Managed by the platform administrator</mat-hint>
                </mat-form-field>
              </div>
              <mat-form-field appearance="fill" class="full-width">
                <mat-label>Maintenance overdue threshold (days)</mat-label>
                <input matInput type="number" formControlName="maintenanceOverdueThresholdDays" min="1" max="90">
+             </mat-form-field>
+             <mat-form-field appearance="fill" class="full-width">
+               <mat-label>Visitor overstay threshold (hours)</mat-label>
+               <input matInput type="number" formControlName="visitorOverstayThresholdHours" min="1" max="24">
+               <mat-hint>Checked-in visitors staying longer show in red in the visitor list</mat-hint>
              </mat-form-field>
 
             <mat-divider style="margin:16px 0"></mat-divider>
@@ -249,8 +257,10 @@ export class SocietyDetailComponent implements OnInit {
     contactEmail: ['', [Validators.required, Validators.email]],
     contactPhone: ['', Validators.required],
     totalBlocks: [1, [Validators.required, Validators.min(1)]],
-    totalApartments: [1, [Validators.required, Validators.min(1)]],
+    // Read-only on this page — only HQAdmin (via the HQ societies screen) can change it.
+    totalApartments: [{ value: 1, disabled: true }, [Validators.required, Validators.min(1)]],
     maintenanceOverdueThresholdDays: [7, [Validators.required, Validators.min(1), Validators.max(90)]],
+    visitorOverstayThresholdHours: [5, [Validators.required, Validators.min(1), Validators.max(24)]],
     societyUsers: this.fb.array([]),
     committees: this.fb.array([]),
   });
@@ -354,8 +364,10 @@ export class SocietyDetailComponent implements OnInit {
       contactEmail: this.form.controls.contactEmail.value ?? '',
       contactPhone: this.form.controls.contactPhone.value ?? '',
       totalBlocks: this.form.controls.totalBlocks.value ?? 1,
-      totalApartments: this.form.controls.totalApartments.value ?? 1,
+      // Sent unchanged — the backend rejects a non-HQAdmin attempt to modify it.
+      totalApartments: this.society()?.totalApartments ?? 1,
       maintenanceOverdueThresholdDays: this.form.controls.maintenanceOverdueThresholdDays.value ?? 7,
+      visitorOverstayThresholdHours: this.form.controls.visitorOverstayThresholdHours.value ?? 5,
       societyUsers: this.societyUsers.controls
         .map(control => ({
           email: control.get('email')?.value?.trim() ?? '',
@@ -393,6 +405,7 @@ export class SocietyDetailComponent implements OnInit {
       totalBlocks: society?.totalBlocks ?? 1,
       totalApartments: society?.totalApartments ?? 1,
       maintenanceOverdueThresholdDays: this.normalizeMaintenanceThreshold(society?.maintenanceOverdueThresholdDays),
+      visitorOverstayThresholdHours: this.normalizeOverstayThreshold(society?.visitorOverstayThresholdHours),
     });
 
     this.societyUsers.clear();
@@ -421,6 +434,11 @@ export class SocietyDetailComponent implements OnInit {
 
   private normalizeMaintenanceThreshold(value?: number | null) {
     if (!value || value < 1 || value > 90) return 7;
+    return value;
+  }
+
+  private normalizeOverstayThreshold(value?: number | null) {
+    if (!value || value < 1 || value > 24) return 5;
     return value;
   }
 }

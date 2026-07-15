@@ -41,7 +41,9 @@ public static class MappingExtensions
                         new SocietyUserAssignmentDto(member.UserId, member.FullName, member.Email, member.RoleTitle)).ToList()))
                 .ToList(),
             society.ThemeId,
-            society.CreatedAt);
+            society.CreatedAt,
+            society.MaxUsersPerApartment,
+            society.VisitorOverstayThresholdHours);
 
     public static ApartmentResponse ToResponse(this Apartment apartment) =>
         new(
@@ -101,7 +103,8 @@ public static class MappingExtensions
             apartments ?? [],
             user.CreatedAt,
             user.PendingApartmentId,
-            user.PendingResidentType);
+            user.PendingResidentType,
+            user.ProfilePictureUrl);
 
     /// <summary>
     /// Masks phone/email when a SUUser views another resident's record. The viewer's own record,
@@ -184,7 +187,8 @@ public static class MappingExtensions
             user.ResidentType.ToString(),
             user.ApartmentId,
             user.IsVerified,
-            user.GetPermissions());
+            user.GetPermissions(),
+            user.ProfilePictureUrl);
 
     public static AmenityResponse ToResponse(this Amenity amenity) =>
         new(
@@ -234,7 +238,7 @@ public static class MappingExtensions
             complaint.FeedbackRating,
             complaint.FeedbackComment);
 
-    public static NoticeResponse ToResponse(this Notice notice, string? currentUserId = null) =>
+    public static NoticeResponse ToResponse(this Notice notice, string? currentUserId = null, string? postedByName = null) =>
         new(
             notice.Id,
             notice.SocietyId,
@@ -248,9 +252,10 @@ public static class MappingExtensions
             notice.IsActive,
             notice.CreatedAt,
             notice.TargetApartmentIds,
-            currentUserId is not null && notice.IsReadByUser(currentUserId));
+            currentUserId is not null && notice.IsReadByUser(currentUserId),
+            postedByName);
 
-    public static VisitorResponse ToResponse(this VisitorLog log) =>
+    public static VisitorResponse ToResponse(this VisitorLog log, int? overstayThresholdHours = null) =>
         new(
             log.Id,
             log.SocietyId,
@@ -276,7 +281,9 @@ public static class MappingExtensions
             log.CreatedAt,
             log.ValidUntil,
             log.VisitorImageUrl,
-            log.IsPassExpired);
+            log.IsPassExpired,
+            log.IsOverstaying(overstayThresholdHours ?? Society.DefaultVisitorOverstayThresholdHours),
+            log.IsAutoCheckedOut);
 
     public static MaintenanceScheduleDto ToResponse(this MaintenanceSchedule schedule) =>
         new(

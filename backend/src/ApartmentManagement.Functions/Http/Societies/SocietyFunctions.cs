@@ -73,7 +73,9 @@ public class SocietyFunctions(ISender mediator, ICurrentUserService currentUser)
                 body.SocietyUsers,
                 body.Committees,
                 body.Street, body.City, body.State, body.PostalCode, body.Country,
-                body.ThemeId),
+                body.ThemeId,
+                body.MaxUsersPerApartment,
+                body.VisitorOverstayThresholdHours),
             ct);
         return result.ToActionResult();
     }

@@ -8,6 +8,7 @@ import { ComplaintService } from '../../core/services/complaint.service';
 import { NoticeService } from '../../core/services/notice.service';
 import { FinancialReportService } from '../../core/services/financial-report.service';
 import { SosService } from '../../core/services/sos.service';
+import { ApartmentService, UserService } from '../../core/services/apartment.service';
 import { FinancialDashboard } from '../../core/models/financial-report.model';
 
 describe('DashboardComponent', () => {
@@ -36,11 +37,17 @@ describe('DashboardComponent', () => {
       user: () => ({ role: isAdmin ? 'SUAdmin' : 'SUUser', fullName: 'Test User' }),
       societyId: () => 'soc-1',
       isAdmin: () => isAdmin,
+      updateUser: jasmine.createSpy(),
     };
     const sosServiceStub = {
       trigger: jasmine.createSpy(),
       get: jasmine.createSpy(),
       markFalseAlarm: jasmine.createSpy(),
+    };
+    const apartmentServiceStub = { get: jasmine.createSpy().and.returnValue(of({})) };
+    const userServiceStub = {
+      approveApartmentJoin: jasmine.createSpy().and.returnValue(of({})),
+      denyApartmentJoin: jasmine.createSpy().and.returnValue(of({})),
     };
 
     TestBed.configureTestingModule({
@@ -52,6 +59,8 @@ describe('DashboardComponent', () => {
         { provide: FinancialReportService, useValue: financialReportServiceStub },
         { provide: AuthService, useValue: authServiceStub },
         { provide: SosService, useValue: sosServiceStub },
+        { provide: ApartmentService, useValue: apartmentServiceStub },
+        { provide: UserService, useValue: userServiceStub },
       ],
     });
 

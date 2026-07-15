@@ -64,7 +64,7 @@ import { ImageLightboxComponent } from '../../shared/components/image-lightbox/i
             <h3>Visitor history</h3>
             <p>Search by visitor name, resident, date, or status.</p>
             @if (isDefaultFilterState()) {
-              <p class="filters-card__hint">Showing all pending visitors and the {{ recordCount() }} most recent approved/denied. Filter or export CSV for the full history.</p>
+              <p class="filters-card__hint">Showing all pending and checked-in visitors plus the {{ recordCount() }} most recent approved/denied. Filter or export CSV for the full history.</p>
             }
           </div>
           <div class="filters-card__header-actions">
@@ -158,6 +158,11 @@ import { ImageLightboxComponent } from '../../shared/components/image-lightbox/i
                 (click)="checkInVerifiedVisitor()">
                 Check in visitor
               </button>
+              @if (verifiedVisitor()?.status === 'CheckedIn') {
+                <button mat-raised-button color="warn" type="button" (click)="checkOutVerifiedVisitor()">
+                  Check out visitor
+                </button>
+              }
             </div>
           </form>
 
@@ -192,7 +197,7 @@ import { ImageLightboxComponent } from '../../shared/components/image-lightbox/i
         }
         <div class="visitor-list" [class.visitor-list--pulse]="justRefreshed()">
           @for (visitor of items(); track visitor.id) {
-            <div class="visitor-card">
+            <div class="visitor-card" [class.visitor-card--overstay]="visitor.isOverstay">
               <div class="vc-avatar-wrap">
                 @if (visitor.visitorImageUrl) {
                   <app-secure-image [src]="visitor.visitorImageUrl" alt="Visitor photo" imgClass="vc-avatar-img"
@@ -217,8 +222,11 @@ import { ImageLightboxComponent } from '../../shared/components/image-lightbox/i
                 </span>
                 <span class="vc-meta">{{ visitor.visitorPhone }}{{ visitor.vehicleNumber ? ' - ' + visitor.vehicleNumber : '' }}</span>
                 <span class="vc-time">
-                  Requested {{ visitor.createdAt | date:'medium' }}{{ visitor.checkInTime ? ' - Checked in ' + (visitor.checkInTime | date:'short') : '' }}{{ visitor.checkOutTime ? ' - Checked out ' + (visitor.checkOutTime | date:'short') : '' }}
+                  Requested {{ visitor.createdAt | date:'medium' }}{{ visitor.checkInTime ? ' - Checked in ' + (visitor.checkInTime | date:'short') : '' }}{{ visitor.checkOutTime ? ' - Checked out ' + (visitor.checkOutTime | date:'short') : '' }}{{ visitor.isAutoCheckedOut ? ' (auto)' : '' }}
                 </span>
+                @if (visitor.isOverstay) {
+                  <span class="vc-overstay-flag">Overstaying — checked in {{ visitor.checkInTime | date:'short' }}</span>
+                }
 
                 @if (visitor.status === 'Approved' || visitor.status === 'CheckedIn') {
                   <div class="pass-meta">
@@ -416,14 +424,18 @@ export class VisitorListComponent implements OnInit, OnDestroy {
 
   private loadDefaultView(societyId: string, useBackgroundFlag: boolean) {
     const n = this.recordCount();
-    const pending$  = this.visitorService.list(societyId, 1, 200, { ...this.buildFilters(), status: 'Pending' });
-    const approved$ = this.visitorService.list(societyId, 1, n, { ...this.buildFilters(), status: 'Approved' });
-    const denied$   = this.visitorService.list(societyId, 1, n, { ...this.buildFilters(), status: 'Denied' });
+    const pending$   = this.visitorService.list(societyId, 1, 200, { ...this.buildFilters(), status: 'Pending' });
+    // Checked-in visitors are on the premises right now — always show every one of them so
+    // security can check them out on exit; they must never age out of the default view.
+    const checkedIn$ = this.visitorService.list(societyId, 1, 200, { ...this.buildFilters(), status: 'CheckedIn' });
+    const approved$  = this.visitorService.list(societyId, 1, n, { ...this.buildFilters(), status: 'Approved' });
+    const denied$    = this.visitorService.list(societyId, 1, n, { ...this.buildFilters(), status: 'Denied' });
 
-    forkJoin([pending$, approved$, denied$]).subscribe({
-      next: ([pendingRes, approvedRes, deniedRes]) => {
+    forkJoin([pending$, checkedIn$, approved$, denied$]).subscribe({
+      next: ([pendingRes, checkedInRes, approvedRes, deniedRes]) => {
         const merged = new Map<string, Visitor>();
         for (const visitor of pendingRes.items ?? []) merged.set(visitor.id, visitor);
+        for (const visitor of checkedInRes.items ?? []) if (!merged.has(visitor.id)) merged.set(visitor.id, visitor);
 
         const recent = [...(approvedRes.items ?? []), ...(deniedRes.items ?? [])]
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -518,6 +530,22 @@ export class VisitorListComponent implements OnInit, OnDestroy {
         this.loadVisitors();
       },
       error: error => this.errorMessage.set(error?.error?.message ?? 'Unable to check in the visitor.')
+    });
+  }
+
+  /** Exit flow: security scans/enters the pass of a checked-in visitor and checks them out. */
+  checkOutVerifiedVisitor() {
+    const societyId = this.auth.societyId();
+    const visitor = this.verifiedVisitor();
+    if (!societyId || !visitor) return;
+
+    this.visitorService.checkout(societyId, visitor.id).subscribe({
+      next: () => {
+        this.verifiedVisitor.set({ ...visitor, status: 'CheckedOut' });
+        this.successMessage.set(`${visitor.visitorName} checked out.`);
+        this.loadVisitors();
+      },
+      error: error => this.errorMessage.set(error?.error?.message ?? 'Unable to check out the visitor.')
     });
   }
 

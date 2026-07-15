@@ -34,6 +34,7 @@ export interface User {
   permissions: string[];
   fullName?: string;
   avatarUrl?: string;
+  profilePictureUrl?: string;
   apartments?: ResidentApartment[];
   createdAt?: string;
   pendingApartmentId?: string;

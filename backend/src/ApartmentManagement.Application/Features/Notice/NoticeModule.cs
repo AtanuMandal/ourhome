@@ -196,9 +196,38 @@ public sealed class DeleteNoticeCommandHandler(
 namespace ApartmentManagement.Application.Queries.Notice
 {
 
+/// <summary>
+/// Resolves poster user ids to full names so clients never have to display a raw user id.
+/// Unresolvable ids (deleted users, seeded data) fall back to null and clients show "Unknown".
+/// </summary>
+internal static class NoticePosterNameResolver
+{
+    public static async Task<string?> ResolveAsync(
+        string societyId, string postedByUserId, IUserRepository userRepository, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(postedByUserId))
+            return null;
+        var user = await userRepository.GetByIdAsync(postedByUserId, societyId, ct);
+        return user?.FullName;
+    }
+
+    public static async Task<IReadOnlyDictionary<string, string>> ResolveManyAsync(
+        string societyId, IEnumerable<string> postedByUserIds, IUserRepository userRepository, CancellationToken ct)
+    {
+        var names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var userId in postedByUserIds.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            var user = await userRepository.GetByIdAsync(userId, societyId, ct);
+            if (user is not null)
+                names[userId] = user.FullName;
+        }
+        return names;
+    }
+}
+
 public record GetNoticeQuery(string SocietyId, string NoticeId, string? CurrentUserId = null) : IRequest<Result<NoticeResponse>>;
 
-public sealed class GetNoticeQueryHandler(INoticeRepository noticeRepository)
+public sealed class GetNoticeQueryHandler(INoticeRepository noticeRepository, IUserRepository userRepository)
     : IRequestHandler<GetNoticeQuery, Result<NoticeResponse>>
 {
     public async Task<Result<NoticeResponse>> Handle(GetNoticeQuery request, CancellationToken ct)
@@ -207,7 +236,8 @@ public sealed class GetNoticeQueryHandler(INoticeRepository noticeRepository)
         {
             var notice = await noticeRepository.GetByIdAsync(request.NoticeId, request.SocietyId, ct)
                 ?? throw new NotFoundException("Notice", request.NoticeId);
-            return Result<NoticeResponse>.Success(notice.ToResponse(request.CurrentUserId));
+            var postedByName = await NoticePosterNameResolver.ResolveAsync(request.SocietyId, notice.PostedByUserId, userRepository, ct);
+            return Result<NoticeResponse>.Success(notice.ToResponse(request.CurrentUserId, postedByName));
         }
         catch (NotFoundException ex)
         {
@@ -223,7 +253,7 @@ public sealed class GetNoticeQueryHandler(INoticeRepository noticeRepository)
 public record GetActiveNoticesQuery(string SocietyId, NoticeCategory? Category, PaginationParams Pagination, string? CurrentUserId = null)
     : IRequest<Result<PagedResult<NoticeResponse>>>;
 
-public sealed class GetActiveNoticesQueryHandler(INoticeRepository noticeRepository)
+public sealed class GetActiveNoticesQueryHandler(INoticeRepository noticeRepository, IUserRepository userRepository)
     : IRequestHandler<GetActiveNoticesQuery, Result<PagedResult<NoticeResponse>>>
 {
     public async Task<Result<PagedResult<NoticeResponse>>> Handle(GetActiveNoticesQuery request, CancellationToken ct)
@@ -237,7 +267,11 @@ public sealed class GetActiveNoticesQueryHandler(INoticeRepository noticeReposit
                 ? active.Where(n => n.Category == request.Category.Value).ToList()
                 : active.ToList();
 
-            var items = filtered.Select(n => n.ToResponse(request.CurrentUserId)).ToList();
+            var posterNames = await NoticePosterNameResolver.ResolveManyAsync(
+                request.SocietyId, filtered.Select(n => n.PostedByUserId), userRepository, ct);
+            var items = filtered
+                .Select(n => n.ToResponse(request.CurrentUserId, posterNames.GetValueOrDefault(n.PostedByUserId)))
+                .ToList();
             return Result<PagedResult<NoticeResponse>>.Success(
                 new PagedResult<NoticeResponse>(items, items.Count, request.Pagination.Page, request.Pagination.PageSize));
         }
@@ -251,7 +285,7 @@ public sealed class GetActiveNoticesQueryHandler(INoticeRepository noticeReposit
 public record GetArchivedNoticesQuery(string SocietyId, PaginationParams Pagination, string? CurrentUserId = null)
     : IRequest<Result<PagedResult<NoticeResponse>>>;
 
-public sealed class GetArchivedNoticesQueryHandler(INoticeRepository noticeRepository)
+public sealed class GetArchivedNoticesQueryHandler(INoticeRepository noticeRepository, IUserRepository userRepository)
     : IRequestHandler<GetArchivedNoticesQuery, Result<PagedResult<NoticeResponse>>>
 {
     public async Task<Result<PagedResult<NoticeResponse>>> Handle(GetArchivedNoticesQuery request, CancellationToken ct)
@@ -260,7 +294,11 @@ public sealed class GetArchivedNoticesQueryHandler(INoticeRepository noticeRepos
         {
             var all = await noticeRepository.GetAllAsync(request.SocietyId, ct);
             var archived = all.Where(n => n.IsArchived).ToList();
-            var items = archived.Select(n => n.ToResponse(request.CurrentUserId)).ToList();
+            var posterNames = await NoticePosterNameResolver.ResolveManyAsync(
+                request.SocietyId, archived.Select(n => n.PostedByUserId), userRepository, ct);
+            var items = archived
+                .Select(n => n.ToResponse(request.CurrentUserId, posterNames.GetValueOrDefault(n.PostedByUserId)))
+                .ToList();
             return Result<PagedResult<NoticeResponse>>.Success(
                 new PagedResult<NoticeResponse>(items, items.Count, request.Pagination.Page, request.Pagination.PageSize));
         }

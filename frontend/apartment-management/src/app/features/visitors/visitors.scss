@@ -415,3 +415,18 @@
     align-items: stretch;
   }
 }
+
+// Visitor overstaying the society threshold — flagged in red per requirements
+.visitor-card--overstay {
+  border: 1px solid #d32f2f;
+  background: rgba(211, 47, 47, 0.05);
+
+  .vc-name { color: #d32f2f; }
+}
+
+.vc-overstay-flag {
+  color: #d32f2f;
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 2px;
+}

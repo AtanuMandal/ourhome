@@ -82,12 +82,14 @@ export function VisitorListScreen() {
   const renderItem = useCallback(({ item }: { item: Visitor }) => {
     return (
       <TouchableOpacity
-        style={styles.item}
+        style={[styles.item, item.isOverstay === true && styles.itemOverstay]}
         onPress={() => navigation.navigate('VisitorDetail', { id: item.id })}
       >
         <View style={styles.itemTop}>
           <View style={styles.itemLeft}>
-            <Text style={styles.visitorName}>{item.visitorName}</Text>
+            <Text style={[styles.visitorName, item.isOverstay === true && styles.visitorNameOverstay]}>
+              {item.visitorName}
+            </Text>
             {item.companyName != null && item.companyName !== '' && (
               <Text style={styles.company}>{item.companyName}</Text>
             )}
@@ -97,6 +99,9 @@ export function VisitorListScreen() {
             <Text style={styles.purpose}>{item.purpose}</Text>
             {item.checkInTime != null && (
               <Text style={styles.time}>{formatDateTime(item.checkInTime)}</Text>
+            )}
+            {item.isOverstay === true && (
+              <Text style={styles.overstayFlag}>Overstaying past the society threshold</Text>
             )}
           </View>
           <StatusChip status={item.status} />
@@ -218,6 +223,19 @@ const styles = StyleSheet.create({
   item: {
     padding: spacing.md,
     backgroundColor: colors.surface,
+  },
+  // Visitor overstaying the society threshold — flagged in red per requirements
+  itemOverstay: {
+    backgroundColor: 'rgba(211, 47, 47, 0.06)',
+    borderLeftWidth: 4,
+    borderLeftColor: colors.error,
+  },
+  visitorNameOverstay: { color: colors.error },
+  overstayFlag: {
+    fontSize: typography.fontSize.xs,
+    color: colors.error,
+    fontWeight: typography.fontWeight.semibold,
+    marginTop: 2,
   },
   itemTop: {
     flexDirection: 'row',

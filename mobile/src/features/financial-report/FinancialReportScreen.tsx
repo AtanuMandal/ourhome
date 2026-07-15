@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSocietyId } from '../../shared/hooks/useSocietyId';
 import { useAuthStore } from '../../store/authStore';
+import { useActiveApartment } from '../../shared/hooks/useActiveApartment';
 import { useFinancialSocietySummary, useSocietyLedger } from './hooks/useFinancialReport';
 import { AppHeader } from '../../shared/components/AppHeader';
 import { CurrencyText } from '../../shared/components/CurrencyText';
@@ -25,11 +26,12 @@ type Tab = 'summary' | 'ledger';
 export function FinancialReportScreen() {
   const societyId = useSocietyId();
   const role = useAuthStore((s) => s.user?.role);
-  const residentType = useAuthStore((s) => s.user?.residentType);
+  const { activeResidentType } = useActiveApartment();
   const isAdmin = role === 'SUAdmin' || role === 'HQAdmin' || role === 'HQUser';
   // Society summary is aggregate/society-wide reporting — tenants keep their own
-  // apartment ledger/statement elsewhere but not this view.
-  const isTenant = role === 'SUUser' && residentType === 'Tenant';
+  // apartment ledger/statement elsewhere but not this view. Follows the apartment
+  // selected in the drawer for users linked to multiple apartments.
+  const isTenant = role === 'SUUser' && activeResidentType === 'Tenant';
 
   const [tab, setTab] = useState<Tab>('summary');
   const { data: summary, isLoading, refetch } = useFinancialSocietySummary(societyId, !isTenant);

@@ -17,6 +17,7 @@ import { useDebounce } from '../../shared/hooks/useDebounce';
 import { AppHeader } from '../../shared/components/AppHeader';
 import { StatusChip } from '../../shared/components/StatusChip';
 import { EmptyState } from '../../shared/components/EmptyState';
+import { UserAvatar } from '../../shared/components/UserAvatar';
 import { normalizeError } from '../../shared/utils/errors';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
@@ -76,8 +77,8 @@ export function ResidentListScreen() {
   const renderItem = useCallback(({ item }: { item: User }) => {
     return (
       <View style={styles.item}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{item.fullName.charAt(0)}</Text>
+        <View style={styles.avatarWrap}>
+          <UserAvatar name={item.fullName} pictureUrl={item.profilePictureUrl} size={44} />
         </View>
         <View style={styles.itemInfo}>
           <Text style={styles.name}>{item.fullName}</Text>
@@ -162,16 +163,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     backgroundColor: colors.surface,
   },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.sm,
-  },
-  avatarText: { color: '#FFF', fontWeight: typography.fontWeight.bold, fontSize: typography.fontSize.lg },
+  avatarWrap: { marginRight: spacing.sm },
   itemInfo: { flex: 1 },
   name: {
     fontSize: typography.fontSize.base,

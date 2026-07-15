@@ -88,25 +88,37 @@
 <a name='L23'></a><a href='#L23'>23</a>
 <a name='L24'></a><a href='#L24'>24</a>
 <a name='L25'></a><a href='#L25'>25</a>
-<a name='L26'></a><a href='#L26'>26</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L26'></a><a href='#L26'>26</a>
+<a name='L27'></a><a href='#L27'>27</a>
+<a name='L28'></a><a href='#L28'>28</a>
+<a name='L29'></a><a href='#L29'>29</a>
+<a name='L30'></a><a href='#L30'>30</a>
+<a name='L31'></a><a href='#L31'>31</a>
+<a name='L32'></a><a href='#L32'>32</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -114,7 +126,14 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import api from '../client';
-import type { Amenity, AmenityBooking, PaginatedResponse } from '../types';
+import type { Amenity, AmenityBooking } from '../types';
+&nbsp;
+export interface BookAmenityRequest {
+  amenityId: string;
+  apartmentId: string;
+  startTime: string;
+  endTime: string;
+}
 &nbsp;
 export const amenitiesApi = <span class="cstat-no" title="statement not covered" >{</span>
   getAmenities: <span class="fstat-no" title="function not covered" >(s</span>ocietyId: string) =&gt;
@@ -122,20 +141,19 @@ export const amenitiesApi = <span class="cstat-no" title="statement not covered"
       .get&lt;Amenity[]&gt;(`/societies/${societyId}/amenities`)
       .then(<span class="fstat-no" title="function not covered" >(r</span>) =&gt; <span class="cstat-no" title="statement not covered" >r.data)</span>,
 &nbsp;
-  getBookings: <span class="fstat-no" title="function not covered" >(</span>
-    societyId: string,
-    params?: Record&lt;string, string | number&gt;
-  ) =&gt;
+  // Backend: GET /amenities/{amenityId}/availability?date
+  getAvailability: <span class="fstat-no" title="function not covered" >(s</span>ocietyId: string, amenityId: string, date: string) =&gt;
 <span class="cstat-no" title="statement not covered" >    api</span>
-      .get&lt;PaginatedResponse&lt;AmenityBooking&gt;&gt;(
-        `/societies/${societyId}/amenities/bookings`,
-        { params }
+      .get&lt;{ start: string; end: string; isAvailable: boolean }[]&gt;(
+        `/societies/${societyId}/amenities/${amenityId}/availability`,
+        { params: { date } }
       )
       .then(<span class="fstat-no" title="function not covered" >(r</span>) =&gt; <span class="cstat-no" title="statement not covered" >r.data)</span>,
 &nbsp;
-  createBooking: <span class="fstat-no" title="function not covered" >(s</span>ocietyId: string, data: Partial&lt;AmenityBooking&gt;) =&gt;
+  // Backend: POST /amenity-bookings (not /amenities/bookings)
+  createBooking: <span class="fstat-no" title="function not covered" >(s</span>ocietyId: string, data: BookAmenityRequest) =&gt;
 <span class="cstat-no" title="statement not covered" >    api</span>
-      .post&lt;AmenityBooking&gt;(`/societies/${societyId}/amenities/bookings`, data)
+      .post&lt;AmenityBooking&gt;(`/societies/${societyId}/amenity-bookings`, data)
       .then(<span class="fstat-no" title="function not covered" >(r</span>) =&gt; <span class="cstat-no" title="statement not covered" >r.data)</span>,
 };
 &nbsp;</pre></td></tr></table></pre>
@@ -145,7 +163,7 @@ export const amenitiesApi = <span class="cstat-no" title="statement not covered"
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-07-02T17:16:37.151Z
+                at 2026-07-15T16:26:12.789Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

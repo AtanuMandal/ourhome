@@ -22,6 +22,7 @@ public record CreateUserCommand(
 public sealed class CreateUserCommandHandler(
     IUserRepository userRepository,
     IApartmentRepository apartmentRepository,
+    ISocietyRepository societyRepository,
     INotificationService notificationService,
     IEventPublisher eventPublisher,
     ICurrentUserService currentUserService,
@@ -58,6 +59,14 @@ public sealed class CreateUserCommandHandler(
             if (existing is not null)
                 return Result<UserResponse>.Failure(ErrorCodes.UserAlreadyExists,
                     $"A resident with email {request.Email} already exists in this society. Open that resident and add another apartment there.");
+
+            if (!string.IsNullOrWhiteSpace(request.ApartmentId))
+            {
+                var targetApartment = await apartmentRepository.GetByIdAsync(request.ApartmentId, request.SocietyId, ct);
+                if (targetApartment is not null &&
+                    await ApartmentUserCapGuard.IsCapReachedAsync(targetApartment, societyRepository, ct))
+                    return Result<UserResponse>.Failure(ErrorCodes.ApartmentUserCapReached, ApartmentUserCapGuard.CapMessage);
+            }
 
             var user = Domain.Entities.User.Create(
                 request.SocietyId, request.FullName, request.Email, request.Phone,
@@ -119,6 +128,72 @@ public sealed class CreateUserCommandHandler(
     }
 }
 
+// ─── Apartment user cap ───────────────────────────────────────────────────────
+
+/// <summary>
+/// Society-level cap on how many users can be associated with one apartment (HQAdmin-managed).
+/// Checked by every flow that links a user to an apartment.
+/// </summary>
+internal static class ApartmentUserCapGuard
+{
+    public const string CapMessage = "This apartment has reached the maximum number of users allowed by the society.";
+
+    public static async Task<bool> IsCapReachedAsync(
+        Domain.Entities.Apartment apartment, ISocietyRepository societyRepository, CancellationToken ct)
+    {
+        var society = await societyRepository.GetByIdAsync(apartment.SocietyId, apartment.SocietyId, ct);
+        var cap = society?.MaxUsersPerApartment ?? Domain.Entities.Society.DefaultMaxUsersPerApartment;
+        var count = apartment.GetResidentsForRead()
+            .Select(r => r.UserId)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+        return count >= cap;
+    }
+}
+
+// ─── Upload Profile Picture ───────────────────────────────────────────────────
+
+public record UploadUserProfilePictureCommand(
+    string SocietyId, string UserId, string FileName, string ContentType, byte[] Content)
+    : IRequest<Result<UserProfilePictureResponse>>;
+
+public sealed class UploadUserProfilePictureCommandHandler(
+    IUserRepository userRepository,
+    IFileStorageService fileStorageService,
+    ILogger<UploadUserProfilePictureCommandHandler> logger)
+    : IRequestHandler<UploadUserProfilePictureCommand, Result<UserProfilePictureResponse>>
+{
+    public const string ContainerName = "profile-pictures";
+
+    public async Task<Result<UserProfilePictureResponse>> Handle(UploadUserProfilePictureCommand request, CancellationToken ct)
+    {
+        try
+        {
+            var user = await userRepository.GetByIdAsync(request.UserId, request.SocietyId, ct);
+            if (user is null)
+                return Result<UserProfilePictureResponse>.Failure(ErrorCodes.UserNotFound, $"User '{request.UserId}' not found.");
+
+            var extension = Path.GetExtension(request.FileName);
+            var blobName = $"{request.SocietyId}/{request.UserId}/{Guid.NewGuid():N}{extension}";
+
+            await using var stream = new MemoryStream(request.Content, writable: false);
+            await fileStorageService.UploadAsync(stream, blobName, request.ContentType, ContainerName, ct);
+
+            // Store an app-relative path (served via GetFileQuery) instead of a raw blob/SAS URL.
+            var appUrl = $"files/{ContainerName}/{blobName}";
+            user.SetProfilePicture(appUrl);
+            await userRepository.UpdateAsync(user, ct);
+
+            return Result<UserProfilePictureResponse>.Success(new UserProfilePictureResponse(appUrl));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to upload profile picture for user {UserId}", request.UserId);
+            return Result<UserProfilePictureResponse>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
 // ─── Update User ──────────────────────────────────────────────────────────────
 
 public record UpdateUserCommand(string SocietyId, string UserId, string FullName, string Phone)
@@ -162,6 +237,7 @@ public record AssignUserApartmentCommand(string SocietyId, string UserId, string
 public sealed class AssignUserApartmentCommandHandler(
     IUserRepository userRepository,
     IApartmentRepository apartmentRepository,
+    ISocietyRepository societyRepository,
     ILogger<AssignUserApartmentCommandHandler> logger)
     : IRequestHandler<AssignUserApartmentCommand, Result<UserResponse>>
 {
@@ -182,6 +258,11 @@ public sealed class AssignUserApartmentCommandHandler(
 
             if (user.Role != UserRole.SUUser)
                 return Result<UserResponse>.Failure(ErrorCodes.Conflict, "Only resident users can be linked to apartments.");
+
+            var alreadyLinked = apartment.GetResidentsForRead()
+                .Any(r => string.Equals(r.UserId, user.Id, StringComparison.OrdinalIgnoreCase));
+            if (!alreadyLinked && await ApartmentUserCapGuard.IsCapReachedAsync(apartment, societyRepository, ct))
+                return Result<UserResponse>.Failure(ErrorCodes.ApartmentUserCapReached, ApartmentUserCapGuard.CapMessage);
 
             if (request.ResidentType == ResidentType.Owner)
             {
@@ -946,6 +1027,7 @@ public record AddHouseholdMemberCommand(
 public sealed class AddHouseholdMemberCommandHandler(
     IUserRepository userRepository,
     IApartmentRepository apartmentRepository,
+    ISocietyRepository societyRepository,
     ICurrentUserService currentUserService,
     ILogger<AddHouseholdMemberCommandHandler> logger)
     : IRequestHandler<AddHouseholdMemberCommand, Result<UserResponse>>
@@ -970,6 +1052,9 @@ public sealed class AddHouseholdMemberCommandHandler(
 
             if (!canAddFamily && !canAddCoOccupant)
                 return Result<UserResponse>.Failure(ErrorCodes.Forbidden, "You are not allowed to add this household member type.");
+
+            if (await ApartmentUserCapGuard.IsCapReachedAsync(apartment, societyRepository, ct))
+                return Result<UserResponse>.Failure(ErrorCodes.ApartmentUserCapReached, ApartmentUserCapGuard.CapMessage);
 
             var existing = await userRepository.GetByEmailAsync(request.SocietyId, request.Email.Trim().ToLowerInvariant(), ct);
             if (existing is not null)
@@ -1395,6 +1480,8 @@ public record ShareInviteLinkCommand(string SocietyId, string? ApartmentId, stri
 public sealed class ShareInviteLinkCommandHandler(
     IAuthService authService,
     ISocietyRepository societyRepository,
+    IUserRepository userRepository,
+    IApartmentRepository apartmentRepository,
     INotificationService notificationService,
     ILogger<ShareInviteLinkCommandHandler> logger)
     : IRequestHandler<ShareInviteLinkCommand, Result<bool>>
@@ -1409,6 +1496,36 @@ public sealed class ShareInviteLinkCommandHandler(
             var society = await societyRepository.GetByIdAsync(request.SocietyId, request.SocietyId, ct);
             if (society is null)
                 return Result<bool>.Failure(ErrorCodes.SocietyNotFound, "Society not found.");
+
+            // An apartment joining link shared with someone who already has an account becomes an
+            // invitation on that user's dashboard (accept/deny) — their email link goes straight to
+            // the login page with the email prefilled, not to registration.
+            var email = request.Email.Trim().ToLowerInvariant();
+            var existingUser = await userRepository.GetByEmailAsync(request.SocietyId, email, ct);
+            if (existingUser is not null && !string.IsNullOrWhiteSpace(request.ApartmentId))
+            {
+                var apartment = await apartmentRepository.GetByIdAsync(request.ApartmentId, request.SocietyId, ct);
+                if (apartment is null)
+                    return Result<bool>.Failure(ErrorCodes.ApartmentNotFound, "The apartment for this invitation no longer exists.");
+
+                var alreadyMember = apartment.GetResidentsForRead()
+                    .Any(r => string.Equals(r.UserId, existingUser.Id, StringComparison.OrdinalIgnoreCase));
+                if (alreadyMember)
+                    return Result<bool>.Failure(ErrorCodes.Conflict, "This user is already associated with the apartment.");
+
+                var invitedType = string.IsNullOrWhiteSpace(apartment.OwnerId) ? ResidentType.Owner : ResidentType.FamilyMember;
+                existingUser.RequestApartmentJoin(apartment.Id, invitedType);
+                await userRepository.UpdateAsync(existingUser, ct);
+
+                var loginUrl = $"{request.FrontendBaseUrl.TrimEnd('/')}/auth/login?email={Uri.EscapeDataString(email)}";
+                await notificationService.SendEmailAsync(
+                    email,
+                    $"Apartment joining invitation for {society.Name} on OurHome",
+                    $"You have been invited to join apartment {apartment.ToDisplayLabel()} in {society.Name}.\n\n" +
+                    $"Sign in to accept or decline the invitation from your dashboard: {loginUrl}",
+                    ct);
+                return Result<bool>.Success(true);
+            }
 
             var token = await authService.GenerateInviteTokenAsync(request.SocietyId, request.ApartmentId, ct);
             var inviteUrl = $"{request.FrontendBaseUrl.TrimEnd('/')}/auth/register?token={token}";
@@ -1451,6 +1568,8 @@ public record SelfRegisterCommand(string SocietyId, string FullName, string Emai
 
 public sealed class SelfRegisterCommandHandler(
     IUserRepository userRepository,
+    IApartmentRepository apartmentRepository,
+    ISocietyRepository societyRepository,
     IAuthService authService)
     : IRequestHandler<SelfRegisterCommand, Result<UserResponse>>
 {
@@ -1469,18 +1588,36 @@ public sealed class SelfRegisterCommandHandler(
             user.SetPasswordHash(authService.HashPassword(request.Password));
             user.Verify(); // invite token already proves identity — no OTP step needed
 
-            // An apartment-scoped invite link (shared by an owner) registers the apartment under
-            // whoever completes registration — as a pending join awaiting the usual SUAdmin approval,
-            // not an automatic assignment.
+            // An apartment-scoped invite link (shared by a resident) associates the apartment with
+            // whoever completes registration directly — no SUAdmin approval step.
+            Domain.Entities.Apartment? apartment = null;
+            var residentType = ResidentType.Owner;
             if (!string.IsNullOrWhiteSpace(request.InviteToken))
             {
                 var claims = await authService.ValidateInviteTokenAsync(request.InviteToken, ct);
                 if (claims is not null && !string.IsNullOrWhiteSpace(claims.ApartmentId))
-                    user.RequestApartmentJoin(claims.ApartmentId, ResidentType.Owner);
+                {
+                    apartment = await apartmentRepository.GetByIdAsync(claims.ApartmentId, request.SocietyId, ct);
+                    if (apartment is not null)
+                    {
+                        if (await Commands.User.ApartmentUserCapGuard.IsCapReachedAsync(apartment, societyRepository, ct))
+                            return Result<UserResponse>.Failure(ErrorCodes.ApartmentUserCapReached, Commands.User.ApartmentUserCapGuard.CapMessage);
+                        residentType = string.IsNullOrWhiteSpace(apartment.OwnerId) ? ResidentType.Owner : ResidentType.FamilyMember;
+                    }
+                }
             }
 
-            await userRepository.CreateAsync(user, ct);
-            return Result<UserResponse>.Success(user.ToResponse());
+            var created = await userRepository.CreateAsync(user, ct);
+
+            if (apartment is not null)
+            {
+                apartment.AddResident(created.Id, created.FullName, residentType);
+                created.LinkApartment(apartment.Id, apartment.ToDisplayLabel(), residentType, makePrimary: true);
+                await apartmentRepository.UpdateAsync(apartment, ct);
+                created = await userRepository.UpdateAsync(created, ct);
+            }
+
+            return Result<UserResponse>.Success(created.ToResponse());
         }
         catch (Exception ex)
         {
@@ -1536,7 +1673,8 @@ public record ApproveApartmentJoinCommand(string SocietyId, string UserId)
 
 public sealed class ApproveApartmentJoinCommandHandler(
     IUserRepository userRepository,
-    IApartmentRepository apartmentRepository)
+    IApartmentRepository apartmentRepository,
+    ISocietyRepository societyRepository)
     : IRequestHandler<ApproveApartmentJoinCommand, Result<UserResponse>>
 {
     public async Task<Result<UserResponse>> Handle(ApproveApartmentJoinCommand request, CancellationToken ct)
@@ -1560,6 +1698,11 @@ public sealed class ApproveApartmentJoinCommandHandler(
                 await userRepository.UpdateAsync(user, ct);
                 return Result<UserResponse>.Failure(ErrorCodes.ApartmentNotFound, "The requested apartment no longer exists.");
             }
+
+            var alreadyMember = apartment.GetResidentsForRead()
+                .Any(r => string.Equals(r.UserId, user.Id, StringComparison.OrdinalIgnoreCase));
+            if (!alreadyMember && await Commands.User.ApartmentUserCapGuard.IsCapReachedAsync(apartment, societyRepository, ct))
+                return Result<UserResponse>.Failure(ErrorCodes.ApartmentUserCapReached, Commands.User.ApartmentUserCapGuard.CapMessage);
 
             user.LinkApartment(apartment.Id, apartment.ToDisplayLabel(), residentType, makePrimary: !user.Apartments.Any());
             apartment.AddResident(user.Id, user.FullName, residentType);

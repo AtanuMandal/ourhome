@@ -25,28 +25,28 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/4</span>
+                <span class='fraction'>0/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/2</span>
+                <span class='fraction'>0/0</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/4</span>
+                <span class='fraction'>0/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/4</span>
+                <span class='fraction'>0/2</span>
             </div>
         
             
@@ -77,17 +77,7 @@
 <a name='L12'></a><a href='#L12'>12</a>
 <a name='L13'></a><a href='#L13'>13</a>
 <a name='L14'></a><a href='#L14'>14</a>
-<a name='L15'></a><a href='#L15'>15</a>
-<a name='L16'></a><a href='#L16'>16</a>
-<a name='L17'></a><a href='#L17'>17</a>
-<a name='L18'></a><a href='#L18'>18</a>
-<a name='L19'></a><a href='#L19'>19</a>
-<a name='L20'></a><a href='#L20'>20</a>
-<a name='L21'></a><a href='#L21'>21</a>
-<a name='L22'></a><a href='#L22'>22</a>
-<a name='L23'></a><a href='#L23'>23</a>
-<a name='L24'></a><a href='#L24'>24</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L15'></a><a href='#L15'>15</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -101,35 +91,18 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { useQuery } from '@tanstack/react-query';
-import { useInfiniteList } from '../../../shared/hooks/useInfiniteList';
-import { vendorPaymentsApi, type VendorPayment } from '../../../api/endpoints/vendor-payments';
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { useInfiniteList } from '../../../shared/hooks/useInfiniteList';
+import { vendorPaymentsApi, type VendorCharge } from '../../../api/endpoints/vendor-payments';
 &nbsp;
-export function <span class="fstat-no" title="function not covered" >useVendorPaymentList(</span>
+export function <span class="fstat-no" title="function not covered" >useVendorChargeList(</span>
   societyId: string,
   params?: Record&lt;string, string | number&gt;
 ) {
-<span class="cstat-no" title="statement not covered" >  return useInfiniteList&lt;VendorPayment&gt;({</span>
-    queryKey: ['vendor-payments', societyId, params],
+<span class="cstat-no" title="statement not covered" >  return useInfiniteList&lt;VendorCharge&gt;({</span>
+    queryKey: ['vendor-charges', societyId, params],
     fetchPage: <span class="fstat-no" title="function not covered" >(p</span>age) =&gt;
-<span class="cstat-no" title="statement not covered" >      vendorPaymentsApi.getVendorPayments(societyId, { ...params, page, pageSize: 20 }),</span>
+<span class="cstat-no" title="statement not covered" >      vendorPaymentsApi.getVendorCharges(societyId, { ...params, page, pageSize: 20 }),</span>
     enabled: !!societyId,
-  });
-}
-&nbsp;
-export function <span class="fstat-no" title="function not covered" >useVendorPayment(</span>societyId: string, id: string) {
-<span class="cstat-no" title="statement not covered" >  return useQuery({</span>
-    queryKey: ['vendor-payment', societyId, id],
-    queryFn: <span class="fstat-no" title="function not covered" >()</span> =&gt; <span class="cstat-no" title="statement not covered" >vendorPaymentsApi.getVendorPayment(societyId, id),</span>
-    enabled: !!societyId &amp;&amp; !!id,
   });
 }
 &nbsp;</pre></td></tr></table></pre>
@@ -139,7 +112,7 @@ export function <span class="fstat-no" title="function not covered" >useVendorPa
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-07-02T17:16:37.151Z
+                at 2026-07-15T16:26:12.789Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

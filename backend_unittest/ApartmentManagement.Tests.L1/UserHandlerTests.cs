@@ -18,13 +18,14 @@ public class CreateUserCommandHandlerTests
 {
     private readonly Mock<IUserRepository> _userRepoMock = new();
     private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
+    private readonly Mock<ISocietyRepository> _societyRepoMock = new();
     private readonly Mock<INotificationService> _notificationMock = new();
     private readonly Mock<IEventPublisher> _eventPublisherMock = new();
     private readonly Mock<ICurrentUserService> _currentUserServiceMock = new();
     private readonly Mock<ILogger<CreateUserCommandHandler>> _loggerMock = new();
 
     private CreateUserCommandHandler CreateHandler() =>
-        new(_userRepoMock.Object, _apartmentRepoMock.Object, _notificationMock.Object, _eventPublisherMock.Object, _currentUserServiceMock.Object, _loggerMock.Object);
+        new(_userRepoMock.Object, _apartmentRepoMock.Object, _societyRepoMock.Object, _notificationMock.Object, _eventPublisherMock.Object, _currentUserServiceMock.Object, _loggerMock.Object);
 
     [Fact]
     public async Task Handle_WithNewUser_CreatesUserAndSendsOtp()
@@ -641,10 +642,12 @@ public class SendOtpCommandHandlerTests
 public class SelfRegisterCommandHandlerTests
 {
     private readonly Mock<IUserRepository> _userRepoMock = new();
+    private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
+    private readonly Mock<ISocietyRepository> _societyRepoMock = new();
     private readonly Mock<IAuthService> _authServiceMock = new();
 
     private SelfRegisterCommandHandler CreateHandler() =>
-        new(_userRepoMock.Object, _authServiceMock.Object);
+        new(_userRepoMock.Object, _apartmentRepoMock.Object, _societyRepoMock.Object, _authServiceMock.Object);
 
     [Fact]
     public async Task Handle_NewUser_CreatesVerifiedUserWithHashedPassword()
@@ -700,10 +703,10 @@ public class SelfRegisterCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WithApartmentScopedInviteToken_CreatesPendingApartmentJoin()
+    public async Task Handle_WithApartmentScopedInviteToken_AssociatesApartmentDirectly()
     {
-        // Arrange — an owner shared their apartment-scoped invite link; whoever completes
-        // registration with it should get a pending join for that apartment, awaiting SUAdmin approval.
+        // Arrange — a resident shared their apartment-scoped invite link; whoever completes
+        // registration with it is associated with the apartment directly, with no admin approval step.
         User? captured = null;
         _userRepoMock
             .Setup(r => r.GetByEmailAsync("soc-001", "alice@example.com", It.IsAny<CancellationToken>()))
@@ -712,10 +715,22 @@ public class SelfRegisterCommandHandlerTests
             .Setup(r => r.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
             .Callback<User, CancellationToken>((u, _) => captured = u)
             .ReturnsAsync((User u, CancellationToken _) => u);
+        _userRepoMock
+            .Setup(r => r.UpdateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User u, CancellationToken _) => u);
         _authServiceMock.Setup(a => a.HashPassword("Password1!")).Returns("hashed-password");
         _authServiceMock
             .Setup(a => a.ValidateInviteTokenAsync("apt-scoped-token", It.IsAny<CancellationToken>()))
             .ReturnsAsync(new InviteTokenClaims("soc-001", "apt-001"));
+
+        var apartment = Apartment.Create("soc-001", "101", "A", 1, 2, ["P1"], 500, 600, 700);
+        apartment.GetType().GetProperty("Id")?.SetValue(apartment, "apt-001");
+        _apartmentRepoMock
+            .Setup(r => r.GetByIdAsync("apt-001", "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(apartment);
+        _apartmentRepoMock
+            .Setup(r => r.UpdateAsync(It.IsAny<Apartment>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Apartment a, CancellationToken _) => a);
 
         var handler = CreateHandler();
         var command = new SelfRegisterCommand("soc-001", "Alice Smith", "alice@example.com", "+91-9876543210", "Password1!", "apt-scoped-token");
@@ -726,8 +741,10 @@ public class SelfRegisterCommandHandlerTests
         // Assert
         result.IsSuccess.Should().BeTrue();
         captured.Should().NotBeNull();
-        captured!.PendingApartmentId.Should().Be("apt-001");
-        captured!.PendingResidentType.Should().Be(ResidentType.Owner.ToString());
+        captured!.PendingApartmentId.Should().BeNull();
+        captured!.Apartments.Should().ContainSingle(a => a.ApartmentId == "apt-001");
+        apartment.GetResidentsForRead().Should().ContainSingle(r => r.UserId == captured.Id);
+        _apartmentRepoMock.Verify(r => r.UpdateAsync(It.IsAny<Apartment>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -766,11 +783,13 @@ public class ShareInviteLinkCommandHandlerTests
 {
     private readonly Mock<IAuthService> _authServiceMock = new();
     private readonly Mock<ISocietyRepository> _societyRepoMock = new();
+    private readonly Mock<IUserRepository> _userRepoMock = new();
+    private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
     private readonly Mock<INotificationService> _notificationMock = new();
     private readonly Mock<ILogger<ShareInviteLinkCommandHandler>> _loggerMock = new();
 
     private ShareInviteLinkCommandHandler CreateHandler() =>
-        new(_authServiceMock.Object, _societyRepoMock.Object, _notificationMock.Object, _loggerMock.Object);
+        new(_authServiceMock.Object, _societyRepoMock.Object, _userRepoMock.Object, _apartmentRepoMock.Object, _notificationMock.Object, _loggerMock.Object);
 
     private static Society CreateSociety() =>
         Society.Create("Green Valley", new Address("1 Main St", "Mumbai", "MH", "400001", "India"),
@@ -930,9 +949,10 @@ public class ApproveApartmentJoinCommandHandlerTests
 {
     private readonly Mock<IUserRepository> _userRepoMock = new();
     private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
+    private readonly Mock<ISocietyRepository> _societyRepoMock = new();
 
     private ApproveApartmentJoinCommandHandler CreateHandler() =>
-        new(_userRepoMock.Object, _apartmentRepoMock.Object);
+        new(_userRepoMock.Object, _apartmentRepoMock.Object, _societyRepoMock.Object);
 
     [Fact]
     public async Task Handle_WithPendingRequest_LinksApartmentAndClearsPending()

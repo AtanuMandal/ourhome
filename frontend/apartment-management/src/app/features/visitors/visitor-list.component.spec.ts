@@ -76,14 +76,17 @@ describe('VisitorListComponent — default pending + recent approved/denied view
   function setup() {
     const pendingItems  = [makeVisitor('p1', 'Pending'), makeVisitor('p2', 'Pending')];
     // Approved overlaps with one pending item (p1) — the component must dedupe by id.
-    const approvedItems = [makeVisitor('p1', 'Pending'), makeVisitor('a1', 'Approved', '2026-01-02T00:00:00Z')];
-    const deniedItems   = [makeVisitor('d1', 'Denied', '2026-01-03T00:00:00Z')];
+    const approvedItems  = [makeVisitor('p1', 'Pending'), makeVisitor('a1', 'Approved', '2026-01-02T00:00:00Z')];
+    const deniedItems    = [makeVisitor('d1', 'Denied', '2026-01-03T00:00:00Z')];
+    // Checked-in visitors are on the premises — always shown so security can check them out.
+    const checkedInItems = [makeVisitor('c1', 'CheckedIn', '2026-01-04T00:00:00Z')];
 
     const visitorServiceStub = {
       list: jasmine.createSpy().and.callFake((_sid: string, _page: number, pageSize: number, filters: { status?: string }) => {
-        if (filters?.status === 'Pending')  return of({ items: pendingItems, total: pendingItems.length, page: 1, pageSize });
-        if (filters?.status === 'Approved') return of({ items: approvedItems, total: approvedItems.length, page: 1, pageSize });
-        if (filters?.status === 'Denied')   return of({ items: deniedItems, total: deniedItems.length, page: 1, pageSize });
+        if (filters?.status === 'Pending')   return of({ items: pendingItems, total: pendingItems.length, page: 1, pageSize });
+        if (filters?.status === 'CheckedIn') return of({ items: checkedInItems, total: checkedInItems.length, page: 1, pageSize });
+        if (filters?.status === 'Approved')  return of({ items: approvedItems, total: approvedItems.length, page: 1, pageSize });
+        if (filters?.status === 'Denied')    return of({ items: deniedItems, total: deniedItems.length, page: 1, pageSize });
         return of({ items: [], total: 0, page: 1, pageSize });
       }),
     };
@@ -111,12 +114,12 @@ describe('VisitorListComponent — default pending + recent approved/denied view
     return { component: fixture.componentInstance, visitorServiceStub };
   }
 
-  it('merges all pending visitors with the most recent approved/denied, de-duplicated by id, when no filter is applied', () => {
+  it('merges all pending and checked-in visitors with the most recent approved/denied, de-duplicated by id, when no filter is applied', () => {
     const { component, visitorServiceStub } = setup();
 
     expect(component.isDefaultFilterState()).toBeTrue();
-    expect(visitorServiceStub.list).toHaveBeenCalledTimes(3);
-    expect(component.items().map(v => v.id).sort()).toEqual(['a1', 'd1', 'p1', 'p2'].sort());
+    expect(visitorServiceStub.list).toHaveBeenCalledTimes(4);
+    expect(component.items().map(v => v.id).sort()).toEqual(['a1', 'c1', 'd1', 'p1', 'p2'].sort());
   });
 
   it('defaults the record count to 25 and persists a change to localStorage', () => {

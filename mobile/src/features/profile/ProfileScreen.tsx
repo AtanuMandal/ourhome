@@ -10,9 +10,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/authStore';
-import { useProfile, useUpdateProfile, useChangePassword } from './hooks/useProfile';
+import { useProfile, useUpdateProfile, useChangePassword, useUploadProfilePicture } from './hooks/useProfile';
 import { AppHeader } from '../../shared/components/AppHeader';
 import { LoadingOverlay } from '../../shared/components/LoadingOverlay';
+import { UserAvatar } from '../../shared/components/UserAvatar';
+import { useImagePicker } from '../../camera/useImagePicker';
 import { useAuth } from '../../auth/useAuth';
 import { normalizeError } from '../../shared/utils/errors';
 import { validatePassword } from '../../shared/utils/password';
@@ -32,6 +34,9 @@ export function ProfileScreen() {
     useUpdateProfile(societyId, userId);
   const { mutateAsync: changePassword, isPending: isChanging } =
     useChangePassword(societyId, userId);
+  const { mutateAsync: uploadPicture, isPending: isUploadingPicture } =
+    useUploadProfilePicture(societyId, userId);
+  const { pickFromGallery, pickFromCamera } = useImagePicker();
 
   const displayUser = profile ?? storeUser;
 
@@ -80,19 +85,45 @@ export function ProfileScreen() {
     }
   }
 
-  const initials = (displayUser?.fullName ?? '?')
-    .split(' ')
-    .slice(0, 2)
-    .map((w: string) => w.charAt(0).toUpperCase())
-    .join('');
+  // The picker's built-in editor (allowsEditing + square aspect) gives the WhatsApp-style
+  // pick-the-area crop before upload.
+  function handleChangePicture(): void {
+    Alert.alert('Profile picture', 'Choose a source', [
+      { text: 'Camera', onPress: () => void pickAndUpload(pickFromCamera) },
+      { text: 'Gallery', onPress: () => void pickAndUpload(pickFromGallery) },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }
+
+  async function pickAndUpload(pick: () => Promise<string | null>): Promise<void> {
+    const uri = await pick();
+    if (!uri) return;
+    try {
+      await uploadPicture(uri);
+      Alert.alert('Success', 'Profile picture updated.');
+    } catch (e) {
+      Alert.alert('Error', normalizeError(e));
+    }
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <AppHeader title="My Profile" showMenu />
-      <LoadingOverlay visible={isUpdating || isChanging} />
+      <LoadingOverlay visible={isUpdating || isChanging || isUploadingPicture} />
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{initials}</Text>
+        <View style={styles.avatarWrap}>
+          <UserAvatar
+            name={displayUser?.fullName ?? '?'}
+            pictureUrl={(displayUser as { profilePictureUrl?: string } | null)?.profilePictureUrl}
+            size={80}
+          />
+          <TouchableOpacity
+            style={styles.avatarEditBadge}
+            onPress={handleChangePicture}
+            accessibilityLabel="Change profile picture"
+          >
+            <Text style={styles.avatarEditBadgeText}>📷</Text>
+          </TouchableOpacity>
         </View>
         <Text style={styles.name}>{displayUser?.fullName}</Text>
         <Text style={styles.email}>{displayUser?.email}</Text>
@@ -178,17 +209,24 @@ export function ProfileScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: spacing.md },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+  avatarWrap: {
     alignSelf: 'center',
     marginBottom: spacing.sm,
   },
-  avatarText: { color: '#FFF', fontSize: typography.fontSize['2xl'], fontWeight: typography.fontWeight.bold },
+  avatarEditBadge: {
+    position: 'absolute',
+    right: -6,
+    bottom: -4,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarEditBadgeText: { fontSize: 14 },
   name: {
     fontSize: typography.fontSize.xl,
     fontWeight: typography.fontWeight.bold,

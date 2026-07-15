@@ -24,6 +24,17 @@ export const profileApi = {
       .put(`/societies/${societyId}/users/${userId}/password`, data)
       .then((r) => r.data),
 
+  // The invited user accepts/declines an apartment joining invitation from their dashboard.
+  acceptApartmentInvitation: (societyId: string, userId: string) =>
+    api
+      .post<User>(`/societies/${societyId}/users/${userId}/apartment-join-request/approve`, {})
+      .then((r) => r.data),
+
+  declineApartmentInvitation: (societyId: string, userId: string) =>
+    api
+      .post<User>(`/societies/${societyId}/users/${userId}/apartment-join-request/deny`, {})
+      .then((r) => r.data),
+
   registerMobilePushToken: (
     societyId: string,
     userId: string,

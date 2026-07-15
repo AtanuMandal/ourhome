@@ -33,6 +33,8 @@ export function HqSocietyEditScreen({ route }: HqSocietyEditScreenProps) {
   const [contactEmail, setContactEmail] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [themeId, setThemeId] = useState<ThemeId>(DEFAULT_THEME_ID);
+  const [totalApartments, setTotalApartments] = useState('1');
+  const [maxUsersPerApartment, setMaxUsersPerApartment] = useState('10');
 
   useEffect(() => {
     if (!society) return;
@@ -45,6 +47,8 @@ export function HqSocietyEditScreen({ route }: HqSocietyEditScreenProps) {
     setContactEmail(society.contactEmail);
     setContactPhone(society.contactPhone);
     setThemeId(resolveThemeId(society.themeId));
+    setTotalApartments(String(society.totalApartments));
+    setMaxUsersPerApartment(String(society.maxUsersPerApartment ?? 10));
   }, [society]);
 
   async function handleSave(): Promise<void> {
@@ -57,6 +61,16 @@ export function HqSocietyEditScreen({ route }: HqSocietyEditScreenProps) {
       Alert.alert('Validation', 'Contact email and phone are required.');
       return;
     }
+    const apartmentsCount = Number(totalApartments);
+    const userCap = Number(maxUsersPerApartment);
+    if (!Number.isInteger(apartmentsCount) || apartmentsCount < 1) {
+      Alert.alert('Validation', 'Total apartments must be a positive number.');
+      return;
+    }
+    if (!Number.isInteger(userCap) || userCap < 1 || userCap > 100) {
+      Alert.alert('Validation', 'User cap per apartment must be between 1 and 100.');
+      return;
+    }
 
     try {
       await updateSociety({
@@ -67,8 +81,10 @@ export function HqSocietyEditScreen({ route }: HqSocietyEditScreenProps) {
           contactPhone: contactPhone.trim(),
           // Fields this screen doesn't edit — pass through unchanged.
           totalBlocks: society.totalBlocks,
-          totalApartments: society.totalApartments,
           maintenanceOverdueThresholdDays: society.maintenanceOverdueThresholdDays,
+          // HQAdmin-only capacity settings.
+          totalApartments: apartmentsCount,
+          maxUsersPerApartment: userCap,
           street: street.trim(),
           city: city.trim(),
           state: state.trim(),
@@ -115,6 +131,13 @@ export function HqSocietyEditScreen({ route }: HqSocietyEditScreenProps) {
         <TextInput testID="input-contactEmail" style={styles.input} value={contactEmail} onChangeText={setContactEmail} keyboardType="email-address" autoCapitalize="none" placeholderTextColor={colors.text.disabled} />
         <Text style={styles.label}>Contact Phone *</Text>
         <TextInput testID="input-contactPhone" style={styles.input} value={contactPhone} onChangeText={setContactPhone} keyboardType="phone-pad" placeholderTextColor={colors.text.disabled} />
+
+        <Text style={styles.sectionTitle}>Capacity</Text>
+        <Text style={styles.sectionCopy}>Only HQ Admin can change the apartment count and the per-apartment user cap.</Text>
+        <Text style={styles.label}>Total Apartments *</Text>
+        <TextInput testID="input-totalApartments" style={styles.input} value={totalApartments} onChangeText={setTotalApartments} keyboardType="number-pad" placeholderTextColor={colors.text.disabled} />
+        <Text style={styles.label}>User cap per apartment *</Text>
+        <TextInput testID="input-maxUsersPerApartment" style={styles.input} value={maxUsersPerApartment} onChangeText={setMaxUsersPerApartment} keyboardType="number-pad" placeholderTextColor={colors.text.disabled} />
 
         <Text style={styles.sectionTitle}>Theme</Text>
         <Text style={styles.sectionCopy}>Pick the color theme this society's members see across the web and mobile app.</Text>

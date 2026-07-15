@@ -11,6 +11,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { forkJoin } from 'rxjs';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 import { LoadingSpinnerComponent } from '../../shared/components/loading-spinner/loading-spinner.component';
+import { UserAvatarComponent } from '../../shared/components/user-avatar/user-avatar.component';
 import { UserService, ApartmentService } from '../../core/services/apartment.service';
 import { AuthService } from '../../core/services/auth.service';
 import { User } from '../../core/models/user.model';
@@ -33,6 +34,7 @@ type ResidentApartmentType = 'Owner' | 'Tenant';
     PageHeaderComponent,
     LoadingSpinnerComponent,
     SearchableSelectComponent,
+    UserAvatarComponent,
   ],
   template: `
     <app-page-header [title]="user()?.fullName ?? user()?.name ?? 'Profile'" [showBack]="true"></app-page-header>
@@ -41,7 +43,8 @@ type ResidentApartmentType = 'Owner' | 'Tenant';
         <app-loading-spinner></app-loading-spinner>
       } @else if (user()) {
         <div class="profile-header">
-          <div class="avatar avatar-xl">{{ initials() }}</div>
+          <app-user-avatar class="avatar-xl-host" [name]="user()!.fullName ?? user()!.name ?? ''"
+            [pictureUrl]="user()!.profilePictureUrl"></app-user-avatar>
           <h2>{{ user()!.fullName ?? user()!.name }}</h2>
           <span class="role-chip">{{ user()!.role }}</span>
         </div>
@@ -153,9 +156,7 @@ type ResidentApartmentType = 'Owner' | 'Tenant';
   `,
   styles: [`
     .profile-header { text-align:center; padding:32px 16px 16px;
-      .avatar-xl { width:80px;height:80px;font-size:28px;margin:0 auto 12px;
-        border-radius:50%;background:var(--primary-light);color:white;
-        display:flex;align-items:center;justify-content:center;font-weight:700; }
+      .avatar-xl-host { --avatar-size: 80px; display:block; width:80px; margin:0 auto 12px; }
       h2 { font-size:20px;margin:0 0 4px; }
     }
     .role-chip { font-size:12px;background:rgba(25,118,210,.1);color:var(--primary-light);

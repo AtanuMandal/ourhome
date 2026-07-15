@@ -92,7 +92,10 @@ public record UpdateSocietyCommand(
     // Populated by the HQAdmin society-edit flow, which manages address but never SocietyUsers/Committees.
     string? Street = null, string? City = null, string? State = null, string? PostalCode = null, string? Country = null,
     // Omitted (null) means "leave the theme unchanged".
-    string? ThemeId = null)
+    string? ThemeId = null,
+    // Omitted (null) means "leave unchanged". Changing MaxUsersPerApartment is HQAdmin-only.
+    int? MaxUsersPerApartment = null,
+    int? VisitorOverstayThresholdHours = null)
     : IRequest<Result<SocietyResponse>>;
 
 public sealed class UpdateSocietyCommandHandler(
@@ -109,7 +112,8 @@ public sealed class UpdateSocietyCommandHandler(
             // HQAdmin manages any society platform-wide (checked via the JWT role, since an HQAdmin's own
             // record lives in the "hq" partition, not this society's). A society's own SUAdmin manages
             // their own society, looked up within this society's partition.
-            if (!string.Equals(currentUserService.Role, "HQAdmin", StringComparison.OrdinalIgnoreCase))
+            var isHqAdmin = string.Equals(currentUserService.Role, "HQAdmin", StringComparison.OrdinalIgnoreCase);
+            if (!isHqAdmin)
             {
                 var actor = await userRepository.GetByIdAsync(currentUserService.UserId, request.SocietyId, ct);
                 if (actor is null || actor.Role != UserRole.SUAdmin)
@@ -118,6 +122,18 @@ public sealed class UpdateSocietyCommandHandler(
 
             var society = await societyRepository.GetByIdAsync(request.SocietyId, request.SocietyId, ct)
                 ?? throw new NotFoundException("Society", request.SocietyId);
+
+            // The number of apartments and the per-apartment user cap are platform-controlled values —
+            // a SUAdmin sees them on the society page but only HQAdmin may change them.
+            if (!isHqAdmin)
+            {
+                if (request.TotalApartments > 0 && request.TotalApartments != society.TotalApartments)
+                    return Result<SocietyResponse>.Failure(ErrorCodes.Forbidden,
+                        "Only the platform administrator can change the number of apartments.");
+                if (request.MaxUsersPerApartment.HasValue && request.MaxUsersPerApartment.Value != society.MaxUsersPerApartment)
+                    return Result<SocietyResponse>.Failure(ErrorCodes.Forbidden,
+                        "Only the platform administrator can change the per-apartment user cap.");
+            }
 
             Address? address = null;
             if (request.Street is not null || request.City is not null || request.State is not null
@@ -133,6 +149,11 @@ public sealed class UpdateSocietyCommandHandler(
 
             society.Update(request.Name, request.ContactEmail, request.ContactPhone,
                 request.TotalBlocks, request.TotalApartments, request.MaintenanceOverdueThresholdDays, address, request.ThemeId);
+
+            if (isHqAdmin && request.MaxUsersPerApartment.HasValue)
+                society.SetMaxUsersPerApartment(request.MaxUsersPerApartment.Value);
+            if (request.VisitorOverstayThresholdHours.HasValue)
+                society.SetVisitorOverstayThreshold(request.VisitorOverstayThresholdHours.Value);
 
             // SocietyUsers/Committees are omitted (null) by callers that only manage name/address/contact
             // (e.g. the HQAdmin society-edit flow) — only touch leadership when the caller actually sent it.

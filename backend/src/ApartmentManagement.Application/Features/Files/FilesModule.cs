@@ -10,14 +10,17 @@ public record FileContentDto(byte[] Content, string ContentType);
 
 /// <summary>
 /// Containers whose blobs may be read without authentication. Visitor images back the
-/// existing public visitor-pass share link, which has never required a login — everything
-/// else (maintenance proofs, vendor documents) is authenticated-only.
+/// existing public visitor-pass share link, which has never required a login; profile
+/// pictures render in native mobile image views that cannot attach the JWT header. Both
+/// use unguessable GUID blob names — everything else (maintenance proofs, vendor
+/// documents) is authenticated-only.
 /// </summary>
 public static class FileContainers
 {
     public const string VisitorImages = "visitor-images";
+    public const string ProfilePictures = "profile-pictures";
 
-    private static readonly HashSet<string> PubliclyReadable = new(StringComparer.OrdinalIgnoreCase) { VisitorImages };
+    private static readonly HashSet<string> PubliclyReadable = new(StringComparer.OrdinalIgnoreCase) { VisitorImages, ProfilePictures };
 
     public static bool IsPubliclyReadable(string containerName) => PubliclyReadable.Contains(containerName);
 }

@@ -15,6 +15,10 @@ export interface Society {
   totalBlocks: number;
   totalApartments: number;
   maintenanceOverdueThresholdDays: number;
+  /** Per-apartment user cap — shown on the society page; only HQAdmin can modify. */
+  maxUsersPerApartment: number;
+  /** Hours a checked-in visitor may stay before showing in red in the visitor list. */
+  visitorOverstayThresholdHours: number;
   status: string;
   adminUserIds: string[];
   societyUsers: SocietyUserAssignment[];
@@ -84,6 +88,9 @@ export interface UpdateSocietyDto {
   country?: string;
   // Omitted (undefined) means "leave the theme unchanged".
   themeId?: string;
+  // Omitted (undefined) means "leave unchanged". HQAdmin-only.
+  maxUsersPerApartment?: number;
+  visitorOverstayThresholdHours?: number;
 }
 
 /** Platform-level occupancy snapshot for HQAdmin/HQUser — no financial data. */
