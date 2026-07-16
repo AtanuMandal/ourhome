@@ -143,6 +143,22 @@ public class VisitorFunctions(ISender mediator, ICurrentUserService currentUser,
         return result.ToActionResult();
     }
 
+    [Function("GetVisitorDefaultView")]
+    public async Task<IActionResult> GetVisitorDefaultView(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "societies/{societyId}/visitors/default-view")] HttpRequest req,
+        string societyId, CancellationToken ct)
+    {
+        if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
+
+        int.TryParse(req.Query["recentCount"], out var recentCount);
+
+        // Residents may only see their own apartment's visitors
+        var apartmentId = currentUser.IsInRole("SUUser") ? currentUser.ApartmentId : null;
+
+        var result = await mediator.Send(new GetVisitorDefaultViewQuery(societyId, apartmentId, recentCount), ct);
+        return result.ToActionResult();
+    }
+
     [Function("ListActiveVisitors")]
     public async Task<IActionResult> ListActiveVisitors(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "societies/{societyId}/visitors/active")] HttpRequest req,

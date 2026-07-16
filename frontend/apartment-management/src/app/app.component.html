@@ -16,7 +16,9 @@
         }
       </div>
       <div class="side-nav__user" [class.side-nav__user--collapsed]="collapsed()">
-        <div class="avatar avatar--lg" [matTooltip]="collapsed() ? (user()?.fullName ?? user()?.name ?? '') : ''" matTooltipPosition="right">{{ userInitials() }}</div>
+        <app-user-avatar class="avatar--lg-host" [name]="user()?.fullName ?? user()?.name ?? ''"
+          [pictureUrl]="user()?.profilePictureUrl" [zoom]="false"
+          [matTooltip]="collapsed() ? (user()?.fullName ?? user()?.name ?? '') : ''" matTooltipPosition="right"></app-user-avatar>
         @if (!collapsed()) {
           <div class="user-info">
             <span class="user-name">{{ user()?.fullName ?? user()?.name }}</span>
@@ -24,6 +26,18 @@
           </div>
         }
       </div>
+      @if (showApartmentSelector() && !collapsed()) {
+        <div class="side-nav__apartment">
+          <mat-form-field appearance="outline" class="apartment-select" subscriptSizing="dynamic">
+            <mat-label>Apartment</mat-label>
+            <mat-select [value]="selectedApartmentId()" (selectionChange)="onApartmentChange($event.value)">
+              @for (apt of apartments(); track apt.apartmentId) {
+                <mat-option [value]="apt.apartmentId">{{ apt.name }} ({{ apt.residentType }})</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        </div>
+      }
       <mat-divider></mat-divider>
       <mat-nav-list class="side-nav__list">
         @for (item of visibleNav(); track item.path) {

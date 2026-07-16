@@ -110,6 +110,7 @@ describe('HqSocietyEditScreen', () => {
         totalBlocks: 2,
         totalApartments: 40,
         maintenanceOverdueThresholdDays: 7,
+        maxUsersPerApartment: 10,
         street: '99 New Street',
         city: 'Pune',
         state: 'Maharashtra',

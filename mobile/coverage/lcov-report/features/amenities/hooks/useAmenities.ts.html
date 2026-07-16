@@ -30,9 +30,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/0</span>
+                <span class='fraction'>0/3</span>
             </div>
         
             
@@ -92,15 +92,7 @@
 <a name='L27'></a><a href='#L27'>27</a>
 <a name='L28'></a><a href='#L28'>28</a>
 <a name='L29'></a><a href='#L29'>29</a>
-<a name='L30'></a><a href='#L30'>30</a>
-<a name='L31'></a><a href='#L31'>31</a>
-<a name='L32'></a><a href='#L32'>32</a>
-<a name='L33'></a><a href='#L33'>33</a>
-<a name='L34'></a><a href='#L34'>34</a>
-<a name='L35'></a><a href='#L35'>35</a>
-<a name='L36'></a><a href='#L36'>36</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L30'></a><a href='#L30'>30</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -112,11 +104,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -134,9 +122,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useInfiniteList } from '../../../shared/hooks/useInfiniteList';
-import { amenitiesApi } from '../../../api/endpoints/amenities';
-import type { AmenityBooking } from '../../../api/types';
+import { amenitiesApi, type BookAmenityRequest } from '../../../api/endpoints/amenities';
 &nbsp;
 export function <span class="fstat-no" title="function not covered" >useAmenities(</span>societyId: string) {
 <span class="cstat-no" title="statement not covered" >  return useQuery({</span>
@@ -146,25 +132,21 @@ export function <span class="fstat-no" title="function not covered" >useAmenitie
   });
 }
 &nbsp;
-export function <span class="fstat-no" title="function not covered" >useBookingList(</span>
-  societyId: string,
-  params?: Record&lt;string, string | number&gt;
-) {
-<span class="cstat-no" title="statement not covered" >  return useInfiniteList&lt;AmenityBooking&gt;({</span>
-    queryKey: ['amenity-bookings', societyId, params],
-    fetchPage: <span class="fstat-no" title="function not covered" >(p</span>age) =&gt;
-<span class="cstat-no" title="statement not covered" >      amenitiesApi.getBookings(societyId, { ...params, page, pageSize: 20 }),</span>
-    enabled: !!societyId,
+export function <span class="fstat-no" title="function not covered" >useAmenityAvailability(</span>societyId: string, amenityId: string, date: string) {
+<span class="cstat-no" title="statement not covered" >  return useQuery({</span>
+    queryKey: ['amenity-availability', societyId, amenityId, date],
+    queryFn: <span class="fstat-no" title="function not covered" >()</span> =&gt; <span class="cstat-no" title="statement not covered" >amenitiesApi.getAvailability(societyId, amenityId, date),</span>
+    enabled: !!societyId &amp;&amp; !!amenityId &amp;&amp; !!date,
   });
 }
 &nbsp;
 export function <span class="fstat-no" title="function not covered" >useCreateBooking(</span>societyId: string) {
   const queryClient = <span class="cstat-no" title="statement not covered" >useQueryClient();</span>
 <span class="cstat-no" title="statement not covered" >  return useMutation({</span>
-    mutationFn: <span class="fstat-no" title="function not covered" >(d</span>ata: Partial&lt;AmenityBooking&gt;) =&gt;
+    mutationFn: <span class="fstat-no" title="function not covered" >(d</span>ata: BookAmenityRequest) =&gt;
 <span class="cstat-no" title="statement not covered" >      amenitiesApi.createBooking(societyId, data),</span>
     onSuccess: <span class="fstat-no" title="function not covered" >()</span> =&gt; {
-<span class="cstat-no" title="statement not covered" >      void queryClient.invalidateQueries({ queryKey: ['amenity-bookings', societyId] });</span>
+<span class="cstat-no" title="statement not covered" >      void queryClient.invalidateQueries({ queryKey: ['amenities', societyId] });</span>
     },
   });
 }
@@ -175,7 +157,7 @@ export function <span class="fstat-no" title="function not covered" >useCreateBo
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-07-02T17:16:37.151Z
+                at 2026-07-16T05:21:19.834Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

@@ -113,6 +113,12 @@ export class UserService {
     return this.api.put<User>(`societies/${societyId}/users/${id}`, dto);
   }
 
+  uploadProfilePicture(societyId: string, id: string, file: Blob, fileName = 'profile.jpg') {
+    const form = new FormData();
+    form.append('file', file, fileName);
+    return this.api.post<{ profilePictureUrl: string }>(`societies/${societyId}/users/${id}/profile-picture`, form);
+  }
+
   deactivate(societyId: string, id: string) {
     return this.api.post<void>(`societies/${societyId}/users/${id}/deactivate`, {});
   }

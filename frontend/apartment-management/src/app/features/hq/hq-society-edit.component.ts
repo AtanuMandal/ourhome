@@ -74,6 +74,20 @@ import { THEMES, DEFAULT_THEME_ID } from '../../core/services/theme.service';
             </mat-form-field>
 
             <mat-divider style="margin:16px 0"></mat-divider>
+            <div class="section-title">Capacity</div>
+            <p class="section-copy">Only HQ Admin can change the apartment count and the per-apartment user cap.</p>
+            <div class="two-col">
+              <mat-form-field appearance="fill">
+                <mat-label>Total Apartments</mat-label>
+                <input matInput type="number" formControlName="totalApartments" min="1">
+              </mat-form-field>
+              <mat-form-field appearance="fill">
+                <mat-label>User cap per apartment</mat-label>
+                <input matInput type="number" formControlName="maxUsersPerApartment" min="1" max="100">
+              </mat-form-field>
+            </div>
+
+            <mat-divider style="margin:16px 0"></mat-divider>
             <div class="section-title">Theme</div>
             <p class="section-copy">Pick the color theme this society's members see across the web and mobile app.</p>
             <div class="theme-picker" role="radiogroup" aria-label="Society theme">
@@ -149,6 +163,8 @@ export class HqSocietyEditComponent implements OnInit {
     contactEmail: ['', [Validators.required, Validators.email]],
     contactPhone: ['', Validators.required],
     themeId: [DEFAULT_THEME_ID, Validators.required],
+    totalApartments: [1, [Validators.required, Validators.min(1)]],
+    maxUsersPerApartment: [10, [Validators.required, Validators.min(1), Validators.max(100)]],
   });
 
   ngOnInit() {
@@ -171,6 +187,8 @@ export class HqSocietyEditComponent implements OnInit {
           contactEmail: society.contactEmail ?? '',
           contactPhone: society.contactPhone ?? '',
           themeId: society.themeId || DEFAULT_THEME_ID,
+          totalApartments: society.totalApartments,
+          maxUsersPerApartment: society.maxUsersPerApartment ?? 10,
         });
         this.loading.set(false);
       },
@@ -189,8 +207,10 @@ export class HqSocietyEditComponent implements OnInit {
       contactPhone: value.contactPhone.trim(),
       // Numeric fields the HQ admin doesn't edit here — pass through unchanged.
       totalBlocks: this.society.totalBlocks,
-      totalApartments: this.society.totalApartments,
       maintenanceOverdueThresholdDays: this.society.maintenanceOverdueThresholdDays,
+      // HQAdmin-only capacity settings.
+      totalApartments: value.totalApartments,
+      maxUsersPerApartment: value.maxUsersPerApartment,
       street: value.street.trim(),
       city: value.city.trim(),
       state: value.state.trim(),

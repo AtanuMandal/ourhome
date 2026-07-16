@@ -1,5 +1,5 @@
 import * as ImageManipulator from 'expo-image-manipulator';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { compressAndUpload, resolveFileUrl } from '../../src/camera/imageUpload';
 
 jest.mock('expo-image-manipulator', () => ({
@@ -7,7 +7,7 @@ jest.mock('expo-image-manipulator', () => ({
   SaveFormat: { JPEG: 'jpeg' },
 }));
 
-jest.mock('expo-file-system', () => ({
+jest.mock('expo-file-system/legacy', () => ({
   uploadAsync: jest.fn(),
   FileSystemUploadType: { MULTIPART: 'multipart' },
 }));

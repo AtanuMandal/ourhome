@@ -251,6 +251,14 @@ public sealed class FakeVisitorLogRepository : FakeRepository<VisitorLog>, IVisi
         var found = Store.Values.FirstOrDefault(v => v.PassCode == passCode);
         return Task.FromResult<VisitorLog?>(found);
     }
+
+    public Task<IReadOnlyList<VisitorLog>> GetCheckedInAcrossSocietiesAsync(CancellationToken ct = default)
+    {
+        IReadOnlyList<VisitorLog> result = Store.Values
+            .Where(v => v.Status == VisitorStatus.CheckedIn)
+            .ToList();
+        return Task.FromResult(result);
+    }
 }
 
 // ─── Maintenance Schedule ─────────────────────────────────────────────────────

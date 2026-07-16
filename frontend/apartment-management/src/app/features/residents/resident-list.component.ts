@@ -9,6 +9,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 import { LoadingSpinnerComponent } from '../../shared/components/loading-spinner/loading-spinner.component';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
+import { UserAvatarComponent } from '../../shared/components/user-avatar/user-avatar.component';
 import { UserService } from '../../core/services/apartment.service';
 import { AuthService } from '../../core/services/auth.service';
 import { User } from '../../core/models/user.model';
@@ -28,7 +29,7 @@ interface RoleGroup { role: string; label: string; users: User[]; }
   selector: 'app-resident-list',
   standalone: true,
   imports: [RouterLink, FormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule,
-            PageHeaderComponent, LoadingSpinnerComponent, EmptyStateComponent],
+            PageHeaderComponent, LoadingSpinnerComponent, EmptyStateComponent, UserAvatarComponent],
   template: `
     <app-page-header title="Users"></app-page-header>
     <div class="page-content">
@@ -94,7 +95,10 @@ interface RoleGroup { role: string; label: string; users: User[]; }
               @for (r of group.users; track r.id) {
                 <div class="resident-card">
                   <a [routerLink]="[r.id]" class="resident-card-link">
-                    <div class="avatar">{{ (r.fullName ?? r.name ?? '?')[0] }}</div>
+                    <app-user-avatar class="rc-avatar"
+                      [name]="r.fullName ?? r.name ?? '?'"
+                      [pictureUrl]="r.profilePictureUrl"
+                      (click)="onAvatarClick($event, r)"></app-user-avatar>
                     <div class="rc-info">
                       <span class="rc-name">{{ r.fullName ?? r.name }}</span>
                       <span class="rc-email">Apartments: {{ apartmentNamesFor(r) }}</span>
@@ -163,6 +167,14 @@ export class ResidentListComponent implements OnInit {
       this.apartmentNamesFor(r).toLowerCase().includes(term)
     );
   });
+
+  /** Keep the avatar's zoom lightbox from also triggering the row's profile navigation. */
+  onAvatarClick(event: Event, user: User) {
+    if (user.profilePictureUrl) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+  }
 
   readonly groupedByRole = computed<RoleGroup[]>(() => {
     const byRole = new Map<string, User[]>();

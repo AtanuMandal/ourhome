@@ -6,6 +6,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../store/authStore';
 import { useAuth } from '../auth/useAuth';
 import { useThemeColors } from '../shared/hooks/useThemeColors';
+import { useActiveApartment } from '../shared/hooks/useActiveApartment';
+import { UserAvatar } from '../shared/components/UserAvatar';
 import type { ColorTokens } from '../theme/themes';
 import { typography } from '../theme/typography';
 
@@ -102,15 +104,7 @@ export function CustomDrawer({ navigation, state }: DrawerContentComponentProps)
   const { logout } = useAuth();
   const colors = useThemeColors();
   const styles = getStyles(colors);
-
-  const initials =
-    (user?.fullName ?? 'U')
-      .split(' ')
-      .filter(Boolean)
-      .map((n: string) => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2) || 'U';
+  const { apartments, activeApartmentId, setSelectedApartment } = useActiveApartment();
 
   const menuItems = getMenuItems(user?.role);
   const activeRoute = state.routeNames[state.index];
@@ -124,9 +118,7 @@ export function CustomDrawer({ navigation, state }: DrawerContentComponentProps)
 
       {/* User info */}
       <View style={styles.userInfo}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{initials}</Text>
-        </View>
+        <UserAvatar name={user?.fullName ?? 'User'} pictureUrl={user && 'profilePictureUrl' in user ? user.profilePictureUrl : undefined} size={44} zoom={false} />
         <View style={styles.userMeta}>
           <Text style={styles.userName} numberOfLines={1}>
             {user?.fullName ?? 'User'}
@@ -134,6 +126,34 @@ export function CustomDrawer({ navigation, state }: DrawerContentComponentProps)
           <Text style={styles.userRole}>{getRoleLabel(user?.role)}</Text>
         </View>
       </View>
+
+      {/* Apartment selector — users linked to several apartments pick the active one here;
+          menus and apartment-scoped features follow the role held on that apartment. */}
+      {apartments.length > 1 && (
+        <View style={styles.apartmentSelector}>
+          <Text style={styles.apartmentSelectorLabel}>Apartment</Text>
+          {apartments.map((apt) => {
+            const isSelected = apt.apartmentId === activeApartmentId;
+            return (
+              <TouchableOpacity
+                key={apt.apartmentId}
+                style={[styles.apartmentOption, isSelected && styles.apartmentOptionSelected]}
+                onPress={() => setSelectedApartment(apt.apartmentId)}
+                accessibilityLabel={`Select apartment ${apt.name}`}
+              >
+                <MaterialIcons
+                  name={isSelected ? 'radio-button-checked' : 'radio-button-unchecked'}
+                  size={16}
+                  color={isSelected ? colors.primaryLight : colors.text.secondary}
+                />
+                <Text style={[styles.apartmentOptionText, isSelected && styles.apartmentOptionTextSelected]} numberOfLines={1}>
+                  {apt.name} ({apt.residentType})
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
 
       <View style={styles.divider} />
 
@@ -199,16 +219,31 @@ function getStyles(colors: ColorTokens) {
       paddingBottom: 16,
       gap: 12,
     },
-    avatar: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      backgroundColor: colors.primaryLight,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    avatarText: { color: colors.onPrimary, fontSize: 16, fontWeight: '600' },
     userMeta: { flex: 1 },
+    apartmentSelector: {
+      paddingHorizontal: 16,
+      paddingBottom: 12,
+    },
+    apartmentSelectorLabel: {
+      fontSize: typography.fontSize.xs,
+      color: colors.text.secondary,
+      marginBottom: 4,
+    },
+    apartmentOption: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingVertical: 6,
+      paddingHorizontal: 8,
+      borderRadius: 8,
+    },
+    apartmentOptionSelected: { backgroundColor: colors.activeTabBg },
+    apartmentOptionText: {
+      flex: 1,
+      fontSize: typography.fontSize.sm,
+      color: colors.text.secondary,
+    },
+    apartmentOptionTextSelected: { color: colors.primaryLight, fontWeight: '500' },
     userName: {
       fontSize: typography.fontSize.sm,
       fontWeight: typography.fontWeight.medium,

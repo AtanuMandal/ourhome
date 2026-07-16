@@ -16,20 +16,16 @@ export function useVisitorList(
   });
 }
 
-/** No filter applied — all Pending visitors plus the 10 most recent overall, not the whole history. */
+/**
+ * No filter applied — all Pending and CheckedIn visitors plus the 10 most recent concluded
+ * entries, not the whole history. Checked-in visitors are on the premises right now, so they
+ * must always be visible for security to check out on exit — they never age out of this view.
+ * The backend computes the whole view in a single call.
+ */
 export function useVisitorDefaultView(societyId: string, enabled = true) {
   return useQuery({
     queryKey: ['visitors-default', societyId],
-    queryFn: async () => {
-      const [pendingRes, recentRes] = await Promise.all([
-        visitorsApi.getVisitors(societyId, { status: 'Pending', page: 1, pageSize: 200 }),
-        visitorsApi.getVisitors(societyId, { page: 1, pageSize: 10 }),
-      ]);
-      const merged = new Map<string, Visitor>();
-      for (const visitor of pendingRes.items) merged.set(visitor.id, visitor);
-      for (const visitor of recentRes.items) if (!merged.has(visitor.id)) merged.set(visitor.id, visitor);
-      return [...merged.values()];
-    },
+    queryFn: () => visitorsApi.getDefaultView(societyId, 10),
     enabled: !!societyId && enabled,
   });
 }
@@ -53,6 +49,8 @@ export function useVisitorLookups(societyId: string) {
 function invalidateVisitorLists(queryClient: ReturnType<typeof useQueryClient>, societyId: string) {
   void queryClient.invalidateQueries({ queryKey: ['visitors', societyId] });
   void queryClient.invalidateQueries({ queryKey: ['visitors-default', societyId] });
+  // The detail/pass screen caches a single visitor — refresh it too after any status change.
+  void queryClient.invalidateQueries({ queryKey: ['visitor', societyId] });
 }
 
 export function useRegisterVisitor(societyId: string) {
@@ -84,6 +82,15 @@ export function useCheckOutVisitor(societyId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => visitorsApi.checkOutVisitor(societyId, id),
+    onSuccess: () => invalidateVisitorLists(queryClient, societyId),
+  });
+}
+
+/** Gate flow: verifying a pass code checks the visitor in as one step. */
+export function useCheckInVisitorByPass(societyId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (passCode: string) => visitorsApi.checkInVisitorByPass(societyId, passCode),
     onSuccess: () => invalidateVisitorLists(queryClient, societyId),
   });
 }

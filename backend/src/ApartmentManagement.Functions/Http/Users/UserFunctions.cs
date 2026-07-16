@@ -258,6 +258,28 @@ public class UserFunctions(ISender mediator, ICurrentUserService currentUser)
         return result.ToActionResult();
     }
 
+    [Function("UploadUserProfilePicture")]
+    public async Task<IActionResult> UploadUserProfilePicture(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "societies/{societyId}/users/{id}/profile-picture")] HttpRequest req,
+        string societyId, string id, CancellationToken ct)
+    {
+        if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
+        // Users manage their own picture; SUAdmin may set one on behalf of a resident.
+        if (currentUser.UserId != id && !currentUser.IsInRoles("SUAdmin")) return new ForbidResult();
+
+        var form = await req.ReadFormAsync(ct);
+        var file = form.Files.GetFile("file");
+        if (file is null || file.Length == 0)
+            return new BadRequestObjectResult(new { error = "Upload an image using the 'file' form field." });
+
+        using var memory = new MemoryStream();
+        await file.CopyToAsync(memory, ct);
+
+        var result = await mediator.Send(
+            new UploadUserProfilePictureCommand(societyId, id, file.FileName, file.ContentType ?? "application/octet-stream", memory.ToArray()), ct);
+        return result.ToActionResult();
+    }
+
     [Function("ChangePassword")]
     public async Task<IActionResult> ChangePassword(
         [HttpTrigger(AuthorizationLevel.Anonymous, "put", Route = "societies/{societyId}/users/{id}/password")] HttpRequest req,
@@ -339,7 +361,9 @@ public class UserFunctions(ISender mediator, ICurrentUserService currentUser)
         string societyId, string id, CancellationToken ct)
     {
         if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
-        if (!currentUser.IsInRoles("SUAdmin", "HQAdmin")) return new ForbidResult();
+        // The invited user accepts their own apartment-joining invitation from the dashboard;
+        // admins retain the ability to approve on a user's behalf.
+        if (currentUser.UserId != id && !currentUser.IsInRoles("SUAdmin", "HQAdmin")) return new ForbidResult();
         var result = await mediator.Send(new ApproveApartmentJoinCommand(societyId, id), ct);
         return result.ToActionResult();
     }
@@ -350,7 +374,8 @@ public class UserFunctions(ISender mediator, ICurrentUserService currentUser)
         string societyId, string id, CancellationToken ct)
     {
         if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
-        if (!currentUser.IsInRoles("SUAdmin", "HQAdmin")) return new ForbidResult();
+        // The invited user can decline their own invitation; admins can deny on their behalf.
+        if (currentUser.UserId != id && !currentUser.IsInRoles("SUAdmin", "HQAdmin")) return new ForbidResult();
         var result = await mediator.Send(new DenyApartmentJoinCommand(societyId, id), ct);
         return result.ToActionResult();
     }

@@ -24,6 +24,12 @@ export const visitorsApi = {
       .get<PaginatedResponse<Visitor>>(`/societies/${societyId}/visitors`, { params })
       .then((r) => r.data),
 
+  // Unfiltered landing view in one call: all Pending + CheckedIn plus the N most recent concluded entries.
+  getDefaultView: (societyId: string, recentCount: number) =>
+    api
+      .get<Visitor[]>(`/societies/${societyId}/visitors/default-view`, { params: { recentCount } })
+      .then((r) => r.data),
+
   getVisitor: (societyId: string, id: string) =>
     api
       .get<Visitor>(`/societies/${societyId}/visitors/${id}`)
@@ -47,6 +53,13 @@ export const visitorsApi = {
   checkOutVisitor: (societyId: string, id: string) =>
     api
       .post<Visitor>(`/societies/${societyId}/visitors/${id}/checkout`)
+      .then((r) => r.data),
+
+  // Pass verification doubles as check-in: the backend validates the pass and checks the
+  // visitor in as one step (idempotent when the visitor is already checked in).
+  checkInVisitorByPass: (societyId: string, passCode: string) =>
+    api
+      .post<Visitor>(`/societies/${societyId}/visitors/checkin`, { passCode })
       .then((r) => r.data),
 
   getLookups: (societyId: string) =>

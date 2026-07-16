@@ -39,10 +39,10 @@ import { PollSummary } from '../../core/models/poll.model';
           </div>
           <h2 class="notice-title">{{ item()!.title }}</h2>
           <div class="notice-body">{{ item()!.content }}</div>
-          @if (item()!.postedByUserId) {
+          @if (item()!.postedByName || item()!.postedByUserId) {
             <div class="notice-author">
               <span class="material-icons">person</span>
-              Posted by {{ item()!.postedByUserId }}
+              Posted by {{ item()!.postedByName || 'Unknown' }}
             </div>
           }
         </div>

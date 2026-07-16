@@ -14,6 +14,10 @@ public sealed class PreflightFunctions(IConfiguration configuration)
         "x-requested-with"
     ];
 
+    // 30 days. Browsers clamp this to their own ceiling (Chromium ~2h, Firefox 24h), so ask
+    // for the maximum and let each browser cache the preflight for as long as it allows.
+    private const string PreflightMaxAgeSeconds = "2592000";
+
     [Function("HandleCorsPreflight")]
     public IActionResult HandleCorsPreflight(
         [HttpTrigger(AuthorizationLevel.Anonymous, "options", Route = "{*path}")] HttpRequest req)
@@ -38,7 +42,7 @@ public sealed class PreflightFunctions(IConfiguration configuration)
                 ? string.Join(", ", FallbackAllowedHeaders)
                 : requestedHeaders;
 
-        req.HttpContext.Response.Headers["Access-Control-Max-Age"] = "86400";
+        req.HttpContext.Response.Headers["Access-Control-Max-Age"] = PreflightMaxAgeSeconds;
 
         return new NoContentResult();
     }

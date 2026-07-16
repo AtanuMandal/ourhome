@@ -26,6 +26,7 @@ public sealed class User : BaseEntity
     public bool HasPassword => !string.IsNullOrWhiteSpace(PasswordHash);
     public string? PendingApartmentId { get; private set; }
     public string? PendingResidentType { get; private set; }
+    public string? ProfilePictureUrl { get; private set; }
 
     private static readonly TimeSpan OtpLifetime = TimeSpan.FromMinutes(10);
     private static readonly Random _rng = new();
@@ -103,6 +104,14 @@ public sealed class User : BaseEntity
     {
         if (!string.IsNullOrWhiteSpace(fullName)) FullName = fullName.Trim();
         if (!string.IsNullOrWhiteSpace(phone)) Phone = phone.Trim();
+        TouchUpdatedAt();
+    }
+
+    /// <summary>Sets or replaces the user's profile picture (app-relative file URL).</summary>
+    public void SetProfilePicture(string profilePictureUrl)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(profilePictureUrl, nameof(profilePictureUrl));
+        ProfilePictureUrl = profilePictureUrl.Trim();
         TouchUpdatedAt();
     }
 

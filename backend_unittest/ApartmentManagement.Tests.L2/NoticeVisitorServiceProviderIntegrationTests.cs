@@ -131,8 +131,10 @@ public class NoticeVisitorServiceProviderIntegrationTests : IntegrationTestBase
         var approve = await Mediator.Send(new ApproveVisitorCommand(SocietyId, visitor.Id, residentUserId));
         approve.IsSuccess.Should().BeTrue();
 
+        // Approval doubles as check-in — a repeat pass verification is idempotent and succeeds.
         var checkIn = await Mediator.Send(new CheckInVisitorCommand(SocietyId, visitor.PassCode));
         checkIn.IsSuccess.Should().BeTrue();
+        checkIn.Value!.Status.Should().Be("CheckedIn");
 
         var active = await Mediator.Send(new GetActiveVisitorsQuery(SocietyId));
         active.IsSuccess.Should().BeTrue();

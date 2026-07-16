@@ -36,6 +36,15 @@ public sealed class Society : BaseEntity
     public int TotalApartments { get; private set; }
     public MaintenanceFeeStructure? FeeStructure { get; private set; }
     public int MaintenanceOverdueThresholdDays { get; private set; } = 7;
+
+    /// <summary>Maximum number of users that can be associated with a single apartment. HQAdmin-managed.</summary>
+    public int MaxUsersPerApartment { get; private set; } = DefaultMaxUsersPerApartment;
+
+    /// <summary>Hours a checked-in visitor may stay before being flagged as overstaying in the visitor list.</summary>
+    public int VisitorOverstayThresholdHours { get; private set; } = DefaultVisitorOverstayThresholdHours;
+
+    public const int DefaultMaxUsersPerApartment = 10;
+    public const int DefaultVisitorOverstayThresholdHours = 5;
     public string ThemeId { get; private set; } = DefaultThemeId;
     public SocietyStatus Status { get; private set; }
     public List<string> AdminUserIds { get; private set; } = [];
@@ -156,6 +165,25 @@ public sealed class Society : BaseEntity
         }
         if (!string.IsNullOrWhiteSpace(themeId))
             ThemeId = NormalizeThemeId(themeId);
+        TouchUpdatedAt();
+    }
+
+    /// <summary>Sets the per-apartment user cap. Authorization (HQAdmin-only) is enforced by the caller.</summary>
+    public void SetMaxUsersPerApartment(int maxUsers)
+    {
+        if (maxUsers < 1 || maxUsers > 100)
+            throw new ArgumentOutOfRangeException(nameof(maxUsers), "Max users per apartment must be between 1 and 100.");
+
+        MaxUsersPerApartment = maxUsers;
+        TouchUpdatedAt();
+    }
+
+    public void SetVisitorOverstayThreshold(int thresholdHours)
+    {
+        if (thresholdHours < 1 || thresholdHours > 24)
+            throw new ArgumentOutOfRangeException(nameof(thresholdHours), "Visitor overstay threshold must be between 1 and 24 hours.");
+
+        VisitorOverstayThresholdHours = thresholdHours;
         TouchUpdatedAt();
     }
 

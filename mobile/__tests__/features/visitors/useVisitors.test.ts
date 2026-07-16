@@ -1,22 +1,26 @@
 import React from 'react';
 import { renderHook, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useVisitorList, useVisitorDefaultView, useVisitorLookups } from '../../../src/features/visitors/hooks/useVisitors';
+import { useVisitorList, useVisitorDefaultView, useVisitorLookups, useCheckInVisitorByPass } from '../../../src/features/visitors/hooks/useVisitors';
 import type { PaginatedResponse } from '../../../src/api/types';
 import type { Visitor } from '../../../src/api/types';
 
 const mockGetVisitors = jest.fn<Promise<PaginatedResponse<Visitor>>, [string, (Record<string, string | number> | undefined)?]>();
+const mockGetDefaultView = jest.fn<Promise<Visitor[]>, [string, number]>();
 const mockGetLookups = jest.fn();
+const mockCheckInByPass = jest.fn<Promise<Visitor>, [string, string]>();
 
 jest.mock('../../../src/api/endpoints/visitors', () => ({
   visitorsApi: {
     getVisitors: (...args: [string, (Record<string, string | number> | undefined)?]) =>
       mockGetVisitors(...args),
+    getDefaultView: (...args: [string, number]) => mockGetDefaultView(...args),
     getVisitor: jest.fn(),
     registerVisitor: jest.fn(),
     approveVisitor: jest.fn(),
     denyVisitor: jest.fn(),
     checkOutVisitor: jest.fn(),
+    checkInVisitorByPass: (...args: [string, string]) => mockCheckInByPass(...args),
     getLookups: (...args: [string]) => mockGetLookups(...args),
   },
 }));
@@ -93,7 +97,7 @@ describe('useVisitors', () => {
     expect(result.current.hasNextPage).toBe(false);
   });
 
-  test('useVisitorDefaultView merges pending visitors with the 10 most recent, de-duplicated by id', async () => {
+  test('useVisitorDefaultView fetches the whole landing view in one backend call', async () => {
     const makeVisitor = (id: string, status: string): Visitor => ({
       id,
       societyId: 'soc1',
@@ -106,21 +110,43 @@ describe('useVisitors', () => {
       createdAt: '2024-01-15T10:00:00Z',
     });
 
-    const pendingItems = [makeVisitor('p1', 'Pending'), makeVisitor('p2', 'Pending')];
-    const recentItems = [makeVisitor('p1', 'Pending'), makeVisitor('c1', 'CheckedOut')];
-
-    mockGetVisitors.mockImplementation((_societyId, params) => {
-      if (params?.status === 'Pending') {
-        return Promise.resolve({ items: pendingItems, total: 2, page: 1, pageSize: 200 });
-      }
-      return Promise.resolve({ items: recentItems, total: 2, page: 1, pageSize: 10 });
-    });
+    // The backend now merges pending + checked-in + recent server-side.
+    mockGetDefaultView.mockResolvedValue([
+      makeVisitor('p1', 'Pending'),
+      makeVisitor('ci1', 'CheckedIn'),
+      makeVisitor('c1', 'CheckedOut'),
+    ]);
 
     const { result } = renderHook(() => useVisitorDefaultView('soc1'), { wrapper: createWrapper() });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    expect(result.current.data?.map(v => v.id).sort()).toEqual(['c1', 'p1', 'p2']);
+    expect(mockGetDefaultView).toHaveBeenCalledTimes(1);
+    expect(mockGetDefaultView).toHaveBeenCalledWith('soc1', 10);
+    expect(mockGetVisitors).not.toHaveBeenCalled();
+    expect(result.current.data?.map(v => v.id)).toEqual(['p1', 'ci1', 'c1']);
+  });
+
+  test('useCheckInVisitorByPass verifies the pass and returns the checked-in visitor', async () => {
+    const checkedIn: Visitor = {
+      id: 'v1',
+      societyId: 'soc1',
+      residentId: 'res1',
+      residentName: 'John Doe',
+      visitorName: 'Jane Smith',
+      visitorPhone: '9876543210',
+      purpose: 'Guest visit',
+      status: 'CheckedIn',
+      createdAt: '2024-01-15T10:00:00Z',
+    };
+    mockCheckInByPass.mockResolvedValue(checkedIn);
+
+    const { result } = renderHook(() => useCheckInVisitorByPass('soc1'), { wrapper: createWrapper() });
+
+    const visitor = await result.current.mutateAsync('ABC123');
+
+    expect(mockCheckInByPass).toHaveBeenCalledWith('soc1', 'ABC123');
+    expect(visitor.status).toBe('CheckedIn');
   });
 
   test('useVisitorLookups returns companies and purposes for the society', async () => {

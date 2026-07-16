@@ -28,7 +28,10 @@ public record UpdateSocietyRequest(
     // Omitted (all-null) means "leave the address unchanged".
     string? Street = null, string? City = null, string? State = null, string? PostalCode = null, string? Country = null,
     // Omitted (null) means "leave the theme unchanged".
-    string? ThemeId = null);
+    string? ThemeId = null,
+    // Omitted (null) means "leave unchanged". MaxUsersPerApartment is HQAdmin-only.
+    int? MaxUsersPerApartment = null,
+    int? VisitorOverstayThresholdHours = null);
 
 public record SocietyResponse(
     string Id, string Name, AddressDto Address, string ContactEmail, string ContactPhone,
@@ -37,7 +40,9 @@ public record SocietyResponse(
     IReadOnlyList<SocietyUserAssignmentDto> SocietyUsers,
     IReadOnlyList<SocietyCommitteeDto> Committees,
     string ThemeId,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    int MaxUsersPerApartment = Domain.Entities.Society.DefaultMaxUsersPerApartment,
+    int VisitorOverstayThresholdHours = Domain.Entities.Society.DefaultVisitorOverstayThresholdHours);
 
 /// <summary>
 /// Platform-level occupancy snapshot for HQAdmin/HQUser — deliberately excludes any financial data
@@ -116,7 +121,10 @@ public record UserResponse(
     string Id, string SocietyId, string FullName, string Email, string Phone,
     string Role, string ResidentType, string? ApartmentId, string? InvitedByUserId, bool IsActive, bool IsVerified, bool HasPassword,
     IReadOnlyList<string> Permissions, IReadOnlyList<ResidentApartmentDto> Apartments, DateTime CreatedAt,
-    string? PendingApartmentId = null, string? PendingResidentType = null);
+    string? PendingApartmentId = null, string? PendingResidentType = null,
+    string? ProfilePictureUrl = null);
+
+public record UserProfilePictureResponse(string ProfilePictureUrl);
 
 public record ResidentApartmentDto(
     string ApartmentId,
@@ -126,7 +134,8 @@ public record ResidentApartmentDto(
 // Auth response user — field names intentionally match the Angular User model
 public record AuthUserDto(
     string Id, string SocietyId, string Name, string Email, string? Phone,
-    string Role, string ResidentType, string? ApartmentId, bool IsVerified, IReadOnlyList<string> Permissions);
+    string Role, string ResidentType, string? ApartmentId, bool IsVerified, IReadOnlyList<string> Permissions,
+    string? ProfilePictureUrl = null);
 
 public record VerifyOtpResponse(string AccessToken, AuthUserDto User);
 
@@ -449,7 +458,9 @@ public record NoticeResponse(
     string Id, string SocietyId, string Title, string Content, string Category,
     string PostedByUserId, bool IsArchived, DateTime PublishAt, DateTime? ExpiresAt,
     bool IsActive, DateTime CreatedAt, IReadOnlyList<string> TargetApartmentIds,
-    bool IsReadByCurrentUser = false);
+    bool IsReadByCurrentUser = false,
+    // Full name of the poster — clients must show this, never the raw user id.
+    string? PostedByName = null);
 
 public record NoticeReadReceiptEntry(string UserId, string FullName);
 
@@ -482,7 +493,10 @@ public record VisitorResponse(
     DateTime CreatedAt,
     DateTime? ValidUntil = null,
     string? VisitorImageUrl = null,
-    bool IsPassExpired = false);
+    bool IsPassExpired = false,
+    // True when the visitor is checked in past the society's overstay threshold — shown in red in lists.
+    bool IsOverstay = false,
+    bool IsAutoCheckedOut = false);
 
 public sealed record CheckInVisitorRequest(string PassCode);
 

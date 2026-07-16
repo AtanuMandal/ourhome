@@ -11,7 +11,10 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatSelectModule } from '@angular/material/select';
+import { MatFormFieldModule } from '@angular/material/form-field';
 import { BottomNavComponent } from './shared/components/bottom-nav/bottom-nav.component';
+import { UserAvatarComponent } from './shared/components/user-avatar/user-avatar.component';
 import { AuthService } from './core/services/auth.service';
 import { ThemeService } from './core/services/theme.service';
 import { PushNotificationService } from './core/services/push-notification.service';
@@ -29,7 +32,8 @@ interface SideNavItem { path: string; icon: string; label: string; }
     RouterOutlet, RouterLink, RouterLinkActive,
     MatToolbarModule, MatSidenavModule, MatListModule,
     MatIconModule, MatButtonModule, MatDividerModule, MatTooltipModule,
-    BottomNavComponent,
+    MatSelectModule, MatFormFieldModule,
+    BottomNavComponent, UserAvatarComponent,
   ],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
@@ -46,6 +50,14 @@ export class AppComponent {
   readonly isLoggedIn = this.auth.isLoggedIn;
   readonly user       = this.auth.user;
   readonly isAuthRoute = signal(false);
+
+  // Multi-apartment users pick their active apartment here; menus and apartment-scoped
+  // features follow the role held on the selected apartment.
+  readonly apartments = this.auth.apartments;
+  readonly selectedApartmentId = this.auth.selectedApartmentId;
+  readonly showApartmentSelector = computed(() => this.apartments().length > 1);
+
+  onApartmentChange(apartmentId: string) { this.auth.setSelectedApartment(apartmentId); }
 
   readonly isMobile = toSignal(
     this.breakpointObserver.observe(MOBILE_BREAKPOINT).pipe(map(state => state.matches)),
@@ -135,6 +147,9 @@ export class AppComponent {
   ];
 
   constructor() {
+    // Pull apartment memberships / pending invitations / profile picture for the session user.
+    if (this.auth.isLoggedIn()) this.auth.refreshUserProfile();
+
     // Track auth routes to hide nav
     this.router.events.pipe(
       filter(e => e instanceof NavigationEnd)

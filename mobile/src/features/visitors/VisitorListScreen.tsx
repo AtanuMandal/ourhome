@@ -7,13 +7,15 @@ import {
   TouchableOpacity,
   RefreshControl,
   StyleSheet,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSocietyId } from '../../shared/hooks/useSocietyId';
 import { useAuthStore } from '../../store/authStore';
-import { useVisitorList, useVisitorDefaultView, useApproveVisitor, useDenyVisitor, useCheckOutVisitor } from './hooks/useVisitors';
+import { useVisitorList, useVisitorDefaultView, useApproveVisitor, useDenyVisitor, useCheckOutVisitor, useCheckInVisitorByPass } from './hooks/useVisitors';
+import { normalizeError } from '../../shared/utils/errors';
 import { useDebounce } from '../../shared/hooks/useDebounce';
 import { AppHeader } from '../../shared/components/AppHeader';
 import { StatusChip } from '../../shared/components/StatusChip';
@@ -68,6 +70,22 @@ export function VisitorListScreen() {
   const { mutate: approve } = useApproveVisitor(societyId);
   const { mutate: deny } = useDenyVisitor(societyId);
   const { mutate: checkOut } = useCheckOutVisitor(societyId);
+  const { mutateAsync: checkInByPass, isPending: isVerifyingPass } = useCheckInVisitorByPass(societyId);
+  const [passCode, setPassCode] = useState('');
+
+  // Gate flow: verifying a pass checks the visitor in as one step — security never has to
+  // check them in separately. An already checked-in pass verifies fine (exit flow).
+  async function handleVerifyPass(): Promise<void> {
+    const code = passCode.trim();
+    if (!code) return;
+    try {
+      const visitor = await checkInByPass(code);
+      setPassCode('');
+      Alert.alert('Pass verified', `${visitor.visitorName} is checked in.`);
+    } catch (e) {
+      Alert.alert('Could not verify the pass', normalizeError(e));
+    }
+  }
 
   const canApprove = useCallback((item: Visitor): boolean => {
     if (item.status !== 'Pending') return false;
@@ -82,12 +100,14 @@ export function VisitorListScreen() {
   const renderItem = useCallback(({ item }: { item: Visitor }) => {
     return (
       <TouchableOpacity
-        style={styles.item}
+        style={[styles.item, item.isOverstay === true && styles.itemOverstay]}
         onPress={() => navigation.navigate('VisitorDetail', { id: item.id })}
       >
         <View style={styles.itemTop}>
           <View style={styles.itemLeft}>
-            <Text style={styles.visitorName}>{item.visitorName}</Text>
+            <Text style={[styles.visitorName, item.isOverstay === true && styles.visitorNameOverstay]}>
+              {item.visitorName}
+            </Text>
             {item.companyName != null && item.companyName !== '' && (
               <Text style={styles.company}>{item.companyName}</Text>
             )}
@@ -97,6 +117,9 @@ export function VisitorListScreen() {
             <Text style={styles.purpose}>{item.purpose}</Text>
             {item.checkInTime != null && (
               <Text style={styles.time}>{formatDateTime(item.checkInTime)}</Text>
+            )}
+            {item.isOverstay === true && (
+              <Text style={styles.overstayFlag}>Overstaying past the society threshold</Text>
             )}
           </View>
           <StatusChip status={item.status} />
@@ -154,8 +177,28 @@ export function VisitorListScreen() {
           />
         </View>
       </View>
+      {canModerate && (
+        <View style={styles.gateRow}>
+          <TextInput
+            style={[styles.searchInput, styles.gateInput]}
+            placeholder="Visitor pass code"
+            placeholderTextColor={colors.text.disabled}
+            value={passCode}
+            onChangeText={setPassCode}
+            autoCapitalize="characters"
+            autoCorrect={false}
+          />
+          <TouchableOpacity
+            style={[styles.gateBtn, (isVerifyingPass || !passCode.trim()) && styles.gateBtnDisabled]}
+            disabled={isVerifyingPass || !passCode.trim()}
+            onPress={() => void handleVerifyPass()}
+          >
+            <Text style={styles.gateBtnText}>{isVerifyingPass ? 'Verifying…' : 'Verify & Check In'}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
       {isDefaultView && (
-        <Text style={styles.hint}>Showing all pending visitors and the 10 most recent. Search or filter for more.</Text>
+        <Text style={styles.hint}>Showing pending and checked-in visitors plus the 10 most recent. Search or filter for more.</Text>
       )}
       <FlatList
         data={data}
@@ -208,6 +251,27 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   statusFilter: { marginTop: spacing.xs },
+  gateRow: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingBottom: spacing.sm,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+  },
+  gateInput: { flex: 1 },
+  gateBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  gateBtnDisabled: { opacity: 0.5 },
+  gateBtnText: {
+    color: '#FFF',
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semibold,
+  },
   hint: {
     fontSize: typography.fontSize.xs,
     color: colors.primary,
@@ -218,6 +282,19 @@ const styles = StyleSheet.create({
   item: {
     padding: spacing.md,
     backgroundColor: colors.surface,
+  },
+  // Visitor overstaying the society threshold — flagged in red per requirements
+  itemOverstay: {
+    backgroundColor: 'rgba(211, 47, 47, 0.06)',
+    borderLeftWidth: 4,
+    borderLeftColor: colors.error,
+  },
+  visitorNameOverstay: { color: colors.error },
+  overstayFlag: {
+    fontSize: typography.fontSize.xs,
+    color: colors.error,
+    fontWeight: typography.fontWeight.semibold,
+    marginTop: 2,
   },
   itemTop: {
     flexDirection: 'row',

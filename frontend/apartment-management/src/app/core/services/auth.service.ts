@@ -9,6 +9,7 @@ const TOKEN_KEY        = 'am_token';
 const USER_KEY         = 'am_user';
 const SOCIETY_KEY      = 'am_society';
 const LOGIN_METHOD_KEY = 'am_login_method';
+const SELECTED_APT_KEY = 'am_selected_apartment';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -31,9 +32,72 @@ export class AuthService {
 
   readonly isSecurity = computed(() => this._state().user?.role === 'SUSecurity');
 
+  // ── Selected apartment (multi-apartment users) ────────────────────────────
+  // A user linked to several apartments picks one from the sidenav dropdown; menus and
+  // apartment-scoped features follow the role they hold on the *selected* apartment.
+  private readonly _selectedApartmentId = signal<string | null>(localStorage.getItem(SELECTED_APT_KEY));
+
+  readonly apartments = computed(() => this._state().user?.apartments ?? []);
+
+  readonly selectedApartmentId = computed(() => {
+    const memberships = this.apartments();
+    const selected = this._selectedApartmentId();
+    if (selected && memberships.some(a => a.apartmentId === selected)) return selected;
+    return this._state().user?.apartmentId ?? memberships[0]?.apartmentId ?? null;
+  });
+
+  readonly selectedApartment = computed(() =>
+    this.apartments().find(a => a.apartmentId === this.selectedApartmentId()) ?? null);
+
+  /** Resident type for the selected apartment; falls back to the account-level resident type. */
+  readonly activeResidentType = computed(() =>
+    this.selectedApartment()?.residentType ?? this._state().user?.residentType);
+
+  setSelectedApartment(apartmentId: string) {
+    localStorage.setItem(SELECTED_APT_KEY, apartmentId);
+    this._selectedApartmentId.set(apartmentId);
+  }
+
   /** Tenants keep self-service access to their own ledger/statement — this only gates
-   *  aggregate/society-wide financial reporting views. */
-  readonly isTenant = computed(() => this._state().user?.residentType === 'Tenant');
+   *  aggregate/society-wide financial reporting views. Follows the selected apartment for
+   *  users associated with multiple apartments. */
+  readonly isTenant = computed(() => this.activeResidentType() === 'Tenant');
+
+  /** Merges fresh fields (e.g. profilePictureUrl, apartments) into the stored session user. */
+  updateUser(partial: Partial<User>) {
+    const current = this._state().user;
+    if (!current) return;
+    const merged = { ...current, ...partial };
+    localStorage.setItem(USER_KEY, JSON.stringify(merged));
+    this._state.update(s => ({ ...s, user: merged }));
+  }
+
+  /**
+   * The login response only carries the compact auth user — apartment memberships, pending
+   * apartment invitations and the profile picture live on the full user record. Called on app
+   * start and after login so the apartment selector and dashboard invitation card stay fresh.
+   */
+  refreshUserProfile() {
+    const current = this.user();
+    const sid = this.societyId();
+    if (!current || !sid) return;
+
+    this.http.get<Partial<User> & { fullName?: string }>(
+      `${environment.apiBaseUrl}/societies/${sid}/users/${current.id}`
+    ).subscribe({
+      next: fresh => this.updateUser({
+        fullName: fresh.fullName,
+        name: fresh.fullName ?? current.name,
+        apartments: fresh.apartments,
+        profilePictureUrl: fresh.profilePictureUrl,
+        pendingApartmentId: fresh.pendingApartmentId,
+        pendingResidentType: fresh.pendingResidentType,
+        apartmentId: fresh.apartmentId ?? current.apartmentId,
+        residentType: fresh.residentType ?? current.residentType,
+      }),
+      error: () => { /* non-fatal — session keeps the login-time snapshot */ },
+    });
+  }
 
   readonly isHqAdmin = computed(() => this._state().user?.role === 'HQAdmin');
   readonly isHqUser  = computed(() => this._state().user?.role === 'HQUser');
@@ -122,6 +186,8 @@ export class AuthService {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     localStorage.removeItem(SOCIETY_KEY);
+    localStorage.removeItem(SELECTED_APT_KEY);
+    this._selectedApartmentId.set(null);
     this._state.set({ user: null, token: null, societyId: null });
     this.router.navigate(['/auth/login']);
   }
@@ -138,6 +204,7 @@ export class AuthService {
     localStorage.setItem(SOCIETY_KEY, societyId);
     this._state.set({ user, token, societyId });
     this.scheduleAutoLogout(token);
+    this.refreshUserProfile();
   }
 
   // Reads localStorage and discards any already-expired token before signals are initialised.

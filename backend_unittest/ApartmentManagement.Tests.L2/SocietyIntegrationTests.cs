@@ -70,10 +70,11 @@ public class SocietyIntegrationTests : IntegrationTestBase
     [Fact]
     public async Task UpdateSociety_ChangesArePersisted()
     {
-        // Arrange – create first
+        // Arrange – create first. The update changes TotalApartments (60 → 100), which only
+        // HQAdmin may do — a society's own SUAdmin is forbidden from changing apartment counts.
         var created = (await Mediator.Send(ValidCreateSocietyCommand())).Value!.Society;
-        var createdAdmin = UserRepo.Store.Values.Single(u => u.SocietyId == created.Id && u.Role == UserRole.SUAdmin);
-        CurrentUserService.UserId = createdAdmin.Id;
+        CurrentUserService.SocietyId = HqConstants.PartitionKey;
+        CurrentUserService.Role = "HQAdmin";
 
         // Act – update
         var updateCmd = new UpdateSocietyCommand(

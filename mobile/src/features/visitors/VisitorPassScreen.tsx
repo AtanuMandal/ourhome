@@ -1,11 +1,13 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSocietyId } from '../../shared/hooks/useSocietyId';
-import { useVisitor } from './hooks/useVisitors';
+import { useAuthStore } from '../../store/authStore';
+import { useVisitor, useCheckOutVisitor } from './hooks/useVisitors';
 import { AppHeader } from '../../shared/components/AppHeader';
 import { StatusChip } from '../../shared/components/StatusChip';
 import { LoadingOverlay } from '../../shared/components/LoadingOverlay';
+import { normalizeError } from '../../shared/utils/errors';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing } from '../../theme/spacing';
@@ -19,11 +21,22 @@ export function VisitorPassScreen({ route }: VisitorPassScreenProps) {
   const societyId = useSocietyId();
   const { id } = route.params;
   const { data: visitor, isLoading } = useVisitor(societyId, id);
+  const role = useAuthStore((s) => s.user?.role ?? '');
+  const canManageVisitors = role === 'SUAdmin' || role === 'SUSecurity';
+  const { mutateAsync: checkOut, isPending: isCheckingOut } = useCheckOutVisitor(societyId);
+
+  async function handleCheckOut(): Promise<void> {
+    try {
+      await checkOut(id);
+    } catch (e) {
+      Alert.alert('Could not check out the visitor', normalizeError(e));
+    }
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <AppHeader title="Visitor Pass" showBack />
-      <LoadingOverlay visible={isLoading} />
+      <LoadingOverlay visible={isLoading || isCheckingOut} />
       {visitor != null && (
         <ScrollView contentContainerStyle={styles.content}>
           <View style={styles.passCard}>
@@ -52,6 +65,17 @@ export function VisitorPassScreen({ route }: VisitorPassScreenProps) {
               <Text style={styles.time}>
                 Check-out: {formatDateTime(visitor.checkOutTime)}
               </Text>
+            )}
+
+            {canManageVisitors && visitor.status === 'CheckedIn' && (
+              <TouchableOpacity
+                style={styles.checkOutBtn}
+                onPress={() => void handleCheckOut()}
+                disabled={isCheckingOut}
+                accessibilityLabel="Check out visitor"
+              >
+                <Text style={styles.checkOutBtnText}>Check Out Visitor</Text>
+              </TouchableOpacity>
             )}
           </View>
         </ScrollView>
@@ -113,5 +137,18 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.xs,
     color: colors.text.disabled,
     marginTop: 4,
+  },
+  checkOutBtn: {
+    marginTop: spacing.md,
+    alignSelf: 'stretch',
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    padding: spacing.sm,
+    alignItems: 'center',
+  },
+  checkOutBtnText: {
+    color: '#FFF',
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semibold,
   },
 });

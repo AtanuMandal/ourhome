@@ -3,10 +3,14 @@ import { FormBuilder, Validators, ReactiveFormsModule } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
+import { UserAvatarComponent } from '../../shared/components/user-avatar/user-avatar.component';
+import { AvatarCropDialogComponent } from '../../shared/components/avatar-crop-dialog/avatar-crop-dialog.component';
 import { UserService } from '../../core/services/apartment.service';
 import { AuthService } from '../../core/services/auth.service';
 
@@ -17,8 +21,8 @@ const PHONE_PATTERN = /^\d{10}$/;
   standalone: true,
   imports: [
     ReactiveFormsModule, MatFormFieldModule, MatInputModule,
-    MatButtonModule, MatProgressBarModule, MatDividerModule,
-    PageHeaderComponent,
+    MatButtonModule, MatIconModule, MatProgressBarModule, MatDividerModule,
+    PageHeaderComponent, UserAvatarComponent,
   ],
   template: `
     <app-page-header title="My Profile" [showBack]="false"></app-page-header>
@@ -26,7 +30,15 @@ const PHONE_PATTERN = /^\d{10}$/;
 
     <div class="page-content">
       <div class="profile-header">
-        <div class="avatar-xl">{{ initials() }}</div>
+        <div class="avatar-upload">
+          <app-user-avatar [name]="auth.user()?.fullName ?? auth.user()?.name ?? ''"
+            [pictureUrl]="auth.user()?.profilePictureUrl" class="avatar-xl-host"></app-user-avatar>
+          <button mat-mini-fab color="primary" class="avatar-upload__btn" type="button"
+                  aria-label="Change profile picture" (click)="pictureInput.click()">
+            <mat-icon>photo_camera</mat-icon>
+          </button>
+          <input #pictureInput type="file" accept="image/*" hidden (change)="onPictureSelected($event)">
+        </div>
         <h2>{{ auth.user()?.name }}</h2>
         <span class="role-chip">{{ auth.user()?.role }}</span>
         <p class="email">{{ auth.user()?.email }}</p>
@@ -103,10 +115,13 @@ const PHONE_PATTERN = /^\d{10}$/;
   styles: [`
     .profile-header {
       text-align: center; padding: 32px 16px 16px;
-      .avatar-xl {
-        width: 80px; height: 80px; font-size: 28px; margin: 0 auto 12px;
-        border-radius: 50%; background: var(--primary-light); color: white;
-        display: flex; align-items: center; justify-content: center; font-weight: 700;
+      .avatar-upload {
+        position: relative; width: 80px; margin: 0 auto 12px;
+      }
+      .avatar-xl-host { --avatar-size: 80px; display: block; }
+      .avatar-upload__btn {
+        position: absolute; right: -10px; bottom: -6px;
+        transform: scale(.72); transform-origin: bottom right;
       }
       h2 { font-size: 20px; margin: 0 0 4px; }
       .email { color: var(--text-secondary); font-size: 13px; margin: 4px 0 0; }
@@ -122,6 +137,7 @@ export class ProfileComponent implements OnInit {
   private readonly fb      = inject(FormBuilder).nonNullable;
   private readonly userSvc = inject(UserService);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly dialog  = inject(MatDialog);
   readonly auth = inject(AuthService);
 
   readonly saving = signal(false);
@@ -154,6 +170,34 @@ export class ProfileComponent implements OnInit {
     if (u) {
       this.infoForm.patchValue({ fullName: u.name, phone: u.phone ?? '' });
     }
+  }
+
+  onPictureSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = ''; // allow re-selecting the same file later
+    if (!file) return;
+
+    this.dialog.open(AvatarCropDialogComponent, { data: { file }, width: '340px' })
+      .afterClosed().subscribe((blob: Blob | undefined) => {
+        if (!blob) return;
+        const sid = this.auth.societyId();
+        const uid = this.auth.user()?.id;
+        if (!sid || !uid) return;
+
+        this.saving.set(true);
+        this.userSvc.uploadProfilePicture(sid, uid, blob).subscribe({
+          next: res => {
+            this.saving.set(false);
+            this.auth.updateUser({ profilePictureUrl: res.profilePictureUrl });
+            this.snackBar.open('Profile picture updated.', 'Dismiss', { duration: 3000 });
+          },
+          error: () => {
+            this.saving.set(false);
+            this.snackBar.open('Unable to upload the picture. Try again.', 'Dismiss', { duration: 4000 });
+          },
+        });
+      });
   }
 
   saveInfo() {

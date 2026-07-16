@@ -155,6 +155,10 @@ public sealed class ApproveVisitorCommandHandler(
                 throw new ForbiddenException("Only the host resident can approve a visitor.");
 
             log.Approve();
+            // The visitor is waiting at the gate for the host's decision — approval doubles as
+            // check-in, so security doesn't have to check them in as a separate step.
+            if (!log.IsPassExpired)
+                log.CheckIn();
             await visitorRepository.UpdateAsync(log, ct);
             return Result<bool>.Success(true);
         }
@@ -230,6 +234,11 @@ public sealed class CheckInVisitorCommandHandler(
             if (log is null || !string.Equals(log.SocietyId, request.SocietyId, StringComparison.OrdinalIgnoreCase))
                 return Result<VisitorResponse>.Failure(ErrorCodes.InvalidPassCode, "Invalid pass code.");
 
+            // Pass verification doubles as check-in — verifying an already checked-in pass is
+            // not an error; return the current state so the client can offer check-out instead.
+            if (log.Status == VisitorStatus.CheckedIn)
+                return Result<VisitorResponse>.Success(log.ToResponse());
+
             if (log.Status != VisitorStatus.Approved)
                 return Result<VisitorResponse>.Failure(ErrorCodes.VisitorNotApproved, "Visitor must be approved before check-in.");
 
@@ -280,6 +289,51 @@ public sealed class CheckOutVisitorCommandHandler(
         {
             logger.LogError(ex, "Failed to check out visitor {VisitorLogId}", request.VisitorLogId);
             return Result<bool>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
+/// <summary>
+/// Checks out every visitor platform-wide who has been checked in for more than 24 hours.
+/// Invoked by the AutoCheckoutVisitors timer; the record is flagged as auto-checked-out so
+/// reports can distinguish it from a security-performed checkout.
+/// </summary>
+public record AutoCheckOutOverdueVisitorsCommand() : IRequest<Result<int>>;
+
+public sealed class AutoCheckOutOverdueVisitorsCommandHandler(
+    IVisitorLogRepository visitorRepository,
+    ILogger<AutoCheckOutOverdueVisitorsCommandHandler> logger)
+    : IRequestHandler<AutoCheckOutOverdueVisitorsCommand, Result<int>>
+{
+    public static readonly TimeSpan AutoCheckoutAfter = TimeSpan.FromHours(24);
+
+    public async Task<Result<int>> Handle(AutoCheckOutOverdueVisitorsCommand request, CancellationToken ct)
+    {
+        try
+        {
+            var checkedIn = await visitorRepository.GetCheckedInAcrossSocietiesAsync(ct);
+            var now = DateTime.UtcNow;
+            var cutoff = now - AutoCheckoutAfter;
+            var count = 0;
+
+            // A pre-approved visitor with a still-valid pass was explicitly authorized for that
+            // duration — their pass validity overrides the default 24-hour auto-checkout.
+            foreach (var visitor in checkedIn.Where(v =>
+                v.CheckInTime.HasValue && v.CheckInTime.Value <= cutoff && !v.HasValidPass(now)))
+            {
+                visitor.AutoCheckOut();
+                await visitorRepository.UpdateAsync(visitor, ct);
+                count++;
+            }
+
+            if (count > 0)
+                logger.LogInformation("Auto-checked-out {Count} visitors checked in for more than 24 hours.", count);
+            return Result<int>.Success(count);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to auto-check-out overdue visitors.");
+            return Result<int>.Failure(ErrorCodes.InternalError, ex.Message);
         }
     }
 }
@@ -375,13 +429,17 @@ public record GetVisitorsBySocietyQuery(
     PaginationParams Pagination)
     : IRequest<Result<PagedResult<VisitorResponse>>>;
 
-public sealed class GetVisitorsBySocietyQueryHandler(IVisitorLogRepository visitorRepository)
+public sealed class GetVisitorsBySocietyQueryHandler(IVisitorLogRepository visitorRepository, ISocietyRepository societyRepository)
     : IRequestHandler<GetVisitorsBySocietyQuery, Result<PagedResult<VisitorResponse>>>
 {
     public async Task<Result<PagedResult<VisitorResponse>>> Handle(GetVisitorsBySocietyQuery request, CancellationToken ct)
     {
         try
         {
+            var society = await societyRepository.GetByIdAsync(request.SocietyId, request.SocietyId, ct);
+            var overstayThreshold = society?.VisitorOverstayThresholdHours
+                ?? Domain.Entities.Society.DefaultVisitorOverstayThresholdHours;
+
             var filtered = VisitorQueryFiltering.FilterVisitors(await visitorRepository.GetAllAsync(request.SocietyId, ct), request)
                 .OrderByDescending(visitor => visitor.CreatedAt)
                 .ToList();
@@ -391,7 +449,7 @@ public sealed class GetVisitorsBySocietyQueryHandler(IVisitorLogRepository visit
             var pagedItems = filtered
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
-                .Select(visitor => visitor.ToResponse())
+                .Select(visitor => visitor.ToResponse(overstayThreshold))
                 .ToList();
 
             return Result<PagedResult<VisitorResponse>>.Success(
@@ -415,12 +473,12 @@ public record GetVisitorsByApartmentQuery(
     PaginationParams Pagination)
     : IRequest<Result<PagedResult<VisitorResponse>>>;
 
-public sealed class GetVisitorsByApartmentQueryHandler(IVisitorLogRepository visitorRepository)
+public sealed class GetVisitorsByApartmentQueryHandler(IVisitorLogRepository visitorRepository, ISocietyRepository societyRepository)
     : IRequestHandler<GetVisitorsByApartmentQuery, Result<PagedResult<VisitorResponse>>>
 {
     public async Task<Result<PagedResult<VisitorResponse>>> Handle(GetVisitorsByApartmentQuery request, CancellationToken ct)
     {
-        return await new GetVisitorsBySocietyQueryHandler(visitorRepository).Handle(
+        return await new GetVisitorsBySocietyQueryHandler(visitorRepository, societyRepository).Handle(
             new GetVisitorsBySocietyQuery(
                 request.SocietyId,
                 request.ApartmentId,
@@ -436,18 +494,66 @@ public sealed class GetVisitorsByApartmentQueryHandler(IVisitorLogRepository vis
 
 public record GetActiveVisitorsQuery(string SocietyId) : IRequest<Result<IReadOnlyList<VisitorResponse>>>;
 
-public sealed class GetActiveVisitorsQueryHandler(IVisitorLogRepository visitorRepository)
+public sealed class GetActiveVisitorsQueryHandler(IVisitorLogRepository visitorRepository, ISocietyRepository societyRepository)
     : IRequestHandler<GetActiveVisitorsQuery, Result<IReadOnlyList<VisitorResponse>>>
 {
     public async Task<Result<IReadOnlyList<VisitorResponse>>> Handle(GetActiveVisitorsQuery request, CancellationToken ct)
     {
         try
         {
+            var society = await societyRepository.GetByIdAsync(request.SocietyId, request.SocietyId, ct);
+            var overstayThreshold = society?.VisitorOverstayThresholdHours
+                ?? Domain.Entities.Society.DefaultVisitorOverstayThresholdHours;
+
             var active = await visitorRepository.GetActiveVisitorsAsync(request.SocietyId, ct);
             var items = active
                 .OrderByDescending(visitor => visitor.CheckInTime ?? visitor.CreatedAt)
-                .Select(visitor => visitor.ToResponse())
+                .Select(visitor => visitor.ToResponse(overstayThreshold))
                 .ToList();
+            return Result<IReadOnlyList<VisitorResponse>>.Success(items);
+        }
+        catch (Exception ex)
+        {
+            return Result<IReadOnlyList<VisitorResponse>>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
+public record GetVisitorDefaultViewQuery(string SocietyId, string? ApartmentId, int RecentCount)
+    : IRequest<Result<IReadOnlyList<VisitorResponse>>>;
+
+/// <summary>
+/// The unfiltered visitor-list landing view in one call: every Pending and CheckedIn visitor
+/// (people at the gate or on the premises never age out of the view) plus the N most recent
+/// concluded entries. Replaces the clients' old per-status request fan-out.
+/// </summary>
+public sealed class GetVisitorDefaultViewQueryHandler(IVisitorLogRepository visitorRepository, ISocietyRepository societyRepository)
+    : IRequestHandler<GetVisitorDefaultViewQuery, Result<IReadOnlyList<VisitorResponse>>>
+{
+    public async Task<Result<IReadOnlyList<VisitorResponse>>> Handle(GetVisitorDefaultViewQuery request, CancellationToken ct)
+    {
+        try
+        {
+            var society = await societyRepository.GetByIdAsync(request.SocietyId, request.SocietyId, ct);
+            var overstayThreshold = society?.VisitorOverstayThresholdHours
+                ?? Domain.Entities.Society.DefaultVisitorOverstayThresholdHours;
+
+            var all = await visitorRepository.GetAllAsync(request.SocietyId, ct);
+            var scoped = string.IsNullOrWhiteSpace(request.ApartmentId)
+                ? all
+                : all.Where(v => v.HostApartmentId == request.ApartmentId);
+
+            var ordered = scoped.OrderByDescending(v => v.CreatedAt).ToList();
+            var recentCount = request.RecentCount < 1 ? 25 : request.RecentCount;
+
+            var items = ordered
+                .Where(v => v.Status is VisitorStatus.Pending or VisitorStatus.CheckedIn)
+                .Concat(ordered
+                    .Where(v => v.Status is not VisitorStatus.Pending and not VisitorStatus.CheckedIn)
+                    .Take(recentCount))
+                .Select(v => v.ToResponse(overstayThreshold))
+                .ToList();
+
             return Result<IReadOnlyList<VisitorResponse>>.Success(items);
         }
         catch (Exception ex)

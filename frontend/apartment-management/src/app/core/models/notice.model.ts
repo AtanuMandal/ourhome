@@ -15,6 +15,8 @@ export interface Notice {
   targetApartmentIds: string[];
   createdAt: string;
   isReadByCurrentUser: boolean;
+  /** Full name of the poster — always show this instead of the raw user id. */
+  postedByName?: string;
 }
 
 export interface PostNoticeDto {

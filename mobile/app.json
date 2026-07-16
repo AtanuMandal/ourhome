@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "OurHome",
-    "slug": "ourhome",
+    "slug": "ranadip-maitra",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -11,7 +11,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.ourhome.mobile",
@@ -28,30 +30,47 @@
       },
       "package": "com.ourhome.mobile",
       "permissions": [
-        "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE",
-        "USE_BIOMETRIC",
-        "USE_FINGERPRINT",
-        "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE"
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      ["expo-camera", { "cameraPermission": "OurHome needs your camera to capture visitor photos and payment proofs." }],
-      ["expo-image-picker", { "photosPermission": "OurHome needs access to your photos to upload payment proofs." }],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "OurHome needs your camera to capture visitor photos and payment proofs."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "OurHome needs access to your photos to upload payment proofs."
+        }
+      ],
       "expo-secure-store",
-      ["expo-notifications", {
-        "icon": "./assets/notification-icon.png",
-        "color": "#ffffff"
-      }]
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#ffffff"
+        }
+      ]
     ],
     "scheme": "ourhome",
     "extra": {
-      "eas": { "projectId": "ourhome-project-id" }
-    }
+      "eas": {
+        "projectId": "422b2e11-20a0-434e-b6b4-7aecfb8e9a62"
+      }
+    },
+    "owner": "ranadipms-team"
   }
 }
