@@ -106,3 +106,42 @@ describe('VisitorPassScreen — security check-out', () => {
     expect(screen.queryByLabelText('Check out visitor')).toBeNull();
   });
 });
+
+describe('VisitorPassScreen — real QR pass and sharing', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('an approved visitor with a QR code renders the scannable QR image and share actions', () => {
+    mockVisitor = { ...makeVisitor('Approved'), qrCode: 'aGVsbG8=', passCode: 'ABC123', isPassExpired: false };
+    setUser('SUUser');
+
+    renderScreen();
+
+    expect(screen.getByLabelText('Visitor pass QR code')).toBeTruthy();
+    expect(screen.getByText('Pass code: ABC123')).toBeTruthy();
+    expect(screen.getByLabelText('Share pass')).toBeTruthy();
+    expect(screen.getByLabelText('Send pass to visitor')).toBeTruthy();
+  });
+
+  test('an expired pass shows the EXPIRED placeholder instead of a QR image and hides sharing', () => {
+    mockVisitor = { ...makeVisitor('Approved'), qrCode: 'aGVsbG8=', passCode: 'ABC123', isPassExpired: true };
+    setUser('SUUser');
+
+    renderScreen();
+
+    expect(screen.queryByLabelText('Visitor pass QR code')).toBeNull();
+    expect(screen.getByText('EXPIRED')).toBeTruthy();
+    expect(screen.queryByLabelText('Share pass')).toBeNull();
+  });
+
+  test('a pending visitor has no QR image or share actions', () => {
+    mockVisitor = { ...makeVisitor('Pending'), passCode: '', isPassExpired: false };
+    setUser('SUUser');
+
+    renderScreen();
+
+    expect(screen.queryByLabelText('Visitor pass QR code')).toBeNull();
+    expect(screen.queryByLabelText('Share pass')).toBeNull();
+  });
+});

@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSocietyId } from '../../shared/hooks/useSocietyId';
+import { useAuthStore } from '../../store/authStore';
 import { useAmenities } from './hooks/useAmenities';
 import { AppHeader } from '../../shared/components/AppHeader';
 import { EmptyState } from '../../shared/components/EmptyState';
@@ -22,11 +23,13 @@ import type { Amenity } from '../../api/types';
 type AmenitiesNav = NativeStackNavigationProp<{
   AmenityList: undefined;
   AmenityBooking: { amenityId: string; amenityName: string };
+  AmenityForm: undefined;
 }>;
 
 export function AmenityListScreen() {
   const navigation = useNavigation<AmenitiesNav>();
   const societyId = useSocietyId();
+  const isAdmin = useAuthStore((s) => s.user?.role === 'SUAdmin');
   const { data: amenities, isLoading, refetch } = useAmenities(societyId);
 
   function renderItem({ item }: { item: Amenity }) {
@@ -84,6 +87,15 @@ export function AmenityListScreen() {
         }
         ItemSeparatorComponent={() => <View style={styles.separator} />}
       />
+      {isAdmin && (
+        <TouchableOpacity
+          style={styles.fab}
+          accessibilityLabel="Add amenity"
+          onPress={() => navigation.navigate('AmenityForm')}
+        >
+          <Text style={styles.fabText}>+</Text>
+        </TouchableOpacity>
+      )}
     </SafeAreaView>
   );
 }
@@ -105,6 +117,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#D1FAE5',
   },
   activeBadgeText: { fontSize: typography.fontSize.xs, color: '#065F46', fontWeight: typography.fontWeight.medium },
+  fab: {
+    position: 'absolute',
+    bottom: spacing.lg,
+    right: spacing.lg,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 6,
+  },
+  fabText: { color: '#FFF', fontSize: 28, lineHeight: 32 },
   inactiveBadge: {
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,

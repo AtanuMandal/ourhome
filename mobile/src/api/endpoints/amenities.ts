@@ -8,7 +8,21 @@ export interface BookAmenityRequest {
   endTime: string;
 }
 
+export interface CreateAmenityRequest {
+  name: string;
+  description: string;
+  capacity: number;
+  rules: string;
+  bookingSlotMinutes: number;
+  operatingStart: string;
+  operatingEnd: string;
+  advanceBookingDays: number;
+}
+
 export const amenitiesApi = {
+  createAmenity: (societyId: string, data: CreateAmenityRequest) =>
+    api.post<Amenity>(`/societies/${societyId}/amenities`, data).then((r) => r.data),
+
   getAmenities: (societyId: string) =>
     api
       .get<Amenity[]>(`/societies/${societyId}/amenities`)

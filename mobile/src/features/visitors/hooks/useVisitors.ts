@@ -27,6 +27,9 @@ export function useVisitorDefaultView(societyId: string, enabled = true) {
     queryKey: ['visitors-default', societyId],
     queryFn: () => visitorsApi.getDefaultView(societyId, 10),
     enabled: !!societyId && enabled,
+    // Near-realtime gate view: silently refresh every 10s (matches the web app). TanStack
+    // keeps showing the previous data during the background fetch, so nothing flickers.
+    refetchInterval: 10_000,
   });
 }
 

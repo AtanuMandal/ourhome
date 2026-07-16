@@ -62,6 +62,20 @@ export const visitorsApi = {
       .post<Visitor>(`/societies/${societyId}/visitors/checkin`, { passCode })
       .then((r) => r.data),
 
+  // Email/SMS the pass link to the visitor (backend sends via ACS).
+  sharePass: (societyId: string, visitorId: string, data: { email?: string; phone?: string }) =>
+    api.post<boolean>(`/societies/${societyId}/visitors/${visitorId}/share`, data).then((r) => r.data),
+
+  // Visitor log as CSV text — shared via the native share sheet on mobile.
+  exportCsv: (societyId: string, params?: Record<string, string | number>) =>
+    api
+      .get<string>(`/societies/${societyId}/visitors/export`, {
+        params,
+        responseType: 'text',
+        transformResponse: [(data: string) => data],
+      })
+      .then((r) => r.data),
+
   getLookups: (societyId: string) =>
     api
       .get<{ companies: string[]; purposes: string[] }>(`/societies/${societyId}/visitors/lookups`)

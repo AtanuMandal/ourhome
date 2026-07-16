@@ -5,7 +5,17 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { CustomDrawer } from './CustomDrawer';
 import { DashboardScreen } from '../features/dashboard/DashboardScreen';
 import { ResidentListScreen } from '../features/residents/ResidentListScreen';
+import { ResidentFormScreen } from '../features/residents/ResidentFormScreen';
 import { ApartmentListScreen } from '../features/apartments/ApartmentListScreen';
+import { ApartmentDetailScreen } from '../features/apartments/ApartmentDetailScreen';
+import { ApartmentFormScreen } from '../features/apartments/ApartmentFormScreen';
+import { MyApartmentScreen } from '../features/my-apartment/MyApartmentScreen';
+import { RewardsScreen } from '../features/rewards/RewardsScreen';
+import { ServicesScreen } from '../features/services/ServicesScreen';
+import { ServiceRequestFormScreen } from '../features/services/ServiceRequestFormScreen';
+import { ServiceProviderFormScreen } from '../features/services/ServiceProviderFormScreen';
+import { SocietySettingsScreen } from '../features/society/SocietySettingsScreen';
+import { AmenityFormScreen } from '../features/amenities/AmenityFormScreen';
 import { VisitorListScreen } from '../features/visitors/VisitorListScreen';
 import { VisitorRegisterScreen } from '../features/visitors/VisitorRegisterScreen';
 import { VisitorPassScreen } from '../features/visitors/VisitorPassScreen';
@@ -97,6 +107,7 @@ function ComplaintsStack() {
 type AmenitiesParams = {
   AmenityList: undefined;
   AmenityBooking: { amenityId: string; amenityName: string };
+  AmenityForm: undefined;
 };
 const AS = createNativeStackNavigator<AmenitiesParams>();
 function AmenitiesStack() {
@@ -104,7 +115,54 @@ function AmenitiesStack() {
     <AS.Navigator screenOptions={noHeader}>
       <AS.Screen name="AmenityList"    component={AmenityListScreen} />
       <AS.Screen name="AmenityBooking" component={AmenityBookingScreen} />
+      <AS.Screen name="AmenityForm"    component={AmenityFormScreen} />
     </AS.Navigator>
+  );
+}
+
+type ApartmentsParams = {
+  ApartmentList: undefined;
+  ApartmentDetail: { id: string };
+  ApartmentForm: { id?: string };
+};
+const AptNav = createNativeStackNavigator<ApartmentsParams>();
+function ApartmentsStack() {
+  return (
+    <AptNav.Navigator screenOptions={noHeader}>
+      <AptNav.Screen name="ApartmentList"   component={ApartmentListScreen} />
+      <AptNav.Screen name="ApartmentDetail" component={ApartmentDetailScreen} />
+      <AptNav.Screen name="ApartmentForm"   component={ApartmentFormScreen} />
+    </AptNav.Navigator>
+  );
+}
+
+type ResidentsParams = {
+  ResidentList: undefined;
+  ResidentForm: { id?: string };
+};
+const ResNav = createNativeStackNavigator<ResidentsParams>();
+function ResidentsStack() {
+  return (
+    <ResNav.Navigator screenOptions={noHeader}>
+      <ResNav.Screen name="ResidentList" component={ResidentListScreen} />
+      <ResNav.Screen name="ResidentForm" component={ResidentFormScreen} />
+    </ResNav.Navigator>
+  );
+}
+
+type ServicesParams = {
+  ServicesHome: undefined;
+  ServiceRequestForm: undefined;
+  ServiceProviderForm: undefined;
+};
+const SvcNav = createNativeStackNavigator<ServicesParams>();
+function ServicesStack() {
+  return (
+    <SvcNav.Navigator screenOptions={noHeader}>
+      <SvcNav.Screen name="ServicesHome"        component={ServicesScreen} />
+      <SvcNav.Screen name="ServiceRequestForm"  component={ServiceRequestFormScreen} />
+      <SvcNav.Screen name="ServiceProviderForm" component={ServiceProviderFormScreen} />
+    </SvcNav.Navigator>
   );
 }
 
@@ -197,8 +255,12 @@ export function AppDrawer() {
       }}
     >
       <Drawer.Screen name="Dashboard"       component={DashboardScreen} />
-      <Drawer.Screen name="Residents"       component={ResidentListScreen} />
-      <Drawer.Screen name="Apartments"      component={ApartmentListScreen} />
+      <Drawer.Screen name="Residents"       component={ResidentsStack} />
+      <Drawer.Screen name="Apartments"      component={ApartmentsStack} />
+      <Drawer.Screen name="MyApartment"     component={MyApartmentScreen} />
+      <Drawer.Screen name="Rewards"         component={RewardsScreen} />
+      <Drawer.Screen name="Services"        component={ServicesStack} />
+      <Drawer.Screen name="SocietySettings" component={SocietySettingsScreen} />
       <Drawer.Screen name="Visitors"        component={VisitorsStack} />
       <Drawer.Screen name="Notices"         component={NoticesStack} />
       <Drawer.Screen name="Complaints"      component={ComplaintsStack} />

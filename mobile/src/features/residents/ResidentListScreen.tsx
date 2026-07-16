@@ -10,9 +10,18 @@ import {
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSocietyId } from '../../shared/hooks/useSocietyId';
 import { useAuthStore } from '../../store/authStore';
-import { useResidentList, useDeleteResident } from './hooks/useResidents';
+import {
+  useResidentList,
+  useDeleteResident,
+  useSetResidentActive,
+  usePendingJoinRequests,
+  useRespondToJoinRequest,
+  useShareInviteLink,
+} from './hooks/useResidents';
 import { useDebounce } from '../../shared/hooks/useDebounce';
 import { AppHeader } from '../../shared/components/AppHeader';
 import { StatusChip } from '../../shared/components/StatusChip';
@@ -33,16 +42,41 @@ const ROLE_LABELS: Record<string, string> = {
   SUUser: 'Residents',
 };
 
+type ResidentsNav = NativeStackNavigationProp<{
+  ResidentList: undefined;
+  ResidentForm: { id?: string };
+}>;
+
 export function ResidentListScreen() {
+  const navigation = useNavigation<ResidentsNav>();
   const societyId = useSocietyId();
   const role = useAuthStore((s) => s.user?.role ?? '');
   const isAdmin = role === 'SUAdmin' || role === 'HQAdmin';
   const [search, setSearch] = useState('');
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [showInvite, setShowInvite] = useState(false);
   const debouncedSearch = useDebounce(search);
 
   const { data, isLoading, fetchNextPage, hasNextPage, refetch } =
     useResidentList(societyId, debouncedSearch ? { search: debouncedSearch } : undefined);
   const deleteResident = useDeleteResident(societyId);
+  const setActive = useSetResidentActive(societyId);
+  const { data: joinRequests } = usePendingJoinRequests(societyId, isAdmin);
+  const respondToJoin = useRespondToJoinRequest(societyId);
+  const shareInvite = useShareInviteLink(societyId);
+
+  function handleSendInvite(): void {
+    const email = inviteEmail.trim();
+    if (!/\S+@\S+\.\S+/.test(email)) return;
+    shareInvite.mutate({ email }, {
+      onSuccess: () => {
+        setInviteEmail('');
+        setShowInvite(false);
+        Alert.alert('Invite sent', `An invitation was emailed to ${email}.`);
+      },
+      onError: (e) => Alert.alert('Could not send invite', normalizeError(e)),
+    });
+  }
 
   const sections = useMemo(() => {
     const byRole = new Map<string, User[]>();
@@ -91,17 +125,30 @@ export function ResidentListScreen() {
         </View>
         <StatusChip status={item.isActive ? 'Active' : 'Inactive'} />
         {isAdmin && (
-          <TouchableOpacity
-            style={styles.deleteButton}
-            onPress={() => handleDelete(item)}
-            disabled={deleteResident.isPending}
-          >
-            <Text style={styles.deleteButtonText}>🗑</Text>
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity
+              style={styles.deleteButton}
+              accessibilityLabel={item.isActive ? `Deactivate ${item.fullName}` : `Activate ${item.fullName}`}
+              onPress={() => setActive.mutate(
+                { id: item.id, active: !item.isActive },
+                { onError: (e) => Alert.alert('Could not update user', normalizeError(e)) }
+              )}
+              disabled={setActive.isPending}
+            >
+              <Text style={styles.deleteButtonText}>{item.isActive ? '⏸' : '▶️'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.deleteButton}
+              onPress={() => handleDelete(item)}
+              disabled={deleteResident.isPending}
+            >
+              <Text style={styles.deleteButtonText}>🗑</Text>
+            </TouchableOpacity>
+          </>
         )}
       </View>
     );
-  }, [isAdmin, handleDelete, deleteResident.isPending]);
+  }, [isAdmin, handleDelete, deleteResident.isPending, setActive]);
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -115,6 +162,66 @@ export function ResidentListScreen() {
           onChangeText={setSearch}
         />
       </View>
+
+      {isAdmin && (
+        <View style={styles.adminBar}>
+          <TouchableOpacity style={styles.inviteToggle} onPress={() => setShowInvite((v) => !v)}>
+            <Text style={styles.inviteToggleText}>{showInvite ? 'Hide invite' : '✉ Send invite link'}</Text>
+          </TouchableOpacity>
+          {showInvite && (
+            <View style={styles.inviteRow}>
+              <TextInput
+                style={styles.inviteInput}
+                placeholder="person@example.com"
+                placeholderTextColor={colors.text.disabled}
+                value={inviteEmail}
+                onChangeText={setInviteEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+              <TouchableOpacity
+                style={[styles.inviteBtn, (!/\S+@\S+\.\S+/.test(inviteEmail.trim()) || shareInvite.isPending) && styles.inviteBtnDisabled]}
+                disabled={!/\S+@\S+\.\S+/.test(inviteEmail.trim()) || shareInvite.isPending}
+                onPress={handleSendInvite}
+              >
+                <Text style={styles.inviteBtnText}>Send</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      )}
+
+      {isAdmin && (joinRequests ?? []).length > 0 && (
+        <View style={styles.joinBox}>
+          <Text style={styles.joinTitle}>Apartment join requests</Text>
+          {(joinRequests ?? []).map((u) => (
+            <View key={u.id} style={styles.joinRow}>
+              <View style={styles.joinInfo}>
+                <Text style={styles.joinName}>{u.fullName}</Text>
+                <Text style={styles.joinMeta}>{u.pendingResidentType ?? 'Resident'}</Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.joinBtn, styles.joinApprove]}
+                onPress={() => respondToJoin.mutate(
+                  { userId: u.id, approve: true },
+                  { onError: (e) => Alert.alert('Could not approve', normalizeError(e)) }
+                )}
+              >
+                <Text style={styles.joinBtnText}>Approve</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.joinBtn, styles.joinDeny]}
+                onPress={() => respondToJoin.mutate(
+                  { userId: u.id, approve: false },
+                  { onError: (e) => Alert.alert('Could not deny', normalizeError(e)) }
+                )}
+              >
+                <Text style={styles.joinBtnText}>Deny</Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+      )}
       <SectionList
         sections={sections}
         keyExtractor={(item) => item.id}
@@ -143,6 +250,15 @@ export function ResidentListScreen() {
         }
         ItemSeparatorComponent={() => <View style={styles.separator} />}
       />
+      {isAdmin && (
+        <TouchableOpacity
+          style={styles.fab}
+          accessibilityLabel="Add user"
+          onPress={() => navigation.navigate('ResidentForm', {})}
+        >
+          <Text style={styles.fabText}>+</Text>
+        </TouchableOpacity>
+      )}
     </SafeAreaView>
   );
 }
@@ -191,4 +307,49 @@ const styles = StyleSheet.create({
     padding: spacing.xs,
   },
   deleteButtonText: { fontSize: typography.fontSize.lg },
+  adminBar: { backgroundColor: colors.surface, paddingHorizontal: spacing.sm, paddingBottom: spacing.xs },
+  inviteToggle: { paddingVertical: spacing.xs },
+  inviteToggleText: { color: colors.primary, fontSize: typography.fontSize.sm, fontWeight: typography.fontWeight.semibold },
+  inviteRow: { flexDirection: 'row', gap: spacing.xs, alignItems: 'center', paddingBottom: spacing.xs },
+  inviteInput: {
+    flex: 1,
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.sm,
+    fontSize: typography.fontSize.base,
+    color: colors.text.primary,
+  },
+  inviteBtn: { backgroundColor: colors.primary, borderRadius: 8, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  inviteBtnDisabled: { opacity: 0.5 },
+  inviteBtnText: { color: '#FFF', fontSize: typography.fontSize.sm, fontWeight: typography.fontWeight.semibold },
+  joinBox: {
+    backgroundColor: 'rgba(25, 118, 210, 0.06)',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    padding: spacing.sm,
+  },
+  joinTitle: { fontSize: typography.fontSize.sm, fontWeight: typography.fontWeight.semibold, color: colors.text.primary, marginBottom: spacing.xs },
+  joinRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingVertical: spacing.xs },
+  joinInfo: { flex: 1 },
+  joinName: { fontSize: typography.fontSize.sm, color: colors.text.primary, fontWeight: typography.fontWeight.semibold },
+  joinMeta: { fontSize: typography.fontSize.xs, color: colors.text.secondary },
+  joinBtn: { borderRadius: 6, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
+  joinApprove: { backgroundColor: '#059669' },
+  joinDeny: { backgroundColor: colors.error },
+  joinBtnText: { color: '#FFF', fontSize: typography.fontSize.xs, fontWeight: typography.fontWeight.semibold },
+  fab: {
+    position: 'absolute',
+    bottom: spacing.lg,
+    right: spacing.lg,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 6,
+  },
+  fabText: { color: '#FFF', fontSize: 28, lineHeight: 32 },
 });

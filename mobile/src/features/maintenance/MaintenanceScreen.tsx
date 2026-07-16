@@ -12,7 +12,9 @@ import {
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSocietyId } from '../../shared/hooks/useSocietyId';
+import { useAuthStore } from '../../store/authStore';
 import { useMaintenanceList, useSubmitPaymentProof } from './hooks/useMaintenance';
 import { maintenanceApi } from '../../api/endpoints/maintenance';
 import { pickImageFile, type PickedFile } from '../../camera/ImagePicker';
@@ -70,7 +72,7 @@ function ProofThumb({ url, fileName }: { url: string; fileName?: string }) {
   );
 }
 
-const STATUS_FILTERS = ['All', 'Pending', 'Paid', 'Overdue'];
+const STATUS_FILTERS = ['All', 'Pending', 'ProofSubmitted', 'Paid', 'Overdue'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 // A charge that hasn't been paid and isn't already awaiting admin review can have proof submitted.
@@ -80,6 +82,8 @@ function isSelectableCharge(charge: MaintenanceCharge): boolean {
 
 export function MaintenanceScreen() {
   const societyId = useSocietyId();
+  const queryClient = useQueryClient();
+  const isAdmin = useAuthStore((s) => s.user?.role === 'SUAdmin');
   const [selectedStatus, setSelectedStatus] = useState('All');
   const [selectedChargeIds, setSelectedChargeIds] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
@@ -93,6 +97,18 @@ export function MaintenanceScreen() {
   const { mutate: submitProof, isPending: submitting } = useSubmitPaymentProof(societyId);
 
   const selectableCount = data.filter(isSelectableCharge).length;
+
+  // Admin actions — approve a submitted proof or mark a charge paid directly (offline payment).
+  const adminAction = useMutation({
+    mutationFn: ({ chargeId, action }: { chargeId: string; action: 'approve' | 'mark-paid' }) =>
+      action === 'approve'
+        ? maintenanceApi.approveProof(societyId, chargeId, { notes: 'Approved from mobile app' })
+        : maintenanceApi.markPaid(societyId, chargeId, { paymentMethod: 'Offline', notes: 'Marked paid from mobile app' }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['maintenance'] });
+    },
+    onError: (e) => Alert.alert('Could not update charge', normalizeError(e)),
+  });
 
   function toggleChargeSelection(chargeId: string): void {
     setSelectedChargeIds((prev) =>
@@ -173,10 +189,30 @@ export function MaintenanceScreen() {
             ))}
           </View>
         )}
+        {isAdmin && item.status !== 'Paid' && (
+          <View style={styles.adminRow}>
+            {item.status === 'ProofSubmitted' && (
+              <TouchableOpacity
+                style={[styles.adminBtn, styles.adminApprove]}
+                disabled={adminAction.isPending}
+                onPress={() => adminAction.mutate({ chargeId: item.id, action: 'approve' })}
+              >
+                <Text style={styles.adminBtnText}>Approve proof</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={styles.adminBtn}
+              disabled={adminAction.isPending}
+              onPress={() => adminAction.mutate({ chargeId: item.id, action: 'mark-paid' })}
+            >
+              <Text style={styles.adminBtnText}>Mark paid</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedChargeIds]);
+  }, [selectedChargeIds, isAdmin, adminAction.isPending]);
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -347,4 +383,8 @@ const styles = StyleSheet.create({
   submitButton: { backgroundColor: colors.primary, borderRadius: 8, padding: spacing.sm, alignItems: 'center' },
   submitButtonDisabled: { opacity: 0.5 },
   submitButtonText: { color: '#FFF', fontWeight: typography.fontWeight.semibold },
+  adminRow: { flexDirection: 'row', gap: spacing.xs, marginTop: spacing.sm },
+  adminBtn: { backgroundColor: colors.primary, borderRadius: 6, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
+  adminApprove: { backgroundColor: '#059669' },
+  adminBtnText: { color: '#FFF', fontSize: typography.fontSize.xs, fontWeight: typography.fontWeight.semibold },
 });

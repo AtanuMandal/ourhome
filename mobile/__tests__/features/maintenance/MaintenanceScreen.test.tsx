@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react-nativ
 import { Alert } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MaintenanceScreen } from '../../../src/features/maintenance/MaintenanceScreen';
 import { maintenanceApi } from '../../../src/api/endpoints/maintenance';
 import { pickImageFile } from '../../../src/camera/ImagePicker';
@@ -21,11 +22,14 @@ const initialMetrics = {
 };
 
 function renderScreen() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <SafeAreaProvider initialMetrics={initialMetrics}>
-      <NavigationContainer>
-        <MaintenanceScreen />
-      </NavigationContainer>
+      <QueryClientProvider client={queryClient}>
+        <NavigationContainer>
+          <MaintenanceScreen />
+        </NavigationContainer>
+      </QueryClientProvider>
     </SafeAreaProvider>
   );
 }
@@ -51,6 +55,8 @@ jest.mock('../../../src/features/maintenance/hooks/useMaintenance', () => ({
 jest.mock('../../../src/api/endpoints/maintenance', () => ({
   maintenanceApi: {
     uploadPaymentProof: jest.fn(),
+    approveProof: jest.fn(),
+    markPaid: jest.fn(),
   },
 }));
 
