@@ -49,6 +49,13 @@ export const visitorsApi = {
       .post<Visitor>(`/societies/${societyId}/visitors/${id}/checkout`)
       .then((r) => r.data),
 
+  // Pass verification doubles as check-in: the backend validates the pass and checks the
+  // visitor in as one step (idempotent when the visitor is already checked in).
+  checkInVisitorByPass: (societyId: string, passCode: string) =>
+    api
+      .post<Visitor>(`/societies/${societyId}/visitors/checkin`, { passCode })
+      .then((r) => r.data),
+
   getLookups: (societyId: string) =>
     api
       .get<{ companies: string[]; purposes: string[] }>(`/societies/${societyId}/visitors/lookups`)

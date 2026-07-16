@@ -7,6 +7,8 @@
 
 ## Visitors
 - ONce visitor is checked in a checkin time will be logged and once they are exiting security user will check them out , SuSecurity and SUAdmin should be able to see the checkin and checkout time in the reports .
+- When the visitor request is approved then they should be auto checked in , Security or admin user does not have to checkin them separately . Same for the PASS verification , when the pass is verified the visitor will be checked in . 
+- In case of pre approved visitor pass valid duration will override the default checkout value , so even if they crossed the thresold they will still not be flagged as long as their pass is valid .
 - In case the visitor does not check out system will check them out automatically after 24 hrs . in case its been more than 5 hours ( needs to be configured a socity level ) it will show in RED in the visitor list .
 
 ## Socity 

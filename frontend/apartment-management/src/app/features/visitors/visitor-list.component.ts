@@ -149,15 +149,7 @@ import { ImageLightboxComponent } from '../../shared/components/image-lightbox/i
             </mat-form-field>
 
             <div class="verify-card__actions">
-              <button mat-stroked-button color="primary" type="button" (click)="verifyPass()">Verify</button>
-              <button
-                mat-raised-button
-                color="primary"
-                type="button"
-                [disabled]="!verifiedVisitor() || verifiedVisitor()!.status !== 'Approved'"
-                (click)="checkInVerifiedVisitor()">
-                Check in visitor
-              </button>
+              <button mat-raised-button color="primary" type="button" (click)="verifyPass()">Verify &amp; check in</button>
               @if (verifiedVisitor()?.status === 'CheckedIn') {
                 <button mat-raised-button color="warn" type="button" (click)="checkOutVerifiedVisitor()">
                   Check out visitor
@@ -509,8 +501,14 @@ export class VisitorListComponent implements OnInit, OnDestroy {
 
     this.visitorService.verify(societyId, passCode).subscribe({
       next: visitor => {
-        this.verifiedVisitor.set(visitor);
         this.errorMessage.set('');
+        // Pass verification doubles as check-in: an approved visitor is checked in
+        // immediately — security never has to check them in as a separate step.
+        if (visitor.status === 'Approved' && !visitor.isPassExpired) {
+          this.checkInVerifiedVisitor();
+        } else {
+          this.verifiedVisitor.set(visitor);
+        }
       },
       error: error => {
         this.verifiedVisitor.set(null);
@@ -519,7 +517,7 @@ export class VisitorListComponent implements OnInit, OnDestroy {
     });
   }
 
-  checkInVerifiedVisitor() {
+  private checkInVerifiedVisitor() {
     const societyId = this.auth.societyId();
     const passCode = this.verifyForm.controls.passCode.value?.trim();
     if (!societyId || !passCode) return;
@@ -527,6 +525,7 @@ export class VisitorListComponent implements OnInit, OnDestroy {
     this.visitorService.checkin(societyId, passCode).subscribe({
       next: visitor => {
         this.verifiedVisitor.set(visitor);
+        this.successMessage.set(`${visitor.visitorName} checked in.`);
         this.loadVisitors();
       },
       error: error => this.errorMessage.set(error?.error?.message ?? 'Unable to check in the visitor.')

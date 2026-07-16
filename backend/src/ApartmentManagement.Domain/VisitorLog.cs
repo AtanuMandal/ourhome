@@ -140,10 +140,19 @@ public sealed class VisitorLog : BaseEntity
         TouchUpdatedAt();
     }
 
+    /// <summary>
+    /// True while a pre-approved visitor's pass is still valid. A valid pass overrides the
+    /// society's overstay threshold and the 24-hour auto-checkout — the visitor was explicitly
+    /// authorized for that duration.
+    /// </summary>
+    public bool HasValidPass(DateTime? nowUtc = null) =>
+        IsPreApproved && ValidUntil.HasValue && (nowUtc ?? DateTime.UtcNow) <= ValidUntil.Value;
+
     /// <summary>True when the visitor is still checked in past the society's overstay threshold.</summary>
     public bool IsOverstaying(int thresholdHours, DateTime? nowUtc = null) =>
         Status == VisitorStatus.CheckedIn &&
         CheckInTime.HasValue &&
+        !HasValidPass(nowUtc) &&
         (nowUtc ?? DateTime.UtcNow) - CheckInTime.Value > TimeSpan.FromHours(thresholdHours);
 
     public void UpdateQrCode(string qrCode)

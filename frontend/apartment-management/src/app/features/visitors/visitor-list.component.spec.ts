@@ -68,6 +68,70 @@ describe('VisitorListComponent — approve/deny visibility', () => {
   });
 });
 
+describe('VisitorListComponent — pass verification doubles as check-in', () => {
+  function setup(verifyResult: Partial<Visitor>) {
+    const visitorServiceStub = {
+      list: jasmine.createSpy().and.returnValue(of({ items: [], total: 0, page: 1, pageSize: 100 })),
+      verify: jasmine.createSpy().and.returnValue(of(verifyResult as Visitor)),
+      checkin: jasmine.createSpy().and.returnValue(
+        of({ ...verifyResult, status: 'CheckedIn', visitorName: verifyResult.visitorName } as Visitor)),
+    };
+    const authServiceStub = {
+      societyId: () => 'soc-1',
+      isAdmin: () => false,
+      isSecurity: () => true,
+      canManageVisitors: () => true,
+      user: () => ({ role: 'SUSecurity', apartmentId: '' }),
+    };
+    const activatedRouteStub = { snapshot: { queryParamMap: convertToParamMap({}) } };
+
+    TestBed.configureTestingModule({
+      imports: [VisitorListComponent, NoopAnimationsModule],
+      providers: [
+        provideRouter([]),
+        { provide: VisitorService, useValue: visitorServiceStub },
+        { provide: AuthService, useValue: authServiceStub },
+        { provide: ActivatedRoute, useValue: activatedRouteStub },
+      ],
+    });
+
+    const fixture = TestBed.createComponent(VisitorListComponent);
+    fixture.detectChanges();
+    return { component: fixture.componentInstance, visitorServiceStub };
+  }
+
+  it('verifying an approved pass automatically checks the visitor in', () => {
+    const { component, visitorServiceStub } = setup({ id: 'v1', status: 'Approved', visitorName: 'Jane', isPassExpired: false });
+    component.verifyForm.patchValue({ passCode: '123456' });
+
+    component.verifyPass();
+
+    expect(visitorServiceStub.checkin).toHaveBeenCalledWith('soc-1', '123456');
+    expect(component.verifiedVisitor()?.status).toBe('CheckedIn');
+    expect(component.successMessage()).toContain('checked in');
+  });
+
+  it('verifying an already checked-in pass shows the visitor without re-checking-in (exit flow)', () => {
+    const { component, visitorServiceStub } = setup({ id: 'v1', status: 'CheckedIn', visitorName: 'Jane' });
+    component.verifyForm.patchValue({ passCode: '123456' });
+
+    component.verifyPass();
+
+    expect(visitorServiceStub.checkin).not.toHaveBeenCalled();
+    expect(component.verifiedVisitor()?.status).toBe('CheckedIn');
+  });
+
+  it('verifying an expired approved pass does not attempt check-in', () => {
+    const { component, visitorServiceStub } = setup({ id: 'v1', status: 'Approved', visitorName: 'Jane', isPassExpired: true });
+    component.verifyForm.patchValue({ passCode: '123456' });
+
+    component.verifyPass();
+
+    expect(visitorServiceStub.checkin).not.toHaveBeenCalled();
+    expect(component.verifiedVisitor()?.status).toBe('Approved');
+  });
+});
+
 describe('VisitorListComponent — default pending + recent approved/denied view', () => {
   function makeVisitor(id: string, status: string, createdAt = '2026-01-01T00:00:00Z'): Visitor {
     return { id, status, hostApartmentId: 'apt-1', visitorName: `Visitor ${id}`, createdAt } as Visitor;

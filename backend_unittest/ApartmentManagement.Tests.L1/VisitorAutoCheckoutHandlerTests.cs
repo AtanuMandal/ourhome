@@ -73,4 +73,63 @@ public class AutoCheckOutOverdueVisitorsCommandHandlerTests
         recent.Status.Should().Be(VisitorStatus.CheckedIn);
         _visitorRepoMock.Verify(r => r.UpdateAsync(It.IsAny<VisitorLog>(), It.IsAny<CancellationToken>()), Times.Never);
     }
+
+    [Fact]
+    public async Task Handle_PreApprovedVisitorWithValidPass_IsNotAutoCheckedOut()
+    {
+        // Arrange — a pre-approved pass valid for 72 hours overrides the default 24-hour auto-checkout.
+        var log = VisitorLog.Create("soc-001", "Long Stay", "+91-9876543211",
+            null, null, "Family stay", "apt-001", "user-001",
+            "Resident User", "A", 1, "A-101", isPreApproved: true,
+            validUntil: DateTime.UtcNow.AddHours(72));
+        log.CheckIn();
+        typeof(VisitorLog).GetProperty(nameof(VisitorLog.CheckInTime))!
+            .SetValue(log, DateTime.UtcNow.AddHours(-30));
+
+        _visitorRepoMock
+            .Setup(r => r.GetCheckedInAcrossSocietiesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([log]);
+
+        var handler = CreateHandler();
+
+        // Act
+        var result = await handler.Handle(new AutoCheckOutOverdueVisitorsCommand(), CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().Be(0);
+        log.Status.Should().Be(VisitorStatus.CheckedIn);
+        _visitorRepoMock.Verify(r => r.UpdateAsync(It.IsAny<VisitorLog>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_PreApprovedVisitorWithExpiredPass_IsAutoCheckedOut()
+    {
+        // Arrange — once the pass expires, the normal 24-hour rule applies again.
+        var log = VisitorLog.Create("soc-001", "Long Stay", "+91-9876543212",
+            null, null, "Family stay", "apt-001", "user-001",
+            "Resident User", "A", 1, "A-101", isPreApproved: true,
+            validUntil: DateTime.UtcNow.AddHours(-1));
+        typeof(VisitorLog).GetProperty(nameof(VisitorLog.Status))!.SetValue(log, VisitorStatus.CheckedIn);
+        typeof(VisitorLog).GetProperty(nameof(VisitorLog.CheckInTime))!
+            .SetValue(log, DateTime.UtcNow.AddHours(-30));
+
+        _visitorRepoMock
+            .Setup(r => r.GetCheckedInAcrossSocietiesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([log]);
+        _visitorRepoMock
+            .Setup(r => r.UpdateAsync(It.IsAny<VisitorLog>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((VisitorLog v, CancellationToken _) => v);
+
+        var handler = CreateHandler();
+
+        // Act
+        var result = await handler.Handle(new AutoCheckOutOverdueVisitorsCommand(), CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().Be(1);
+        log.Status.Should().Be(VisitorStatus.CheckedOut);
+        log.IsAutoCheckedOut.Should().BeTrue();
+    }
 }

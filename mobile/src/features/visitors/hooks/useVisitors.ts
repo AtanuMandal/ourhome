@@ -95,3 +95,12 @@ export function useCheckOutVisitor(societyId: string) {
     onSuccess: () => invalidateVisitorLists(queryClient, societyId),
   });
 }
+
+/** Gate flow: verifying a pass code checks the visitor in as one step. */
+export function useCheckInVisitorByPass(societyId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (passCode: string) => visitorsApi.checkInVisitorByPass(societyId, passCode),
+    onSuccess: () => invalidateVisitorLists(queryClient, societyId),
+  });
+}

@@ -155,6 +155,10 @@ public sealed class ApproveVisitorCommandHandler(
                 throw new ForbiddenException("Only the host resident can approve a visitor.");
 
             log.Approve();
+            // The visitor is waiting at the gate for the host's decision — approval doubles as
+            // check-in, so security doesn't have to check them in as a separate step.
+            if (!log.IsPassExpired)
+                log.CheckIn();
             await visitorRepository.UpdateAsync(log, ct);
             return Result<bool>.Success(true);
         }
@@ -230,6 +234,11 @@ public sealed class CheckInVisitorCommandHandler(
             if (log is null || !string.Equals(log.SocietyId, request.SocietyId, StringComparison.OrdinalIgnoreCase))
                 return Result<VisitorResponse>.Failure(ErrorCodes.InvalidPassCode, "Invalid pass code.");
 
+            // Pass verification doubles as check-in — verifying an already checked-in pass is
+            // not an error; return the current state so the client can offer check-out instead.
+            if (log.Status == VisitorStatus.CheckedIn)
+                return Result<VisitorResponse>.Success(log.ToResponse());
+
             if (log.Status != VisitorStatus.Approved)
                 return Result<VisitorResponse>.Failure(ErrorCodes.VisitorNotApproved, "Visitor must be approved before check-in.");
 
@@ -303,10 +312,14 @@ public sealed class AutoCheckOutOverdueVisitorsCommandHandler(
         try
         {
             var checkedIn = await visitorRepository.GetCheckedInAcrossSocietiesAsync(ct);
-            var cutoff = DateTime.UtcNow - AutoCheckoutAfter;
+            var now = DateTime.UtcNow;
+            var cutoff = now - AutoCheckoutAfter;
             var count = 0;
 
-            foreach (var visitor in checkedIn.Where(v => v.CheckInTime.HasValue && v.CheckInTime.Value <= cutoff))
+            // A pre-approved visitor with a still-valid pass was explicitly authorized for that
+            // duration — their pass validity overrides the default 24-hour auto-checkout.
+            foreach (var visitor in checkedIn.Where(v =>
+                v.CheckInTime.HasValue && v.CheckInTime.Value <= cutoff && !v.HasValidPass(now)))
             {
                 visitor.AutoCheckOut();
                 await visitorRepository.UpdateAsync(visitor, ct);

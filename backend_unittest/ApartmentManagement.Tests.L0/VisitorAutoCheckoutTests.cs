@@ -77,4 +77,55 @@ public class VisitorAutoCheckoutTests
 
         log.IsOverstaying(5, DateTime.UtcNow.AddHours(10)).Should().BeFalse();
     }
+
+    private static VisitorLog CreatePreApprovedCheckedInVisitor(DateTime validUntil)
+    {
+        var log = VisitorLog.Create("society-001", "Long Stay Visitor", "+91-9876543211",
+            null, null, "Family stay", "apt-001", "user-001",
+            "Resident User", "A", 1, "A-101", isPreApproved: true, validUntil: validUntil);
+        log.CheckIn();
+        return log;
+    }
+
+    [Fact]
+    public void HasValidPass_PreApprovedWithFutureValidity_ReturnsTrue()
+    {
+        var log = CreatePreApprovedCheckedInVisitor(DateTime.UtcNow.AddHours(48));
+
+        log.HasValidPass().Should().BeTrue();
+    }
+
+    [Fact]
+    public void HasValidPass_PreApprovedWithExpiredValidity_ReturnsFalse()
+    {
+        var log = CreatePreApprovedCheckedInVisitor(DateTime.UtcNow.AddHours(48));
+
+        log.HasValidPass(DateTime.UtcNow.AddHours(49)).Should().BeFalse();
+    }
+
+    [Fact]
+    public void HasValidPass_NotPreApproved_ReturnsFalse()
+    {
+        var log = CreateCheckedInVisitor();
+
+        log.HasValidPass().Should().BeFalse();
+    }
+
+    [Fact]
+    public void IsOverstaying_PreApprovedWithValidPass_NotFlaggedPastThreshold()
+    {
+        // The pass explicitly authorizes a 48-hour stay — crossing the society's 5-hour
+        // threshold must not flag the visitor while the pass is still valid.
+        var log = CreatePreApprovedCheckedInVisitor(DateTime.UtcNow.AddHours(48));
+
+        log.IsOverstaying(5, DateTime.UtcNow.AddHours(10)).Should().BeFalse();
+    }
+
+    [Fact]
+    public void IsOverstaying_PreApprovedAfterPassExpires_IsFlagged()
+    {
+        var log = CreatePreApprovedCheckedInVisitor(DateTime.UtcNow.AddHours(2));
+
+        log.IsOverstaying(5, DateTime.UtcNow.AddHours(6)).Should().BeTrue();
+    }
 }

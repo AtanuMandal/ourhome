@@ -388,8 +388,10 @@ public class ApproveVisitorCommandHandlerTests
         new(_visitorRepoMock.Object, _loggerMock.Object);
 
     [Fact]
-    public async Task Handle_ByHostUser_ApprovesSuccessfully()
+    public async Task Handle_ByHostUser_ApprovesAndAutoChecksIn()
     {
+        // The visitor is waiting at the gate — approval doubles as check-in, so security
+        // doesn't have to check them in as a separate step.
         var log = VisitorLog.Create("soc-001", "Jane", "+91-9111111111", null, null, "Guest", "apt-001", "host-001", "Host", "A", 1, "A-101", false);
 
         _visitorRepoMock.Setup(r => r.GetByIdAsync(log.Id, "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync(log);
@@ -398,7 +400,24 @@ public class ApproveVisitorCommandHandlerTests
         var result = await CreateHandler().Handle(new ApproveVisitorCommand("soc-001", log.Id, "host-001"), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
+        log.Status.Should().Be(VisitorStatus.CheckedIn);
+        log.CheckInTime.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
+    public async Task Handle_WithExpiredPass_ApprovesWithoutCheckingIn()
+    {
+        var log = VisitorLog.Create("soc-001", "Jane", "+91-9111111112", null, null, "Guest", "apt-001", "host-001", "Host", "A", 1, "A-101", false,
+            validUntil: DateTime.UtcNow.AddHours(-1));
+
+        _visitorRepoMock.Setup(r => r.GetByIdAsync(log.Id, "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync(log);
+        _visitorRepoMock.Setup(r => r.UpdateAsync(It.IsAny<VisitorLog>(), It.IsAny<CancellationToken>())).ReturnsAsync((VisitorLog l, CancellationToken _) => l);
+
+        var result = await CreateHandler().Handle(new ApproveVisitorCommand("soc-001", log.Id, "host-001"), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
         log.Status.Should().Be(VisitorStatus.Approved);
+        log.CheckInTime.Should().BeNull();
     }
 
     [Fact]
