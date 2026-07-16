@@ -24,6 +24,12 @@ export const visitorsApi = {
       .get<PaginatedResponse<Visitor>>(`/societies/${societyId}/visitors`, { params })
       .then((r) => r.data),
 
+  // Unfiltered landing view in one call: all Pending + CheckedIn plus the N most recent concluded entries.
+  getDefaultView: (societyId: string, recentCount: number) =>
+    api
+      .get<Visitor[]>(`/societies/${societyId}/visitors/default-view`, { params: { recentCount } })
+      .then((r) => r.data),
+
   getVisitor: (societyId: string, id: string) =>
     api
       .get<Visitor>(`/societies/${societyId}/visitors/${id}`)

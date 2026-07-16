@@ -13,6 +13,11 @@ export class VisitorService {
     return this.api.getPaged<Visitor>(`societies/${societyId}/visitors`, page, pageSize, filters as Record<string, string | number>);
   }
 
+  /** Unfiltered landing view in one call: all Pending + CheckedIn plus the N most recent concluded entries. */
+  defaultView(societyId: string, recentCount: number) {
+    return this.api.get<Visitor[]>(`societies/${societyId}/visitors/default-view`, { recentCount });
+  }
+
   get(societyId: string, id: string) {
     return this.api.get<Visitor>(`societies/${societyId}/visitors/${id}`);
   }

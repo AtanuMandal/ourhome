@@ -3,7 +3,7 @@ import { Component, DestroyRef, ElementRef, OnDestroy, OnInit, ViewChild, comput
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ReactiveFormsModule, FormBuilder } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { forkJoin, interval } from 'rxjs';
+import { interval } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -64,7 +64,7 @@ import { ImageLightboxComponent } from '../../shared/components/image-lightbox/i
             <h3>Visitor history</h3>
             <p>Search by visitor name, resident, date, or status.</p>
             @if (isDefaultFilterState()) {
-              <p class="filters-card__hint">Showing all pending and checked-in visitors plus the {{ recordCount() }} most recent approved/denied. Filter or export CSV for the full history.</p>
+              <p class="filters-card__hint">Showing all pending and checked-in visitors plus the {{ recordCount() }} most recent. Filter or export CSV for the full history.</p>
             }
           </div>
           <div class="filters-card__header-actions">
@@ -184,12 +184,10 @@ import { ImageLightboxComponent } from '../../shared/components/image-lightbox/i
           </a>
         </app-empty-state>
       } @else {
-        @if (backgroundRefreshing()) {
-          <div class="background-refresh-hint">Updating…</div>
-        }
-        <div class="visitor-list" [class.visitor-list--pulse]="justRefreshed()">
+        <div class="visitor-list">
           @for (visitor of items(); track visitor.id) {
-            <div class="visitor-card" [class.visitor-card--overstay]="visitor.isOverstay">
+            <div class="visitor-card" [class.visitor-card--overstay]="visitor.isOverstay"
+              [class.visitor-card--updated]="recentlyUpdatedIds().has(visitor.id)">
               <div class="vc-avatar-wrap">
                 @if (visitor.visitorImageUrl) {
                   <app-secure-image [src]="visitor.visitorImageUrl" alt="Visitor photo" imgClass="vc-avatar-img"
@@ -284,9 +282,10 @@ export class VisitorListComponent implements OnInit, OnDestroy {
   // Set only by the 10s auto-refresh timer when the list already has data — keeps the existing
   // rows visible (no spinner, no blanking) while the background fetch is in flight.
   readonly backgroundRefreshing = signal(false);
-  // Briefly toggled true right after a background refresh applies new data, driving a subtle
-  // CSS highlight instead of the old jarring full-list replace.
-  readonly justRefreshed = signal(false);
+  // Ids of rows a background refresh just added or changed — drives a brief per-card
+  // highlight so updates ease in instead of the whole list repainting at once.
+  readonly recentlyUpdatedIds = signal<ReadonlySet<string>>(new Set());
+  private _highlightTimer: ReturnType<typeof setTimeout> | null = null;
   readonly items = signal<Visitor[]>([]);
   readonly errorMessage = signal('');
   readonly successMessage = signal('');
@@ -350,6 +349,7 @@ export class VisitorListComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.stopQrScan();
+    if (this._highlightTimer) clearTimeout(this._highlightTimer);
   }
 
   private handleDeepLink(): void {
@@ -398,12 +398,12 @@ export class VisitorListComponent implements OnInit, OnDestroy {
 
     this.visitorService.list(societyId, 1, 100, this.buildFilters()).subscribe({
       next: response => {
-        this.items.set(response.items ?? []);
-        this.finishLoad(useBackgroundFlag);
+        this.applyItems(response.items ?? [], useBackgroundFlag);
+        this.finishLoad();
       },
       error: error => {
         this.errorMessage.set(error?.error?.message ?? 'Unable to load visitors right now.');
-        this.finishLoad(useBackgroundFlag);
+        this.finishLoad();
       }
     });
   }
@@ -415,42 +415,47 @@ export class VisitorListComponent implements OnInit, OnDestroy {
   }
 
   private loadDefaultView(societyId: string, useBackgroundFlag: boolean) {
-    const n = this.recordCount();
-    const pending$   = this.visitorService.list(societyId, 1, 200, { ...this.buildFilters(), status: 'Pending' });
-    // Checked-in visitors are on the premises right now — always show every one of them so
-    // security can check them out on exit; they must never age out of the default view.
-    const checkedIn$ = this.visitorService.list(societyId, 1, 200, { ...this.buildFilters(), status: 'CheckedIn' });
-    const approved$  = this.visitorService.list(societyId, 1, n, { ...this.buildFilters(), status: 'Approved' });
-    const denied$    = this.visitorService.list(societyId, 1, n, { ...this.buildFilters(), status: 'Denied' });
-
-    forkJoin([pending$, checkedIn$, approved$, denied$]).subscribe({
-      next: ([pendingRes, checkedInRes, approvedRes, deniedRes]) => {
-        const merged = new Map<string, Visitor>();
-        for (const visitor of pendingRes.items ?? []) merged.set(visitor.id, visitor);
-        for (const visitor of checkedInRes.items ?? []) if (!merged.has(visitor.id)) merged.set(visitor.id, visitor);
-
-        const recent = [...(approvedRes.items ?? []), ...(deniedRes.items ?? [])]
-          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-          .slice(0, n);
-        for (const visitor of recent) if (!merged.has(visitor.id)) merged.set(visitor.id, visitor);
-
-        this.items.set([...merged.values()]);
-        this.finishLoad(useBackgroundFlag);
+    // A single backend call returns the whole landing view: every Pending and CheckedIn
+    // visitor (they never age out — security must always see who is on the premises) plus
+    // the N most recent concluded entries.
+    this.visitorService.defaultView(societyId, this.recordCount()).subscribe({
+      next: visitors => {
+        this.applyItems(visitors ?? [], useBackgroundFlag);
+        this.finishLoad();
       },
       error: error => {
         this.errorMessage.set(error?.error?.message ?? 'Unable to load visitors right now.');
-        this.finishLoad(useBackgroundFlag);
+        this.finishLoad();
       }
     });
   }
 
-  private finishLoad(wasBackgroundRefresh: boolean) {
+  /**
+   * Applies freshly fetched rows without flicker. A background refresh that returns identical
+   * data leaves the signal (and the DOM) untouched; when rows did change, only those cards get
+   * a brief highlight so the update eases in instead of the whole list repainting.
+   */
+  private applyItems(next: Visitor[], wasBackgroundRefresh: boolean) {
+    if (!wasBackgroundRefresh) {
+      this.items.set(next);
+      return;
+    }
+
+    const prev = new Map(this.items().map(v => [v.id, JSON.stringify(v)]));
+    const changedIds = next
+      .filter(v => prev.get(v.id) !== JSON.stringify(v))
+      .map(v => v.id);
+    if (changedIds.length === 0 && next.length === prev.size) return;
+
+    this.items.set(next);
+    if (this._highlightTimer) clearTimeout(this._highlightTimer);
+    this.recentlyUpdatedIds.set(new Set(changedIds));
+    this._highlightTimer = setTimeout(() => this.recentlyUpdatedIds.set(new Set()), 1500);
+  }
+
+  private finishLoad() {
     this.loading.set(false);
     this.backgroundRefreshing.set(false);
-    if (wasBackgroundRefresh) {
-      this.justRefreshed.set(true);
-      setTimeout(() => this.justRefreshed.set(false), 600);
-    }
   }
 
   resetFilters() {

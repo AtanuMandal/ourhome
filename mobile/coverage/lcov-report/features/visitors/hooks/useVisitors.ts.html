@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">56.09% </span>
+                <span class="strong">41.93% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>23/41</span>
+                <span class='fraction'>13/31</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">75% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>9/12</span>
+                <span class='fraction'>6/8</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">50% </span>
+                <span class="strong">41.93% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>18/36</span>
+                <span class='fraction'>13/31</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line medium'></div>
+    <div class='status-line low'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -159,17 +159,7 @@
 <a name='L94'></a><a href='#L94'>94</a>
 <a name='L95'></a><a href='#L95'>95</a>
 <a name='L96'></a><a href='#L96'>96</a>
-<a name='L97'></a><a href='#L97'>97</a>
-<a name='L98'></a><a href='#L98'>98</a>
-<a name='L99'></a><a href='#L99'>99</a>
-<a name='L100'></a><a href='#L100'>100</a>
-<a name='L101'></a><a href='#L101'>101</a>
-<a name='L102'></a><a href='#L102'>102</a>
-<a name='L103'></a><a href='#L103'>103</a>
-<a name='L104'></a><a href='#L104'>104</a>
-<a name='L105'></a><a href='#L105'>105</a>
-<a name='L106'></a><a href='#L106'>106</a>
-<a name='L107'></a><a href='#L107'>107</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L97'></a><a href='#L97'>97</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -193,20 +183,10 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -294,25 +274,15 @@ export function useVisitorList(
 }
 &nbsp;
 /**
- * No filter applied — all Pending and CheckedIn visitors plus the 10 most recent overall, not
- * the whole history. Checked-in visitors are on the premises right now, so they must always be
- * visible for security to check out on exit — they never age out of this view.
+ * No filter applied — all Pending and CheckedIn visitors plus the 10 most recent concluded
+ * entries, not the whole history. Checked-in visitors are on the premises right now, so they
+ * must always be visible for security to check out on exit — they never age out of this view.
+ * The backend computes the whole view in a single call.
  */
 export function useVisitorDefaultView(societyId: string, enabled = true) {
   return useQuery({
     queryKey: ['visitors-default', societyId],
-    queryFn: async () =&gt; {
-      const [pendingRes, checkedInRes, recentRes] = await Promise.all([
-        visitorsApi.getVisitors(societyId, { status: 'Pending', page: 1, pageSize: 200 }),
-        visitorsApi.getVisitors(societyId, { status: 'CheckedIn', page: 1, pageSize: 200 }),
-        visitorsApi.getVisitors(societyId, { page: 1, pageSize: 10 }),
-      ]);
-      const merged = new Map&lt;string, Visitor&gt;();
-      for (const visitor of pendingRes.items) merged.set(visitor.id, visitor);
-      for (const visitor of checkedInRes.items) <span class="missing-if-branch" title="else path not taken" >E</span>if (!merged.has(visitor.id)) merged.set(visitor.id, visitor);
-      for (const visitor of recentRes.items) if (!merged.has(visitor.id)) merged.set(visitor.id, visitor);
-      return [...merged.values()];
-    },
+    queryFn: () =&gt; visitorsApi.getDefaultView(societyId, 10),
     enabled: !!societyId &amp;&amp; enabled,
   });
 }
@@ -388,7 +358,7 @@ export function useCheckInVisitorByPass(societyId: string) {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-07-16T00:23:07.147Z
+                at 2026-07-16T05:21:19.834Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

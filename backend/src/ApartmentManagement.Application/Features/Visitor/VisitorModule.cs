@@ -519,6 +519,50 @@ public sealed class GetActiveVisitorsQueryHandler(IVisitorLogRepository visitorR
     }
 }
 
+public record GetVisitorDefaultViewQuery(string SocietyId, string? ApartmentId, int RecentCount)
+    : IRequest<Result<IReadOnlyList<VisitorResponse>>>;
+
+/// <summary>
+/// The unfiltered visitor-list landing view in one call: every Pending and CheckedIn visitor
+/// (people at the gate or on the premises never age out of the view) plus the N most recent
+/// concluded entries. Replaces the clients' old per-status request fan-out.
+/// </summary>
+public sealed class GetVisitorDefaultViewQueryHandler(IVisitorLogRepository visitorRepository, ISocietyRepository societyRepository)
+    : IRequestHandler<GetVisitorDefaultViewQuery, Result<IReadOnlyList<VisitorResponse>>>
+{
+    public async Task<Result<IReadOnlyList<VisitorResponse>>> Handle(GetVisitorDefaultViewQuery request, CancellationToken ct)
+    {
+        try
+        {
+            var society = await societyRepository.GetByIdAsync(request.SocietyId, request.SocietyId, ct);
+            var overstayThreshold = society?.VisitorOverstayThresholdHours
+                ?? Domain.Entities.Society.DefaultVisitorOverstayThresholdHours;
+
+            var all = await visitorRepository.GetAllAsync(request.SocietyId, ct);
+            var scoped = string.IsNullOrWhiteSpace(request.ApartmentId)
+                ? all
+                : all.Where(v => v.HostApartmentId == request.ApartmentId);
+
+            var ordered = scoped.OrderByDescending(v => v.CreatedAt).ToList();
+            var recentCount = request.RecentCount < 1 ? 25 : request.RecentCount;
+
+            var items = ordered
+                .Where(v => v.Status is VisitorStatus.Pending or VisitorStatus.CheckedIn)
+                .Concat(ordered
+                    .Where(v => v.Status is not VisitorStatus.Pending and not VisitorStatus.CheckedIn)
+                    .Take(recentCount))
+                .Select(v => v.ToResponse(overstayThreshold))
+                .ToList();
+
+            return Result<IReadOnlyList<VisitorResponse>>.Success(items);
+        }
+        catch (Exception ex)
+        {
+            return Result<IReadOnlyList<VisitorResponse>>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
 public record VisitorLookupsResponse(IReadOnlyList<string> Companies, IReadOnlyList<string> Purposes);
 
 public record GetVisitorLookupsQuery(string SocietyId) : IRequest<Result<VisitorLookupsResponse>>;
