@@ -32,7 +32,10 @@ const MENU_SUADMIN: MenuItem[] = [
   { name: 'Polls',           icon: 'how-to-vote',     label: 'Polls' },
   { name: 'Maintenance',     icon: 'receipt-long',    label: 'Maintenance' },
   { name: 'FinancialReport', icon: 'bar-chart',       label: 'Financial Reports' },
+  { name: 'Rewards',         icon: 'emoji-events',    label: 'Rewards' },
+  { name: 'Services',        icon: 'build',           label: 'Services' },
   { name: 'VendorPayments',  icon: 'payments',        label: 'Vendor Payments' },
+  { name: 'SocietySettings', icon: 'location-city',   label: 'Society Settings' },
   { name: 'Committee',       icon: 'groups',          label: 'Society Committee' },
   { name: 'ContactUs',       icon: 'support-agent',   label: 'Contact Us' },
   { name: 'Profile',         icon: 'manage-accounts', label: 'My Profile' },
@@ -40,6 +43,9 @@ const MENU_SUADMIN: MenuItem[] = [
 
 const MENU_SUUSER: MenuItem[] = [
   { name: 'Dashboard',       icon: 'home',            label: 'Dashboard' },
+  { name: 'MyApartment',     icon: 'apartment',       label: 'My Apartment' },
+  { name: 'Apartments',      icon: 'domain',          label: 'Apartments' },
+  { name: 'Residents',       icon: 'people',          label: 'Residents' },
   { name: 'Visitors',        icon: 'badge',           label: 'Visitors' },
   { name: 'Polls',           icon: 'how-to-vote',     label: 'Polls' },
   { name: 'Notices',         icon: 'notifications',   label: 'Notices' },
@@ -47,6 +53,8 @@ const MENU_SUUSER: MenuItem[] = [
   { name: 'Amenities',       icon: 'event-available', label: 'Amenities' },
   { name: 'Maintenance',     icon: 'receipt-long',    label: 'Maintenance' },
   { name: 'FinancialReport', icon: 'bar-chart',       label: 'My Statement' },
+  { name: 'Rewards',         icon: 'emoji-events',    label: 'Rewards' },
+  { name: 'Services',        icon: 'build',           label: 'Services' },
   // Any resident can view active SOS alerts — only SUAdmin/SUSecurity can act on them
   // (enforced in SosAlertListScreen), so this is a read-only entry for residents.
   { name: 'SosAlerts',       icon: 'emergency',       label: 'SOS Alerts' },

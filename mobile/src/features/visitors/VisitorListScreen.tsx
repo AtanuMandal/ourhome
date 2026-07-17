@@ -14,7 +14,10 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSocietyId } from '../../shared/hooks/useSocietyId';
 import { useAuthStore } from '../../store/authStore';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import { useVisitorList, useVisitorDefaultView, useApproveVisitor, useDenyVisitor, useCheckOutVisitor, useCheckInVisitorByPass } from './hooks/useVisitors';
+import { visitorsApi } from '../../api/endpoints/visitors';
 import { normalizeError } from '../../shared/utils/errors';
 import { useDebounce } from '../../shared/hooks/useDebounce';
 import { AppHeader } from '../../shared/components/AppHeader';
@@ -48,15 +51,24 @@ export function VisitorListScreen() {
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
+  const [residentName, setResidentName] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [exporting, setExporting] = useState(false);
   const debouncedSearch = useDebounce(search);
+  const debouncedResident = useDebounce(residentName);
 
   const params: Record<string, string | number> = {};
   if (debouncedSearch) params.search = debouncedSearch;
   if (statusFilter) params.status = statusFilter;
+  if (debouncedResident) params.residentName = debouncedResident;
+  if (fromDate.trim()) params.fromDate = fromDate.trim();
+  if (toDate.trim()) params.toDate = toDate.trim();
 
   // No filter applied — show all Pending visitors plus the 10 most recent, not the whole
-  // history. Applying any search/status switches to the normal paginated filtered list.
-  const isDefaultView = !debouncedSearch && !statusFilter;
+  // history. Applying any search/status/date filter switches to the paginated filtered list.
+  const isDefaultView = Object.keys(params).length === 0;
 
   const filteredList = useVisitorList(societyId, Object.keys(params).length > 0 ? params : undefined, !isDefaultView);
   const defaultView = useVisitorDefaultView(societyId, isDefaultView);
@@ -72,6 +84,24 @@ export function VisitorListScreen() {
   const { mutate: checkOut } = useCheckOutVisitor(societyId);
   const { mutateAsync: checkInByPass, isPending: isVerifyingPass } = useCheckInVisitorByPass(societyId);
   const [passCode, setPassCode] = useState('');
+
+  // The visitor log as CSV, written to cache and handed to the OS share sheet — mobile's
+  // counterpart of the web app's "Export CSV" download.
+  async function handleExportCsv(): Promise<void> {
+    setExporting(true);
+    try {
+      const csv = await visitorsApi.exportCsv(societyId, Object.keys(params).length > 0 ? params : undefined);
+      const uri = `${FileSystem.cacheDirectory}visitor-log.csv`;
+      await FileSystem.writeAsStringAsync(uri, csv);
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, { mimeType: 'text/csv', dialogTitle: 'Visitor log' });
+      }
+    } catch (e) {
+      Alert.alert('Could not export the visitor log', normalizeError(e));
+    } finally {
+      setExporting(false);
+    }
+  }
 
   // Gate flow: verifying a pass checks the visitor in as one step — security never has to
   // check them in separately. An already checked-in pass verifies fine (exit flow).
@@ -176,6 +206,47 @@ export function VisitorListScreen() {
             placeholder="All statuses"
           />
         </View>
+        <View style={styles.filterActionsRow}>
+          <TouchableOpacity onPress={() => setShowMoreFilters((v) => !v)}>
+            <Text style={styles.filterActionText}>{showMoreFilters ? 'Hide filters' : 'More filters'}</Text>
+          </TouchableOpacity>
+          {canModerate && (
+            <TouchableOpacity onPress={() => void handleExportCsv()} disabled={exporting}>
+              <Text style={styles.filterActionText}>{exporting ? 'Exporting…' : 'Export CSV'}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+        {showMoreFilters && (
+          <View style={styles.moreFilters}>
+            {canModerate && (
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Resident name"
+                placeholderTextColor={colors.text.disabled}
+                value={residentName}
+                onChangeText={setResidentName}
+              />
+            )}
+            <View style={styles.dateRow}>
+              <TextInput
+                style={[styles.searchInput, styles.dateInput]}
+                placeholder="From (YYYY-MM-DD)"
+                placeholderTextColor={colors.text.disabled}
+                value={fromDate}
+                onChangeText={setFromDate}
+                autoCapitalize="none"
+              />
+              <TextInput
+                style={[styles.searchInput, styles.dateInput]}
+                placeholder="To (YYYY-MM-DD)"
+                placeholderTextColor={colors.text.disabled}
+                value={toDate}
+                onChangeText={setToDate}
+                autoCapitalize="none"
+              />
+            </View>
+          </View>
+        )}
       </View>
       {canModerate && (
         <View style={styles.gateRow}>
@@ -251,6 +322,16 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   statusFilter: { marginTop: spacing.xs },
+  filterActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: spacing.xs,
+    paddingHorizontal: 2,
+  },
+  filterActionText: { color: colors.primary, fontSize: typography.fontSize.sm, fontWeight: typography.fontWeight.semibold },
+  moreFilters: { marginTop: spacing.xs, gap: spacing.xs },
+  dateRow: { flexDirection: 'row', gap: spacing.xs },
+  dateInput: { flex: 1 },
   gateRow: {
     flexDirection: 'row',
     gap: spacing.xs,

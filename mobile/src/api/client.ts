@@ -1,7 +1,7 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import * as tokenStore from '../auth/tokenStore';
 
-const BASE_URL = process.env['API_BASE_URL'] ?? 'http://192.168.1.5:7071/api';
+const BASE_URL = process.env['API_BASE_URL'] ?? 'http://192.168.1.2:7071/api';
 let authEventListener: (() => void) | null = null;
 
 export function setAuthEventListener(listener: () => void): void {

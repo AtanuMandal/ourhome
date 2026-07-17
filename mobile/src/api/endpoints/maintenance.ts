@@ -57,4 +57,16 @@ export const maintenanceApi = {
         { chargeIds, proofUrl, notes }
       )
       .then((r) => r.data),
+
+  // Admin: accept a resident's submitted proof and mark the charge paid.
+  approveProof: (societyId: string, chargeId: string, data: { paymentMethod?: string; transactionReference?: string; notes?: string }) =>
+    api
+      .post<boolean>(`/societies/${societyId}/maintenance/charges/${chargeId}/approve`, data)
+      .then((r) => r.data),
+
+  // Admin: mark a charge paid directly (cash/offline payment, no proof).
+  markPaid: (societyId: string, chargeId: string, data: { paymentMethod?: string; transactionReference?: string; notes?: string }) =>
+    api
+      .post<boolean>(`/societies/${societyId}/maintenance/charges/${chargeId}/mark-paid`, data)
+      .then((r) => r.data),
 };

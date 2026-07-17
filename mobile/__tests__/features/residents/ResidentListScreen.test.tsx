@@ -18,6 +18,10 @@ jest.mock('../../../src/features/residents/hooks/useResidents', () => ({
     refetch: jest.fn(),
   }),
   useDeleteResident: () => ({ mutate: mockDelete, isPending: false }),
+  useSetResidentActive: () => ({ mutate: jest.fn(), isPending: false }),
+  usePendingJoinRequests: () => ({ data: [] }),
+  useRespondToJoinRequest: () => ({ mutate: jest.fn(), isPending: false }),
+  useShareInviteLink: () => ({ mutate: jest.fn(), isPending: false }),
 }));
 
 jest.mock('@expo/vector-icons', () => {

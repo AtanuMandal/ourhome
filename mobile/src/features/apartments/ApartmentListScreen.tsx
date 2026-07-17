@@ -4,10 +4,14 @@ import {
   Text,
   FlatList,
   TextInput,
+  TouchableOpacity,
   RefreshControl,
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useAuthStore } from '../../store/authStore';
 import { useSocietyId } from '../../shared/hooks/useSocietyId';
 import { useApartmentList } from './hooks/useApartments';
 import { useDebounce } from '../../shared/hooks/useDebounce';
@@ -20,8 +24,16 @@ import { spacing } from '../../theme/spacing';
 import type { Apartment } from '../../api/types';
 import { formatApartmentLabel } from '../../shared/utils/apartment';
 
+type ApartmentsNav = NativeStackNavigationProp<{
+  ApartmentList: undefined;
+  ApartmentDetail: { id: string };
+  ApartmentForm: { id?: string };
+}>;
+
 export function ApartmentListScreen() {
+  const navigation = useNavigation<ApartmentsNav>();
   const societyId = useSocietyId();
+  const isAdmin = useAuthStore((s) => s.user?.role === 'SUAdmin');
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search);
 
@@ -41,7 +53,11 @@ export function ApartmentListScreen() {
   function renderItem({ item }: { item: Apartment }) {
     const label = formatApartmentLabel(item.blockName, item.floorNumber, item.apartmentNumber);
     return (
-      <View style={styles.item}>
+      <TouchableOpacity
+        style={styles.item}
+        disabled={!isAdmin}
+        onPress={() => navigation.navigate('ApartmentDetail', { id: item.id })}
+      >
         <View style={styles.itemLeft}>
           <Text style={styles.number}>{label}</Text>
           <Text style={styles.residents}>
@@ -49,7 +65,7 @@ export function ApartmentListScreen() {
           </Text>
         </View>
         <StatusChip status={item.status} />
-      </View>
+      </TouchableOpacity>
     );
   }
 
@@ -88,6 +104,15 @@ export function ApartmentListScreen() {
         }
         ItemSeparatorComponent={() => <View style={styles.separator} />}
       />
+      {isAdmin && (
+        <TouchableOpacity
+          style={styles.fab}
+          accessibilityLabel="Add apartment"
+          onPress={() => navigation.navigate('ApartmentForm', {})}
+        >
+          <Text style={styles.fabText}>+</Text>
+        </TouchableOpacity>
+      )}
     </SafeAreaView>
   );
 }
@@ -119,4 +144,17 @@ const styles = StyleSheet.create({
   residents: { fontSize: typography.fontSize.xs, color: colors.text.disabled, marginTop: 2 },
   separator: { height: 1, backgroundColor: colors.border },
   emptyContainer: { flex: 1 },
+  fab: {
+    position: 'absolute',
+    bottom: spacing.lg,
+    right: spacing.lg,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 6,
+  },
+  fabText: { color: '#FFF', fontSize: 28, lineHeight: 32 },
 });

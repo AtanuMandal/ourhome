@@ -4,6 +4,9 @@ module.exports = function (api) {
     presets: [
       ['babel-preset-expo', { jsxImportSource: 'nativewind' }],
     ],
-    plugins: ['react-native-reanimated/plugin'],
+    // Reanimated 4 moved its babel transform into react-native-worklets; the old
+    // 'react-native-reanimated/plugin' name is deprecated on SDK 54, where
+    // babel-preset-expo already knows how to wire the worklets plugin.
+    plugins: ['react-native-worklets/plugin'],
   };
 };
