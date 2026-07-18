@@ -46,6 +46,7 @@ export interface MaintenancePaymentProof {
   notes?: string | null;
   submittedByUserId: string;
   submittedAt: string;
+  submissionGroupId?: string;
 }
 
 export interface MaintenanceGridCharge {
@@ -62,6 +63,10 @@ export interface MaintenanceGridCharge {
   receiptUrl?: string | null;
   notes?: string | null;
   proofs: MaintenancePaymentProof[];
+  rejectionReason?: string | null;
+  rejectedAt?: string | null;
+  /** Latest proof's group id — charges submitted together (a clubbed submission) share this. */
+  submissionGroupId?: string | null;
 }
 
 export interface MaintenanceGridCell {
@@ -116,6 +121,9 @@ export interface MaintenanceCharge {
   proofs: MaintenancePaymentProof[];
   createdAt: string;
   updatedAt: string;
+  rejectionReason?: string | null;
+  rejectedAt?: string | null;
+  submissionGroupId?: string | null;
 }
 
 export interface CreateMaintenanceScheduleDto {
@@ -157,6 +165,23 @@ export interface MarkMaintenanceChargePaidDto {
   transactionReference?: string | null;
   receiptUrl?: string | null;
   notes?: string | null;
+}
+
+export interface DenyMaintenancePaymentProofDto {
+  reason: string;
+}
+
+export interface ApproveMaintenancePaymentProofGroupDto {
+  chargeIds: string[];
+  paymentMethod: string;
+  transactionReference?: string | null;
+  receiptUrl?: string | null;
+  notes?: string | null;
+}
+
+export interface DenyMaintenancePaymentProofGroupDto {
+  chargeIds: string[];
+  reason: string;
 }
 
 export interface CreateMaintenancePenaltyChargeDto {

@@ -69,4 +69,26 @@ export const maintenanceApi = {
     api
       .post<boolean>(`/societies/${societyId}/maintenance/charges/${chargeId}/mark-paid`, data)
       .then((r) => r.data),
+
+  // Admin: deny a submitted proof with a comment — the charge falls back to Rejected (resubmittable).
+  denyProof: (societyId: string, chargeId: string, reason: string) =>
+    api
+      .post<MaintenanceCharge>(`/societies/${societyId}/maintenance/charges/${chargeId}/deny`, { reason })
+      .then((r) => r.data),
+
+  // Admin: approve every charge in a clubbed submission (several charges, one proof) at once.
+  approveProofGroup: (
+    societyId: string,
+    chargeIds: string[],
+    data: { paymentMethod: string; transactionReference?: string; receiptUrl?: string; notes?: string }
+  ) =>
+    api
+      .post<MaintenanceCharge[]>(`/societies/${societyId}/maintenance/charges/group/approve`, { chargeIds, ...data })
+      .then((r) => r.data),
+
+  // Admin: deny every charge in a clubbed submission at once, with one comment.
+  denyProofGroup: (societyId: string, chargeIds: string[], reason: string) =>
+    api
+      .post<MaintenanceCharge[]>(`/societies/${societyId}/maintenance/charges/group/deny`, { chargeIds, reason })
+      .then((r) => r.data),
 };

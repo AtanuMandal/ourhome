@@ -307,6 +307,10 @@ public sealed class GetMaintenanceChargeGridQueryHandler(
                     proof.ProofUrl,
                     proof.Notes,
                     proof.SubmittedByUserId,
-                    proof.SubmittedAt))
-                .ToList());
+                    proof.SubmittedAt,
+                    proof.SubmissionGroupId))
+                .ToList(),
+            charge.RejectionReason,
+            charge.RejectedAt,
+            charge.Proofs.Count > 0 ? charge.Proofs[^1].SubmissionGroupId : null);
 }

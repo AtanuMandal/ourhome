@@ -72,6 +72,9 @@ jest.mock('../../../src/api/endpoints/maintenance', () => ({
     uploadPaymentProof: jest.fn(),
     approveProof: jest.fn(),
     markPaid: jest.fn(),
+    denyProof: jest.fn(),
+    approveProofGroup: jest.fn(),
+    denyProofGroup: jest.fn(),
   },
 }));
 
@@ -295,5 +298,155 @@ describe('MaintenanceScreen', () => {
     fireEvent.press(screen.getByText('Pick proof photo'));
 
     await waitFor(() => expect(Alert.alert).toHaveBeenCalledWith('Could not upload proof', expect.any(String)));
+  });
+});
+
+describe('MaintenanceScreen — clubbed submissions (grouping, approve, deny)', () => {
+  function makeProof(overrides: Partial<{ proofUrl: string; submittedByUserId: string; submittedAt: string; submissionGroupId: string }> = {}) {
+    return {
+      proofUrl: 'files/proofs/receipt.jpg',
+      submittedByUserId: 'resident-1',
+      submittedAt: '2026-07-02T00:00:00Z',
+      submissionGroupId: 'group-1',
+      ...overrides,
+    };
+  }
+
+  // Apr + May + Jun clubbed into one submission for the same apartment. submissionGroupId is a
+  // top-level field on the charge (the backend projects it from the latest proof's group id) —
+  // that's what the screen's grouping predicate reads, not proofs[].submissionGroupId directly.
+  function makeClubbedCharges(): MaintenanceCharge[] {
+    return [
+      makeCharge({ id: 'charge-apr', chargeMonth: 4, status: 'ProofSubmitted', proofs: [makeProof()], submissionGroupId: 'group-1' }),
+      makeCharge({ id: 'charge-may', chargeMonth: 5, status: 'ProofSubmitted', proofs: [makeProof()], submissionGroupId: 'group-1' }),
+      makeCharge({ id: 'charge-jun', chargeMonth: 6, status: 'ProofSubmitted', proofs: [makeProof()], submissionGroupId: 'group-1' }),
+    ];
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockCharges = [];
+    loginAs('SUAdmin');
+  });
+
+  test('clusters charges sharing an apartment and submissionGroupId into one clubbed card', async () => {
+    mockCharges = makeClubbedCharges();
+    renderScreen();
+
+    await waitFor(() => expect(screen.getByText('Clubbed payment proof submissions')).toBeTruthy());
+    expect(screen.getAllByText('A-101').length).toBeGreaterThan(0);
+    expect(screen.getByText(/3 charges/)).toBeTruthy();
+  });
+
+  test('does not show the clubbed section for a lone submission', () => {
+    mockCharges = [makeCharge({ id: 'charge-solo', status: 'ProofSubmitted', proofs: [makeProof()], submissionGroupId: 'group-solo' })];
+    renderScreen();
+
+    expect(screen.queryByText('Clubbed payment proof submissions')).toBeNull();
+  });
+
+  test('a grouped charge shows a note instead of its own admin action buttons', () => {
+    mockCharges = makeClubbedCharges();
+    renderScreen();
+
+    // Only the group card's Approve/Deny render — no per-charge duplicates for grouped members.
+    expect(screen.getAllByText('Part of a clubbed submission — review it above.')).toHaveLength(3);
+    expect(screen.queryByText('Approve proof')).toBeNull();
+  });
+
+  test('approving the group calls approveProofGroup with every member charge id', async () => {
+    mockCharges = makeClubbedCharges();
+    (maintenanceApi.approveProofGroup as jest.Mock).mockResolvedValue([]);
+    renderScreen();
+
+    await waitFor(() => expect(screen.getByText('Clubbed payment proof submissions')).toBeTruthy());
+    fireEvent.press(screen.getByText('Approve'));
+
+    await waitFor(() =>
+      expect(maintenanceApi.approveProofGroup).toHaveBeenCalledWith(
+        'soc-1',
+        expect.arrayContaining(['charge-apr', 'charge-may', 'charge-jun']),
+        expect.objectContaining({ paymentMethod: 'Offline' })
+      )
+    );
+  });
+
+  test('denying the group opens the reason dialog and calls denyProofGroup with every member id', async () => {
+    mockCharges = makeClubbedCharges();
+    (maintenanceApi.denyProofGroup as jest.Mock).mockResolvedValue([]);
+    renderScreen();
+
+    await waitFor(() => expect(screen.getByText('Clubbed payment proof submissions')).toBeTruthy());
+    fireEvent.press(screen.getByText('Deny'));
+
+    expect(screen.getByText('Deny payment proof')).toBeTruthy();
+    fireEvent.changeText(screen.getByPlaceholderText('Reason for denial'), 'Total does not match receipt.');
+    fireEvent.press(screen.getByLabelText('Confirm deny'));
+
+    await waitFor(() =>
+      expect(maintenanceApi.denyProofGroup).toHaveBeenCalledWith(
+        'soc-1',
+        expect.arrayContaining(['charge-apr', 'charge-may', 'charge-jun']),
+        'Total does not match receipt.'
+      )
+    );
+  });
+
+  test('denying a single ungrouped charge calls denyProof with its id and reason', async () => {
+    mockCharges = [makeCharge({ id: 'charge-solo', status: 'ProofSubmitted' })];
+    (maintenanceApi.denyProof as jest.Mock).mockResolvedValue({});
+    renderScreen();
+
+    fireEvent.press(screen.getByText('Deny'));
+    fireEvent.changeText(screen.getByPlaceholderText('Reason for denial'), 'Blurry screenshot.');
+    fireEvent.press(screen.getByLabelText('Confirm deny'));
+
+    await waitFor(() => expect(maintenanceApi.denyProof).toHaveBeenCalledWith('soc-1', 'charge-solo', 'Blurry screenshot.'));
+  });
+
+  test('the deny confirm button stays disabled until a reason is entered', () => {
+    mockCharges = [makeCharge({ id: 'charge-solo', status: 'ProofSubmitted' })];
+    renderScreen();
+
+    fireEvent.press(screen.getByText('Deny'));
+    fireEvent.press(screen.getByLabelText('Confirm deny'));
+
+    expect(maintenanceApi.denyProof).not.toHaveBeenCalled();
+  });
+
+  test('a Rejected charge shows the denial reason', () => {
+    mockCharges = [makeCharge({ id: 'charge-rejected', status: 'Rejected', rejectionReason: 'Amount mismatch.' })];
+    renderScreen();
+
+    expect(screen.getByText('Denied: Amount mismatch.')).toBeTruthy();
+  });
+
+  // Regression for "once resubmitted, SUAdmin cannot view/approve/deny it": a charge that was
+  // Rejected and then resubmitted comes back as a solo ProofSubmitted charge carrying a fresh
+  // submissionGroupId it doesn't share with anything else. It must render the normal Approve/Deny
+  // buttons — not the "part of a clubbed submission" note that only applies to actual 2+ groups.
+  test('a resubmitted charge (Rejected then re-proofed) shows normal Approve/Deny, not the clubbed note', async () => {
+    mockCharges = [makeCharge({
+      id: 'charge-resubmitted',
+      status: 'ProofSubmitted',
+      rejectionReason: null,
+      proofs: [makeProof({ submissionGroupId: 'group-fresh' })],
+      submissionGroupId: 'group-fresh',
+    })];
+    renderScreen();
+
+    expect(screen.queryByText('Clubbed payment proof submissions')).toBeNull();
+    expect(screen.queryByText('Part of a clubbed submission — review it above.')).toBeNull();
+    expect(screen.getByText('Approve proof')).toBeTruthy();
+    expect(screen.getByText('Deny')).toBeTruthy();
+
+    fireEvent.press(screen.getByText('Approve proof'));
+    await waitFor(() =>
+      expect(maintenanceApi.approveProof).toHaveBeenCalledWith(
+        'soc-1',
+        'charge-resubmitted',
+        expect.objectContaining({ paymentMethod: 'Offline' })
+      )
+    );
   });
 });

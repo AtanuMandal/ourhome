@@ -322,4 +322,190 @@ public class MaintenanceChargeTests
         payment.Status.Should().Be(PaymentStatus.Paid);
         payment.DomainEvents.Should().Contain(e => e is FeePaymentReceivedEvent);
     }
+
+    [Fact]
+    public void SubmitProof_WithoutExplicitGroupId_GeneratesOne()
+    {
+        // Arrange
+        var payment = MaintenanceCharge.Create(SocietyId, ApartmentId, ScheduleId, "Maintenance", 2500m, DateTime.UtcNow.AddDays(5));
+
+        // Act
+        payment.SubmitProof("https://proofs.example.com/123", "UPI screenshot", "user-001");
+
+        // Assert
+        payment.Proofs.Single().SubmissionGroupId.Should().NotBeNullOrWhiteSpace();
+        payment.LatestSubmissionGroupId.Should().Be(payment.Proofs.Single().SubmissionGroupId);
+    }
+
+    [Fact]
+    public void SubmitProof_WithExplicitGroupId_StampsAllChargesTheSame()
+    {
+        // Arrange — this is how a clubbed submission (several charges, one proof upload) ties
+        // its charges together: the handler generates one id and passes it to every charge.
+        var first = MaintenanceCharge.Create(SocietyId, ApartmentId, ScheduleId, "Maintenance", 2500m, DateTime.UtcNow.AddDays(5));
+        var second = MaintenanceCharge.Create(SocietyId, ApartmentId, ScheduleId, "Maintenance", 2500m, DateTime.UtcNow.AddDays(35));
+        const string groupId = "shared-group-id";
+
+        // Act
+        first.SubmitProof("https://proofs.example.com/123", null, "user-001", groupId);
+        second.SubmitProof("https://proofs.example.com/123", null, "user-001", groupId);
+
+        // Assert
+        first.LatestSubmissionGroupId.Should().Be(groupId);
+        second.LatestSubmissionGroupId.Should().Be(groupId);
+    }
+
+    [Fact]
+    public void SubmitProof_AfterAPriorDenial_ClearsTheRejectionReason()
+    {
+        // Arrange
+        var payment = MaintenanceCharge.Create(SocietyId, ApartmentId, ScheduleId, "Maintenance", 2500m, DateTime.UtcNow.AddDays(5));
+        payment.SubmitProof("https://proofs.example.com/123", null, "user-001");
+        payment.RejectProof("Amount does not match the receipt.");
+
+        // Act — resident resubmits after the denial
+        payment.SubmitProof("https://proofs.example.com/456", null, "user-001");
+
+        // Assert
+        payment.Status.Should().Be(PaymentStatus.ProofSubmitted);
+        payment.RejectionReason.Should().BeNull();
+        payment.RejectedAt.Should().BeNull();
+    }
+
+    [Fact]
+    public void RejectProof_FromProofSubmitted_SetsRejectedStatusAndReason()
+    {
+        // Arrange
+        var payment = MaintenanceCharge.Create(SocietyId, ApartmentId, ScheduleId, "Maintenance", 2500m, DateTime.UtcNow.AddDays(5));
+        payment.SubmitProof("https://proofs.example.com/123", null, "user-001");
+
+        // Act
+        payment.RejectProof("Screenshot is illegible.");
+
+        // Assert
+        payment.Status.Should().Be(PaymentStatus.Rejected);
+        payment.RejectionReason.Should().Be("Screenshot is illegible.");
+        payment.RejectedAt.Should().NotBeNull();
+        payment.RejectedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
+    public void RejectProof_WhenNoProofHasBeenSubmitted_ThrowsInvalidOperationException()
+    {
+        // Arrange — a Pending charge has nothing to deny.
+        var payment = MaintenanceCharge.Create(SocietyId, ApartmentId, ScheduleId, "Maintenance", 2500m, DateTime.UtcNow.AddDays(5));
+
+        // Act
+        var act = () => payment.RejectProof("No proof was submitted.");
+
+        // Assert
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void RejectProof_OnAnAlreadyPaidCharge_ThrowsInvalidOperationException()
+    {
+        // Arrange
+        var payment = MaintenanceCharge.Create(SocietyId, ApartmentId, ScheduleId, "Maintenance", 2500m, DateTime.UtcNow.AddDays(5));
+        payment.SubmitProof("https://proofs.example.com/123", null, "user-001");
+        payment.ApprovePayment("UPI", "TXN123", null);
+
+        // Act
+        var act = () => payment.RejectProof("Too late.");
+
+        // Assert
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void RejectProof_WithBlankReason_ThrowsArgumentException()
+    {
+        // Arrange
+        var payment = MaintenanceCharge.Create(SocietyId, ApartmentId, ScheduleId, "Maintenance", 2500m, DateTime.UtcNow.AddDays(5));
+        payment.SubmitProof("https://proofs.example.com/123", null, "user-001");
+
+        // Act
+        var act = () => payment.RejectProof("   ");
+
+        // Assert
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void ApprovePayment_AfterAPriorDenial_ClearsTheRejectionReason()
+    {
+        // Arrange — admin approves a charge directly (e.g. offline payment) even though its
+        // last proof was denied; the stale denial banner shouldn't linger once it's paid.
+        var payment = MaintenanceCharge.Create(SocietyId, ApartmentId, ScheduleId, "Maintenance", 2500m, DateTime.UtcNow.AddDays(5));
+        payment.SubmitProof("https://proofs.example.com/123", null, "user-001");
+        payment.RejectProof("Illegible.");
+
+        // Act
+        payment.MarkPaid("Cash", null, null);
+
+        // Assert
+        payment.Status.Should().Be(PaymentStatus.Paid);
+        payment.RejectionReason.Should().BeNull();
+        payment.RejectedAt.Should().BeNull();
+    }
+
+    // ─── Regression: resubmission after a denial must follow the normal review procedure ──────
+    // (deny → resubmit → the resubmitted proof is approvable/deniable again, exactly like any
+    // fresh submission — nothing about a prior denial should special-case or block admin review).
+
+    [Fact]
+    public void ResubmittedProof_AfterDenial_CanBeApprovedByAdmin()
+    {
+        // Arrange — full cycle: submit, deny, resubmit.
+        var payment = MaintenanceCharge.Create(SocietyId, ApartmentId, ScheduleId, "Maintenance", 2500m, DateTime.UtcNow.AddDays(5));
+        payment.SubmitProof("https://proofs.example.com/v1", null, "user-001");
+        payment.RejectProof("Amount does not match the receipt.");
+        payment.Status.Should().Be(PaymentStatus.Rejected); // sanity check on the arrange step
+
+        payment.SubmitProof("https://proofs.example.com/v2", null, "user-001");
+        payment.Status.Should().Be(PaymentStatus.ProofSubmitted); // sanity check: resubmission worked
+
+        // Act — admin approves the resubmitted proof exactly like a fresh one.
+        payment.ApprovePayment("UPI", "TXN-456", null);
+
+        // Assert
+        payment.Status.Should().Be(PaymentStatus.Paid);
+        payment.TransactionReference.Should().Be("TXN-456");
+    }
+
+    [Fact]
+    public void ResubmittedProof_AfterDenial_CanBeDeniedAgainByAdmin()
+    {
+        // Arrange — deny, resubmit, deny a second time (e.g. the corrected proof is still wrong).
+        var payment = MaintenanceCharge.Create(SocietyId, ApartmentId, ScheduleId, "Maintenance", 2500m, DateTime.UtcNow.AddDays(5));
+        payment.SubmitProof("https://proofs.example.com/v1", null, "user-001");
+        payment.RejectProof("Amount does not match the receipt.");
+        payment.SubmitProof("https://proofs.example.com/v2", null, "user-001");
+
+        // Act
+        payment.RejectProof("Still incorrect — wrong month's receipt.");
+
+        // Assert — the SECOND denial's reason wins; nothing from the first denial lingers.
+        payment.Status.Should().Be(PaymentStatus.Rejected);
+        payment.RejectionReason.Should().Be("Still incorrect — wrong month's receipt.");
+        payment.Proofs.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public void ResubmittedProof_CarriesAFreshSubmissionGroupId_DifferentFromTheDeniedOne()
+    {
+        // Arrange — the resubmission is a brand-new review item, not a continuation of the old
+        // (now-irrelevant) group; it must never be conflated with the original submission.
+        var payment = MaintenanceCharge.Create(SocietyId, ApartmentId, ScheduleId, "Maintenance", 2500m, DateTime.UtcNow.AddDays(5));
+        payment.SubmitProof("https://proofs.example.com/v1", null, "user-001", "original-group");
+        var originalGroupId = payment.LatestSubmissionGroupId;
+        payment.RejectProof("No good.");
+
+        // Act — resident resubmits without specifying a group (mirrors a lone resubmission).
+        payment.SubmitProof("https://proofs.example.com/v2", null, "user-001");
+
+        // Assert
+        payment.LatestSubmissionGroupId.Should().NotBe(originalGroupId);
+        payment.LatestSubmissionGroupId.Should().NotBeNullOrWhiteSpace();
+    }
 }

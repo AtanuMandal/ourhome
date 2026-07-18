@@ -9,7 +9,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { RouterLink } from '@angular/router';
 import { SearchableSelectComponent } from '../../shared/components/searchable-select/searchable-select.component';
 import { Observable } from 'rxjs';
-import { MaintenanceAreaBasis, MaintenanceFrequency, MaintenancePricingType, MaintenanceSchedule } from '../../core/models/maintenance.model';
+import { MaintenanceAreaBasis, MaintenanceCharge, MaintenanceFrequency, MaintenancePricingType, MaintenanceSchedule } from '../../core/models/maintenance.model';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 import { LoadingSpinnerComponent } from '../../shared/components/loading-spinner/loading-spinner.component';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
@@ -298,6 +298,10 @@ import {
                             </div>
                           }
 
+                          @if (charge.status === 'Rejected' && charge.rejectionReason) {
+                            <div class="section-copy text-danger">Denied: {{ charge.rejectionReason }}</div>
+                          }
+
                           <div class="action-row action-row--compact">
                             @if (charge.status === 'ProofSubmitted') {
                               <button
@@ -307,6 +311,14 @@ import {
                                 [disabled]="processingChargeId() === charge.id || settlementForm.invalid"
                                 (click)="approveProof(charge)">
                                 Approve proof
+                              </button>
+                              <button
+                                mat-stroked-button
+                                color="warn"
+                                type="button"
+                                [disabled]="processingChargeId() === charge.id"
+                                (click)="openDenyDialog(charge)">
+                                Deny
                               </button>
                             }
 
@@ -419,6 +431,38 @@ import {
           }
         </section>
       }
+
+      @if (denyTargetCharge(); as target) {
+        <div class="dialog-backdrop" (click)="closeDenyDialog()">
+          <div class="dialog-card" (click)="$event.stopPropagation()">
+            <div class="section-header section-header--compact">
+              <div>
+                <h2 class="section-title">Deny payment proof</h2>
+                <p class="section-copy">{{ target.scheduleName }} · {{ target.amount | currency:'INR':'symbol':'1.2-2' }}</p>
+              </div>
+              <button mat-stroked-button type="button" (click)="closeDenyDialog()">Close</button>
+            </div>
+
+            <form [formGroup]="denyForm" class="stack" (ngSubmit)="confirmDeny()">
+              <mat-form-field appearance="fill" class="full-width">
+                <mat-label>Reason for denial</mat-label>
+                <textarea matInput rows="3" formControlName="reason"
+                  placeholder="Explain what's wrong with the proof so the resident can correct it"></textarea>
+                @if (denyForm.controls.reason.invalid && denyForm.controls.reason.touched) {
+                  <mat-error>A reason is required.</mat-error>
+                }
+              </mat-form-field>
+
+              <div class="action-row">
+                <button mat-raised-button color="warn" type="submit"
+                  [disabled]="denyForm.invalid || processingChargeId() !== null">
+                  Deny
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      }
     </div>
 
     <app-image-lightbox [open]="!!lightboxSrc()" [src]="lightboxSrc() ?? ''" (closed)="lightboxSrc.set(null)"></app-image-lightbox>
@@ -432,6 +476,11 @@ export class MaintenanceAdminComponent extends MaintenancePageBase {
   readonly deletingScheduleId = signal<string | null>(null);
   readonly processingChargeId = signal<string | null>(null);
   readonly lightboxSrc = signal<string | null>(null);
+  readonly denyTargetCharge = signal<MaintenanceCharge | null>(null);
+
+  readonly denyForm = this.fb.group({
+    reason: ['', [Validators.required, Validators.maxLength(500)]],
+  });
 
   readonly scopeOptions = SCOPE_OPTIONS;
   readonly pricingTypeOptions = PRICING_TYPE_OPTIONS;
@@ -707,6 +756,34 @@ export class MaintenanceAdminComponent extends MaintenancePageBase {
     this.processCharge(chargeId.id, () =>
       this.maintenance.markPaid(this.auth.societyId()!, chargeId.id, this.settlementPayload())
     , 'Maintenance charge marked as paid.');
+  }
+
+  openDenyDialog(charge: MaintenanceCharge) {
+    this.denyForm.reset({ reason: '' });
+    this.denyTargetCharge.set(charge);
+  }
+
+  closeDenyDialog() {
+    this.denyTargetCharge.set(null);
+    this.denyForm.reset({ reason: '' });
+  }
+
+  confirmDeny() {
+    const target = this.denyTargetCharge();
+    const societyId = this.auth.societyId();
+    if (!target || !societyId || this.denyForm.invalid) return;
+
+    const reason = this.denyForm.controls.reason.value?.trim() || '';
+    this.processingChargeId.set(target.id);
+    this.maintenance.denyProof(societyId, target.id, { reason }).subscribe({
+      next: () => {
+        this.processingChargeId.set(null);
+        this.closeDenyDialog();
+        this.refreshCharges();
+        this.snackBar.open('Maintenance proof denied.', 'Dismiss', { duration: 4000 });
+      },
+      error: () => this.processingChargeId.set(null),
+    });
   }
 
   private settlementPayload() {

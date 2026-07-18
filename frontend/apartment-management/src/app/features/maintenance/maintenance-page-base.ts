@@ -1,6 +1,8 @@
-import { computed, inject, signal } from '@angular/core';
+import { computed, DestroyRef, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder } from '@angular/forms';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { interval } from 'rxjs';
 import { Apartment, formatApartmentLabel } from '../../core/models/apartment.model';
 import {
   MaintenanceAreaBasis,
@@ -26,9 +28,15 @@ export abstract class MaintenancePageBase {
   protected readonly apartmentsService = inject(ApartmentService);
   protected readonly fb = inject(FormBuilder);
   protected readonly snackBar = inject(MatSnackBar);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly loading = signal(true);
   readonly chargesLoading = signal(false);
+  // Set only by the 10s auto-refresh timer when charges are already loaded — keeps whatever is
+  // on screen (no spinner, no cleared form state) while the background fetch is in flight. This
+  // is what makes a resident's newly (re)submitted proof, or an admin's approve/deny, show up on
+  // the other party's already-open page without a manual reload.
+  readonly backgroundRefreshingCharges = signal(false);
   readonly apartments = signal<Apartment[]>([]);
   readonly schedules = signal<MaintenanceSchedule[]>([]);
   readonly charges = signal<MaintenanceCharge[]>([]);
@@ -84,18 +92,34 @@ export abstract class MaintenancePageBase {
     }
 
     this.loadInitialData(societyId, loadApartments);
+
+    // Auto-refresh charges every 10s so a resubmitted proof (or an admin's approve/deny) shows
+    // up — and is actionable via the normal buttons — without a manual reload or filter touch.
+    interval(10_000)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        if (!this.chargesLoading() && !this.backgroundRefreshingCharges()) {
+          this.refreshCharges(true);
+        }
+      });
   }
 
-  refreshCharges() {
+  refreshCharges(isBackgroundRefresh = false) {
     const societyId = this.auth.societyId();
     if (!societyId) return;
 
-    this.chargesLoading.set(true);
+    // A background tick with charges already loaded never blanks the list or disturbs an
+    // in-progress selection — only a manual/initial load or filter change does that.
+    const useBackgroundFlag = isBackgroundRefresh && this.charges().length > 0;
+    if (useBackgroundFlag) this.backgroundRefreshingCharges.set(true);
+    else this.chargesLoading.set(true);
+
     const request = this.createChargeRequest(societyId);
 
     if (!request) {
       this.charges.set([]);
       this.chargesLoading.set(false);
+      this.backgroundRefreshingCharges.set(false);
       return;
     }
 
@@ -103,8 +127,12 @@ export abstract class MaintenancePageBase {
       next: result => {
         this.charges.set(sortCharges(result.items ?? []));
         this.chargesLoading.set(false);
+        this.backgroundRefreshingCharges.set(false);
       },
-      error: () => this.chargesLoading.set(false),
+      error: () => {
+        this.chargesLoading.set(false);
+        this.backgroundRefreshingCharges.set(false);
+      },
     });
   }
 

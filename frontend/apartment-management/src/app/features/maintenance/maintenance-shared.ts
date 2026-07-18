@@ -118,6 +118,28 @@ export const MAINTENANCE_PAGE_STYLES = `
   .action-row { display: flex; flex-wrap: wrap; gap: 8px; }
   .action-row--compact { margin-top: 4px; }
   .text-danger { color: #c62828; font-weight: 600; }
+  .dialog-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    z-index: 1000;
+  }
+  .dialog-card {
+    width: min(720px, 100%);
+    max-height: calc(100vh - 48px);
+    overflow: auto;
+    background: white;
+    border-radius: 16px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2);
+  }
 `;
 
 export function buildChargeSections(charges: MaintenanceCharge[]): ChargeSection[] {

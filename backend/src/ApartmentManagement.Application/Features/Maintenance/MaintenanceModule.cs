@@ -261,6 +261,9 @@ public sealed class SubmitMaintenancePaymentProofCommandHandler(
             var society = await societyRepository.GetByIdAsync(request.SocietyId, request.SocietyId, ct)
                 ?? throw new NotFoundException("Society", request.SocietyId);
 
+            // One group id for every charge in this call — lets clients cluster a clubbed
+            // submission (e.g. three months' dues uploaded together) into a single review card.
+            var submissionGroupId = Guid.NewGuid().ToString("N");
             var updated = new List<MaintenanceChargeDto>(request.ChargeIds.Count);
             var impactedFinancialYears = new HashSet<int>();
             foreach (var chargeId in request.ChargeIds.Distinct(StringComparer.OrdinalIgnoreCase))
@@ -271,7 +274,7 @@ public sealed class SubmitMaintenancePaymentProofCommandHandler(
                 if (!isAdmin && actor.ApartmentId != charge.ApartmentId)
                     throw new ForbiddenException("Residents can only submit proof for their own apartment charges.");
 
-                charge.SubmitProof(request.ProofUrl, request.Notes, actor.Id);
+                charge.SubmitProof(request.ProofUrl, request.Notes, actor.Id, submissionGroupId);
                 var saved = await chargeRepository.UpdateAsync(charge, ct);
                 impactedFinancialYears.Add(MaintenanceGridProjectionHelper.GetFinancialYearStart(saved.DueDate));
                 var apartment = await apartmentRepository.GetByIdAsync(saved.ApartmentId, request.SocietyId, ct);
@@ -462,6 +465,226 @@ public sealed class ApproveMaintenancePaymentProofCommandHandler(
         {
             logger.LogError(ex, "Failed to approve maintenance payment proof for charge {ChargeId}", request.ChargeId);
             return Result<MaintenanceChargeDto>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
+public record DenyMaintenancePaymentProofCommand(
+    string SocietyId,
+    string ChargeId,
+    string Reason)
+    : IRequest<Result<MaintenanceChargeDto>>;
+
+/// <summary>Admin reviews a single submitted proof and isn't satisfied — the charge falls back to
+/// Rejected (the resident's normal "unpaid, please resubmit" view) with a comment explaining why.</summary>
+public sealed class DenyMaintenancePaymentProofCommandHandler(
+    IMaintenanceChargeRepository chargeRepository,
+    IMaintenanceChargeGridViewRepository gridViewRepository,
+    IApartmentRepository apartmentRepository,
+    ISocietyRepository societyRepository,
+    INotificationService notificationService,
+    ICurrentUserService currentUserService,
+    ILogger<DenyMaintenancePaymentProofCommandHandler> logger)
+    : IRequestHandler<DenyMaintenancePaymentProofCommand, Result<MaintenanceChargeDto>>
+{
+    public async Task<Result<MaintenanceChargeDto>> Handle(DenyMaintenancePaymentProofCommand request, CancellationToken ct)
+    {
+        try
+        {
+            MaintenanceAuthorization.EnsureAdmin(currentUserService);
+
+            var society = await societyRepository.GetByIdAsync(request.SocietyId, request.SocietyId, ct)
+                ?? throw new NotFoundException("Society", request.SocietyId);
+            var charge = await chargeRepository.GetByIdAsync(request.ChargeId, request.SocietyId, ct)
+                ?? throw new NotFoundException("MaintenanceCharge", request.ChargeId);
+
+            var submittedByUserId = charge.Proofs.LastOrDefault()?.SubmittedByUserId;
+            charge.RejectProof(request.Reason);
+            var updated = await chargeRepository.UpdateAsync(charge, ct);
+            await MaintenanceGridProjectionHelper.RebuildForChargeAsync(updated, chargeRepository, apartmentRepository, gridViewRepository, ct);
+
+            if (!string.IsNullOrWhiteSpace(submittedByUserId))
+                await notificationService.SendPushNotificationAsync(
+                    submittedByUserId,
+                    "Maintenance payment proof denied",
+                    $"Your submitted proof for {updated.ScheduleName} was denied: {request.Reason}",
+                    ct);
+
+            var apartment = await apartmentRepository.GetByIdAsync(updated.ApartmentId, request.SocietyId, ct);
+            return Result<MaintenanceChargeDto>.Success(updated.ToResponse(apartment?.ToDisplayLabel() ?? updated.ApartmentId, society.MaintenanceOverdueThresholdDays));
+        }
+        catch (ForbiddenException ex)
+        {
+            return Result<MaintenanceChargeDto>.Failure(ErrorCodes.Forbidden, ex.Message);
+        }
+        catch (NotFoundException ex)
+        {
+            return Result<MaintenanceChargeDto>.Failure(ErrorCodes.PaymentNotFound, ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Result<MaintenanceChargeDto>.Failure(ErrorCodes.ValidationFailed, ex.Message);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to deny maintenance payment proof for charge {ChargeId}", request.ChargeId);
+            return Result<MaintenanceChargeDto>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
+public record ApproveMaintenancePaymentProofGroupCommand(
+    string SocietyId,
+    IReadOnlyList<string> ChargeIds,
+    string PaymentMethod,
+    string? TransactionReference,
+    string? ReceiptUrl,
+    string? Notes)
+    : IRequest<Result<IReadOnlyList<MaintenanceChargeDto>>>;
+
+/// <summary>Approves every charge in a clubbed submission with one action — the same settlement
+/// details (payment method/reference/receipt) are applied to each member charge.</summary>
+public sealed class ApproveMaintenancePaymentProofGroupCommandHandler(
+    IMaintenanceChargeRepository chargeRepository,
+    IMaintenanceChargeGridViewRepository gridViewRepository,
+    IApartmentRepository apartmentRepository,
+    ISocietyRepository societyRepository,
+    IEventPublisher eventPublisher,
+    ICurrentUserService currentUserService,
+    ILogger<ApproveMaintenancePaymentProofGroupCommandHandler> logger)
+    : IRequestHandler<ApproveMaintenancePaymentProofGroupCommand, Result<IReadOnlyList<MaintenanceChargeDto>>>
+{
+    public async Task<Result<IReadOnlyList<MaintenanceChargeDto>>> Handle(ApproveMaintenancePaymentProofGroupCommand request, CancellationToken ct)
+    {
+        try
+        {
+            MaintenanceAuthorization.EnsureAdmin(currentUserService);
+
+            if (request.ChargeIds.Count == 0)
+                return Result<IReadOnlyList<MaintenanceChargeDto>>.Failure(ErrorCodes.ValidationFailed, "At least one charge id is required.");
+
+            var society = await societyRepository.GetByIdAsync(request.SocietyId, request.SocietyId, ct)
+                ?? throw new NotFoundException("Society", request.SocietyId);
+
+            var updated = new List<MaintenanceChargeDto>(request.ChargeIds.Count);
+            var impactedFinancialYears = new HashSet<int>();
+            foreach (var chargeId in request.ChargeIds.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                var charge = await chargeRepository.GetByIdAsync(chargeId, request.SocietyId, ct)
+                    ?? throw new NotFoundException("MaintenanceCharge", chargeId);
+
+                charge.ApprovePayment(request.PaymentMethod, request.TransactionReference, request.ReceiptUrl, request.Notes);
+                var saved = await chargeRepository.UpdateAsync(charge, ct);
+                impactedFinancialYears.Add(MaintenanceGridProjectionHelper.GetFinancialYearStart(saved.DueDate));
+
+                foreach (var evt in saved.DomainEvents)
+                    await eventPublisher.PublishAsync(evt, ct);
+                saved.ClearDomainEvents();
+
+                var apartment = await apartmentRepository.GetByIdAsync(saved.ApartmentId, request.SocietyId, ct);
+                updated.Add(saved.ToResponse(apartment?.ToDisplayLabel() ?? saved.ApartmentId, society.MaintenanceOverdueThresholdDays));
+            }
+
+            await MaintenanceGridProjectionHelper.RebuildForFinancialYearsAsync(
+                request.SocietyId, impactedFinancialYears, chargeRepository, apartmentRepository, gridViewRepository, ct);
+
+            return Result<IReadOnlyList<MaintenanceChargeDto>>.Success(updated);
+        }
+        catch (ForbiddenException ex)
+        {
+            return Result<IReadOnlyList<MaintenanceChargeDto>>.Failure(ErrorCodes.Forbidden, ex.Message);
+        }
+        catch (NotFoundException ex)
+        {
+            return Result<IReadOnlyList<MaintenanceChargeDto>>.Failure(ErrorCodes.PaymentNotFound, ex.Message);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to approve grouped maintenance payment proof for society {SocietyId}", request.SocietyId);
+            return Result<IReadOnlyList<MaintenanceChargeDto>>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
+public record DenyMaintenancePaymentProofGroupCommand(
+    string SocietyId,
+    IReadOnlyList<string> ChargeIds,
+    string Reason)
+    : IRequest<Result<IReadOnlyList<MaintenanceChargeDto>>>;
+
+/// <summary>Denies every charge in a clubbed submission with one action and one comment — once
+/// denied, the charges are Rejected individually and no longer form a group (each falls back to
+/// the resident's normal resubmit flow).</summary>
+public sealed class DenyMaintenancePaymentProofGroupCommandHandler(
+    IMaintenanceChargeRepository chargeRepository,
+    IMaintenanceChargeGridViewRepository gridViewRepository,
+    IApartmentRepository apartmentRepository,
+    ISocietyRepository societyRepository,
+    INotificationService notificationService,
+    ICurrentUserService currentUserService,
+    ILogger<DenyMaintenancePaymentProofGroupCommandHandler> logger)
+    : IRequestHandler<DenyMaintenancePaymentProofGroupCommand, Result<IReadOnlyList<MaintenanceChargeDto>>>
+{
+    public async Task<Result<IReadOnlyList<MaintenanceChargeDto>>> Handle(DenyMaintenancePaymentProofGroupCommand request, CancellationToken ct)
+    {
+        try
+        {
+            MaintenanceAuthorization.EnsureAdmin(currentUserService);
+
+            if (request.ChargeIds.Count == 0)
+                return Result<IReadOnlyList<MaintenanceChargeDto>>.Failure(ErrorCodes.ValidationFailed, "At least one charge id is required.");
+
+            var society = await societyRepository.GetByIdAsync(request.SocietyId, request.SocietyId, ct)
+                ?? throw new NotFoundException("Society", request.SocietyId);
+
+            var updated = new List<MaintenanceChargeDto>(request.ChargeIds.Count);
+            var impactedFinancialYears = new HashSet<int>();
+            var notifyUserIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var chargeId in request.ChargeIds.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                var charge = await chargeRepository.GetByIdAsync(chargeId, request.SocietyId, ct)
+                    ?? throw new NotFoundException("MaintenanceCharge", chargeId);
+
+                var submittedByUserId = charge.Proofs.LastOrDefault()?.SubmittedByUserId;
+                if (!string.IsNullOrWhiteSpace(submittedByUserId))
+                    notifyUserIds.Add(submittedByUserId);
+
+                charge.RejectProof(request.Reason);
+                var saved = await chargeRepository.UpdateAsync(charge, ct);
+                impactedFinancialYears.Add(MaintenanceGridProjectionHelper.GetFinancialYearStart(saved.DueDate));
+
+                var apartment = await apartmentRepository.GetByIdAsync(saved.ApartmentId, request.SocietyId, ct);
+                updated.Add(saved.ToResponse(apartment?.ToDisplayLabel() ?? saved.ApartmentId, society.MaintenanceOverdueThresholdDays));
+            }
+
+            await MaintenanceGridProjectionHelper.RebuildForFinancialYearsAsync(
+                request.SocietyId, impactedFinancialYears, chargeRepository, apartmentRepository, gridViewRepository, ct);
+
+            foreach (var userId in notifyUserIds)
+                await notificationService.SendPushNotificationAsync(
+                    userId,
+                    "Maintenance payment proof denied",
+                    $"Your submitted proof was denied: {request.Reason}",
+                    ct);
+
+            return Result<IReadOnlyList<MaintenanceChargeDto>>.Success(updated);
+        }
+        catch (ForbiddenException ex)
+        {
+            return Result<IReadOnlyList<MaintenanceChargeDto>>.Failure(ErrorCodes.Forbidden, ex.Message);
+        }
+        catch (NotFoundException ex)
+        {
+            return Result<IReadOnlyList<MaintenanceChargeDto>>.Failure(ErrorCodes.PaymentNotFound, ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Result<IReadOnlyList<MaintenanceChargeDto>>.Failure(ErrorCodes.ValidationFailed, ex.Message);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to deny grouped maintenance payment proof for society {SocietyId}", request.SocietyId);
+            return Result<IReadOnlyList<MaintenanceChargeDto>>.Failure(ErrorCodes.InternalError, ex.Message);
         }
     }
 }
@@ -837,7 +1060,10 @@ internal static class MaintenanceGridProjectionHelper
                                         proof.ProofUrl,
                                         proof.Notes,
                                         proof.SubmittedByUserId,
-                                        proof.SubmittedAt)).ToList()))
+                                        proof.SubmittedAt,
+                                        proof.SubmissionGroupId)).ToList(),
+                                    charge.RejectionReason,
+                                    charge.RejectedAt))
                                 .ToList();
 
                             return new MaintenanceChargeGridView.GridCell(periodMonth.Month, periodMonth.Year, periodCharges);

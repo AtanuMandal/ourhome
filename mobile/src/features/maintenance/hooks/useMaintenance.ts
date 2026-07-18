@@ -13,6 +13,10 @@ export function useMaintenanceList(
     fetchPage: (page) =>
       maintenanceApi.getMaintenanceCharges(societyId, { ...params, page, pageSize: 20 }),
     enabled: !!societyId && enabled,
+    // Silently refresh every 10s so a resident's (re)submitted proof, or an admin's approve/deny,
+    // shows up on the other party's already-open screen without a manual pull-to-refresh —
+    // matches the visitor list's pattern. Disabled under Jest to avoid leaking open timers.
+    refetchInterval: process.env.NODE_ENV === 'test' ? false : 10_000,
   });
 }
 
