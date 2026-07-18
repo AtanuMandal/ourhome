@@ -1,5 +1,6 @@
 import { CurrencyPipe, DatePipe } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -7,7 +8,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { SearchableSelectComponent } from '../../shared/components/searchable-select/searchable-select.component';
 import { RouterLink } from '@angular/router';
-import { Observable } from 'rxjs';
+import { Observable, interval } from 'rxjs';
 import { MaintenanceCharge, MaintenanceChargeGrid, MaintenanceChargeStatus, MaintenanceGridCharge } from '../../core/models/maintenance.model';
 import { AuthService } from '../../core/services/auth.service';
 import { MaintenanceService } from '../../core/services/maintenance.service';
@@ -17,7 +18,7 @@ import { PageHeaderComponent } from '../../shared/components/page-header/page-he
 import { StatusChipComponent } from '../../shared/components/status-chip/status-chip.component';
 import { FilePreviewComponent } from '../../shared/components/file-preview/file-preview.component';
 import { ImageLightboxComponent } from '../../shared/components/image-lightbox/image-lightbox.component';
-import { CHARGE_STATUS_OPTIONS, MAINTENANCE_PAGE_STYLES, MONTH_OPTIONS } from './maintenance-shared';
+import { CHARGE_STATUS_OPTIONS, MAINTENANCE_PAGE_STYLES, MONTH_OPTIONS, periodLabel } from './maintenance-shared';
 
 @Component({
   selector: 'app-maintenance-admin-grid',
@@ -163,7 +164,7 @@ import { CHARGE_STATUS_OPTIONS, MAINTENANCE_PAGE_STYLES, MONTH_OPTIONS } from '.
       @if (loading()) {
         <app-loading-spinner></app-loading-spinner>
       } @else if (grid()?.rows?.length) {
-        
+
         <section class="card card--spaced">
           <div class="section-header">
             <div>
@@ -228,27 +229,58 @@ import { CHARGE_STATUS_OPTIONS, MAINTENANCE_PAGE_STYLES, MONTH_OPTIONS } from '.
                                 @if (charge.transactionReference) {
                                   <div class="section-copy">Ref: {{ charge.transactionReference }}</div>
                                 }
-                                <div class="action-row action-row--compact">
-                                  @if (hasSupportingDocs(charge)) {
-                                    <button mat-stroked-button type="button" (click)="openProofDialog(charge)">
-                                      View proofs
-                                    </button>
-                                  }
-                                  @if (charge.status === 'ProofSubmitted') {
-                                    <button mat-raised-button color="primary" type="button"
-                                      [disabled]="processingChargeId() === charge.id || settlementForm.invalid"
-                                      (click)="approveProof(charge)">
-                                      Approve
-                                    </button>
-                                  }
-                                  @if (charge.status !== 'Paid') {
-                                    <button mat-stroked-button color="primary" type="button"
-                                      [disabled]="processingChargeId() === charge.id || settlementForm.invalid"
-                                      (click)="markPaid(charge)">
-                                      Mark paid
-                                    </button>
-                                  }
-                                </div>
+                                @if (charge.status === 'Rejected' && charge.rejectionReason) {
+                                  <div class="section-copy text-danger">Denied: {{ charge.rejectionReason }}</div>
+                                }
+                                @if (groupForCharge(charge); as group) {
+                                  <div class="section-copy">Clubbed submission · {{ group.charges.length }} charges · {{ group.totalAmount | currency:'INR':'symbol':'1.2-2' }} total</div>
+                                  <div class="action-row action-row--compact">
+                                    @if (hasSupportingDocs(charge)) {
+                                      <button mat-stroked-button type="button" (click)="openProofDialog(charge)">
+                                        View proofs
+                                      </button>
+                                    }
+                                    @if (group.status === 'ProofSubmitted') {
+                                      <button mat-raised-button color="primary" type="button"
+                                        [disabled]="processingGroupKey() === group.key || settlementForm.invalid"
+                                        (click)="approveGroup(group)">
+                                        Approve all {{ group.charges.length }}
+                                      </button>
+                                      <button mat-stroked-button color="warn" type="button"
+                                        [disabled]="processingGroupKey() === group.key"
+                                        (click)="openDenyDialog({ type: 'group', group })">
+                                        Deny all {{ group.charges.length }}
+                                      </button>
+                                    }
+                                  </div>
+                                } @else {
+                                  <div class="action-row action-row--compact">
+                                    @if (hasSupportingDocs(charge)) {
+                                      <button mat-stroked-button type="button" (click)="openProofDialog(charge)">
+                                        View proofs
+                                      </button>
+                                    }
+                                    @if (charge.status === 'ProofSubmitted') {
+                                      <button mat-raised-button color="primary" type="button"
+                                        [disabled]="processingChargeId() === charge.id || settlementForm.invalid"
+                                        (click)="approveProof(charge)">
+                                        Approve
+                                      </button>
+                                      <button mat-stroked-button color="warn" type="button"
+                                        [disabled]="processingChargeId() === charge.id"
+                                        (click)="openDenyDialog({ type: 'single', charge })">
+                                        Deny
+                                      </button>
+                                    }
+                                    @if (charge.status !== 'Paid') {
+                                      <button mat-stroked-button color="primary" type="button"
+                                        [disabled]="processingChargeId() === charge.id || settlementForm.invalid"
+                                        (click)="markPaid(charge)">
+                                        Mark paid
+                                      </button>
+                                    }
+                                  </div>
+                                }
                               </div>
                             }
                           </div>
@@ -316,6 +348,44 @@ import { CHARGE_STATUS_OPTIONS, MAINTENANCE_PAGE_STYLES, MONTH_OPTIONS } from '.
           </div>
         </div>
       }
+
+      @if (denyTarget(); as target) {
+        <div class="dialog-backdrop" (click)="closeDenyDialog()">
+          <div class="dialog-card" (click)="$event.stopPropagation()">
+            <div class="section-header section-header--compact">
+              <div>
+                <h2 class="section-title">Deny payment proof</h2>
+                <p class="section-copy">
+                  @if (target.type === 'single') {
+                    {{ target.charge.scheduleName }} · {{ target.charge.amount | currency:'INR':'symbol':'1.2-2' }}
+                  } @else {
+                    {{ target.group.apartmentNumber }} · {{ target.group.charges.length }} charges · {{ target.group.totalAmount | currency:'INR':'symbol':'1.2-2' }} total
+                  }
+                </p>
+              </div>
+              <button mat-stroked-button type="button" (click)="closeDenyDialog()">Close</button>
+            </div>
+
+            <form [formGroup]="denyForm" class="stack" (ngSubmit)="confirmDeny()">
+              <mat-form-field appearance="fill" class="full-width">
+                <mat-label>Reason for denial</mat-label>
+                <textarea matInput rows="3" formControlName="reason"
+                  placeholder="Explain what's wrong with the proof so the resident can correct it"></textarea>
+                @if (denyForm.controls.reason.invalid && denyForm.controls.reason.touched) {
+                  <mat-error>A reason is required.</mat-error>
+                }
+              </mat-form-field>
+
+              <div class="action-row">
+                <button mat-raised-button color="warn" type="submit"
+                  [disabled]="denyForm.invalid || processingChargeId() !== null || processingGroupKey() !== null">
+                  Deny
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      }
     </div>
 
     <app-image-lightbox [open]="!!lightboxSrc()" [src]="lightboxSrc() ?? ''" (closed)="lightboxSrc.set(null)"></app-image-lightbox>
@@ -343,28 +413,6 @@ import { CHARGE_STATUS_OPTIONS, MAINTENANCE_PAGE_STYLES, MONTH_OPTIONS } from '.
     .grid-charge--overdue { border-color: #ef9a9a; background: #fff7f7; }
     .grid-charge__header { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
     .grid-charge__title { font-weight: 600; font-size: 13px; }
-    .dialog-backdrop {
-      position: fixed;
-      inset: 0;
-      background: rgba(15, 23, 42, 0.45);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-      z-index: 1000;
-    }
-    .dialog-card {
-      width: min(720px, 100%);
-      max-height: calc(100vh - 48px);
-      overflow: auto;
-      background: white;
-      border-radius: 16px;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2);
-    }
   `],
 })
 export class MaintenanceAdminGridComponent {
@@ -375,10 +423,17 @@ export class MaintenanceAdminGridComponent {
 
   readonly loading = signal(true);
   readonly processingChargeId = signal<string | null>(null);
+  readonly processingGroupKey = signal<string | null>(null);
   readonly creatingPenalty = signal(false);
   readonly grid = signal<MaintenanceChargeGrid | null>(null);
   readonly proofCharge = signal<MaintenanceGridCharge | null>(null);
   readonly lightboxSrc = signal<string | null>(null);
+  readonly denyTarget = signal<DenyTarget | null>(null);
+  // Set only by the 10s auto-refresh timer when the grid already has data — keeps whatever the
+  // admin is looking at on screen (no spinner, no blanking) while the background fetch is in
+  // flight. Without this, a resident's resubmitted proof would only ever appear once the admin
+  // manually reloads or changes a filter, which looked like "admin can't see/act on it".
+  readonly backgroundRefreshing = signal(false);
   readonly chargeStatusSelectOptions = [
     { value: null as MaintenanceChargeStatus | null, label: 'All statuses' },
     ...CHARGE_STATUS_OPTIONS.map(s => ({ value: s as MaintenanceChargeStatus | null, label: s })),
@@ -407,6 +462,10 @@ export class MaintenanceAdminGridComponent {
     amount: [null as number | null, [Validators.required, Validators.min(0.01)]],
     dueDate: [this.toDateInputValue(new Date()), Validators.required],
     reason: ['', [Validators.required, Validators.maxLength(200)]],
+  });
+
+  readonly denyForm = this.fb.group({
+    reason: ['', [Validators.required, Validators.maxLength(500)]],
   });
 
   readonly periodViewOptions = [
@@ -548,18 +607,97 @@ export class MaintenanceAdminGridComponent {
     }
   });
 
+  /**
+   * Clubbed submissions: a resident can select several charges (often across different months)
+   * and submit one proof for all of them — the backend stamps every charge in that call with the
+   * same submissionGroupId. A group needs 2+ members; a lone submission just renders as a normal
+   * charge card in its month cell. Member charges render inside their own grid cells (there is no
+   * separate review section) with group-level "Approve all / Deny all" buttons — one action
+   * settles the entire clubbed submission. Denying breaks the group apart (member charges become
+   * Rejected, which this predicate excludes), falling each back to the normal single-charge view;
+   * approving keeps it clustered as Paid, with each charge's proofs still viewable per cell.
+   */
+  readonly groupedSubmissions = computed<GroupedSubmission[]>(() => {
+    const rows = this.grid()?.rows ?? [];
+    const byKey = new Map<string, { apartmentId: string; apartmentNumber: string; residentName?: string | null; charges: MaintenanceGridCharge[] }>();
+
+    for (const row of rows) {
+      for (const cell of row.months) {
+        for (const charge of cell.charges) {
+          if (charge.status !== 'ProofSubmitted' && charge.status !== 'Paid') continue;
+          if (!charge.submissionGroupId) continue;
+
+          const key = `${row.apartmentId}|${charge.submissionGroupId}`;
+          const existing = byKey.get(key);
+          if (existing) {
+            existing.charges.push(charge);
+          } else {
+            byKey.set(key, {
+              apartmentId: row.apartmentId,
+              apartmentNumber: row.apartmentNumber,
+              residentName: row.residentName,
+              charges: [charge],
+            });
+          }
+        }
+      }
+    }
+
+    return Array.from(byKey.entries())
+      .filter(([, value]) => value.charges.length >= 2)
+      .map(([key, value]) => {
+        const sorted = value.charges.slice().sort((left, right) => new Date(left.dueDate).getTime() - new Date(right.dueDate).getTime());
+        return {
+          key,
+          apartmentId: value.apartmentId,
+          apartmentNumber: value.apartmentNumber,
+          residentName: value.residentName,
+          status: sorted.every(charge => charge.status === 'Paid') ? 'Paid' : 'ProofSubmitted',
+          charges: sorted,
+          totalAmount: sorted.reduce((sum, charge) => sum + charge.amount, 0),
+          periodLabel: this.formatPeriodRange(sorted),
+        } satisfies GroupedSubmission;
+      })
+      .sort((left, right) => left.apartmentNumber.localeCompare(right.apartmentNumber, undefined, { numeric: true, sensitivity: 'base' }));
+  });
+
+  readonly groupByChargeId = computed(() => {
+    const byId = new Map<string, GroupedSubmission>();
+    for (const group of this.groupedSubmissions()) {
+      for (const charge of group.charges) byId.set(charge.id, group);
+    }
+    return byId;
+  });
+
+  private readonly destroyRef = inject(DestroyRef);
+
   constructor() {
     this.loadGrid();
+
+    // Auto-refresh every 10s so a resident's newly submitted or resubmitted proof shows up (and
+    // becomes actionable) without the admin having to manually reload or touch a filter.
+    interval(10_000)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        if (!this.loading() && !this.backgroundRefreshing()) {
+          this.loadGrid(true);
+        }
+      });
   }
 
-  loadGrid() {
+  loadGrid(isBackgroundRefresh = false) {
     const societyId = this.auth.societyId();
     if (!societyId) {
       this.loading.set(false);
       return;
     }
 
-    this.loading.set(true);
+    // A background (auto-refresh) tick with data already on screen never blanks the grid —
+    // only a manual/initial load or filter change shows the full loading spinner.
+    const useBackgroundFlag = isBackgroundRefresh && !!this.grid();
+    if (useBackgroundFlag) this.backgroundRefreshing.set(true);
+    else this.loading.set(true);
+
     this.maintenance.getChargeGrid(societyId, {
       financialYearStart: this.filterForm.controls.financialYearStart.value ?? this.currentFinancialYearStart(),
       apartmentId: this.filterForm.controls.apartmentId.value ?? undefined,
@@ -571,10 +709,14 @@ export class MaintenanceAdminGridComponent {
     }).subscribe({
       next: grid => {
         this.grid.set(grid);
-        this.visibleRowCount.set(20);
+        if (!useBackgroundFlag) this.visibleRowCount.set(20);
         this.loading.set(false);
+        this.backgroundRefreshing.set(false);
       },
-      error: () => this.loading.set(false),
+      error: () => {
+        this.loading.set(false);
+        this.backgroundRefreshing.set(false);
+      },
     });
   }
 
@@ -594,6 +736,101 @@ export class MaintenanceAdminGridComponent {
 
   markPaid(charge: MaintenanceGridCharge) {
     this.processCharge(charge.id, () => this.maintenance.markPaid(this.auth.societyId()!, charge.id, this.settlementPayload()), 'Maintenance charge marked as paid.');
+  }
+
+  /** The clubbed submission this charge belongs to (2+ members), or null for a normal charge. */
+  groupForCharge(charge: MaintenanceGridCharge): GroupedSubmission | null {
+    return this.groupByChargeId().get(charge.id) ?? null;
+  }
+
+  isGroupedCharge(charge: MaintenanceGridCharge): boolean {
+    return this.groupByChargeId().has(charge.id);
+  }
+
+  /** Approves every charge in a clubbed submission with one action and one settlement. */
+  approveGroup(group: GroupedSubmission) {
+    if (this.settlementForm.invalid) return;
+    const societyId = this.auth.societyId();
+    if (!societyId) return;
+
+    const settlement = this.settlementPayload();
+    this.processingGroupKey.set(group.key);
+    this.maintenance.approveProofGroup(societyId, { chargeIds: group.charges.map(charge => charge.id), ...settlement }).subscribe({
+      next: updatedCharges => {
+        this.processingGroupKey.set(null);
+        for (const updated of updatedCharges) {
+          this.patchChargeInGrid(updated.id, {
+            status: 'Paid',
+            isOverdue: false,
+            paidAt: updated.paidAt ?? new Date().toISOString(),
+            paymentMethod: settlement.paymentMethod,
+            transactionReference: settlement.transactionReference,
+            receiptUrl: settlement.receiptUrl,
+            notes: settlement.notes,
+            rejectionReason: null,
+            rejectedAt: null,
+          });
+        }
+        this.snackBar.open('Clubbed submission approved.', 'Dismiss', { duration: 4000 });
+      },
+      error: () => this.processingGroupKey.set(null),
+    });
+  }
+
+  openDenyDialog(target: DenyTarget) {
+    this.denyForm.reset({ reason: '' });
+    this.denyTarget.set(target);
+  }
+
+  closeDenyDialog() {
+    this.denyTarget.set(null);
+    this.denyForm.reset({ reason: '' });
+  }
+
+  /** Denies a single charge or an entire clubbed submission with one comment. Denying always
+   *  falls back the affected charge(s) to Rejected, which drops them out of any grouped view. */
+  confirmDeny() {
+    const target = this.denyTarget();
+    const societyId = this.auth.societyId();
+    if (!target || !societyId || this.denyForm.invalid) return;
+
+    const reason = this.denyForm.controls.reason.value?.trim() || '';
+
+    if (target.type === 'single') {
+      this.processingChargeId.set(target.charge.id);
+      this.maintenance.denyProof(societyId, target.charge.id, { reason }).subscribe({
+        next: updated => {
+          this.processingChargeId.set(null);
+          this.patchChargeInGrid(target.charge.id, {
+            status: 'Rejected',
+            rejectionReason: updated.rejectionReason ?? reason,
+            rejectedAt: updated.rejectedAt ?? new Date().toISOString(),
+          });
+          this.closeDenyDialog();
+          this.snackBar.open('Maintenance proof denied.', 'Dismiss', { duration: 4000 });
+        },
+        error: () => this.processingChargeId.set(null),
+      });
+      return;
+    }
+
+    const chargeIds = target.group.charges.map(charge => charge.id);
+    this.processingGroupKey.set(target.group.key);
+    this.maintenance.denyProofGroup(societyId, { chargeIds, reason }).subscribe({
+      next: updatedCharges => {
+        this.processingGroupKey.set(null);
+        for (const updated of updatedCharges) {
+          this.patchChargeInGrid(updated.id, {
+            status: 'Rejected',
+            rejectionReason: updated.rejectionReason ?? reason,
+            rejectedAt: updated.rejectedAt ?? new Date().toISOString(),
+          });
+        }
+        this.closeDenyDialog();
+        this.snackBar.open('Clubbed submission denied.', 'Dismiss', { duration: 4000 });
+      },
+      error: () => this.processingGroupKey.set(null),
+    });
   }
 
   hasSupportingDocs(charge: MaintenanceGridCharge) {
@@ -679,7 +916,21 @@ export class MaintenanceAdminGridComponent {
       transactionReference: settlement.transactionReference,
       receiptUrl: settlement.receiptUrl,
       notes: settlement.notes,
+      rejectionReason: null,
+      rejectedAt: null,
     });
+  }
+
+  /** "April 2026" for a single-period group, "April 2026 – June 2026" when it spans several. */
+  private formatPeriodRange(charges: MaintenanceGridCharge[]): string {
+    if (charges.length === 0) return '';
+
+    const dates = charges.map(charge => new Date(charge.dueDate));
+    const min = dates.reduce((earliest, current) => (current < earliest ? current : earliest));
+    const max = dates.reduce((latest, current) => (current > latest ? current : latest));
+    const minLabel = periodLabel(min.getUTCFullYear(), min.getUTCMonth() + 1);
+    const maxLabel = periodLabel(max.getUTCFullYear(), max.getUTCMonth() + 1);
+    return minLabel === maxLabel ? minLabel : `${minLabel} – ${maxLabel}`;
   }
 
   /** Immutably updates one charge wherever it appears in the loaded grid, without refetching. */
@@ -805,3 +1056,18 @@ interface GridDisplayRow {
     charges: MaintenanceGridCharge[];
   }[];
 }
+
+interface GroupedSubmission {
+  key: string;
+  apartmentId: string;
+  apartmentNumber: string;
+  residentName?: string | null;
+  status: 'ProofSubmitted' | 'Paid';
+  charges: MaintenanceGridCharge[];
+  totalAmount: number;
+  periodLabel: string;
+}
+
+type DenyTarget =
+  | { type: 'single'; charge: MaintenanceGridCharge }
+  | { type: 'group'; group: GroupedSubmission };

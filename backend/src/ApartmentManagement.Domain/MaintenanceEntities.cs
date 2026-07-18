@@ -221,7 +221,11 @@ public sealed class MaintenanceSchedule : BaseEntity
 
 public sealed class MaintenanceCharge : BaseEntity
 {
-    public sealed record PaymentProof(string ProofUrl, string? Notes, string SubmittedByUserId, DateTime SubmittedAt);
+    // SubmissionGroupId ties together every charge submitted with the same "submit proof" action
+    // (a resident can club several months' dues into one proof upload) so clients can render them
+    // as a single clubbed submission. Defaults to "" for documents written before this field
+    // existed — an empty group id never matches another charge's, so old proofs simply never group.
+    public sealed record PaymentProof(string ProofUrl, string? Notes, string SubmittedByUserId, DateTime SubmittedAt, string SubmissionGroupId = "");
 
     public string ApartmentId { get; private set; } = string.Empty;
     public string ScheduleId { get; private set; } = string.Empty;
@@ -237,6 +241,13 @@ public sealed class MaintenanceCharge : BaseEntity
     public string? ReceiptUrl { get; private set; }
     public string? Notes { get; private set; }
     public IReadOnlyList<PaymentProof> Proofs { get; private set; } = [];
+    public string? RejectionReason { get; private set; }
+    public DateTime? RejectedAt { get; private set; }
+
+    /// <summary>The group id of the most recently submitted proof — meaningful while the charge is
+    /// ProofSubmitted or Paid; a client should ignore it once the charge is Rejected.</summary>
+    public string? LatestSubmissionGroupId =>
+        Proofs.Count > 0 ? Proofs[^1].SubmissionGroupId : null;
 
     private MaintenanceCharge() { }
 
@@ -308,7 +319,7 @@ public sealed class MaintenanceCharge : BaseEntity
         TouchUpdatedAt();
     }
 
-    public void SubmitProof(string proofUrl, string? notes, string submittedByUserId)
+    public void SubmitProof(string proofUrl, string? notes, string submittedByUserId, string? submissionGroupId = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(proofUrl, nameof(proofUrl));
         ArgumentException.ThrowIfNullOrWhiteSpace(submittedByUserId, nameof(submittedByUserId));
@@ -317,10 +328,19 @@ public sealed class MaintenanceCharge : BaseEntity
             throw new InvalidOperationException("Payment proof cannot be submitted for settled charges.");
 
         var proofs = Proofs.ToList();
-        proofs.Add(new PaymentProof(proofUrl.Trim(), string.IsNullOrWhiteSpace(notes) ? null : notes.Trim(), submittedByUserId.Trim(), DateTime.UtcNow));
+        proofs.Add(new PaymentProof(
+            proofUrl.Trim(),
+            string.IsNullOrWhiteSpace(notes) ? null : notes.Trim(),
+            submittedByUserId.Trim(),
+            DateTime.UtcNow,
+            string.IsNullOrWhiteSpace(submissionGroupId) ? Guid.NewGuid().ToString("N") : submissionGroupId.Trim()));
         Proofs = proofs;
         Notes = string.IsNullOrWhiteSpace(notes) ? Notes : notes.Trim();
         Status = PaymentStatus.ProofSubmitted;
+        // A fresh submission supersedes any earlier denial — clear the stale reason so the UI
+        // doesn't keep showing "Denied: ..." next to a charge that is under review again.
+        RejectionReason = null;
+        RejectedAt = null;
         TouchUpdatedAt();
     }
 
@@ -339,14 +359,31 @@ public sealed class MaintenanceCharge : BaseEntity
         TransactionReference = string.IsNullOrWhiteSpace(transactionReference) ? null : transactionReference.Trim();
         ReceiptUrl = string.IsNullOrWhiteSpace(receiptUrl) ? ReceiptUrl : receiptUrl.Trim();
         Notes = string.IsNullOrWhiteSpace(notes) ? Notes : notes.Trim();
+        RejectionReason = null;
+        RejectedAt = null;
         TouchUpdatedAt();
         AddDomainEvent(new FeePaymentReceivedEvent(Id, SocietyId, ApartmentId, Amount));
+    }
+
+    /// <summary>Admin denies a resident's submitted proof — the charge falls back to Rejected
+    /// (re-submittable, same as Pending) with a comment explaining why, instead of being paid.</summary>
+    public void RejectProof(string reason)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(reason, nameof(reason));
+
+        if (Status != PaymentStatus.ProofSubmitted)
+            throw new InvalidOperationException("Only a charge with a submitted proof awaiting review can be denied.");
+
+        Status = PaymentStatus.Rejected;
+        RejectionReason = reason.Trim();
+        RejectedAt = DateTime.UtcNow;
+        TouchUpdatedAt();
     }
 }
 
 public sealed class MaintenanceChargeGridView : BaseEntity
 {
-    public sealed record GridProof(string ProofUrl, string? Notes, string SubmittedByUserId, DateTime SubmittedAt);
+    public sealed record GridProof(string ProofUrl, string? Notes, string SubmittedByUserId, DateTime SubmittedAt, string SubmissionGroupId = "");
     public sealed record GridCharge(
         string ChargeId,
         string ScheduleId,
@@ -359,7 +396,9 @@ public sealed class MaintenanceChargeGridView : BaseEntity
         string? TransactionReference,
         string? ReceiptUrl,
         string? Notes,
-        IReadOnlyList<GridProof> Proofs);
+        IReadOnlyList<GridProof> Proofs,
+        string? RejectionReason = null,
+        DateTime? RejectedAt = null);
     public sealed record GridCell(int Month, int Year, IReadOnlyList<GridCharge> Charges);
     public sealed record GridRow(
         string ApartmentId,

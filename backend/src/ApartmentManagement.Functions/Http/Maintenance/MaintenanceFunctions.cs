@@ -199,7 +199,7 @@ public class MaintenanceFunctions(ISender mediator)
 
     [Function("MarkMaintenanceChargePaid")]
     public async Task<IActionResult> MarkMaintenanceChargePaid(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "societies/{societyId}/maintenance/charges/{chargeId}/mark-paid")] HttpRequest req,
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "societies/{societyId}/maintenance/charges/{chargeId:guid}/mark-paid")] HttpRequest req,
         string societyId, string chargeId, CancellationToken ct)
     {
         var body = await req.DeserializeAsync<MarkMaintenanceChargePaidRequest>(ct);
@@ -213,7 +213,7 @@ public class MaintenanceFunctions(ISender mediator)
 
     [Function("ApproveMaintenancePaymentProof")]
     public async Task<IActionResult> ApproveMaintenancePaymentProof(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "societies/{societyId}/maintenance/charges/{chargeId}/approve")] HttpRequest req,
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "societies/{societyId}/maintenance/charges/{chargeId:guid}/approve")] HttpRequest req,
         string societyId, string chargeId, CancellationToken ct)
     {
         var body = await req.DeserializeAsync<MarkMaintenanceChargePaidRequest>(ct);
@@ -221,6 +221,52 @@ public class MaintenanceFunctions(ISender mediator)
 
         var result = await mediator.Send(
             new ApproveMaintenancePaymentProofCommand(societyId, chargeId, body.PaymentMethod, body.TransactionReference, body.ReceiptUrl, body.Notes),
+            ct);
+        return result.ToActionResult();
+    }
+
+    [Function("DenyMaintenancePaymentProof")]
+    public async Task<IActionResult> DenyMaintenancePaymentProof(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "societies/{societyId}/maintenance/charges/{chargeId:guid}/deny")] HttpRequest req,
+        string societyId, string chargeId, CancellationToken ct)
+    {
+        var body = await req.DeserializeAsync<DenyMaintenancePaymentProofRequest>(ct);
+        if (body is null) return HttpHelpers.MissingBody();
+
+        var result = await mediator.Send(
+            new DenyMaintenancePaymentProofCommand(societyId, chargeId, body.Reason),
+            ct);
+        return result.ToActionResult();
+    }
+
+    // Grouped (clubbed) submissions: a resident submitted proof for several charges together, so
+    // an admin approves or denies the whole clubbed submission with one action. Routed under the
+    // literal "group" segment (rather than a {chargeId} route) — see the :guid constraint above
+    // on the single-charge routes for why that matters when both shapes share a path prefix.
+    [Function("ApproveMaintenancePaymentProofGroup")]
+    public async Task<IActionResult> ApproveMaintenancePaymentProofGroup(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "societies/{societyId}/maintenance/charges/group/approve")] HttpRequest req,
+        string societyId, CancellationToken ct)
+    {
+        var body = await req.DeserializeAsync<ApproveMaintenancePaymentProofGroupRequest>(ct);
+        if (body is null) return HttpHelpers.MissingBody();
+
+        var result = await mediator.Send(
+            new ApproveMaintenancePaymentProofGroupCommand(societyId, body.ChargeIds, body.PaymentMethod, body.TransactionReference, body.ReceiptUrl, body.Notes),
+            ct);
+        return result.ToActionResult();
+    }
+
+    [Function("DenyMaintenancePaymentProofGroup")]
+    public async Task<IActionResult> DenyMaintenancePaymentProofGroup(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "societies/{societyId}/maintenance/charges/group/deny")] HttpRequest req,
+        string societyId, CancellationToken ct)
+    {
+        var body = await req.DeserializeAsync<DenyMaintenancePaymentProofGroupRequest>(ct);
+        if (body is null) return HttpHelpers.MissingBody();
+
+        var result = await mediator.Send(
+            new DenyMaintenancePaymentProofGroupCommand(societyId, body.ChargeIds, body.Reason),
             ct);
         return result.ToActionResult();
     }

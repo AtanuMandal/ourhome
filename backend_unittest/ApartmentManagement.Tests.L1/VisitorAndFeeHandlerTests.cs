@@ -805,7 +805,74 @@ public class CreateMaintenanceScheduleCommandHandlerTests
         result.IsSuccess.Should().BeTrue();
         result.Value!.Name.Should().Be("Monthly Maintenance");
         _scheduleRepoMock.Verify(r => r.CreateAsync(It.IsAny<MaintenanceSchedule>(), It.IsAny<CancellationToken>()), Times.Once);
-        _chargeRepoMock.Verify(r => r.CreateAsync(It.IsAny<MaintenanceCharge>(), It.IsAny<CancellationToken>()), Times.Exactly(6));
+
+        // The Apr–Sep fan-out (6 monthly charges) must arrive as ONE batched write, with no
+        // per-charge creates and no per-apartment-month existence lookups — that N×M pattern
+        // is what made schedule creation take tens of seconds.
+        _chargeRepoMock.Verify(r => r.CreateManyAsync(
+            It.Is<IReadOnlyList<MaintenanceCharge>>(charges => charges.Count == 6),
+            It.IsAny<CancellationToken>()), Times.Once);
+        _chargeRepoMock.Verify(r => r.CreateAsync(It.IsAny<MaintenanceCharge>(), It.IsAny<CancellationToken>()), Times.Never);
+        _chargeRepoMock.Verify(r => r.GetByScheduleAndPeriodAsync(
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_WhenChargesAlreadyExist_RefreshesThemInOneBatchAndNeverTouchesPaidOnes()
+    {
+        // Arrange — the schedule window already has one unpaid and one paid charge.
+        var apartment = Apartment.Create("soc-001", "A-101", "A", 1, 3, [], 500, 600, 700);
+
+        _currentUserMock.Setup(x => x.IsInRoles(It.IsAny<string[]>())).Returns(true);
+        _scheduleRepoMock
+            .Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        _scheduleRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<MaintenanceSchedule>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MaintenanceSchedule s, CancellationToken _) => s);
+        _apartmentRepoMock
+            .Setup(r => r.GetByIdAsync(apartment.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(apartment);
+        _apartmentRepoMock
+            .Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync([apartment]);
+
+        var unpaidCharge = MaintenanceCharge.Create("soc-001", apartment.Id, "any", "Old name", 100m, new DateTime(2026, 4, 5, 0, 0, 0, DateTimeKind.Utc));
+        var paidCharge = MaintenanceCharge.Create("soc-001", apartment.Id, "any", "Old name", 100m, new DateTime(2026, 5, 5, 0, 0, 0, DateTimeKind.Utc));
+        paidCharge.MarkPaid("Cash", null, null, null);
+
+        _chargeRepoMock
+            .Setup(r => r.GetByScheduleAsync("soc-001", It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([unpaidCharge, paidCharge]);
+        _chargeRepoMock
+            .Setup(r => r.GetByDueDateRangeAsync("soc-001", It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string _, DateTime __, DateTime ___, CancellationToken ____) => new List<MaintenanceCharge>());
+        _gridViewRepoMock
+            .Setup(r => r.GetByFinancialYearAsync("soc-001", It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MaintenanceChargeGridView?)null);
+        _gridViewRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<MaintenanceChargeGridView>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MaintenanceChargeGridView view, CancellationToken _) => view);
+
+        var handler = CreateHandler();
+        var command = new CreateMaintenanceScheduleCommand(
+            "soc-001", "Monthly Maintenance", null, apartment.Id, 2500m,
+            MaintenancePricingType.FixedAmount, null, FeeFrequency.Monthly, 5, 4, 2026, 5, 2026);
+
+        // Act — window covers Apr+May; Apr exists unpaid (refresh), May exists paid (skip).
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        _chargeRepoMock.Verify(r => r.UpdateManyAsync(
+            It.Is<IReadOnlyList<MaintenanceCharge>>(charges => charges.Count == 1 && charges[0] == unpaidCharge),
+            It.IsAny<CancellationToken>()), Times.Once);
+        _chargeRepoMock.Verify(r => r.CreateManyAsync(
+            It.Is<IReadOnlyList<MaintenanceCharge>>(charges => charges.Count == 0),
+            It.IsAny<CancellationToken>()), Times.Once);
+        _chargeRepoMock.Verify(r => r.UpdateAsync(It.IsAny<MaintenanceCharge>(), It.IsAny<CancellationToken>()), Times.Never);
+        unpaidCharge.ScheduleName.Should().Be("Monthly Maintenance");
+        paidCharge.Amount.Should().Be(100m);
     }
 
     [Fact]
@@ -1013,6 +1080,67 @@ public class SubmitMaintenancePaymentProofCommandHandlerTests
         payment.Proofs.Should().ContainSingle();
         _notificationMock.Verify(n => n.SendPushNotificationAsync("admin-001", It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>(), It.IsAny<IReadOnlyDictionary<string, string>?>()), Times.Once);
     }
+
+    [Fact]
+    public async Task Handle_WithMultipleChargeIds_StampsEveryChargeWithTheSameSubmissionGroupId()
+    {
+        // Arrange — a resident clubbing three months' dues into one proof upload; the response
+        // (and each stored charge) must all carry the identical group id so clients can render
+        // them as one clubbed submission.
+        var apartment = Apartment.Create("soc-001", "A-101", "A", 1, 3, [], 500, 600, 700);
+        var chargeApr = MaintenanceCharge.Create("soc-001", apartment.Id, "schedule-001", "Monthly Maintenance", 2500m, new DateTime(2026, 4, 5, 0, 0, 0, DateTimeKind.Utc));
+        var chargeMay = MaintenanceCharge.Create("soc-001", apartment.Id, "schedule-001", "Monthly Maintenance", 2500m, new DateTime(2026, 5, 5, 0, 0, 0, DateTimeKind.Utc));
+        var resident = User.Create("soc-001", "Resident User", "resident@test.com", "9999999999", UserRole.SUUser, ResidentType.Owner, apartment.Id);
+        var society = Society.Create("Our Home", new Domain.ValueObjects.Address("Street", "City", "State", "12345", "India"), "soc@test.com", "8888888888", 1, 10);
+        society.AssignAdmin("admin-001");
+
+        _currentUserMock.SetupGet(x => x.UserId).Returns(resident.Id);
+        _currentUserMock.Setup(x => x.IsInRoles(It.IsAny<string[]>())).Returns(false);
+        _userRepoMock
+            .Setup(r => r.GetByIdAsync(resident.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(resident);
+        _societyRepoMock
+            .Setup(r => r.GetByIdAsync("soc-001", "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(society);
+        _chargeRepoMock
+            .Setup(r => r.GetByIdAsync(chargeApr.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(chargeApr);
+        _chargeRepoMock
+            .Setup(r => r.GetByIdAsync(chargeMay.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(chargeMay);
+        _chargeRepoMock
+            .Setup(r => r.UpdateAsync(It.IsAny<MaintenanceCharge>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MaintenanceCharge p, CancellationToken _) => p);
+        _chargeRepoMock
+            .Setup(r => r.GetByDueDateRangeAsync("soc-001", It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string _, DateTime __, DateTime ___, CancellationToken ____) => new List<MaintenanceCharge> { chargeApr, chargeMay });
+        _apartmentRepoMock
+            .Setup(r => r.GetByIdAsync(apartment.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(apartment);
+        _apartmentRepoMock
+            .Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync([apartment]);
+        _gridViewRepoMock
+            .Setup(r => r.GetByFinancialYearAsync("soc-001", It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MaintenanceChargeGridView?)null);
+        _gridViewRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<MaintenanceChargeGridView>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MaintenanceChargeGridView view, CancellationToken _) => view);
+
+        var handler = CreateHandler();
+        var command = new SubmitMaintenancePaymentProofCommand("soc-001", [chargeApr.Id, chargeMay.Id], "https://proofs.example.com/1", null);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().HaveCount(2);
+        var groupIds = result.Value!.Select(dto => dto.SubmissionGroupId).Distinct().ToList();
+        groupIds.Should().ContainSingle();
+        groupIds[0].Should().NotBeNullOrWhiteSpace();
+        chargeApr.LatestSubmissionGroupId.Should().Be(chargeMay.LatestSubmissionGroupId);
+    }
 }
 
 public class MarkMaintenanceChargePaidCommandHandlerTests
@@ -1070,6 +1198,378 @@ public class MarkMaintenanceChargePaidCommandHandlerTests
         charge.Status.Should().Be(PaymentStatus.Paid);
         charge.TransactionReference.Should().Be("TXN123");
         _eventPublisherMock.Verify(e => e.PublishAsync(It.IsAny<IDomainEvent>(), It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+    }
+}
+
+public class DenyMaintenancePaymentProofCommandHandlerTests
+{
+    private readonly Mock<IMaintenanceChargeRepository> _chargeRepoMock = new();
+    private readonly Mock<IMaintenanceChargeGridViewRepository> _gridViewRepoMock = new();
+    private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
+    private readonly Mock<ISocietyRepository> _societyRepoMock = new();
+    private readonly Mock<INotificationService> _notificationMock = new();
+    private readonly Mock<ICurrentUserService> _currentUserMock = new();
+    private readonly Mock<ILogger<DenyMaintenancePaymentProofCommandHandler>> _loggerMock = new();
+
+    private DenyMaintenancePaymentProofCommandHandler CreateHandler() =>
+        new(_chargeRepoMock.Object, _gridViewRepoMock.Object, _apartmentRepoMock.Object, _societyRepoMock.Object, _notificationMock.Object, _currentUserMock.Object, _loggerMock.Object);
+
+    private void SetupGridRebuild(Apartment apartment, MaintenanceCharge charge)
+    {
+        _apartmentRepoMock
+            .Setup(r => r.GetByIdAsync(apartment.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(apartment);
+        _apartmentRepoMock
+            .Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync([apartment]);
+        _chargeRepoMock
+            .Setup(r => r.GetByDueDateRangeAsync("soc-001", It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string _, DateTime __, DateTime ___, CancellationToken ____) => new List<MaintenanceCharge> { charge });
+        _gridViewRepoMock
+            .Setup(r => r.GetByFinancialYearAsync("soc-001", It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MaintenanceChargeGridView?)null);
+        _gridViewRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<MaintenanceChargeGridView>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MaintenanceChargeGridView view, CancellationToken _) => view);
+    }
+
+    [Fact]
+    public async Task Handle_WhenAdminDeniesASubmittedProof_SetsRejectedAndNotifiesTheSubmitter()
+    {
+        // Arrange
+        var apartment = Apartment.Create("soc-001", "A-101", "A", 1, 3, [], 500, 600, 700);
+        var charge = MaintenanceCharge.Create("soc-001", apartment.Id, "schedule-001", "Monthly Maintenance", 2500m, DateTime.UtcNow.AddDays(5));
+        charge.SubmitProof("https://proofs.example.com/1", null, "resident-001");
+        var society = Society.Create("Our Home", new Domain.ValueObjects.Address("Street", "City", "State", "12345", "India"), "soc@test.com", "8888888888", 1, 10);
+
+        _currentUserMock.Setup(x => x.IsInRoles(It.IsAny<string[]>())).Returns(true);
+        _societyRepoMock
+            .Setup(r => r.GetByIdAsync("soc-001", "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(society);
+        _chargeRepoMock
+            .Setup(r => r.GetByIdAsync(charge.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(charge);
+        _chargeRepoMock
+            .Setup(r => r.UpdateAsync(It.IsAny<MaintenanceCharge>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MaintenanceCharge c, CancellationToken _) => c);
+        SetupGridRebuild(apartment, charge);
+
+        var handler = CreateHandler();
+        var command = new DenyMaintenancePaymentProofCommand("soc-001", charge.Id, "Amount does not match the receipt.");
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Status.Should().Be("Rejected");
+        result.Value.RejectionReason.Should().Be("Amount does not match the receipt.");
+        charge.Status.Should().Be(PaymentStatus.Rejected);
+        _notificationMock.Verify(n => n.SendPushNotificationAsync(
+            "resident-001", It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>(), It.IsAny<IReadOnlyDictionary<string, string>?>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_WhenChargeHasNoSubmittedProof_ReturnsValidationFailure()
+    {
+        // Arrange — a Pending charge has nothing to deny.
+        var apartment = Apartment.Create("soc-001", "A-101", "A", 1, 3, [], 500, 600, 700);
+        var charge = MaintenanceCharge.Create("soc-001", apartment.Id, "schedule-001", "Monthly Maintenance", 2500m, DateTime.UtcNow.AddDays(5));
+        var society = Society.Create("Our Home", new Domain.ValueObjects.Address("Street", "City", "State", "12345", "India"), "soc@test.com", "8888888888", 1, 10);
+
+        _currentUserMock.Setup(x => x.IsInRoles(It.IsAny<string[]>())).Returns(true);
+        _societyRepoMock
+            .Setup(r => r.GetByIdAsync("soc-001", "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(society);
+        _chargeRepoMock
+            .Setup(r => r.GetByIdAsync(charge.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(charge);
+
+        var handler = CreateHandler();
+        var command = new DenyMaintenancePaymentProofCommand("soc-001", charge.Id, "No proof was submitted.");
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.ValidationFailed);
+        charge.Status.Should().Be(PaymentStatus.Pending);
+    }
+
+    [Fact]
+    public async Task FullCycle_SubmitDenyResubmitApprove_EachStepSucceedsThroughItsOwnHandler()
+    {
+        // Regression test for "once resubmitted, SUAdmin cannot view/approve/deny it" — drives
+        // the real HTTP-level handler chain a resident/admin would actually hit: submit proof,
+        // admin denies, resident resubmits, admin approves. Every step must succeed exactly like
+        // a fresh submission — nothing about the prior denial may block or bypass later review.
+        var apartment = Apartment.Create("soc-001", "A-101", "A", 1, 3, [], 500, 600, 700);
+        var charge = MaintenanceCharge.Create("soc-001", apartment.Id, "schedule-001", "Monthly Maintenance", 2500m, DateTime.UtcNow.AddDays(5));
+        var resident = User.Create("soc-001", "Resident User", "resident@test.com", "9999999999", UserRole.SUUser, ResidentType.Owner, apartment.Id);
+        var society = Society.Create("Our Home", new Domain.ValueObjects.Address("Street", "City", "State", "12345", "India"), "soc@test.com", "8888888888", 1, 10);
+        society.AssignAdmin("admin-001");
+
+        _societyRepoMock.Setup(r => r.GetByIdAsync("soc-001", "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync(society);
+        _chargeRepoMock.Setup(r => r.GetByIdAsync(charge.Id, "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync(charge);
+        _chargeRepoMock.Setup(r => r.UpdateAsync(It.IsAny<MaintenanceCharge>(), It.IsAny<CancellationToken>())).ReturnsAsync((MaintenanceCharge c, CancellationToken _) => c);
+        SetupGridRebuild(apartment, charge);
+
+        var userRepoMock = new Mock<IUserRepository>();
+        userRepoMock.Setup(r => r.GetByIdAsync(resident.Id, "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync(resident);
+        var eventPublisherMock = new Mock<IEventPublisher>();
+
+        var submitHandler = new SubmitMaintenancePaymentProofCommandHandler(
+            _chargeRepoMock.Object, _gridViewRepoMock.Object, _apartmentRepoMock.Object, _societyRepoMock.Object,
+            userRepoMock.Object, _notificationMock.Object, _currentUserMock.Object,
+            Mock.Of<ILogger<SubmitMaintenancePaymentProofCommandHandler>>());
+        var denyHandler = CreateHandler();
+        var approveHandler = new ApproveMaintenancePaymentProofCommandHandler(
+            _chargeRepoMock.Object, _gridViewRepoMock.Object, _apartmentRepoMock.Object, _societyRepoMock.Object,
+            eventPublisherMock.Object, _currentUserMock.Object,
+            Mock.Of<ILogger<ApproveMaintenancePaymentProofCommandHandler>>());
+
+        // Step 1: resident submits the original proof.
+        _currentUserMock.SetupGet(x => x.UserId).Returns(resident.Id);
+        _currentUserMock.Setup(x => x.IsInRoles(It.IsAny<string[]>())).Returns(false);
+        var submitResult = await submitHandler.Handle(
+            new SubmitMaintenancePaymentProofCommand("soc-001", [charge.Id], "https://proofs.example.com/v1", null), CancellationToken.None);
+        submitResult.IsSuccess.Should().BeTrue("the initial submission should succeed");
+        charge.Status.Should().Be(PaymentStatus.ProofSubmitted);
+
+        // Step 2: admin denies it.
+        _currentUserMock.Setup(x => x.IsInRoles(It.IsAny<string[]>())).Returns(true);
+        var denyResult = await denyHandler.Handle(
+            new DenyMaintenancePaymentProofCommand("soc-001", charge.Id, "Wrong amount."), CancellationToken.None);
+        denyResult.IsSuccess.Should().BeTrue("the admin must be able to deny the fresh submission");
+        charge.Status.Should().Be(PaymentStatus.Rejected);
+
+        // Step 3: resident resubmits — this is the exact point the bug report says breaks.
+        _currentUserMock.SetupGet(x => x.UserId).Returns(resident.Id);
+        _currentUserMock.Setup(x => x.IsInRoles(It.IsAny<string[]>())).Returns(false);
+        var resubmitResult = await submitHandler.Handle(
+            new SubmitMaintenancePaymentProofCommand("soc-001", [charge.Id], "https://proofs.example.com/v2", null), CancellationToken.None);
+        resubmitResult.IsSuccess.Should().BeTrue("resubmission after a denial must succeed exactly like a fresh submission");
+        charge.Status.Should().Be(PaymentStatus.ProofSubmitted);
+        charge.RejectionReason.Should().BeNull("a resubmission clears the stale denial reason");
+
+        // Step 4: admin can approve the resubmitted proof — the "normal procedure" the report asks for.
+        _currentUserMock.Setup(x => x.IsInRoles(It.IsAny<string[]>())).Returns(true);
+        var approveResult = await approveHandler.Handle(
+            new ApproveMaintenancePaymentProofCommand("soc-001", charge.Id, "UPI", "TXN-999", null, null), CancellationToken.None);
+        approveResult.IsSuccess.Should().BeTrue("the admin must be able to approve the resubmitted proof");
+        charge.Status.Should().Be(PaymentStatus.Paid);
+    }
+
+    [Fact]
+    public async Task Handle_WhenActorIsNotAdmin_ReturnsForbidden()
+    {
+        _currentUserMock.Setup(x => x.IsInRoles(It.IsAny<string[]>())).Returns(false);
+
+        var handler = CreateHandler();
+        var command = new DenyMaintenancePaymentProofCommand("soc-001", "charge-001", "Some reason.");
+
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.Forbidden);
+    }
+}
+
+public class ApproveMaintenancePaymentProofGroupCommandHandlerTests
+{
+    private readonly Mock<IMaintenanceChargeRepository> _chargeRepoMock = new();
+    private readonly Mock<IMaintenanceChargeGridViewRepository> _gridViewRepoMock = new();
+    private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
+    private readonly Mock<ISocietyRepository> _societyRepoMock = new();
+    private readonly Mock<IEventPublisher> _eventPublisherMock = new();
+    private readonly Mock<ICurrentUserService> _currentUserMock = new();
+    private readonly Mock<ILogger<ApproveMaintenancePaymentProofGroupCommandHandler>> _loggerMock = new();
+
+    private ApproveMaintenancePaymentProofGroupCommandHandler CreateHandler() =>
+        new(_chargeRepoMock.Object, _gridViewRepoMock.Object, _apartmentRepoMock.Object, _societyRepoMock.Object, _eventPublisherMock.Object, _currentUserMock.Object, _loggerMock.Object);
+
+    [Fact]
+    public async Task Handle_WithMultipleChargeIds_ApprovesEveryChargeWithTheSameSettlement()
+    {
+        // Arrange — approving a clubbed submission (three months) with one payment reference.
+        var apartment = Apartment.Create("soc-001", "A-101", "A", 1, 3, [], 500, 600, 700);
+        var chargeApr = MaintenanceCharge.Create("soc-001", apartment.Id, "schedule-001", "Monthly Maintenance", 2500m, new DateTime(2026, 4, 5, 0, 0, 0, DateTimeKind.Utc));
+        var chargeMay = MaintenanceCharge.Create("soc-001", apartment.Id, "schedule-001", "Monthly Maintenance", 2500m, new DateTime(2026, 5, 5, 0, 0, 0, DateTimeKind.Utc));
+        chargeApr.SubmitProof("https://proofs.example.com/1", null, "resident-001", "group-1");
+        chargeMay.SubmitProof("https://proofs.example.com/1", null, "resident-001", "group-1");
+        var society = Society.Create("Our Home", new Domain.ValueObjects.Address("Street", "City", "State", "12345", "India"), "soc@test.com", "8888888888", 1, 10);
+
+        _currentUserMock.Setup(x => x.IsInRoles(It.IsAny<string[]>())).Returns(true);
+        _societyRepoMock
+            .Setup(r => r.GetByIdAsync("soc-001", "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(society);
+        _chargeRepoMock
+            .Setup(r => r.GetByIdAsync(chargeApr.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(chargeApr);
+        _chargeRepoMock
+            .Setup(r => r.GetByIdAsync(chargeMay.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(chargeMay);
+        _chargeRepoMock
+            .Setup(r => r.UpdateAsync(It.IsAny<MaintenanceCharge>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MaintenanceCharge c, CancellationToken _) => c);
+        _chargeRepoMock
+            .Setup(r => r.GetByDueDateRangeAsync("soc-001", It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string _, DateTime __, DateTime ___, CancellationToken ____) => new List<MaintenanceCharge> { chargeApr, chargeMay });
+        _apartmentRepoMock
+            .Setup(r => r.GetByIdAsync(apartment.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(apartment);
+        _apartmentRepoMock
+            .Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync([apartment]);
+        _gridViewRepoMock
+            .Setup(r => r.GetByFinancialYearAsync("soc-001", It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MaintenanceChargeGridView?)null);
+        _gridViewRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<MaintenanceChargeGridView>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MaintenanceChargeGridView view, CancellationToken _) => view);
+
+        var handler = CreateHandler();
+        var command = new ApproveMaintenancePaymentProofGroupCommand("soc-001", [chargeApr.Id, chargeMay.Id], "UPI", "TXN999", null, null);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().HaveCount(2);
+        result.Value!.Should().OnlyContain(dto => dto.Status == "Paid" && dto.TransactionReference == "TXN999");
+        chargeApr.Status.Should().Be(PaymentStatus.Paid);
+        chargeMay.Status.Should().Be(PaymentStatus.Paid);
+        _eventPublisherMock.Verify(e => e.PublishAsync(
+            It.Is<IDomainEvent>(evt => evt is FeePaymentReceivedEvent), It.IsAny<CancellationToken>()), Times.Exactly(2));
+    }
+
+    [Fact]
+    public async Task Handle_WithEmptyChargeIds_ReturnsValidationFailure()
+    {
+        _currentUserMock.Setup(x => x.IsInRoles(It.IsAny<string[]>())).Returns(true);
+
+        var handler = CreateHandler();
+        var command = new ApproveMaintenancePaymentProofGroupCommand("soc-001", [], "UPI", null, null, null);
+
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.ValidationFailed);
+    }
+
+    [Fact]
+    public async Task Handle_WhenActorIsNotAdmin_ReturnsForbidden()
+    {
+        _currentUserMock.Setup(x => x.IsInRoles(It.IsAny<string[]>())).Returns(false);
+
+        var handler = CreateHandler();
+        var command = new ApproveMaintenancePaymentProofGroupCommand("soc-001", ["charge-001"], "UPI", null, null, null);
+
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.Forbidden);
+    }
+}
+
+public class DenyMaintenancePaymentProofGroupCommandHandlerTests
+{
+    private readonly Mock<IMaintenanceChargeRepository> _chargeRepoMock = new();
+    private readonly Mock<IMaintenanceChargeGridViewRepository> _gridViewRepoMock = new();
+    private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
+    private readonly Mock<ISocietyRepository> _societyRepoMock = new();
+    private readonly Mock<INotificationService> _notificationMock = new();
+    private readonly Mock<ICurrentUserService> _currentUserMock = new();
+    private readonly Mock<ILogger<DenyMaintenancePaymentProofGroupCommandHandler>> _loggerMock = new();
+
+    private DenyMaintenancePaymentProofGroupCommandHandler CreateHandler() =>
+        new(_chargeRepoMock.Object, _gridViewRepoMock.Object, _apartmentRepoMock.Object, _societyRepoMock.Object, _notificationMock.Object, _currentUserMock.Object, _loggerMock.Object);
+
+    [Fact]
+    public async Task Handle_WithMultipleChargeIds_DeniesEveryChargeAndNotifiesTheSubmitterOnce()
+    {
+        // Arrange — the same resident submitted every charge in the group, so only one
+        // notification should go out even though three charges are being denied at once.
+        var apartment = Apartment.Create("soc-001", "A-101", "A", 1, 3, [], 500, 600, 700);
+        var chargeApr = MaintenanceCharge.Create("soc-001", apartment.Id, "schedule-001", "Monthly Maintenance", 2500m, new DateTime(2026, 4, 5, 0, 0, 0, DateTimeKind.Utc));
+        var chargeMay = MaintenanceCharge.Create("soc-001", apartment.Id, "schedule-001", "Monthly Maintenance", 2500m, new DateTime(2026, 5, 5, 0, 0, 0, DateTimeKind.Utc));
+        chargeApr.SubmitProof("https://proofs.example.com/1", null, "resident-001", "group-1");
+        chargeMay.SubmitProof("https://proofs.example.com/1", null, "resident-001", "group-1");
+        var society = Society.Create("Our Home", new Domain.ValueObjects.Address("Street", "City", "State", "12345", "India"), "soc@test.com", "8888888888", 1, 10);
+
+        _currentUserMock.Setup(x => x.IsInRoles(It.IsAny<string[]>())).Returns(true);
+        _societyRepoMock
+            .Setup(r => r.GetByIdAsync("soc-001", "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(society);
+        _chargeRepoMock
+            .Setup(r => r.GetByIdAsync(chargeApr.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(chargeApr);
+        _chargeRepoMock
+            .Setup(r => r.GetByIdAsync(chargeMay.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(chargeMay);
+        _chargeRepoMock
+            .Setup(r => r.UpdateAsync(It.IsAny<MaintenanceCharge>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MaintenanceCharge c, CancellationToken _) => c);
+        _chargeRepoMock
+            .Setup(r => r.GetByDueDateRangeAsync("soc-001", It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string _, DateTime __, DateTime ___, CancellationToken ____) => new List<MaintenanceCharge> { chargeApr, chargeMay });
+        _apartmentRepoMock
+            .Setup(r => r.GetByIdAsync(apartment.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(apartment);
+        _apartmentRepoMock
+            .Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync([apartment]);
+        _gridViewRepoMock
+            .Setup(r => r.GetByFinancialYearAsync("soc-001", It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MaintenanceChargeGridView?)null);
+        _gridViewRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<MaintenanceChargeGridView>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MaintenanceChargeGridView view, CancellationToken _) => view);
+
+        var handler = CreateHandler();
+        var command = new DenyMaintenancePaymentProofGroupCommand("soc-001", [chargeApr.Id, chargeMay.Id], "Receipt total does not match.");
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().HaveCount(2);
+        result.Value!.Should().OnlyContain(dto => dto.Status == "Rejected" && dto.RejectionReason == "Receipt total does not match.");
+        chargeApr.Status.Should().Be(PaymentStatus.Rejected);
+        chargeMay.Status.Should().Be(PaymentStatus.Rejected);
+        _notificationMock.Verify(n => n.SendPushNotificationAsync(
+            "resident-001", It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>(), It.IsAny<IReadOnlyDictionary<string, string>?>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_WithEmptyChargeIds_ReturnsValidationFailure()
+    {
+        _currentUserMock.Setup(x => x.IsInRoles(It.IsAny<string[]>())).Returns(true);
+
+        var handler = CreateHandler();
+        var command = new DenyMaintenancePaymentProofGroupCommand("soc-001", [], "reason");
+
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.ValidationFailed);
+    }
+
+    [Fact]
+    public async Task Handle_WhenActorIsNotAdmin_ReturnsForbidden()
+    {
+        _currentUserMock.Setup(x => x.IsInRoles(It.IsAny<string[]>())).Returns(false);
+
+        var handler = CreateHandler();
+        var command = new DenyMaintenancePaymentProofGroupCommand("soc-001", ["charge-001"], "reason");
+
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.Forbidden);
     }
 }
 

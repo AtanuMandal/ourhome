@@ -351,10 +351,14 @@ public static class MappingExtensions
                     proof.ProofUrl,
                     proof.Notes,
                     proof.SubmittedByUserId,
-                    proof.SubmittedAt))
+                    proof.SubmittedAt,
+                    proof.SubmissionGroupId))
                 .ToList(),
             charge.CreatedAt,
-            charge.UpdatedAt);
+            charge.UpdatedAt,
+            charge.RejectionReason,
+            charge.RejectedAt,
+            charge.LatestSubmissionGroupId);
 
     public static CompetitionResponse ToResponse(this Competition competition) =>
         new(

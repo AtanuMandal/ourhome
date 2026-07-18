@@ -279,7 +279,8 @@ public sealed record MaintenancePaymentProofDto(
     string ProofUrl,
     string? Notes,
     string SubmittedByUserId,
-    DateTime SubmittedAt);
+    DateTime SubmittedAt,
+    string SubmissionGroupId = "");
 
 public sealed record MaintenanceChargeDto(
     string Id,
@@ -301,7 +302,13 @@ public sealed record MaintenanceChargeDto(
     string? Notes,
     IReadOnlyList<MaintenancePaymentProofDto> Proofs,
     DateTime CreatedAt,
-    DateTime UpdatedAt);
+    DateTime UpdatedAt,
+    string? RejectionReason = null,
+    DateTime? RejectedAt = null,
+    // The most recently submitted proof's group id — clients use this (together with ApartmentId)
+    // to cluster charges that a resident submitted together into one "clubbed submission" card.
+    // Only meaningful while Status is ProofSubmitted or Paid.
+    string? SubmissionGroupId = null);
 
 public sealed record MaintenanceChargeGridChargeDto(
     string Id,
@@ -316,7 +323,10 @@ public sealed record MaintenanceChargeGridChargeDto(
     string? TransactionReference,
     string? ReceiptUrl,
     string? Notes,
-    IReadOnlyList<MaintenancePaymentProofDto> Proofs);
+    IReadOnlyList<MaintenancePaymentProofDto> Proofs,
+    string? RejectionReason = null,
+    DateTime? RejectedAt = null,
+    string? SubmissionGroupId = null);
 
 public sealed record MaintenanceChargeGridCellDto(
     int Month,
@@ -378,6 +388,19 @@ public sealed record MarkMaintenanceChargePaidRequest(
     string? TransactionReference,
     string? ReceiptUrl = null,
     string? Notes = null);
+
+public sealed record DenyMaintenancePaymentProofRequest(string Reason);
+
+public sealed record ApproveMaintenancePaymentProofGroupRequest(
+    IReadOnlyList<string> ChargeIds,
+    string PaymentMethod,
+    string? TransactionReference,
+    string? ReceiptUrl = null,
+    string? Notes = null);
+
+public sealed record DenyMaintenancePaymentProofGroupRequest(
+    IReadOnlyList<string> ChargeIds,
+    string Reason);
 
 public sealed record CreateMaintenancePenaltyChargeRequest(
     string ApartmentId,

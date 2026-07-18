@@ -261,6 +261,9 @@ public sealed class SubmitMaintenancePaymentProofCommandHandler(
             var society = await societyRepository.GetByIdAsync(request.SocietyId, request.SocietyId, ct)
                 ?? throw new NotFoundException("Society", request.SocietyId);
 
+            // One group id for every charge in this call — lets clients cluster a clubbed
+            // submission (e.g. three months' dues uploaded together) into a single review card.
+            var submissionGroupId = Guid.NewGuid().ToString("N");
             var updated = new List<MaintenanceChargeDto>(request.ChargeIds.Count);
             var impactedFinancialYears = new HashSet<int>();
             foreach (var chargeId in request.ChargeIds.Distinct(StringComparer.OrdinalIgnoreCase))
@@ -271,7 +274,7 @@ public sealed class SubmitMaintenancePaymentProofCommandHandler(
                 if (!isAdmin && actor.ApartmentId != charge.ApartmentId)
                     throw new ForbiddenException("Residents can only submit proof for their own apartment charges.");
 
-                charge.SubmitProof(request.ProofUrl, request.Notes, actor.Id);
+                charge.SubmitProof(request.ProofUrl, request.Notes, actor.Id, submissionGroupId);
                 var saved = await chargeRepository.UpdateAsync(charge, ct);
                 impactedFinancialYears.Add(MaintenanceGridProjectionHelper.GetFinancialYearStart(saved.DueDate));
                 var apartment = await apartmentRepository.GetByIdAsync(saved.ApartmentId, request.SocietyId, ct);
@@ -466,6 +469,226 @@ public sealed class ApproveMaintenancePaymentProofCommandHandler(
     }
 }
 
+public record DenyMaintenancePaymentProofCommand(
+    string SocietyId,
+    string ChargeId,
+    string Reason)
+    : IRequest<Result<MaintenanceChargeDto>>;
+
+/// <summary>Admin reviews a single submitted proof and isn't satisfied — the charge falls back to
+/// Rejected (the resident's normal "unpaid, please resubmit" view) with a comment explaining why.</summary>
+public sealed class DenyMaintenancePaymentProofCommandHandler(
+    IMaintenanceChargeRepository chargeRepository,
+    IMaintenanceChargeGridViewRepository gridViewRepository,
+    IApartmentRepository apartmentRepository,
+    ISocietyRepository societyRepository,
+    INotificationService notificationService,
+    ICurrentUserService currentUserService,
+    ILogger<DenyMaintenancePaymentProofCommandHandler> logger)
+    : IRequestHandler<DenyMaintenancePaymentProofCommand, Result<MaintenanceChargeDto>>
+{
+    public async Task<Result<MaintenanceChargeDto>> Handle(DenyMaintenancePaymentProofCommand request, CancellationToken ct)
+    {
+        try
+        {
+            MaintenanceAuthorization.EnsureAdmin(currentUserService);
+
+            var society = await societyRepository.GetByIdAsync(request.SocietyId, request.SocietyId, ct)
+                ?? throw new NotFoundException("Society", request.SocietyId);
+            var charge = await chargeRepository.GetByIdAsync(request.ChargeId, request.SocietyId, ct)
+                ?? throw new NotFoundException("MaintenanceCharge", request.ChargeId);
+
+            var submittedByUserId = charge.Proofs.LastOrDefault()?.SubmittedByUserId;
+            charge.RejectProof(request.Reason);
+            var updated = await chargeRepository.UpdateAsync(charge, ct);
+            await MaintenanceGridProjectionHelper.RebuildForChargeAsync(updated, chargeRepository, apartmentRepository, gridViewRepository, ct);
+
+            if (!string.IsNullOrWhiteSpace(submittedByUserId))
+                await notificationService.SendPushNotificationAsync(
+                    submittedByUserId,
+                    "Maintenance payment proof denied",
+                    $"Your submitted proof for {updated.ScheduleName} was denied: {request.Reason}",
+                    ct);
+
+            var apartment = await apartmentRepository.GetByIdAsync(updated.ApartmentId, request.SocietyId, ct);
+            return Result<MaintenanceChargeDto>.Success(updated.ToResponse(apartment?.ToDisplayLabel() ?? updated.ApartmentId, society.MaintenanceOverdueThresholdDays));
+        }
+        catch (ForbiddenException ex)
+        {
+            return Result<MaintenanceChargeDto>.Failure(ErrorCodes.Forbidden, ex.Message);
+        }
+        catch (NotFoundException ex)
+        {
+            return Result<MaintenanceChargeDto>.Failure(ErrorCodes.PaymentNotFound, ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Result<MaintenanceChargeDto>.Failure(ErrorCodes.ValidationFailed, ex.Message);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to deny maintenance payment proof for charge {ChargeId}", request.ChargeId);
+            return Result<MaintenanceChargeDto>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
+public record ApproveMaintenancePaymentProofGroupCommand(
+    string SocietyId,
+    IReadOnlyList<string> ChargeIds,
+    string PaymentMethod,
+    string? TransactionReference,
+    string? ReceiptUrl,
+    string? Notes)
+    : IRequest<Result<IReadOnlyList<MaintenanceChargeDto>>>;
+
+/// <summary>Approves every charge in a clubbed submission with one action — the same settlement
+/// details (payment method/reference/receipt) are applied to each member charge.</summary>
+public sealed class ApproveMaintenancePaymentProofGroupCommandHandler(
+    IMaintenanceChargeRepository chargeRepository,
+    IMaintenanceChargeGridViewRepository gridViewRepository,
+    IApartmentRepository apartmentRepository,
+    ISocietyRepository societyRepository,
+    IEventPublisher eventPublisher,
+    ICurrentUserService currentUserService,
+    ILogger<ApproveMaintenancePaymentProofGroupCommandHandler> logger)
+    : IRequestHandler<ApproveMaintenancePaymentProofGroupCommand, Result<IReadOnlyList<MaintenanceChargeDto>>>
+{
+    public async Task<Result<IReadOnlyList<MaintenanceChargeDto>>> Handle(ApproveMaintenancePaymentProofGroupCommand request, CancellationToken ct)
+    {
+        try
+        {
+            MaintenanceAuthorization.EnsureAdmin(currentUserService);
+
+            if (request.ChargeIds.Count == 0)
+                return Result<IReadOnlyList<MaintenanceChargeDto>>.Failure(ErrorCodes.ValidationFailed, "At least one charge id is required.");
+
+            var society = await societyRepository.GetByIdAsync(request.SocietyId, request.SocietyId, ct)
+                ?? throw new NotFoundException("Society", request.SocietyId);
+
+            var updated = new List<MaintenanceChargeDto>(request.ChargeIds.Count);
+            var impactedFinancialYears = new HashSet<int>();
+            foreach (var chargeId in request.ChargeIds.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                var charge = await chargeRepository.GetByIdAsync(chargeId, request.SocietyId, ct)
+                    ?? throw new NotFoundException("MaintenanceCharge", chargeId);
+
+                charge.ApprovePayment(request.PaymentMethod, request.TransactionReference, request.ReceiptUrl, request.Notes);
+                var saved = await chargeRepository.UpdateAsync(charge, ct);
+                impactedFinancialYears.Add(MaintenanceGridProjectionHelper.GetFinancialYearStart(saved.DueDate));
+
+                foreach (var evt in saved.DomainEvents)
+                    await eventPublisher.PublishAsync(evt, ct);
+                saved.ClearDomainEvents();
+
+                var apartment = await apartmentRepository.GetByIdAsync(saved.ApartmentId, request.SocietyId, ct);
+                updated.Add(saved.ToResponse(apartment?.ToDisplayLabel() ?? saved.ApartmentId, society.MaintenanceOverdueThresholdDays));
+            }
+
+            await MaintenanceGridProjectionHelper.RebuildForFinancialYearsAsync(
+                request.SocietyId, impactedFinancialYears, chargeRepository, apartmentRepository, gridViewRepository, ct);
+
+            return Result<IReadOnlyList<MaintenanceChargeDto>>.Success(updated);
+        }
+        catch (ForbiddenException ex)
+        {
+            return Result<IReadOnlyList<MaintenanceChargeDto>>.Failure(ErrorCodes.Forbidden, ex.Message);
+        }
+        catch (NotFoundException ex)
+        {
+            return Result<IReadOnlyList<MaintenanceChargeDto>>.Failure(ErrorCodes.PaymentNotFound, ex.Message);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to approve grouped maintenance payment proof for society {SocietyId}", request.SocietyId);
+            return Result<IReadOnlyList<MaintenanceChargeDto>>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
+public record DenyMaintenancePaymentProofGroupCommand(
+    string SocietyId,
+    IReadOnlyList<string> ChargeIds,
+    string Reason)
+    : IRequest<Result<IReadOnlyList<MaintenanceChargeDto>>>;
+
+/// <summary>Denies every charge in a clubbed submission with one action and one comment — once
+/// denied, the charges are Rejected individually and no longer form a group (each falls back to
+/// the resident's normal resubmit flow).</summary>
+public sealed class DenyMaintenancePaymentProofGroupCommandHandler(
+    IMaintenanceChargeRepository chargeRepository,
+    IMaintenanceChargeGridViewRepository gridViewRepository,
+    IApartmentRepository apartmentRepository,
+    ISocietyRepository societyRepository,
+    INotificationService notificationService,
+    ICurrentUserService currentUserService,
+    ILogger<DenyMaintenancePaymentProofGroupCommandHandler> logger)
+    : IRequestHandler<DenyMaintenancePaymentProofGroupCommand, Result<IReadOnlyList<MaintenanceChargeDto>>>
+{
+    public async Task<Result<IReadOnlyList<MaintenanceChargeDto>>> Handle(DenyMaintenancePaymentProofGroupCommand request, CancellationToken ct)
+    {
+        try
+        {
+            MaintenanceAuthorization.EnsureAdmin(currentUserService);
+
+            if (request.ChargeIds.Count == 0)
+                return Result<IReadOnlyList<MaintenanceChargeDto>>.Failure(ErrorCodes.ValidationFailed, "At least one charge id is required.");
+
+            var society = await societyRepository.GetByIdAsync(request.SocietyId, request.SocietyId, ct)
+                ?? throw new NotFoundException("Society", request.SocietyId);
+
+            var updated = new List<MaintenanceChargeDto>(request.ChargeIds.Count);
+            var impactedFinancialYears = new HashSet<int>();
+            var notifyUserIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var chargeId in request.ChargeIds.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                var charge = await chargeRepository.GetByIdAsync(chargeId, request.SocietyId, ct)
+                    ?? throw new NotFoundException("MaintenanceCharge", chargeId);
+
+                var submittedByUserId = charge.Proofs.LastOrDefault()?.SubmittedByUserId;
+                if (!string.IsNullOrWhiteSpace(submittedByUserId))
+                    notifyUserIds.Add(submittedByUserId);
+
+                charge.RejectProof(request.Reason);
+                var saved = await chargeRepository.UpdateAsync(charge, ct);
+                impactedFinancialYears.Add(MaintenanceGridProjectionHelper.GetFinancialYearStart(saved.DueDate));
+
+                var apartment = await apartmentRepository.GetByIdAsync(saved.ApartmentId, request.SocietyId, ct);
+                updated.Add(saved.ToResponse(apartment?.ToDisplayLabel() ?? saved.ApartmentId, society.MaintenanceOverdueThresholdDays));
+            }
+
+            await MaintenanceGridProjectionHelper.RebuildForFinancialYearsAsync(
+                request.SocietyId, impactedFinancialYears, chargeRepository, apartmentRepository, gridViewRepository, ct);
+
+            foreach (var userId in notifyUserIds)
+                await notificationService.SendPushNotificationAsync(
+                    userId,
+                    "Maintenance payment proof denied",
+                    $"Your submitted proof was denied: {request.Reason}",
+                    ct);
+
+            return Result<IReadOnlyList<MaintenanceChargeDto>>.Success(updated);
+        }
+        catch (ForbiddenException ex)
+        {
+            return Result<IReadOnlyList<MaintenanceChargeDto>>.Failure(ErrorCodes.Forbidden, ex.Message);
+        }
+        catch (NotFoundException ex)
+        {
+            return Result<IReadOnlyList<MaintenanceChargeDto>>.Failure(ErrorCodes.PaymentNotFound, ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Result<IReadOnlyList<MaintenanceChargeDto>>.Failure(ErrorCodes.ValidationFailed, ex.Message);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to deny grouped maintenance payment proof for society {SocietyId}", request.SocietyId);
+            return Result<IReadOnlyList<MaintenanceChargeDto>>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
 public record CreateMaintenancePenaltyChargeCommand(
     string SocietyId,
     string ApartmentId,
@@ -594,31 +817,41 @@ internal static class MaintenanceChargeGenerator
         CancellationToken ct)
     {
         var apartments = await ResolveTargetApartmentsAsync(schedule, apartmentRepository, ct);
+
+        // One query for every charge this schedule owns, checked against an in-memory map —
+        // previously this was a Cosmos lookup per apartment-month pair, which made creating a
+        // 12-month schedule over a whole society take dozens of seconds.
+        var existingCharges = await chargeRepository.GetByScheduleAsync(schedule.SocietyId, schedule.Id, ct);
+        var existingByKey = existingCharges.ToDictionary(
+            charge => ChargeKey(charge.ApartmentId, charge.ChargeYear, charge.ChargeMonth),
+            StringComparer.OrdinalIgnoreCase);
+
         var desiredChargeKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var createdOrUpdated = 0;
+        var toCreate = new List<MaintenanceCharge>();
+        var toUpdate = new List<MaintenanceCharge>();
 
         foreach (var dueDate in EnumerateDueDates(schedule, horizonUtc))
-        {
-            foreach (var apartment in apartments)
-                desiredChargeKeys.Add(ChargeKey(apartment.Id, dueDate.Year, dueDate.Month));
+            CollectChargesForDueDate(schedule, dueDate, apartments, existingByKey, desiredChargeKeys, toCreate, toUpdate);
 
-            createdOrUpdated += await UpsertChargesForDueDateAsync(schedule, dueDate, apartments, chargeRepository, ct);
-        }
+        // Batched writes: one round trip per 100 charges (Cosmos TransactionalBatch on the
+        // societyId partition) instead of one round trip per charge.
+        await chargeRepository.CreateManyAsync(toCreate, ct);
+        await chargeRepository.UpdateManyAsync(toUpdate, ct);
 
-        var existingCharges = await chargeRepository.GetByScheduleAsync(schedule.SocietyId, schedule.Id, ct);
         var cancellationStartDate = schedule.IsActive
             ? schedule.NextDueDate.Date
             : (schedule.InactiveFromDate?.Date ?? schedule.NextDueDate.Date);
 
-        foreach (var charge in existingCharges.Where(charge =>
-                     charge.DueDate.Date >= cancellationStartDate &&
-                     !desiredChargeKeys.Contains(ChargeKey(charge.ApartmentId, charge.ChargeYear, charge.ChargeMonth)) &&
-                     charge.Status != PaymentStatus.Paid))
-        {
-            await chargeRepository.DeleteAsync(charge.Id, charge.SocietyId, ct);
-        }
+        var staleChargeIds = existingCharges
+            .Where(charge =>
+                charge.DueDate.Date >= cancellationStartDate &&
+                !desiredChargeKeys.Contains(ChargeKey(charge.ApartmentId, charge.ChargeYear, charge.ChargeMonth)) &&
+                charge.Status != PaymentStatus.Paid)
+            .Select(charge => charge.Id)
+            .ToList();
+        await chargeRepository.DeleteManyAsync(schedule.SocietyId, staleChargeIds, ct);
 
-        return createdOrUpdated;
+        return toCreate.Count;
     }
 
     public static async Task<int> UpsertChargesForDueDateAsync(
@@ -629,45 +862,52 @@ internal static class MaintenanceChargeGenerator
         CancellationToken ct)
     {
         var apartments = await ResolveTargetApartmentsAsync(schedule, apartmentRepository, ct);
-        return await UpsertChargesForDueDateAsync(schedule, dueDate, apartments, chargeRepository, ct);
+        var existingCharges = await chargeRepository.GetByScheduleAsync(schedule.SocietyId, schedule.Id, ct);
+        var existingByKey = existingCharges.ToDictionary(
+            charge => ChargeKey(charge.ApartmentId, charge.ChargeYear, charge.ChargeMonth),
+            StringComparer.OrdinalIgnoreCase);
+
+        var desiredChargeKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var toCreate = new List<MaintenanceCharge>();
+        var toUpdate = new List<MaintenanceCharge>();
+        CollectChargesForDueDate(schedule, dueDate, apartments, existingByKey, desiredChargeKeys, toCreate, toUpdate);
+
+        await chargeRepository.CreateManyAsync(toCreate, ct);
+        await chargeRepository.UpdateManyAsync(toUpdate, ct);
+        return toCreate.Count;
     }
 
-    private static async Task<int> UpsertChargesForDueDateAsync(
+    /// <summary>Pure in-memory pass: decides, per apartment, whether the period's charge must be
+    /// created or refreshed. Paid charges are never touched; a period seen twice is skipped so
+    /// it cannot be double-created within one run.</summary>
+    private static void CollectChargesForDueDate(
         MaintenanceSchedule schedule,
         DateTime dueDate,
         IReadOnlyList<Domain.Entities.Apartment> apartments,
-        IMaintenanceChargeRepository chargeRepository,
-        CancellationToken ct)
+        IReadOnlyDictionary<string, MaintenanceCharge> existingByKey,
+        HashSet<string> desiredChargeKeys,
+        List<MaintenanceCharge> toCreate,
+        List<MaintenanceCharge> toUpdate)
     {
-        var count = 0;
         foreach (var apartment in apartments)
         {
-            var amount = CalculateAmount(schedule, apartment);
-            var existing = await chargeRepository.GetByScheduleAndPeriodAsync(
-                schedule.SocietyId,
-                schedule.Id,
-                apartment.Id,
-                dueDate.Year,
-                dueDate.Month,
-                ct);
+            var key = ChargeKey(apartment.Id, dueDate.Year, dueDate.Month);
+            if (!desiredChargeKeys.Add(key))
+                continue;
 
-            if (existing is null)
+            var amount = CalculateAmount(schedule, apartment);
+            if (existingByKey.TryGetValue(key, out var existing))
             {
-                await chargeRepository.CreateAsync(
-                    MaintenanceCharge.Create(schedule.SocietyId, apartment.Id, schedule.Id, schedule.Name, amount, dueDate),
-                    ct);
-                count++;
+                if (existing.Status == PaymentStatus.Paid)
+                    continue;
+
+                existing.RefreshAmount(amount, schedule.Name, dueDate);
+                toUpdate.Add(existing);
                 continue;
             }
 
-            if (existing.Status == PaymentStatus.Paid)
-                continue;
-
-            existing.RefreshAmount(amount, schedule.Name, dueDate);
-            await chargeRepository.UpdateAsync(existing, ct);
+            toCreate.Add(MaintenanceCharge.Create(schedule.SocietyId, apartment.Id, schedule.Id, schedule.Name, amount, dueDate));
         }
-
-        return count;
     }
 
     private static async Task<IReadOnlyList<Domain.Entities.Apartment>> ResolveTargetApartmentsAsync(
@@ -820,7 +1060,10 @@ internal static class MaintenanceGridProjectionHelper
                                         proof.ProofUrl,
                                         proof.Notes,
                                         proof.SubmittedByUserId,
-                                        proof.SubmittedAt)).ToList()))
+                                        proof.SubmittedAt,
+                                        proof.SubmissionGroupId)).ToList(),
+                                    charge.RejectionReason,
+                                    charge.RejectedAt))
                                 .ToList();
 
                             return new MaintenanceChargeGridView.GridCell(periodMonth.Month, periodMonth.Year, periodCharges);

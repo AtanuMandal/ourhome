@@ -6,6 +6,8 @@ interface UseInfiniteListOptions<T> {
   fetchPage: (page: number) => Promise<PaginatedResponse<T>>;
   staleTime?: number;
   enabled?: boolean;
+  /** Silently re-fetch all currently loaded pages on an interval (ms), or false to disable. */
+  refetchInterval?: number | false;
 }
 
 interface UseInfiniteListReturn<T> {
@@ -22,6 +24,7 @@ export function useInfiniteList<T>({
   fetchPage,
   staleTime,
   enabled = true,
+  refetchInterval,
 }: UseInfiniteListOptions<T>): UseInfiniteListReturn<T> {
   const query = useInfiniteQuery({
     queryKey,
@@ -34,6 +37,7 @@ export function useInfiniteList<T>({
     initialPageParam: 1 as number,
     staleTime,
     enabled,
+    refetchInterval,
   });
 
   return {

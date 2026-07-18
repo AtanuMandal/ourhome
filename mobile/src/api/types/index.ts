@@ -143,6 +143,7 @@ export interface MaintenancePaymentProof {
   notes?: string;
   submittedByUserId: string;
   submittedAt: string;
+  submissionGroupId?: string;
 }
 
 export interface MaintenanceCharge {
@@ -166,6 +167,10 @@ export interface MaintenanceCharge {
   proofs: MaintenancePaymentProof[];
   createdAt: string;
   updatedAt: string;
+  rejectionReason?: string | null;
+  rejectedAt?: string | null;
+  /** Latest proof's group id — charges submitted together (a clubbed submission) share this. */
+  submissionGroupId?: string | null;
 }
 
 export interface ApartmentResident {

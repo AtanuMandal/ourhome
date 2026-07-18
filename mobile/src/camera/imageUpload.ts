@@ -2,7 +2,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system/legacy';
 import { getToken } from '../auth/tokenStore';
 
-const BASE_URL = process.env['API_BASE_URL'] ?? 'http://192.168.1.5:7071/api';
+const BASE_URL = process.env['API_BASE_URL'] ?? 'http://192.168.1.2:7071/api';
 
 async function compressAndUploadTo(uri: string, uploadPath: string): Promise<string> {
   // Resize to max 800px and compress to JPEG 75%

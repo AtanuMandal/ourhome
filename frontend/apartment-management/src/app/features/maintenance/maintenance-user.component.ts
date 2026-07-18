@@ -137,6 +137,10 @@ import { MAINTENANCE_PAGE_STYLES, formatFrequencyLabel } from './maintenance-sha
                         }
                       </div>
 
+                      @if (charge.status === 'Rejected' && charge.rejectionReason) {
+                        <div class="section-copy text-danger">Denied: {{ charge.rejectionReason }}</div>
+                      }
+
                       @if (isSelectableCharge(charge)) {
                         <mat-checkbox
                           [checked]="selectedChargeIds().includes(charge.id)"
@@ -258,10 +262,14 @@ export class MaintenanceUserComponent extends MaintenancePageBase {
     return formatFrequencyLabel(frequency);
   }
 
-  override refreshCharges() {
-    this.selectedChargeIds.set([]);
-    this.uploadedProof.set(null);
-    super.refreshCharges();
+  // A background auto-refresh tick must not wipe out a selection or an upload the resident is
+  // still in the middle of — only an explicit refresh (filter change, post-submit) resets them.
+  override refreshCharges(isBackgroundRefresh = false) {
+    if (!isBackgroundRefresh) {
+      this.selectedChargeIds.set([]);
+      this.uploadedProof.set(null);
+    }
+    super.refreshCharges(isBackgroundRefresh);
   }
 
   toggleChargeSelection(chargeId: string, checked: boolean) {

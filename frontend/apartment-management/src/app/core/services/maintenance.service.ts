@@ -1,9 +1,12 @@
 import { Injectable, inject } from '@angular/core';
 import { ApiService } from './api.service';
 import {
+    ApproveMaintenancePaymentProofGroupDto,
     CreateMaintenancePenaltyChargeDto,
     CreateMaintenanceScheduleDto,
     DeleteMaintenanceScheduleDto,
+    DenyMaintenancePaymentProofDto,
+    DenyMaintenancePaymentProofGroupDto,
     MaintenanceChargeGrid,
     MaintenanceCharge,
     MaintenanceChargeFilters,
@@ -72,6 +75,18 @@ export class MaintenanceService {
 
   markPaid(societyId: string, chargeId: string, dto: MarkMaintenanceChargePaidDto) {
     return this.api.post<boolean>(`societies/${societyId}/maintenance/charges/${chargeId}/mark-paid`, dto);
+  }
+
+  denyProof(societyId: string, chargeId: string, dto: DenyMaintenancePaymentProofDto) {
+    return this.api.post<MaintenanceCharge>(`societies/${societyId}/maintenance/charges/${chargeId}/deny`, dto);
+  }
+
+  approveProofGroup(societyId: string, dto: ApproveMaintenancePaymentProofGroupDto) {
+    return this.api.post<MaintenanceCharge[]>(`societies/${societyId}/maintenance/charges/group/approve`, dto);
+  }
+
+  denyProofGroup(societyId: string, dto: DenyMaintenancePaymentProofGroupDto) {
+    return this.api.post<MaintenanceCharge[]>(`societies/${societyId}/maintenance/charges/group/deny`, dto);
   }
 
   getChargeGrid(societyId: string, filters: MaintenanceGridFilters) {
