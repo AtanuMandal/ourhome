@@ -57,7 +57,7 @@ jest.mock('../../../src/features/maintenance/hooks/useMaintenance', () => ({
 }));
 
 // The screen resolves the resident's apartment via useActiveApartment, which fetches the
-// full profile — stub it so no network is attempted and the apartment list is deterministic.
+// full profile � stub it so no network is attempted and the apartment list is deterministic.
 jest.mock('../../../src/api/endpoints/profile', () => ({
   profileApi: {
     getProfile: jest.fn().mockResolvedValue({
@@ -301,7 +301,7 @@ describe('MaintenanceScreen', () => {
   });
 });
 
-describe('MaintenanceScreen — clubbed submissions (grouping, approve, deny)', () => {
+describe('MaintenanceScreen � clubbed submissions (grouping, approve, deny)', () => {
   function makeProof(overrides: Partial<{ proofUrl: string; submittedByUserId: string; submittedAt: string; submissionGroupId: string }> = {}) {
     return {
       proofUrl: 'files/proofs/receipt.jpg',
@@ -313,7 +313,7 @@ describe('MaintenanceScreen — clubbed submissions (grouping, approve, deny)', 
   }
 
   // Apr + May + Jun clubbed into one submission for the same apartment. submissionGroupId is a
-  // top-level field on the charge (the backend projects it from the latest proof's group id) —
+  // top-level field on the charge (the backend projects it from the latest proof's group id) �
   // that's what the screen's grouping predicate reads, not proofs[].submissionGroupId directly.
   function makeClubbedCharges(): MaintenanceCharge[] {
     return [
@@ -349,8 +349,8 @@ describe('MaintenanceScreen — clubbed submissions (grouping, approve, deny)', 
     mockCharges = makeClubbedCharges();
     renderScreen();
 
-    // Only the group card's Approve/Deny render — no per-charge duplicates for grouped members.
-    expect(screen.getAllByText('Part of a clubbed submission — review it above.')).toHaveLength(3);
+    // Only the group card's Approve/Deny render � no per-charge duplicates for grouped members.
+    expect(screen.getAllByText('Part of a clubbed submission � review it above.')).toHaveLength(3);
     expect(screen.queryByText('Approve proof')).toBeNull();
   });
 
@@ -424,7 +424,7 @@ describe('MaintenanceScreen — clubbed submissions (grouping, approve, deny)', 
   // Regression for "once resubmitted, SUAdmin cannot view/approve/deny it": a charge that was
   // Rejected and then resubmitted comes back as a solo ProofSubmitted charge carrying a fresh
   // submissionGroupId it doesn't share with anything else. It must render the normal Approve/Deny
-  // buttons — not the "part of a clubbed submission" note that only applies to actual 2+ groups.
+  // buttons � not the "part of a clubbed submission" note that only applies to actual 2+ groups.
   test('a resubmitted charge (Rejected then re-proofed) shows normal Approve/Deny, not the clubbed note', async () => {
     mockCharges = [makeCharge({
       id: 'charge-resubmitted',
@@ -436,7 +436,7 @@ describe('MaintenanceScreen — clubbed submissions (grouping, approve, deny)', 
     renderScreen();
 
     expect(screen.queryByText('Clubbed payment proof submissions')).toBeNull();
-    expect(screen.queryByText('Part of a clubbed submission — review it above.')).toBeNull();
+    expect(screen.queryByText('Part of a clubbed submission � review it above.')).toBeNull();
     expect(screen.getByText('Approve proof')).toBeTruthy();
     expect(screen.getByText('Deny')).toBeTruthy();
 
