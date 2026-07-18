@@ -121,6 +121,73 @@ public class CosmosDbRepository<T>(
         return results;
     }
 
+    // Cosmos caps a TransactionalBatch at 100 operations against one partition key.
+    private const int TransactionalBatchLimit = 100;
+
+    /// <summary>
+    /// Writes many entities in one round trip per 100 items using TransactionalBatch —
+    /// Cosmos's native "multiple rows in a single call". Entities are grouped by societyId
+    /// (each batch must target one partition); each batch is atomic, distinct batches are not.
+    /// </summary>
+    protected async Task WriteManyCoreAsync(IReadOnlyList<T> entities, bool replace, CancellationToken ct)
+    {
+        if (entities.Count == 0) return;
+
+        foreach (var partition in entities.GroupBy(e => e.SocietyId, StringComparer.Ordinal))
+        {
+            foreach (var chunk in partition.Chunk(TransactionalBatchLimit))
+            {
+                var batch = _container.CreateTransactionalBatch(new PartitionKey(partition.Key));
+                foreach (var entity in chunk)
+                {
+                    if (replace)
+                    {
+                        entity.TouchUpdatedAt();
+                        var options = string.IsNullOrWhiteSpace(entity.ETag)
+                            ? null
+                            : new TransactionalBatchItemRequestOptions { IfMatchEtag = entity.ETag };
+                        batch.ReplaceItem(entity.Id, entity, options);
+                    }
+                    else
+                    {
+                        batch.CreateItem(entity);
+                    }
+                }
+
+                using var response = await batch.ExecuteAsync(ct);
+                if (!response.IsSuccessStatusCode)
+                {
+                    logger.LogError("Batch {Op} of {Count} {Type} items failed with {Status}",
+                        replace ? "replace" : "create", chunk.Length, typeof(T).Name, response.StatusCode);
+                    throw new InvalidOperationException(
+                        $"Batch write of {chunk.Length} {typeof(T).Name} items failed with status {response.StatusCode}.");
+                }
+            }
+        }
+    }
+
+    /// <summary>Deletes many ids from one partition in 100-item batches. A batch aborted by a
+    /// concurrent deletion (404 aborts the whole atomic batch) falls back to per-item deletes,
+    /// which tolerate missing documents like <see cref="DeleteAsync"/> does.</summary>
+    protected async Task DeleteManyCoreAsync(string societyId, IReadOnlyList<string> ids, CancellationToken ct)
+    {
+        if (ids.Count == 0) return;
+
+        foreach (var chunk in ids.Chunk(TransactionalBatchLimit))
+        {
+            var batch = _container.CreateTransactionalBatch(new PartitionKey(societyId));
+            foreach (var id in chunk)
+                batch.DeleteItem(id);
+
+            using var response = await batch.ExecuteAsync(ct);
+            if (response.IsSuccessStatusCode)
+                continue;
+
+            foreach (var id in chunk)
+                await DeleteAsync(id, societyId, ct);
+        }
+    }
+
     private static T ApplyResponseMetadata(T entity, string? etag)
     {
         if (!string.IsNullOrWhiteSpace(etag))

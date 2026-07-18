@@ -594,31 +594,41 @@ internal static class MaintenanceChargeGenerator
         CancellationToken ct)
     {
         var apartments = await ResolveTargetApartmentsAsync(schedule, apartmentRepository, ct);
+
+        // One query for every charge this schedule owns, checked against an in-memory map —
+        // previously this was a Cosmos lookup per apartment-month pair, which made creating a
+        // 12-month schedule over a whole society take dozens of seconds.
+        var existingCharges = await chargeRepository.GetByScheduleAsync(schedule.SocietyId, schedule.Id, ct);
+        var existingByKey = existingCharges.ToDictionary(
+            charge => ChargeKey(charge.ApartmentId, charge.ChargeYear, charge.ChargeMonth),
+            StringComparer.OrdinalIgnoreCase);
+
         var desiredChargeKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var createdOrUpdated = 0;
+        var toCreate = new List<MaintenanceCharge>();
+        var toUpdate = new List<MaintenanceCharge>();
 
         foreach (var dueDate in EnumerateDueDates(schedule, horizonUtc))
-        {
-            foreach (var apartment in apartments)
-                desiredChargeKeys.Add(ChargeKey(apartment.Id, dueDate.Year, dueDate.Month));
+            CollectChargesForDueDate(schedule, dueDate, apartments, existingByKey, desiredChargeKeys, toCreate, toUpdate);
 
-            createdOrUpdated += await UpsertChargesForDueDateAsync(schedule, dueDate, apartments, chargeRepository, ct);
-        }
+        // Batched writes: one round trip per 100 charges (Cosmos TransactionalBatch on the
+        // societyId partition) instead of one round trip per charge.
+        await chargeRepository.CreateManyAsync(toCreate, ct);
+        await chargeRepository.UpdateManyAsync(toUpdate, ct);
 
-        var existingCharges = await chargeRepository.GetByScheduleAsync(schedule.SocietyId, schedule.Id, ct);
         var cancellationStartDate = schedule.IsActive
             ? schedule.NextDueDate.Date
             : (schedule.InactiveFromDate?.Date ?? schedule.NextDueDate.Date);
 
-        foreach (var charge in existingCharges.Where(charge =>
-                     charge.DueDate.Date >= cancellationStartDate &&
-                     !desiredChargeKeys.Contains(ChargeKey(charge.ApartmentId, charge.ChargeYear, charge.ChargeMonth)) &&
-                     charge.Status != PaymentStatus.Paid))
-        {
-            await chargeRepository.DeleteAsync(charge.Id, charge.SocietyId, ct);
-        }
+        var staleChargeIds = existingCharges
+            .Where(charge =>
+                charge.DueDate.Date >= cancellationStartDate &&
+                !desiredChargeKeys.Contains(ChargeKey(charge.ApartmentId, charge.ChargeYear, charge.ChargeMonth)) &&
+                charge.Status != PaymentStatus.Paid)
+            .Select(charge => charge.Id)
+            .ToList();
+        await chargeRepository.DeleteManyAsync(schedule.SocietyId, staleChargeIds, ct);
 
-        return createdOrUpdated;
+        return toCreate.Count;
     }
 
     public static async Task<int> UpsertChargesForDueDateAsync(
@@ -629,45 +639,52 @@ internal static class MaintenanceChargeGenerator
         CancellationToken ct)
     {
         var apartments = await ResolveTargetApartmentsAsync(schedule, apartmentRepository, ct);
-        return await UpsertChargesForDueDateAsync(schedule, dueDate, apartments, chargeRepository, ct);
+        var existingCharges = await chargeRepository.GetByScheduleAsync(schedule.SocietyId, schedule.Id, ct);
+        var existingByKey = existingCharges.ToDictionary(
+            charge => ChargeKey(charge.ApartmentId, charge.ChargeYear, charge.ChargeMonth),
+            StringComparer.OrdinalIgnoreCase);
+
+        var desiredChargeKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var toCreate = new List<MaintenanceCharge>();
+        var toUpdate = new List<MaintenanceCharge>();
+        CollectChargesForDueDate(schedule, dueDate, apartments, existingByKey, desiredChargeKeys, toCreate, toUpdate);
+
+        await chargeRepository.CreateManyAsync(toCreate, ct);
+        await chargeRepository.UpdateManyAsync(toUpdate, ct);
+        return toCreate.Count;
     }
 
-    private static async Task<int> UpsertChargesForDueDateAsync(
+    /// <summary>Pure in-memory pass: decides, per apartment, whether the period's charge must be
+    /// created or refreshed. Paid charges are never touched; a period seen twice is skipped so
+    /// it cannot be double-created within one run.</summary>
+    private static void CollectChargesForDueDate(
         MaintenanceSchedule schedule,
         DateTime dueDate,
         IReadOnlyList<Domain.Entities.Apartment> apartments,
-        IMaintenanceChargeRepository chargeRepository,
-        CancellationToken ct)
+        IReadOnlyDictionary<string, MaintenanceCharge> existingByKey,
+        HashSet<string> desiredChargeKeys,
+        List<MaintenanceCharge> toCreate,
+        List<MaintenanceCharge> toUpdate)
     {
-        var count = 0;
         foreach (var apartment in apartments)
         {
-            var amount = CalculateAmount(schedule, apartment);
-            var existing = await chargeRepository.GetByScheduleAndPeriodAsync(
-                schedule.SocietyId,
-                schedule.Id,
-                apartment.Id,
-                dueDate.Year,
-                dueDate.Month,
-                ct);
+            var key = ChargeKey(apartment.Id, dueDate.Year, dueDate.Month);
+            if (!desiredChargeKeys.Add(key))
+                continue;
 
-            if (existing is null)
+            var amount = CalculateAmount(schedule, apartment);
+            if (existingByKey.TryGetValue(key, out var existing))
             {
-                await chargeRepository.CreateAsync(
-                    MaintenanceCharge.Create(schedule.SocietyId, apartment.Id, schedule.Id, schedule.Name, amount, dueDate),
-                    ct);
-                count++;
+                if (existing.Status == PaymentStatus.Paid)
+                    continue;
+
+                existing.RefreshAmount(amount, schedule.Name, dueDate);
+                toUpdate.Add(existing);
                 continue;
             }
 
-            if (existing.Status == PaymentStatus.Paid)
-                continue;
-
-            existing.RefreshAmount(amount, schedule.Name, dueDate);
-            await chargeRepository.UpdateAsync(existing, ct);
+            toCreate.Add(MaintenanceCharge.Create(schedule.SocietyId, apartment.Id, schedule.Id, schedule.Name, amount, dueDate));
         }
-
-        return count;
     }
 
     private static async Task<IReadOnlyList<Domain.Entities.Apartment>> ResolveTargetApartmentsAsync(

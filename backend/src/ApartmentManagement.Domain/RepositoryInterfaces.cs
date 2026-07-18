@@ -112,6 +112,11 @@ public interface IMaintenanceChargeRepository : IRepository<MaintenanceCharge>
     Task<IReadOnlyList<MaintenanceCharge>> GetByStatusAsync(string societyId, PaymentStatus status, int page, int pageSize, CancellationToken ct = default);
     Task<MaintenanceCharge?> GetByScheduleAndPeriodAsync(string societyId, string scheduleId, string apartmentId, int year, int month, CancellationToken ct = default);
     Task<IReadOnlyList<MaintenanceCharge>> GetByDueDateRangeAsync(string societyId, DateTime fromInclusiveUtc, DateTime toInclusiveUtc, CancellationToken ct = default);
+
+    /// <summary>Batched writes for schedule fan-out (one round trip per 100 items, single societyId partition). No-ops on empty input.</summary>
+    Task CreateManyAsync(IReadOnlyList<MaintenanceCharge> charges, CancellationToken ct = default);
+    Task UpdateManyAsync(IReadOnlyList<MaintenanceCharge> charges, CancellationToken ct = default);
+    Task DeleteManyAsync(string societyId, IReadOnlyList<string> chargeIds, CancellationToken ct = default);
 }
 
 public interface IMaintenanceChargeGridViewRepository : IRepository<MaintenanceChargeGridView>

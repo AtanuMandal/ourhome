@@ -805,7 +805,74 @@ public class CreateMaintenanceScheduleCommandHandlerTests
         result.IsSuccess.Should().BeTrue();
         result.Value!.Name.Should().Be("Monthly Maintenance");
         _scheduleRepoMock.Verify(r => r.CreateAsync(It.IsAny<MaintenanceSchedule>(), It.IsAny<CancellationToken>()), Times.Once);
-        _chargeRepoMock.Verify(r => r.CreateAsync(It.IsAny<MaintenanceCharge>(), It.IsAny<CancellationToken>()), Times.Exactly(6));
+
+        // The Apr–Sep fan-out (6 monthly charges) must arrive as ONE batched write, with no
+        // per-charge creates and no per-apartment-month existence lookups — that N×M pattern
+        // is what made schedule creation take tens of seconds.
+        _chargeRepoMock.Verify(r => r.CreateManyAsync(
+            It.Is<IReadOnlyList<MaintenanceCharge>>(charges => charges.Count == 6),
+            It.IsAny<CancellationToken>()), Times.Once);
+        _chargeRepoMock.Verify(r => r.CreateAsync(It.IsAny<MaintenanceCharge>(), It.IsAny<CancellationToken>()), Times.Never);
+        _chargeRepoMock.Verify(r => r.GetByScheduleAndPeriodAsync(
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_WhenChargesAlreadyExist_RefreshesThemInOneBatchAndNeverTouchesPaidOnes()
+    {
+        // Arrange — the schedule window already has one unpaid and one paid charge.
+        var apartment = Apartment.Create("soc-001", "A-101", "A", 1, 3, [], 500, 600, 700);
+
+        _currentUserMock.Setup(x => x.IsInRoles(It.IsAny<string[]>())).Returns(true);
+        _scheduleRepoMock
+            .Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        _scheduleRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<MaintenanceSchedule>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MaintenanceSchedule s, CancellationToken _) => s);
+        _apartmentRepoMock
+            .Setup(r => r.GetByIdAsync(apartment.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(apartment);
+        _apartmentRepoMock
+            .Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync([apartment]);
+
+        var unpaidCharge = MaintenanceCharge.Create("soc-001", apartment.Id, "any", "Old name", 100m, new DateTime(2026, 4, 5, 0, 0, 0, DateTimeKind.Utc));
+        var paidCharge = MaintenanceCharge.Create("soc-001", apartment.Id, "any", "Old name", 100m, new DateTime(2026, 5, 5, 0, 0, 0, DateTimeKind.Utc));
+        paidCharge.MarkPaid("Cash", null, null, null);
+
+        _chargeRepoMock
+            .Setup(r => r.GetByScheduleAsync("soc-001", It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([unpaidCharge, paidCharge]);
+        _chargeRepoMock
+            .Setup(r => r.GetByDueDateRangeAsync("soc-001", It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string _, DateTime __, DateTime ___, CancellationToken ____) => new List<MaintenanceCharge>());
+        _gridViewRepoMock
+            .Setup(r => r.GetByFinancialYearAsync("soc-001", It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MaintenanceChargeGridView?)null);
+        _gridViewRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<MaintenanceChargeGridView>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MaintenanceChargeGridView view, CancellationToken _) => view);
+
+        var handler = CreateHandler();
+        var command = new CreateMaintenanceScheduleCommand(
+            "soc-001", "Monthly Maintenance", null, apartment.Id, 2500m,
+            MaintenancePricingType.FixedAmount, null, FeeFrequency.Monthly, 5, 4, 2026, 5, 2026);
+
+        // Act — window covers Apr+May; Apr exists unpaid (refresh), May exists paid (skip).
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        _chargeRepoMock.Verify(r => r.UpdateManyAsync(
+            It.Is<IReadOnlyList<MaintenanceCharge>>(charges => charges.Count == 1 && charges[0] == unpaidCharge),
+            It.IsAny<CancellationToken>()), Times.Once);
+        _chargeRepoMock.Verify(r => r.CreateManyAsync(
+            It.Is<IReadOnlyList<MaintenanceCharge>>(charges => charges.Count == 0),
+            It.IsAny<CancellationToken>()), Times.Once);
+        _chargeRepoMock.Verify(r => r.UpdateAsync(It.IsAny<MaintenanceCharge>(), It.IsAny<CancellationToken>()), Times.Never);
+        unpaidCharge.ScheduleName.Should().Be("Monthly Maintenance");
+        paidCharge.Amount.Should().Be(100m);
     }
 
     [Fact]

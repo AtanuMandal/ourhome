@@ -322,6 +322,15 @@ WHERE c.activeFromDate <= @dueOn
 public class MaintenanceChargeRepository(CosmosClient client, string dbName, ILogger<MaintenanceChargeRepository> logger)
     : CosmosDbRepository<MaintenanceCharge>(client, dbName, "maintenance_charges", logger), IMaintenanceChargeRepository
 {
+    public Task CreateManyAsync(IReadOnlyList<MaintenanceCharge> charges, CancellationToken ct = default) =>
+        WriteManyCoreAsync(charges, replace: false, ct);
+
+    public Task UpdateManyAsync(IReadOnlyList<MaintenanceCharge> charges, CancellationToken ct = default) =>
+        WriteManyCoreAsync(charges, replace: true, ct);
+
+    public Task DeleteManyAsync(string societyId, IReadOnlyList<string> chargeIds, CancellationToken ct = default) =>
+        DeleteManyCoreAsync(societyId, chargeIds, ct);
+
     public async Task<IReadOnlyList<MaintenanceCharge>> GetByApartmentAsync(string societyId, string apartmentId, int page, int pageSize, int? year, int? month, CancellationToken ct = default)
     {
         var queryText = "SELECT * FROM c WHERE c.societyId = @sid AND c.apartmentId = @aid";

@@ -24,6 +24,7 @@ This document defines the technical standards and non-functional requirements th
 - High-read aggregation views (e.g., maintenance fee grid) use a **separate mirror container** updated on every mutation to avoid cross-partition fan-out.
 - Indexes must be tuned per container — favour composite indexes on common filter fields (e.g., `societyId + status + date`).
 - JSON property names stored in camelCase.
+- **Fan-out writes are batched, never row-by-row.** Any operation that writes many documents to one partition (e.g., maintenance schedule creation generating a charge per apartment per month) must use **Cosmos `TransactionalBatch`** (up to 100 ops per round trip against the `/societyId` partition) via the repository `CreateManyAsync` / `UpdateManyAsync` / `DeleteManyAsync` methods, and must resolve existence with **one up-front query + in-memory lookup**, not a query per row. `TransactionalBatch` is preferred over JS stored procedures: no server-side script deployment/versioning, no 5-second execution bound, and it stays testable against the in-memory fakes.
 
 ### File Storage
 - **Azure Blob Storage** for all binary content: visitor photos, payment proofs, contract documents, notice attachments, visitor images.
@@ -182,6 +183,8 @@ Triggers on merge to `main` or manual dispatch:
 > 🔜 **Distributed tracing** — correlation ID injection and App Insights custom telemetry for key business operations (visitor registration, payment submission, etc.).
 
 > 🔜 **Azure Monitor alerts** — alert rules for function error rate, outbox backlog size, and p95 API latency.
+
+> 🔜 **Async maintenance-charge fan-out (Phase 3)** — for very large societies, create the schedule and the current month's charges synchronously and defer the remaining months to the existing outbox/timer pipeline (eventual consistency is already the accepted model for charge creation). The admin gets an instant response; remaining charges materialize within seconds. Requires a small UI note ("charges are being generated"). Deferred: the Phase 1+2 optimizations (single up-front existence query + `TransactionalBatch` writes, implemented 2026-07) reduced schedule creation from thousands of sequential round-trips to a handful, which is sufficient at current society sizes.
 
 ---
 

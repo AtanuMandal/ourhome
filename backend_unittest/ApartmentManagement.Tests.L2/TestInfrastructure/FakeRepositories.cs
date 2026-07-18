@@ -364,6 +364,25 @@ public sealed class FakeMaintenanceChargeRepository : FakeRepository<Maintenance
             .ToList();
         return Task.FromResult(result);
     }
+
+    // Batched writes are plain loops in the fake — the batching is a Cosmos transport concern.
+    public async Task CreateManyAsync(IReadOnlyList<MaintenanceCharge> charges, CancellationToken ct = default)
+    {
+        foreach (var charge in charges)
+            await CreateAsync(charge, ct);
+    }
+
+    public async Task UpdateManyAsync(IReadOnlyList<MaintenanceCharge> charges, CancellationToken ct = default)
+    {
+        foreach (var charge in charges)
+            await UpdateAsync(charge, ct);
+    }
+
+    public async Task DeleteManyAsync(string societyId, IReadOnlyList<string> chargeIds, CancellationToken ct = default)
+    {
+        foreach (var chargeId in chargeIds)
+            await DeleteAsync(chargeId, societyId, ct);
+    }
 }
 
 public sealed class FakeMaintenanceChargeGridViewRepository : FakeRepository<MaintenanceChargeGridView>, IMaintenanceChargeGridViewRepository
