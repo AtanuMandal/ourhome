@@ -161,49 +161,6 @@ import { CHARGE_STATUS_OPTIONS, MAINTENANCE_PAGE_STYLES, MONTH_OPTIONS, periodLa
           </mat-form-field>
         </form>
       </section>
-      @if (groupedSubmissions().length) {
-        <section class="card card--spaced">
-          <div class="section-header">
-            <div>
-              <h2 class="section-title">Clubbed payment proof submissions</h2>
-              <p class="section-copy">Charges a resident submitted together in one proof upload — review and settle the whole submission at once.</p>
-            </div>
-          </div>
-
-          <div class="stack">
-            @for (group of groupedSubmissions(); track group.key) {
-              <div class="sub-card stack">
-                <div class="section-header section-header--compact">
-                  <div>
-                    <div class="section-title">{{ group.apartmentNumber }} <span class="section-copy">· {{ group.residentName || 'Unassigned' }}</span></div>
-                    <div class="section-copy">{{ group.periodLabel }} · {{ group.charges.length }} charges · {{ group.totalAmount | currency:'INR':'symbol':'1.2-2' }} total</div>
-                  </div>
-                  <app-status-chip [status]="group.status"></app-status-chip>
-                </div>
-
-                <div class="action-row">
-                  <button mat-stroked-button type="button" (click)="openProofDialog(group.charges[0])">
-                    View proof
-                  </button>
-                  @if (group.status === 'ProofSubmitted') {
-                    <button mat-raised-button color="primary" type="button"
-                      [disabled]="processingGroupKey() === group.key || settlementForm.invalid"
-                      (click)="approveGroup(group)">
-                      Approve
-                    </button>
-                    <button mat-stroked-button color="warn" type="button"
-                      [disabled]="processingGroupKey() === group.key"
-                      (click)="openDenyDialog({ type: 'group', group })">
-                      Deny
-                    </button>
-                  }
-                </div>
-              </div>
-            }
-          </div>
-        </section>
-      }
-
       @if (loading()) {
         <app-loading-spinner></app-loading-spinner>
       } @else if (grid()?.rows?.length) {
@@ -275,8 +232,27 @@ import { CHARGE_STATUS_OPTIONS, MAINTENANCE_PAGE_STYLES, MONTH_OPTIONS, periodLa
                                 @if (charge.status === 'Rejected' && charge.rejectionReason) {
                                   <div class="section-copy text-danger">Denied: {{ charge.rejectionReason }}</div>
                                 }
-                                @if (isGroupedCharge(charge)) {
-                                  <div class="section-copy">Part of a clubbed submission — review it above.</div>
+                                @if (groupForCharge(charge); as group) {
+                                  <div class="section-copy">Clubbed submission · {{ group.charges.length }} charges · {{ group.totalAmount | currency:'INR':'symbol':'1.2-2' }} total</div>
+                                  <div class="action-row action-row--compact">
+                                    @if (hasSupportingDocs(charge)) {
+                                      <button mat-stroked-button type="button" (click)="openProofDialog(charge)">
+                                        View proofs
+                                      </button>
+                                    }
+                                    @if (group.status === 'ProofSubmitted') {
+                                      <button mat-raised-button color="primary" type="button"
+                                        [disabled]="processingGroupKey() === group.key || settlementForm.invalid"
+                                        (click)="approveGroup(group)">
+                                        Approve all {{ group.charges.length }}
+                                      </button>
+                                      <button mat-stroked-button color="warn" type="button"
+                                        [disabled]="processingGroupKey() === group.key"
+                                        (click)="openDenyDialog({ type: 'group', group })">
+                                        Deny all {{ group.charges.length }}
+                                      </button>
+                                    }
+                                  </div>
                                 } @else {
                                   <div class="action-row action-row--compact">
                                     @if (hasSupportingDocs(charge)) {
@@ -634,11 +610,12 @@ export class MaintenanceAdminGridComponent {
   /**
    * Clubbed submissions: a resident can select several charges (often across different months)
    * and submit one proof for all of them — the backend stamps every charge in that call with the
-   * same submissionGroupId. Grouped here across the *entire* grid (not just the visible/windowed
-   * rows) so an apartment scrolled out of view still surfaces its pending clubbed review. A group
-   * needs 2+ members; a lone submission just renders as a normal charge card in its month cell.
-   * Denying breaks the group apart (member charges become Rejected, which this predicate excludes),
-   * matching the "falls back to the default view" requirement; approving keeps it clustered as Paid.
+   * same submissionGroupId. A group needs 2+ members; a lone submission just renders as a normal
+   * charge card in its month cell. Member charges render inside their own grid cells (there is no
+   * separate review section) with group-level "Approve all / Deny all" buttons — one action
+   * settles the entire clubbed submission. Denying breaks the group apart (member charges become
+   * Rejected, which this predicate excludes), falling each back to the normal single-charge view;
+   * approving keeps it clustered as Paid, with each charge's proofs still viewable per cell.
    */
   readonly groupedSubmissions = computed<GroupedSubmission[]>(() => {
     const rows = this.grid()?.rows ?? [];
@@ -684,12 +661,12 @@ export class MaintenanceAdminGridComponent {
       .sort((left, right) => left.apartmentNumber.localeCompare(right.apartmentNumber, undefined, { numeric: true, sensitivity: 'base' }));
   });
 
-  readonly groupedChargeIds = computed(() => {
-    const ids = new Set<string>();
+  readonly groupByChargeId = computed(() => {
+    const byId = new Map<string, GroupedSubmission>();
     for (const group of this.groupedSubmissions()) {
-      for (const charge of group.charges) ids.add(charge.id);
+      for (const charge of group.charges) byId.set(charge.id, group);
     }
-    return ids;
+    return byId;
   });
 
   private readonly destroyRef = inject(DestroyRef);
@@ -761,8 +738,13 @@ export class MaintenanceAdminGridComponent {
     this.processCharge(charge.id, () => this.maintenance.markPaid(this.auth.societyId()!, charge.id, this.settlementPayload()), 'Maintenance charge marked as paid.');
   }
 
+  /** The clubbed submission this charge belongs to (2+ members), or null for a normal charge. */
+  groupForCharge(charge: MaintenanceGridCharge): GroupedSubmission | null {
+    return this.groupByChargeId().get(charge.id) ?? null;
+  }
+
   isGroupedCharge(charge: MaintenanceGridCharge): boolean {
-    return this.groupedChargeIds().has(charge.id);
+    return this.groupByChargeId().has(charge.id);
   }
 
   /** Approves every charge in a clubbed submission with one action and one settlement. */

@@ -306,11 +306,62 @@ describe('MaintenanceAdminGridComponent — clubbed submissions (grouping, appro
     expect(component.groupedSubmissions().length).toBe(0);
   });
 
-  it('marks member charges as grouped so their per-cell action buttons are suppressed', () => {
+  it('resolves the clubbed group for each member charge so its cell renders group-level actions', () => {
     const { apr, grid } = makeClubbedGrid();
     const { component } = setup(grid);
 
     expect(component.isGroupedCharge(apr)).toBeTrue();
+    const group = component.groupForCharge(apr);
+    expect(group).not.toBeNull();
+    expect(group!.charges.length).toBe(3);
+  });
+
+  // Regression: "admin functionality to approve/view proof/deny has been removed from the grid
+  // view — it should stay in the grid". Clubbed-submission actions render INSIDE the member
+  // charges' own grid cells (Approve all N / Deny all N), never in a separate section.
+  it('renders clubbed Approve all/Deny all buttons inside the grid cells, with no separate section', () => {
+    const { grid } = makeClubbedGrid();
+    const { fixture } = setup(grid);
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).not.toContain('Clubbed payment proof submissions');
+    expect(text).not.toContain('review it above');
+    const buttons = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).map(b => b.textContent?.trim());
+    expect(buttons.filter(label => label === 'Approve all 3').length).toBe(3);
+    expect(buttons.filter(label => label === 'Deny all 3').length).toBe(3);
+  });
+
+  // Regression: "after approving, SUAdmin should still see the proof submitted for the paid
+  // ones". A Paid clubbed charge keeps its View proofs button in its grid cell; only the
+  // approve/deny actions disappear once settled.
+  it('a Paid clubbed charge still shows View proofs in its grid cell', () => {
+    const { grid } = makeClubbedGrid();
+    for (const row of grid.rows) {
+      for (const cell of row.months) {
+        for (const charge of cell.charges) {
+          charge.status = 'Paid';
+          charge.proofs = [{ proofUrl: 'https://proofs.example.com/receipt.jpg', submittedByUserId: 'u1', submittedAt: '2026-07-02T00:00:00Z' }];
+        }
+      }
+    }
+    const { fixture } = setup(grid);
+
+    const buttons = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).map(b => b.textContent?.trim());
+    expect(buttons.filter(label => label === 'View proofs').length).toBe(3);
+    expect(buttons).not.toContain('Approve all 3');
+    expect(buttons).not.toContain('Deny all 3');
+  });
+
+  it('a Paid ungrouped charge with proofs still shows View proofs in its grid cell', () => {
+    const paid = makeGridCharge({
+      id: 'charge-paid', status: 'Paid', submissionGroupId: undefined,
+      proofs: [{ proofUrl: 'https://proofs.example.com/receipt.jpg', submittedByUserId: 'u1', submittedAt: '2026-07-02T00:00:00Z' }],
+    });
+    const { fixture } = setup(makeGrid([makeRow('apt-1', 'A-1', [{ month: 4, charges: [paid] }])]));
+
+    const buttons = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).map(b => b.textContent?.trim());
+    expect(buttons).toContain('View proofs');
+    expect(buttons).not.toContain('Mark paid');
   });
 
   it('a group where every charge is Paid is still reported as a group with status Paid', () => {
