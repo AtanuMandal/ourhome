@@ -5,6 +5,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MaintenanceScreen } from '../../../src/features/maintenance/MaintenanceScreen';
+import { useAuthStore } from '../../../src/store/authStore';
 import { maintenanceApi } from '../../../src/api/endpoints/maintenance';
 import { pickImageFile } from '../../../src/camera/ImagePicker';
 import { pickProofDocument } from '../../../src/camera/DocumentPicker';
@@ -41,15 +42,29 @@ jest.mock('../../../src/shared/hooks/useSocietyId', () => ({
   useSocietyId: () => 'soc-1',
 }));
 
+// Capture the arguments the screen passes so tests can assert the apartment scoping.
+const mockUseMaintenanceList = jest.fn(() => ({
+  data: mockCharges,
+  isLoading: false,
+  fetchNextPage: jest.fn(),
+  hasNextPage: false,
+  refetch: jest.fn(),
+}));
+
 jest.mock('../../../src/features/maintenance/hooks/useMaintenance', () => ({
-  useMaintenanceList: () => ({
-    data: mockCharges,
-    isLoading: false,
-    fetchNextPage: jest.fn(),
-    hasNextPage: false,
-    refetch: jest.fn(),
-  }),
+  useMaintenanceList: (...args: unknown[]) => mockUseMaintenanceList(...(args as [])),
   useSubmitPaymentProof: () => ({ mutate: mockSubmitProof, isPending: false }),
+}));
+
+// The screen resolves the resident's apartment via useActiveApartment, which fetches the
+// full profile — stub it so no network is attempted and the apartment list is deterministic.
+jest.mock('../../../src/api/endpoints/profile', () => ({
+  profileApi: {
+    getProfile: jest.fn().mockResolvedValue({
+      id: 'u1', societyId: 'soc-1',
+      apartments: [{ apartmentId: 'apt-1', name: 'A 1-101', residentType: 'Owner' }],
+    }),
+  },
 }));
 
 jest.mock('../../../src/api/endpoints/maintenance', () => ({
@@ -97,10 +112,63 @@ function makeCharge(overrides: Partial<MaintenanceCharge> = {}): MaintenanceChar
   };
 }
 
+function loginAs(role: string, apartmentId?: string): void {
+  useAuthStore.setState({
+    user: {
+      id: 'u1', societyId: 'soc-1', fullName: 'User', email: 'u@a.com', phone: '1',
+      role: role as never, residentType: 'Owner' as never, apartmentId,
+      isVerified: true, isActive: true,
+    },
+    token: 'tok',
+    isAuthenticated: true,
+  });
+}
+
 describe('MaintenanceScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockCharges = [];
+    loginAs('SUUser', 'apt-1');
+  });
+
+  // The backend rejects charge listings from non-admins that aren't scoped to an apartment
+  // ("Residents must request maintenance charges for their apartment"), so the resident's
+  // apartment id must always ride along as a query parameter.
+  test('a resident (SUUser) always passes their apartmentId to the charge query', () => {
+    renderScreen();
+
+    expect(mockUseMaintenanceList).toHaveBeenCalledWith(
+      'soc-1',
+      expect.objectContaining({ apartmentId: 'apt-1' }),
+      true
+    );
+  });
+
+  test('a resident with a status filter passes both status and apartmentId', () => {
+    mockCharges = [makeCharge()];
+    renderScreen();
+
+    fireEvent.press(screen.getByText('Paid'));
+
+    expect(mockUseMaintenanceList).toHaveBeenLastCalledWith(
+      'soc-1',
+      expect.objectContaining({ status: 'Paid', apartmentId: 'apt-1' }),
+      true
+    );
+  });
+
+  test('SUAdmin lists charges society-wide without an apartmentId filter', () => {
+    loginAs('SUAdmin');
+    renderScreen();
+
+    expect(mockUseMaintenanceList).toHaveBeenCalledWith('soc-1', undefined, true);
+  });
+
+  test('the charge query stays disabled for a resident whose apartment is not yet known', () => {
+    loginAs('SUUser', undefined);
+    renderScreen();
+
+    expect(mockUseMaintenanceList).toHaveBeenCalledWith('soc-1', undefined, false);
   });
 
   test('renders charges in the list', () => {

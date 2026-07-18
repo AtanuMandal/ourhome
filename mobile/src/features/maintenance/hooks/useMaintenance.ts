@@ -5,13 +5,14 @@ import type { MaintenanceCharge } from '../../../api/types';
 
 export function useMaintenanceList(
   societyId: string,
-  params?: Record<string, string | number>
+  params?: Record<string, string | number>,
+  enabled = true
 ) {
   return useInfiniteList<MaintenanceCharge>({
     queryKey: ['maintenance', societyId, params],
     fetchPage: (page) =>
       maintenanceApi.getMaintenanceCharges(societyId, { ...params, page, pageSize: 20 }),
-    enabled: !!societyId,
+    enabled: !!societyId && enabled,
   });
 }
 

@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSocietyId } from '../../shared/hooks/useSocietyId';
 import { useAuthStore } from '../../store/authStore';
+import { useActiveApartment } from '../../shared/hooks/useActiveApartment';
 import { useMaintenanceList, useSubmitPaymentProof } from './hooks/useMaintenance';
 import { maintenanceApi } from '../../api/endpoints/maintenance';
 import { pickImageFile, type PickedFile } from '../../camera/ImagePicker';
@@ -83,17 +84,25 @@ function isSelectableCharge(charge: MaintenanceCharge): boolean {
 export function MaintenanceScreen() {
   const societyId = useSocietyId();
   const queryClient = useQueryClient();
-  const isAdmin = useAuthStore((s) => s.user?.role === 'SUAdmin');
+  const role = useAuthStore((s) => s.user?.role ?? '');
+  // Matches the backend's allow-list: only SUAdmin/HQAdmin may list charges society-wide;
+  // everyone else must scope the query to their own apartment or the API returns Forbidden.
+  const isAdmin = role === 'SUAdmin' || role === 'HQAdmin';
+  const { activeApartmentId } = useActiveApartment();
   const [selectedStatus, setSelectedStatus] = useState('All');
   const [selectedChargeIds, setSelectedChargeIds] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadedProof, setUploadedProof] = useState<{ fileName: string; fileUrl: string } | null>(null);
 
-  const params =
-    selectedStatus !== 'All' ? { status: selectedStatus } : undefined;
+  const params: Record<string, string | number> = {};
+  if (selectedStatus !== 'All') params.status = selectedStatus;
+  if (!isAdmin && activeApartmentId) params.apartmentId = activeApartmentId;
+
+  // Hold the query until a resident's apartment id is known — firing without it would 403.
+  const listEnabled = isAdmin || !!activeApartmentId;
   const { data, isLoading, fetchNextPage, hasNextPage, refetch } =
-    useMaintenanceList(societyId, params);
+    useMaintenanceList(societyId, Object.keys(params).length > 0 ? params : undefined, listEnabled);
   const { mutate: submitProof, isPending: submitting } = useSubmitPaymentProof(societyId);
 
   const selectableCount = data.filter(isSelectableCharge).length;

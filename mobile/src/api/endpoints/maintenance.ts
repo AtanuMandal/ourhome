@@ -3,7 +3,7 @@ import { getToken } from '../../auth/tokenStore';
 import type { PickedFile } from '../../camera/ImagePicker';
 import type { MaintenanceCharge, PaginatedResponse } from '../types';
 
-const BASE_URL = process.env['API_BASE_URL'] ?? 'http://192.168.1.5:7071/api';
+const BASE_URL = process.env['API_BASE_URL'] ?? 'http://192.168.1.2:7071/api';
 
 export interface MaintenanceProofUploadResult {
   fileName: string;
