@@ -565,6 +565,8 @@ Detox runs on:
 - Android Emulator (Pixel 7, API 34) in CI
 - Physical devices in pre-release stage
 
+- ⚠️ **Gap:** Detox is not yet set up — no `mobile/e2e/` folder or Detox configuration exists in the repo. Current mobile automated coverage is Jest + React Native Testing Library (48 suites) plus `tsc --noEmit`.
+
 ---
 
 ### CI/CD Pipeline
@@ -593,6 +595,8 @@ Detox runs on:
 
 #### GitHub Actions — Mobile CI (`mobile-ci.yml`)
 
+- ⚠️ **Gap:** `mobile-ci.yml` and `mobile-cd.yml` do not exist yet — the repo currently has `ci.yml`, `cd.yml`, and `pr-check.yml` only. The pipelines below are the specification to build against.
+
 Triggers on push/PR to `main` where `mobile/**` files change:
 1. `npm ci` in `mobile/`
 2. `npx tsc --noEmit` — TypeScript check
@@ -616,10 +620,10 @@ Triggers on merge to `main` or manual dispatch:
 | Login / logout | ✅ | ✅ |
 | Biometric login | ❌ | ✅ Native |
 | Push notifications | ✅ VAPID | ✅ FCM + APNs |
-| Visitor registration + QR | ✅ | ✅ |
+| Visitor registration + QR | ✅ | ✅ incl. camera QR scan at the gate (scan → verify → auto check-in) |
 | Camera capture (visitor photo) | ✅ Browser | ✅ Native |
-| Payment proof upload/preview | ✅ Browser | ❌ Not implemented — mobile maintenance screen is a read-only charge/status list with no proof upload or preview |
-| Maintenance charges | ✅ | ✅ View only (no proof upload) |
+| Payment proof upload/preview | ✅ Browser | ✅ Native — camera/document pick, compress, upload; inline image preview and file-type tiles; clubbed multi-charge submissions |
+| Maintenance charges | ✅ | ✅ incl. proof submission and admin approve/deny (single or clubbed group) |
 | Financial reports | ✅ incl. Society Ledger | ✅ incl. Society Ledger |
 | Vendor payments | ✅ (charges only; picture/contract upload has no preview) | ✅ View only (no document/picture display) |
 | Notices | ✅ | ✅ |
@@ -651,8 +655,6 @@ Triggers on merge to `main` or manual dispatch:
 > 🔜 **Expo Router** — file-system-based routing (evaluate when Expo Router v4 reaches stable; removes `navigation/` boilerplate entirely).
 
 > 🔜 **Widgets** — iOS 17 Live Activities and Android 14 Dynamic Island equivalents for active visitor pass countdown.
-
-> 🔜 **QR scanner** — `expo-barcode-scanner` to scan visitor QR codes at the gate without typing the pass code.
 
 > 🔜 **Offline mutations** — `react-query-offline-manager` to queue complaint submissions and payment proof uploads while offline, replaying on reconnect.
 

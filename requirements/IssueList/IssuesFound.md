@@ -2,11 +2,11 @@
 
 - Once maintenance schedule is made inactive then from the next month of the effective month any charges against the maintenance schedule should be made inactive or deleted .
 - Make sure at any given point of time there should not be more than one maintenance schedule in active status.
-- financial reporting disabled for tenant from backend frontend and mobile app 
-- Notices should be editable by SUAdmin user .
-- SUAdmin user should be able to pull a report how many and who have read the notices and who haven't .
+- ✅ **Implemented** — financial reporting disabled for tenant from backend frontend and mobile app *(aggregate/society-wide views gated; tenants keep self-service access to their own ledger/statement)*
+- ✅ **Implemented** — Notices should be editable by SUAdmin user . *(`PUT /societies/{id}/notices/{id}`)*
+- ✅ **Implemented** — SUAdmin user should be able to pull a report how many and who have read the notices and who haven't . *(`GET /societies/{id}/notices/{id}/read-receipts`)*
 - Once a User mark the notice as read then they can not mark it as unread, once read there should be a green tick .
-- any user should be able to see all the SOS alerts active . SUAdmin and SUSecurity should be able to take an action but others can not they can only view .
+- ✅ **Implemented** — any user should be able to see all the SOS alerts active . SUAdmin and SUSecurity should be able to take an action but others can not they can only view . *(alert list is open to all authenticated society members; acknowledge/resolve gated to SUAdmin/SUSecurity)*
 
 
 ##Issue list frontend

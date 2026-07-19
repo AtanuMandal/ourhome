@@ -12,6 +12,17 @@
 > by design), apartment CSV bulk import, maintenance schedule CRUD/charge register/penalties,
 > and the vendor directory/schedule management forms (web-only bulk-admin surfaces).
 
+> **Update 2026-07-19 (third pass):** Gate QR **camera scanning is now implemented on mobile**
+> (`VisitorScanScreen`, expo-camera `CameraView` barcode scan — scan → verify → auto check-in),
+> closing the largest §3.1 gap. Also closed in this pass: resident-registered visitor passes are
+> **pre-approved** on mobile (matching web), visitor **photo thumbnails** in the mobile list and
+> **photo on the pass screen** (tap-to-zoom), the **public pass link** included in the mobile
+> native share message, mobile **complaint creation** sends apartment/user (multi-apartment aware),
+> **amenity booking** works on both platforms (wall-clock times) with an approve/reject/cancel
+> flow incl. admin cancellation remarks, and clubbed maintenance proof review on mobile.
+> Still open: public pass page (by design), apartment CSV import, maintenance schedule
+> CRUD/charge register/penalties on mobile, vendor directory/schedule management forms.
+
 **Date:** 2026-07-16
 **Method:** Verified against source, not documentation — every feature folder, route (`app.routes.ts` vs `AppDrawer.tsx`/`AuthStack.tsx`), navigation menu (web sidenav/bottom-nav in `app.component.ts`/`bottom-nav.component.ts` vs `CustomDrawer.tsx`), and every interactive affordance (`(click)`/`(ngSubmit)` handlers on web, `onPress`/`onChange` handlers on mobile) was enumerated and compared per feature.
 
@@ -50,7 +61,7 @@ These have no screen, hook, or navigation entry on mobile at all.
 Parity: register (with photo, pre-approval, company/purpose autocomplete), default landing view (single `default-view` call), search + status filter, approve/deny (host-only approve), check-out, overstay red flag, pass-verify-doubles-as-check-in, visitor photo zoom.
 
 Web-only details:
-- **QR camera scan at the gate** (`BarcodeDetector` + `<video>` scan loop) — mobile security must *type* the pass code (`VisitorListScreen` gate row). Note: `mobile/src/camera/CameraCapture.tsx` exists but is **imported nowhere** (dead code) — a natural building block for this gap.
+- ~~**QR camera scan at the gate**~~ — ✅ closed 2026-07-19: mobile now has `VisitorScanScreen` (expo-camera barcode scan) reachable from the gate row; scanning verifies the pass and checks the visitor in as one step. Manual pass-code entry remains as fallback.
 - **CSV export** of the visitor log (`exportCsv`).
 - **Filters:** resident-name filter, from/to **date range**, and a **record-count selector** (10/25/50/100, persisted in localStorage). Mobile has search + status only, recent count fixed at 10.
 - **Post-registration pass actions:** web shows the real **QR image**, **Copy pass link**, and a **Share via email/SMS dialog** (`copyPassLink`, `submitShare`). Mobile navigates to `VisitorPassScreen` which renders a **placeholder “QR” box** (`qrPlaceholder` style, first 8 chars of the id) — not a scannable code — and has **no share/copy** affordance.

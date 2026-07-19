@@ -9,8 +9,8 @@ The amenity booking module allows residents to book society amenities (clubhouse
 
 | Role | Can Do |
 |------|--------|
-| `SUAdmin` | Create/update amenities, approve/reject bookings, view all bookings |
-| `SUUser` | Browse amenities, book slots, view own bookings |
+| `SUAdmin` | Create/update amenities, approve/reject bookings, view all bookings, cancel any booking (remarks required, shown to the resident) |
+| `SUUser` | Browse amenities, book slots, view own bookings, cancel own pending/approved bookings |
 | `SUSecurity` | View bookings (read-only) |
 
 ---
@@ -35,14 +35,18 @@ The amenity booking module allows residents to book society amenities (clubhouse
 
 ### 3. Booking System
 - Residents can book an amenity for a specific `startTime` / `endTime`.
-- The system enforces **slot overlap prevention** — two bookings for the same amenity cannot overlap.
+- Booking times are **society wall-clock time** (`YYYY-MM-DDTHH:mm`, no UTC conversion) — the backend compares the time of day against the amenity's operating hours.
+- The booker is stamped server-side from the JWT; the apartment falls back to the JWT claim when the client omits it.
+- The system enforces **slot overlap prevention** — two bookings for the same amenity cannot overlap (conflicts return HTTP 409).
 - Booking is created with status `Pending`.
 - A push notification is sent to the booking resident confirming the pending booking.
-- ⚠️ **Gap:** **Cancel and reschedule booking** — no `DELETE` or `PATCH` endpoint exists for cancelling or modifying a booking. This is a documented requirement.
+- **Cancel booking** — `POST /amenity-bookings/{id}/cancel`: the booking owner can cancel their own pending/approved booking; `SUAdmin` can cancel any booking but **must supply remarks**, which are stored on the booking (`cancellationRemarks`, `cancelledByUserId`), shown to the resident in their booking list, and pushed as a notification.
+- ⚠️ **Gap:** **Reschedule booking** — no `PATCH` endpoint exists for modifying a booking's time; cancel and re-book instead.
 
 ### 4. Admin Approval / Rejection
-- `SUAdmin` can approve or reject pending booking requests.
-- ⚠️ **Gap:** **No HTTP endpoint is exposed** for admin approval or rejection of bookings. `ApproveRejectBookingRequest` DTO exists in `ApplicationDtos.cs` but there is no corresponding Azure Function. Bookings remain in `Pending` status indefinitely.
+- `SUAdmin` can approve or reject pending booking requests via `POST /amenity-bookings/{id}/approve` and `/reject` (optional `adminNotes` in the body, shown to the resident).
+- A "Booking Approved" / "Booking Rejected" push notification is sent to the booking resident on decision.
+- **Bookings list** — `GET /amenity-bookings`: admins receive every booking in the society (to approve/reject/cancel); residents receive their own.
 
 ### 5. Availability Calendar
 - `GET /api/societies/{id}/amenities/{id}/availability?date=` returns available slots for a specific date.
@@ -50,8 +54,8 @@ The amenity booking module allows residents to book society amenities (clubhouse
 
 ### 6. Notifications
 - Booking creation sends a push notification to the booking resident with the booking summary.
-- ⚠️ **Gap:** No notification is sent when an admin **approves or rejects** a booking (no approval flow exposed yet).
-- ⚠️ **Gap:** No cancellation notification is sent.
+- Approval and rejection each send a push notification to the booking resident.
+- Admin cancellation of a resident's booking sends a push notification carrying the cancellation remarks.
 
 ### 7. Admin Usage Reports
 - ⚠️ **Gap:** No reporting endpoint for amenity utilisation, peak booking times, or most-booked amenities.
@@ -65,19 +69,21 @@ The amenity booking module allows residents to book society amenities (clubhouse
 | `POST` | `/api/societies/{id}/amenities` | SUAdmin | Create amenity |
 | `GET` | `/api/societies/{id}/amenities` | Authenticated | List amenities |
 | `GET` | `/api/societies/{id}/amenities/{id}/availability` | Authenticated | Available slots for a date |
-| `POST` | `/api/societies/{id}/amenity-bookings` | SUUser | Book an amenity |
+| `POST` | `/api/societies/{id}/amenity-bookings` | Authenticated | Book an amenity (booker stamped from JWT) |
+| `GET` | `/api/societies/{id}/amenity-bookings` | Authenticated | List bookings — all for admins, own for residents |
+| `POST` | `/api/societies/{id}/amenity-bookings/{id}/approve` | SUAdmin | Approve a pending booking (optional adminNotes) |
+| `POST` | `/api/societies/{id}/amenity-bookings/{id}/reject` | SUAdmin | Reject a pending booking (optional adminNotes) |
+| `POST` | `/api/societies/{id}/amenity-bookings/{id}/cancel` | Owner or SUAdmin | Cancel a booking (remarks required when admin cancels another resident's booking) |
 | ~~`PUT`~~ | ~~`/api/societies/{id}/amenities/{id}`~~ | — | ⚠️ Not exposed — update amenity missing |
-| ~~`POST`~~ | ~~`/api/societies/{id}/amenity-bookings/{id}/approve`~~ | — | ⚠️ Not exposed — approval missing |
-| ~~`POST`~~ | ~~`/api/societies/{id}/amenity-bookings/{id}/reject`~~ | — | ⚠️ Not exposed — rejection missing |
-| ~~`DELETE`~~ | ~~`/api/societies/{id}/amenity-bookings/{id}`~~ | — | ⚠️ Not exposed — cancel booking missing |
 
 ---
 
 ## Acceptance Criteria
 - Residents cannot double-book overlapping slots for the same amenity.
 - Admin can control amenity rules, capacity, and operating hours.
-- Resident receives a notification on booking creation.
-- Only the booking resident or an admin can cancel a booking.
+- Resident receives a notification on booking creation, approval, rejection, and admin cancellation.
+- Only the booking resident or an admin can cancel a booking; an admin cancelling another resident's booking must provide remarks that are visible to that resident.
+- Booking times are interpreted as society wall-clock time against the amenity's operating hours.
 
 ---
 
@@ -85,9 +91,7 @@ The amenity booking module allows residents to book society amenities (clubhouse
 
 > 🔜 **Update Amenity endpoint** — `PUT /societies/{id}/amenities/{id}` to update capacity, operating hours, rules, and booking duration.
 
-> 🔜 **Admin approve/reject booking** — `POST /societies/{id}/amenity-bookings/{id}/approve` and `/reject` endpoints; send push notification to the resident on decision.
-
-> 🔜 **Cancel / reschedule booking** — `DELETE /societies/{id}/amenity-bookings/{id}` (cancel) and `PATCH /societies/{id}/amenity-bookings/{id}` (reschedule); notify affected parties.
+> 🔜 **Reschedule booking** — `PATCH /societies/{id}/amenity-bookings/{id}` to change a booking's slot without cancel + re-book; notify affected parties.
 
 > 🔜 **Date-range availability calendar** — extend the availability endpoint to accept a `fromDate` and `toDate` range for weekly/monthly calendar rendering.
 
