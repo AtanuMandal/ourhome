@@ -184,6 +184,14 @@ public sealed class MarkSosAlertFalseAlarmCommandHandler(
             if (!string.Equals(alert.TriggeredByUserId, request.RequestingUserId, StringComparison.OrdinalIgnoreCase))
                 throw new ForbiddenException("Only the resident who triggered the alert can mark it as a false alarm.");
 
+            // Idempotent: a repeat tap (e.g. from a client showing a stale status) is a
+            // success, not an error — the alert is already in the requested state.
+            if (alert.Status == SosAlertStatus.FalseAlarm)
+            {
+                var existingApartment = await apartmentRepository.GetByIdAsync(alert.ApartmentId, request.SocietyId, ct);
+                return Result<SosAlertResponse>.Success(alert.ToResponse(existingApartment?.ToDisplayLabel() ?? alert.ApartmentId));
+            }
+
             alert.MarkFalseAlarm();
             var updated = await alertRepository.UpdateAsync(alert, ct);
 

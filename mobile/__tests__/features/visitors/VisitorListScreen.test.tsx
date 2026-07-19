@@ -48,6 +48,21 @@ jest.mock('@expo/vector-icons', () => {
   return { MaterialIcons: (props: Record<string, unknown>) => <Text>{String(props.name)}</Text> };
 });
 
+// useActiveApartment issues a TanStack profile query; mock it to follow the auth
+// store's account-level apartmentId so these tests need no QueryClientProvider.
+jest.mock('../../../src/shared/hooks/useActiveApartment', () => ({
+  useActiveApartment: () => {
+    const { useAuthStore: store } = require('../../../src/store/authStore');
+    const user = store.getState().user;
+    return {
+      apartments: user?.apartments ?? [],
+      activeApartmentId: user?.apartmentId ?? null,
+      activeResidentType: user?.residentType,
+      setSelectedApartment: jest.fn(),
+    };
+  },
+}));
+
 const initialMetrics = {
   frame: { x: 0, y: 0, width: 0, height: 0 },
   insets: { top: 0, left: 0, right: 0, bottom: 0 },

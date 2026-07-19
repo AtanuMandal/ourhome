@@ -11,8 +11,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useSocietyId } from '../../shared/hooks/useSocietyId';
-import { useAuthStore } from '../../store/authStore';
-import { useAmenities, useCreateBooking } from './hooks/useAmenities';
+import { useActiveApartment } from '../../shared/hooks/useActiveApartment';
+import { useCreateBooking } from './hooks/useAmenities';
 import { AppHeader } from '../../shared/components/AppHeader';
 import { LoadingOverlay } from '../../shared/components/LoadingOverlay';
 import { normalizeError } from '../../shared/utils/errors';
@@ -27,7 +27,10 @@ interface AmenityBookingScreenProps {
 export function AmenityBookingScreen({ route }: AmenityBookingScreenProps) {
   const navigation = useNavigation();
   const societyId = useSocietyId();
-  const apartmentId = useAuthStore((s) => s.user?.apartmentId ?? '');
+  // Multi-apartment aware: the account-level apartmentId may be absent — follow the
+  // apartment selected in the drawer (falls back to the primary apartment).
+  const { activeApartmentId } = useActiveApartment();
+  const apartmentId = activeApartmentId ?? '';
   const { amenityId, amenityName } = route.params;
 
   const { mutateAsync: createBooking, isPending } = useCreateBooking(societyId);
@@ -40,16 +43,24 @@ export function AmenityBookingScreen({ route }: AmenityBookingScreenProps) {
       Alert.alert('Validation', 'Start and end time are required.');
       return;
     }
+    const timeFormat = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
+    if (!timeFormat.test(startTime.trim()) || !timeFormat.test(endTime.trim())) {
+      Alert.alert('Validation', 'Times must be in YYYY-MM-DDTHH:MM format (e.g. 2026-07-10T09:00).');
+      return;
+    }
     if (!apartmentId) {
       Alert.alert('Error', 'Apartment not found in your profile. Please contact admin.');
       return;
     }
     try {
+      // Send society wall-clock time as typed, NOT converted to UTC: the backend
+      // compares the time of day against the amenity's operating hours, so a UTC
+      // conversion would shift a 9 AM booking to 3:30 AM and always fail.
       await createBooking({
         amenityId,
         apartmentId,
-        startTime: new Date(startTime).toISOString(),
-        endTime: new Date(endTime).toISOString(),
+        startTime: startTime.trim(),
+        endTime: endTime.trim(),
       });
       Alert.alert('Booking Confirmed', `${amenityName} has been booked.`, [
         { text: 'OK', onPress: () => navigation.goBack() },

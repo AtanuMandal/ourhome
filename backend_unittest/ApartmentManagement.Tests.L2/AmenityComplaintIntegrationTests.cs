@@ -168,7 +168,7 @@ public class AmenityComplaintIntegrationTests : IntegrationTestBase
             SocietyId, amenityId, UserId, ApartmentId,
             TomorrowAt(19), TomorrowAt(20)))).Value!;
 
-        var cancelResult = await Mediator.Send(new CancelBookingCommand(SocietyId, booking.Id, UserId));
+        var cancelResult = await Mediator.Send(new CancelBookingCommand(SocietyId, booking.Id, UserId, null));
 
         cancelResult.IsSuccess.Should().BeTrue();
         BookingRepo.Store[booking.Id].Status.Should().Be(BookingStatus.Cancelled);

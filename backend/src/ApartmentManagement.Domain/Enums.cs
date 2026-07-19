@@ -10,7 +10,9 @@ public enum ResidentType { SocietyAdmin, Owner, Tenant, FamilyMember, CoOccupant
 /// </summary>
 public enum UserRole { HQAdmin, HQUser, SUAdmin, SUUser, SUSecurity }
 public enum BookingStatus { Pending, Approved, Rejected, Cancelled, Completed }
-public enum ComplaintCategory { Maintenance, Security, Noise, Cleanliness, Parking, Other }
+// Infrastructure + General complete the category list from requirements/complaints_service_requests.md.
+// Parking + Other are retained for complaints already stored in Cosmos (enums round-trip as strings).
+public enum ComplaintCategory { Maintenance, Security, Noise, Cleanliness, Parking, Other, Infrastructure, General }
 public enum ComplaintStatus { Open, InProgress, Resolved, Closed, Rejected }
 public enum ComplaintPriority { Low, Medium, High, Critical }
 public enum NoticeCategory { Maintenance, Events, General, Financial, Emergency }

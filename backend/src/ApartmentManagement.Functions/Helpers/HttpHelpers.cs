@@ -67,7 +67,8 @@ public static class HttpHelpers
             || result.ErrorCode.Contains("NOT_FOUND", StringComparison.OrdinalIgnoreCase)
             || result.ErrorCode == "NOT_FOUND")
             return new NotFoundObjectResult(new { error = msg });
-        if (result.ErrorCode is "CONFLICT" or "USER_ALREADY_EXISTS" or "SOCIETY_ALREADY_EXISTS" or "APARTMENT_NUMBER_DUPLICATE")
+        if (result.ErrorCode is "CONFLICT" or "USER_ALREADY_EXISTS" or "SOCIETY_ALREADY_EXISTS" or "APARTMENT_NUMBER_DUPLICATE"
+            or "SOS_ALERT_ALREADY_SETTLED" or "BOOKING_CONFLICT")
             return new ConflictObjectResult(new { error = msg });
         return result.ErrorCode switch
         {
@@ -76,6 +77,12 @@ public static class HttpHelpers
             "UNAUTHORIZED" => new UnauthorizedObjectResult(new { error = msg }),
             "VALIDATION_ERROR" => new BadRequestObjectResult(new { error = msg }),
             "VALIDATION_FAILED" => new BadRequestObjectResult(new { error = msg }),
+            // Business-rule rejections are client errors, not server faults — a 500 here
+            // makes the web/mobile UI show "Server error" instead of the actual reason.
+            "OUTSIDE_OPERATING_HOURS" => new BadRequestObjectResult(new { error = msg }),
+            "BOOKING_WINDOW_EXCEEDED" => new BadRequestObjectResult(new { error = msg }),
+            "AMENITY_UNAVAILABLE" => new BadRequestObjectResult(new { error = msg }),
+            "USER_HAS_NO_APARTMENT" => new BadRequestObjectResult(new { error = msg }),
             _ => new ObjectResult(new { error = msg }) { StatusCode = 500 }
         };
     }

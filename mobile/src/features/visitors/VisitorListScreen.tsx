@@ -8,12 +8,14 @@ import {
   RefreshControl,
   StyleSheet,
   Alert,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSocietyId } from '../../shared/hooks/useSocietyId';
 import { useAuthStore } from '../../store/authStore';
+import { useActiveApartment } from '../../shared/hooks/useActiveApartment';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { useVisitorList, useVisitorDefaultView, useApproveVisitor, useDenyVisitor, useCheckOutVisitor, useCheckInVisitorByPass } from './hooks/useVisitors';
@@ -23,6 +25,7 @@ import { useDebounce } from '../../shared/hooks/useDebounce';
 import { AppHeader } from '../../shared/components/AppHeader';
 import { StatusChip } from '../../shared/components/StatusChip';
 import { EmptyState } from '../../shared/components/EmptyState';
+import { resolveFileUrl } from '../../camera/imageUpload';
 import { SearchableSelect } from '../../shared/components/SearchableSelect';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
@@ -30,7 +33,7 @@ import { spacing } from '../../theme/spacing';
 import { formatDateTime } from '../../shared/utils/date';
 import type { Visitor } from '../../api/types';
 
-type VisitorsNav = NativeStackNavigationProp<{ VisitorList: undefined; VisitorRegister: undefined; VisitorDetail: { id: string } }>;
+type VisitorsNav = NativeStackNavigationProp<{ VisitorList: undefined; VisitorRegister: undefined; VisitorDetail: { id: string }; VisitorScan: undefined }>;
 
 const STATUS_OPTIONS = [
   { label: 'All', value: '' },
@@ -45,7 +48,9 @@ export function VisitorListScreen() {
   const navigation = useNavigation<VisitorsNav>();
   const societyId = useSocietyId();
   const role = useAuthStore((s) => s.user?.role ?? '');
-  const myApartmentId = useAuthStore((s) => s.user?.apartmentId ?? '');
+  // Multi-apartment aware: host-approval rights follow the apartment selected in the drawer.
+  const { activeApartmentId } = useActiveApartment();
+  const myApartmentId = activeApartmentId ?? '';
 
   const canModerate = role === 'SUAdmin' || role === 'SUSecurity';
 
@@ -134,6 +139,17 @@ export function VisitorListScreen() {
         onPress={() => navigation.navigate('VisitorDetail', { id: item.id })}
       >
         <View style={styles.itemTop}>
+          {item.visitorImageUrl ? (
+            <Image
+              source={{ uri: resolveFileUrl(item.visitorImageUrl) }}
+              style={styles.avatarImage}
+              accessibilityLabel={`Photo of ${item.visitorName}`}
+            />
+          ) : (
+            <View style={styles.avatarFallback}>
+              <Text style={styles.avatarFallbackText}>{item.visitorName?.[0] ?? '?'}</Text>
+            </View>
+          )}
           <View style={styles.itemLeft}>
             <Text style={[styles.visitorName, item.isOverstay === true && styles.visitorNameOverstay]}>
               {item.visitorName}
@@ -266,6 +282,13 @@ export function VisitorListScreen() {
           >
             <Text style={styles.gateBtnText}>{isVerifyingPass ? 'Verifying…' : 'Verify & Check In'}</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.gateBtn}
+            accessibilityLabel="Scan visitor pass QR code"
+            onPress={() => navigation.navigate('VisitorScan')}
+          >
+            <Text style={styles.gateBtnText}>📷 Scan</Text>
+          </TouchableOpacity>
         </View>
       )}
       {isDefaultView && (
@@ -381,8 +404,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
+    gap: spacing.sm,
   },
   itemLeft: { flex: 1, marginRight: spacing.sm },
+  avatarImage: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  avatarFallback: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarFallbackText: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text.secondary,
+  },
   visitorName: {
     fontSize: typography.fontSize.base,
     fontWeight: typography.fontWeight.semibold,
