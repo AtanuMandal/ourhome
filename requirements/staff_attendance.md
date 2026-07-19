@@ -3,7 +3,7 @@
 ## Overview
 This module tracks attendance for society staff — security guards, housekeeping, gardeners, plumbers, and other on-payroll or on-contract personnel — as distinct from resident and visitor tracking. It gives `SUAdmin` a roster and shift structure, and a simple daily check-in/check-out record that today is kept (if at all) in a physical register at the gate.
 
-> 🆕 **New module.** No `Staff` entity, roster, or attendance record exists in the codebase yet. This document specifies the requirement to build against.
+> ✅ **Implemented.** The `Staff` entity, roster/attendance endpoints, and web + mobile UI (staff list, attendance marking, reports) are live.
 
 ---
 
@@ -49,7 +49,7 @@ This module tracks attendance for society staff — security guards, housekeepin
 
 ---
 
-## API Endpoints (Planned)
+## API Endpoints
 
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|

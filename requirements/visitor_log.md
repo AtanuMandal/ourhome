@@ -42,6 +42,8 @@ The visitor log module maintains a real-time record of all visitors entering and
 - The QR code and pass details are hidden if the pass has expired.
 - Residents can **copy the pass link** to clipboard from the pass card after pre-approving a visitor.
 - Residents can **share the pass via email and/or SMS** — the system sends the link through ACS (Azure Communication Services).
+- On mobile, the pass screen also offers the **native share sheet** (WhatsApp, SMS, etc.) — the shared message includes the visitor details, pass code, and the same public pass link.
+- On mobile, registering a visitor lands directly on the pass screen (QR + share actions), matching the web post-register pass card.
 - The shared link is only meaningful during the validity window; after expiry it shows an expired notice.
 
 ### 4. Resident Notifications
@@ -60,6 +62,8 @@ The visitor log module maintains a real-time record of all visitors entering and
 ### 6. Check-In / Check-Out
 - `SUSecurity` and `SUAdmin` can check in a visitor using their pass code or by scanning the QR code with the device camera.
 - The frontend supports **browser-native QR camera scanning** (`BarcodeDetector` API).
+- The mobile app has a dedicated **camera QR scan screen** (expo-camera) reachable from the visitor list's gate row — scanning a valid pass verifies it and **checks the visitor in as one step**; an invalid/expired pass shows the rejection reason with a retry option.
+- Pass verification is deliberately one step with check-in on both platforms — security never has to check a verified visitor in separately (re-verifying an already checked-in pass is idempotent).
 - Check-in is blocked if the visitor pass has expired (`IsPassExpired = true`); the API returns a specific `VISITOR_PASS_EXPIRED` error code.
 - On check-in, visitor status changes to `CheckedIn`.
 - On check-out, visitor status changes to `CheckedOut`; check-out time is recorded.
@@ -94,6 +98,7 @@ The visitor log module maintains a real-time record of all visitors entering and
 ### 12. Visitor Image Zoom Preview
 - On web, clicking a visitor's photo (in the visitor list avatar or the QR-verify result card) opens a full-screen zoom popup (`app-image-lightbox`) with zoom in/out buttons (100%–400%) and mouse-wheel zoom — the same lightbox pattern used for maintenance payment proofs.
 - On mobile, tapping the captured photo preview in visitor registration opens an equivalent full-screen zoom modal with zoom in/out buttons (100%–400%).
+- On mobile, the visitor list shows a photo thumbnail per entry (initial-letter avatar when no photo), and the visitor pass screen shows the visitor's photo above the QR code with tap-to-zoom.
 
 ### 13. Company / Purpose Autocomplete
 - `GET /api/societies/{id}/visitors/lookups` returns the distinct, non-empty `companyName` and `purpose` values previously used across the society's visitor logs.
@@ -102,6 +107,10 @@ The visitor log module maintains a real-time record of all visitors entering and
 ### 14. Visitor List Default View
 - With no filters applied, the visitor list shows all `Pending` visitors plus the 10 most recently updated non-pending visitors (merged and de-duplicated by ID), instead of the full unfiltered history — this keeps the default view focused on visitors needing action.
 - Applying any search or status filter switches to the normal paginated, fully-filtered list.
+
+### 15. Auto Check-Out and Overstay Flagging
+- A timer function automatically checks out visitors whose pass validity has long expired without a recorded exit, so the active list does not accumulate stale entries.
+- Visitors checked in past the society's overstay threshold are flagged (`isOverstay`) and highlighted in the visitor list on both web and mobile.
 
 ---
 
@@ -134,7 +143,7 @@ Pending → Approved → CheckedIn → CheckedOut
        Denied
 ```
 
-- `PreApproved` — created by resident pre-approval, no further action needed before check-in.
+- Pre-approved — resident pre-approval creates the entry with `isPreApproved = true` and status `Approved` immediately; no further action needed before check-in.
 - `Pending` — created by gate staff; waiting for resident approval.
 - `Approved` — resident approved the visitor.
 - `Denied` — resident denied the visitor.

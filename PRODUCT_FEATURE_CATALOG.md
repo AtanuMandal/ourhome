@@ -184,11 +184,10 @@ OurHome is a cloud-hosted, always-on platform that helps housing societies and a
 - A user account **cannot be removed** while still linked to an apartment, or while any of their linked apartments has unpaid dues for the current month or earlier
 - Self-registered residents cannot access apartment-specific features until their apartment join request is approved
 
-**Known Gap**
-- Residents can currently see each other's full phone number and email address in the shared directory. This contact information is intended to be masked for residents viewing other residents, but that masking is not yet enforced.
+**Privacy Safeguard**
+- A resident viewing another resident's record sees a **masked phone number and email** (e.g., `+91-98XXXXXX10`, `ra***@***.com`) — enough to confirm identity without exposing full contact details. A resident's own record, and admin/security views, are never masked, and directory search still works against the full values
 
 **Planned Enhancements**
-- Enforce masking of resident contact details (phone/email) so residents see only what's needed, not full contact information, when viewing others
 - Bulk resident import via spreadsheet upload, to onboard an entire building at once instead of one account at a time
 - Automatic notification to admin whenever a new resident submits a join request
 - Reminder notifications to residents who registered but haven't completed apartment association after a few days
@@ -263,31 +262,33 @@ OurHome is a cloud-hosted, always-on platform that helps housing societies and a
 
 | Role | Access |
 |---|---|
-| SUAdmin | Creates and configures amenities; reviews all bookings |
-| SUUser | Browses amenities, books slots, views own bookings |
+| SUAdmin | Creates and configures amenities; reviews, approves/rejects, and can cancel any booking |
+| SUUser | Browses amenities, books slots, views and cancels own bookings |
 | SUSecurity | Views bookings (read-only) |
 
 **Business Capabilities**
 - Admin sets up amenities with capacity, usage rules, bookable slot duration, operating hours, and how far in advance a booking can be made
 - Residents browse available amenities and check slot availability for a chosen date
 - Residents book a specific time slot; the system automatically prevents any double-booking of the same slot
-- Booking resident receives a confirmation notification
+- Admin reviews pending bookings and **approves or rejects** them, with optional notes shown to the resident
+- Residents can **cancel their own** pending or approved booking; admin can **cancel any booking with mandatory remarks**, which are shown to the resident on their booking and delivered as a notification
+- Residents see their own bookings with live status; admins see every booking across the society
+- Booking resident receives a notification on booking creation, approval, rejection, and admin cancellation
 
 **Business Rules**
 - Two bookings for the same amenity can never overlap
+- Booking times are interpreted in the society's local time against the amenity's operating hours
+- An admin cancelling another resident's booking must state a reason — silent cancellation is not possible
 
 **Known Gaps (documented requirements not yet available today)**
 - Amenities, once created, **cannot currently be edited** — there is no way to update capacity, hours, or rules after setup
-- Booking requests **stay in "pending" status indefinitely** — there is no admin approve/reject action to move a booking forward yet
-- Residents **cannot cancel or reschedule** a booking once made
+- Residents cannot **reschedule** a booking — the path today is cancel and re-book
 - Availability can only be checked **one date at a time**, not across a week or month
 - There is **no usage reporting** on amenities (utilization, peak times, most-booked)
-- No notification is sent when a booking is approved, rejected, or cancelled
 
 **Planned Enhancements**
 - Ability to update amenity settings (capacity, hours, rules, slot duration) after creation
-- Admin approve/reject workflow so bookings move out of "pending" status, with a notification to the resident on the decision
-- Resident-initiated cancel and reschedule of an existing booking, with notifications to affected parties
+- Reschedule of an existing booking without cancel + re-book, with notifications to affected parties
 - A date-range calendar view of amenity availability instead of single-date lookups
 - Usage reports showing amenity popularity and utilization over time
 
@@ -343,22 +344,22 @@ OurHome is a cloud-hosted, always-on platform that helps housing societies and a
 
 **Business Capabilities**
 - Admin publishes a notice with a title, content, category (General, Maintenance, Event, Security, Finance, Emergency), and optional scheduled publish and expiry dates
+- Admin can **edit a published notice** (title, content, expiry) to correct mistakes without deleting and reposting
 - Notices can be targeted to specific apartments, or published society-wide
 - Residents see a live feed of active notices and receive a push notification the moment a new one is posted
 - Per-resident read/unread tracking, so each resident's notice feed reflects what they've personally seen — not just a global read count
+- Admin can pull a **read-receipts report** per notice — who has read it and who hasn't
 
 **Business Rules**
 - Notices past their expiry date automatically drop out of the active list
 
 **Known Gaps**
-- Admin **cannot currently edit** a notice once it's published
 - Admin **cannot currently delete** a notice
 - There is no way to filter the notice list by category or date range
 - There is no way for residents to browse expired/archived notices
 - Notices cannot currently carry file or photo attachments (e.g., circulars, images)
 
 **Planned Enhancements**
-- Enable editing of a published notice (title, content, category, expiry)
 - Enable deleting a notice
 - Add category and date-range filters to the notice list
 - Provide a browsable archive of expired notices
@@ -381,22 +382,23 @@ OurHome is a cloud-hosted, always-on platform that helps housing societies and a
 
 **Business Capabilities**
 - Security staff register a walk-in visitor at the gate with name, phone, purpose, and photo; the request is sent to the host apartment for approval
-- Residents can pre-approve an expected visitor ahead of time, choosing how long the pass stays valid (from 1 hour up to 72 hours, or with no expiry)
-- Every visitor receives a numeric pass code and a QR code, scanned by security for check-in and check-out
-- A public, no-login shareable link lets a visitor's pass be viewed or shared by email/SMS without exposing sensitive details, and hides itself once expired
+- Residents can pre-approve an expected visitor ahead of time, choosing how long the pass stays valid (from 1 hour up to 72 hours, or with no expiry) — a resident-created pass is **approved immediately**, with no extra approval step
+- Every visitor receives a numeric pass code and a QR code; security verifies at the gate by typing the code or **scanning the QR with the device camera — on both the web app and the mobile app** — and a valid pass checks the visitor in as a single step
+- A public, no-login shareable link lets a visitor's pass be viewed or shared by email/SMS without exposing sensitive details, and hides itself once expired; on mobile the pass can also be shared through the phone's native share sheet (WhatsApp, SMS, etc.) with the same link included
 - Residents receive a push notification with direct Approve/Deny actions when an unscheduled visitor arrives at the gate
+- Visitors who leave without a recorded exit are **automatically checked out** once their pass validity has long lapsed, and anyone staying past the society's overstay threshold is visibly **flagged as overstaying** in the visitor list
 - Full visitor history and CSV export for security review, with company/purpose suggestions drawn from past entries to speed up registration
 - A dedicated view of everyone currently checked in, for real-time premises awareness
-- Visitor and pass photos can be viewed full-screen with zoom, on both web and mobile
+- Visitor photos appear throughout — list thumbnails, gate verification results, and the pass itself — and can be viewed full-screen with zoom, on both web and mobile
 
 **Business Rules**
 - **Only the host resident can approve a pending visitor.** Admins and security staff can deny a visitor request but are deliberately excluded from approving one — approval is a resident-only decision, by design, not a limitation
 - A visitor pass that has passed its validity window cannot be used for check-in
 - Residents only ever see their own apartment's visitor history, enforced regardless of what they might try to request
-- The visitor list refreshes automatically every 30 seconds to reflect near-real-time status changes
+- The security visitor list silently refreshes every 10 seconds to reflect near-real-time status changes
 
 **Planned Enhancements**
-- Instant, push-based status updates for the security desk, replacing today's 30-second refresh cycle
+- Instant, push-based status updates for the security desk, replacing today's 10-second refresh cycle
 - A printable physical visitor pass layout, in addition to the digital QR pass
 - A pending-visitor count badge so residents can see at a glance how many requests are awaiting their action
 
@@ -428,6 +430,8 @@ OurHome is a cloud-hosted, always-on platform that helps housing societies and a
 - Only the triggering resident can mark their own alert a False Alarm; only SUSecurity/SUAdmin can mark an alert Resolved
 - A resident can only trigger or stand down an alert for their own apartment
 - Escalation repeats at increasing intervals until the alert is acknowledged
+- Every society member can view the alert list for situational awareness — but only security/admin can act on an alert
+- Standing down an already-stood-down alert never errors — the action is safely repeatable from a device showing a stale status
 
 **Planned Enhancements**
 - One-tap dial to the local emergency number alongside the in-app alert, for Fire/Medical categories
@@ -483,8 +487,8 @@ OurHome is a cloud-hosted, always-on platform that helps housing societies and a
 **Business Capabilities**
 - Admin defines a fee schedule, charged either as a **flat amount per apartment** or **per square foot** of the unit, on a monthly, quarterly, or yearly frequency
 - Charges are generated automatically for every applicable apartment for the entire schedule period — no manual monthly entry required
-- Residents view their charges and upload a payment proof (receipt image or PDF) against one or more charges at once
-- Admin reviews submitted proof in a full-screen zoom view before approving, or can manually mark a charge as paid with payment method and reference
+- Residents view their charges and upload a payment proof (receipt image or PDF) against one or more charges at once — several months submitted together are treated as one **clubbed submission** reviewed as a group
+- Admin reviews submitted proof in a full-screen zoom view before approving, can **deny a proof with a stated reason** (shown to the resident, singly or for a whole clubbed group at once), or can manually mark a charge as paid with payment method and reference
 - Admin can levy one-off penalty charges (e.g., late fees) against a specific apartment
 - A month-by-month grid gives admins a complete financial snapshot across every apartment at a glance, with totals for paid, submitted, and pending amounts per month
 
@@ -497,12 +501,11 @@ OurHome is a cloud-hosted, always-on platform that helps housing societies and a
 **Known Gaps**
 - Admin notification the moment a resident submits payment proof is not yet confirmed to be firing reliably
 - Residents cannot currently download a formal PDF receipt — only the uploaded proof document is available
-- The mobile app is **view-only** for maintenance — it does not yet support uploading or previewing payment proof, unlike the web app
+- Fee schedule creation, the charge register, and penalty creation remain web-only admin surfaces — mobile covers the resident payment flow plus proof review
 
 **Planned Enhancements**
 - Guaranteed admin notification the moment proof is submitted
 - Auto-generated PDF receipts for residents upon approval or manual payment
-- Full payment-proof upload and zoom-preview support on mobile, matching the web experience
 - **Automated Payment Gateway (Phase 2):**
   - Residents securely save a payment method (UPI, card, net banking) for hands-off recurring payment
   - Automatic deduction of the due amount on or before the due date, with automatic retries on failure
@@ -727,18 +730,19 @@ OurHome is a cloud-hosted, always-on platform that helps housing societies and a
 | All roles | Native mobile companion app mirroring their web permissions |
 
 **Business Capabilities**
-- Full feature parity with web for login, visitors, notices, complaints, amenities, resident/apartment management, and financial reports (including the Society-Wide Ledger)
+- Full feature parity with web for login, visitors, notices, complaints, amenities (including booking approval and cancellation), maintenance (including payment-proof submission and admin proof review), resident/apartment management, and financial reports (including the Society-Wide Ledger)
 - Native biometric sign-in (Face ID / Touch ID / Fingerprint) after the first login, with a fallback to password
 - Native push notifications, including actionable **Approve/Deny buttons directly on a visitor notification** — no need to open the app
+- A **built-in QR scanner for gate check-in** — security staff scan a visitor's pass with the phone camera and a valid pass is verified and checked in in one step, no typing required
 - Native camera capture for visitor photos, payment proof, and profile pictures, with automatic compression before upload
+- Native share sheet for visitor passes — the pass details, code, and public link go out through WhatsApp, SMS, or any installed app
 - An offline-aware experience: cached data is shown when offline with a clear banner, and actions requiring connectivity are clearly blocked rather than silently queued
 
 **Known Gaps vs. Web**
-- **No maintenance payment-proof upload or preview on mobile** — residents can only view their dues list, not submit or review proof of payment as they can on web
 - **No vendor document/photo preview on mobile** — vendor records are a view-only list, without the document preview available on web
+- Web-only bulk-admin surfaces remain: apartment CSV import, maintenance schedule setup/charge register/penalties, vendor directory and schedule management forms, and society profile/settings editing
 
 **Planned Enhancements**
-- A built-in QR scanner for gate check-in, so security staff can scan a visitor's pass without typing the code
 - A home-screen widget / live-activity showing a countdown for an active visitor pass
 - Offline queuing of actions like complaint submission and payment-proof upload, replaying automatically once back online
 - Full screen-reader (accessibility) compliance across the app
@@ -782,13 +786,11 @@ This is the consolidated, cross-module view of everything on the platform's forw
 | Society Onboarding & Setup | Guided onboarding wizard | Bundles fee, amenity, and staff setup into one session, reducing setup errors and time-to-live |
 | Society Onboarding & Setup | Multiple initial administrators at creation | Reflects real-world committees, which rarely have just one admin from day one |
 | Apartment Management | Server-side filters on the apartment list (block/floor/status) | Large societies can find specific units quickly instead of scrolling a full list |
-| User & Access Management | Enforce contact-detail masking (phone/email) for residents viewing others | Closes a current privacy gap where residents see each other's raw contact details |
 | User & Access Management | Bulk resident import via spreadsheet | Onboards an entire building in one step instead of one account at a time |
 | Resident Lifecycle | Admin notification on new join requests | Prevents join requests from sitting unnoticed |
 | Resident Lifecycle | Onboarding completion reminders | Improves the rate of residents fully completing setup |
 | Amenities & Facility Booking | Ability to update amenity settings after creation | Lets admins correct or evolve amenity details without recreating them |
-| Amenities & Facility Booking | Admin approve/reject booking workflow | Bookings can actually be confirmed instead of sitting "pending" indefinitely |
-| Amenities & Facility Booking | Cancel/reschedule booking | Residents aren't locked into a booking they can no longer use |
+| Amenities & Facility Booking | Reschedule booking | Residents can move a booking without cancel + re-book |
 | Amenities & Facility Booking | Date-range calendar availability view | Residents can plan ahead instead of checking one day at a time |
 | Amenities & Facility Booking | Usage reports | Helps management see which amenities are most/least used |
 | Complaints & Service Requests | Feedback/rating on resolved complaints | Measures service quality and holds staff accountable |
@@ -796,7 +798,6 @@ This is the consolidated, cross-module view of everything on the platform's forw
 | Complaints & Service Requests | Guaranteed status-change notifications | Residents are reliably informed as their issue progresses |
 | Complaints & Service Requests | Resolution-time reporting | Gives management a clear service-level metric |
 | Complaints & Service Requests | Preferred time-slot field | Reduces missed technician visits |
-| Notice Board & Communication | Edit notice after publishing | Corrects mistakes without deleting and reposting |
 | Notice Board & Communication | Delete notice | Removes outdated or mistaken announcements |
 | Notice Board & Communication | Category and date filters | Makes past notices easier to find |
 | Notice Board & Communication | Archived notices browsing | Preserves history while keeping the active board focused |
@@ -807,7 +808,6 @@ This is the consolidated, cross-module view of everything on the platform's forw
 | Visitor Management | Pending-visitor count badge | Gives residents an at-a-glance view of requests awaiting their action |
 | Maintenance Billing & Fee Collection | Admin notification on proof-of-payment submission | Speeds up payment verification instead of relying on manual checks |
 | Maintenance Billing & Fee Collection | Auto-generated PDF receipts | Gives residents an official record without manual admin effort |
-| Maintenance Billing & Fee Collection | Mobile proof upload/preview | Closes the current mobile gap where this workflow is web-only |
 | Maintenance Billing & Fee Collection | Saved payment methods (Payment Gateway Phase 2) | Faster repeat payments for residents |
 | Maintenance Billing & Fee Collection | Automated recurring deduction (Payment Gateway Phase 2) | Removes the need for residents to remember to pay each period |
 | Maintenance Billing & Fee Collection | Payment due reminders (Payment Gateway Phase 2) | Reduces late payments |
@@ -839,7 +839,6 @@ This is the consolidated, cross-module view of everything on the platform's forw
 | Local Service Provider Marketplace | Provider pricing field | Lets residents compare cost upfront |
 | Local Service Provider Marketplace | Notifications through the request lifecycle | Keeps both sides informed without manual follow-up |
 | Local Service Provider Marketplace | Admin reports on marketplace activity | Gives management visibility into adoption and provider performance |
-| Mobile Application | Built-in QR scanner for gate check-in | Removes the need for a separate scanning device at the gate |
 | Mobile Application | Live-activity/widget for visitor pass countdown | Keeps residents informed of an expected guest without opening the app |
 | Mobile Application | Offline mutation queuing (complaints, payment proof) | Lets residents keep working without connectivity, syncing automatically once back online |
 | Mobile Application | Full accessibility compliance | Ensures the app is usable by residents with disabilities |
