@@ -26,7 +26,7 @@ param resourcePrefix string
 param tags object
 
 @description('Environment. Enables purge protection for prod to prevent accidental deletion.')
-@allowed(['dev', 'prod'])
+@allowed(['dev', 'qa', 'prod'])
 param appEnvironment string
 
 @description('Cosmos DB primary connection string.')

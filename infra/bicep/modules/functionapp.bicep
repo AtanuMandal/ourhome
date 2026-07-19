@@ -38,7 +38,7 @@ param appInsightsConnectionString string
 param keyVaultName string
 
 @description('Environment. Sets ASPNETCORE_ENVIRONMENT.')
-@allowed(['dev', 'prod'])
+@allowed(['dev', 'qa', 'prod'])
 param appEnvironment string
 
 @description('Event Grid custom topic endpoint (non-sensitive public URL).')
@@ -53,6 +53,54 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' existing 
 }
 
 var storageConnectionString = 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};AccountKey=${storageAccount.listKeys().keys[0].value};EndpointSuffix=${environment().suffixes.storage}'
+
+var aspNetCoreEnvironment = appEnvironment == 'prod'
+  ? 'Production'
+  : (appEnvironment == 'qa' ? 'Staging' : 'Development')
+
+// App settings shared by the production site and the staging slot.
+// WEBSITE_CONTENTSHARE is added separately per slot (and pinned as a slot
+// setting below) so a swap never exchanges the content shares.
+var baseAppSettings = [
+
+  // ── Function runtime ─────────────────────────────────────────────────
+  { name: 'FUNCTIONS_EXTENSION_VERSION',             value: '~4' }
+  { name: 'FUNCTIONS_WORKER_RUNTIME',                value: 'dotnet-isolated' }
+  { name: 'WEBSITE_RUN_FROM_PACKAGE',                value: '1' }
+
+  // ── Storage (required for Windows Consumption plan) ──────────────────
+  { name: 'AzureWebJobsStorage',                     value: storageConnectionString }
+  { name: 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING', value: storageConnectionString }
+
+  // ── Observability ────────────────────────────────────────────────────
+  { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING',   value: appInsightsConnectionString }
+
+  // ── ASP.NET Core environment ─────────────────────────────────────────
+  { name: 'ASPNETCORE_ENVIRONMENT',                  value: aspNetCoreEnvironment }
+
+  // ── Key Vault secret references ───────────────────────────────────────
+  // Resolved at runtime by the Functions host using the managed identity.
+  {
+    name: 'CosmosDb__ConnectionString'
+    value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=CosmosDbConnectionString)'
+  }
+  {
+    name: 'EventGrid__TopicKey'
+    value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=EventGridTopicKey)'
+  }
+  {
+    name: 'EventGrid__TopicEndpoint'
+    value: eventGridTopicEndpoint
+  }
+  {
+    name: 'CommunicationServices__ConnectionString'
+    value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=AzureCommunicationServicesConnectionString)'
+  }
+  {
+    name: 'Jwt__Secret'
+    value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=JwtSecret)'
+  }
+]
 
 // Consumption (Y1 / Dynamic) plan – scale to zero, pay per execution
 resource hostingPlan 'Microsoft.Web/serverfarms@2023-01-01' = {
@@ -84,48 +132,49 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
       use32BitWorkerProcess: false
       ftpsState: 'Disabled'
       minTlsVersion: '1.2'
-      appSettings: [
-
-        // ── Function runtime ─────────────────────────────────────────────────
-        { name: 'FUNCTIONS_EXTENSION_VERSION',             value: '~4' }
-        { name: 'FUNCTIONS_WORKER_RUNTIME',                value: 'dotnet-isolated' }
-        { name: 'WEBSITE_RUN_FROM_PACKAGE',                value: '1' }
-
-        // ── Storage (required for Windows Consumption plan) ──────────────────
-        { name: 'AzureWebJobsStorage',                     value: storageConnectionString }
-        { name: 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING', value: storageConnectionString }
-        { name: 'WEBSITE_CONTENTSHARE',                    value: toLower(functionAppName) }
-
-        // ── Observability ────────────────────────────────────────────────────
-        { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING',   value: appInsightsConnectionString }
-
-        // ── ASP.NET Core environment ─────────────────────────────────────────
-        { name: 'ASPNETCORE_ENVIRONMENT',                  value: appEnvironment == 'prod' ? 'Production' : 'Development' }
-
-        // ── Key Vault secret references ───────────────────────────────────────
-        // Resolved at runtime by the Functions host using the managed identity.
-        {
-          name: 'CosmosDb__ConnectionString'
-          value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=CosmosDbConnectionString)'
-        }
-        {
-          name: 'EventGrid__TopicKey'
-          value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=EventGridTopicKey)'
-        }
-        {
-          name: 'EventGrid__TopicEndpoint'
-          value: eventGridTopicEndpoint
-        }
-        {
-          name: 'CommunicationServices__ConnectionString'
-          value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=AzureCommunicationServicesConnectionString)'
-        }
-        {
-          name: 'Jwt__Secret'
-          value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=JwtSecret)'
-        }
-      ]
+      appSettings: concat(baseAppSettings, [
+        { name: 'WEBSITE_CONTENTSHARE', value: toLower(functionAppName) }
+      ])
     }
+  }
+}
+
+// ─── Staging slot (blue-green deployments) ────────────────────────────────────
+// New releases are zip-deployed here, warmed up and smoke-tested, then swapped
+// into production. Consumption plans support exactly one deployment slot.
+
+resource stagingSlot 'Microsoft.Web/sites/slots@2023-01-01' = {
+  parent: functionApp
+  name: 'staging'
+  location: location
+  tags: tags
+  kind: 'functionapp'
+  identity: {
+    type: 'SystemAssigned'  // Needs its own Key Vault RBAC grant (see main.bicep)
+  }
+  properties: {
+    serverFarmId: hostingPlan.id
+    httpsOnly: true
+    siteConfig: {
+      netFrameworkVersion: 'v8.0'
+      use32BitWorkerProcess: false
+      ftpsState: 'Disabled'
+      minTlsVersion: '1.2'
+      appSettings: concat(baseAppSettings, [
+        { name: 'WEBSITE_CONTENTSHARE', value: '${toLower(functionAppName)}-staging' }
+      ])
+    }
+  }
+}
+
+// Pin WEBSITE_CONTENTSHARE to its slot so swaps never exchange content shares.
+resource slotConfigNames 'Microsoft.Web/sites/config@2023-01-01' = {
+  parent: functionApp
+  name: 'slotConfigNames'
+  properties: {
+    appSettingNames: [
+      'WEBSITE_CONTENTSHARE'
+    ]
   }
 }
 
@@ -135,3 +184,5 @@ output functionAppName string = functionApp.name
 output functionAppId string = functionApp.id
 output principalId string = functionApp.identity.principalId
 output functionAppHostName string = functionApp.properties.defaultHostName
+output stagingSlotPrincipalId string = stagingSlot.identity.principalId
+output stagingSlotHostName string = stagingSlot.properties.defaultHostName

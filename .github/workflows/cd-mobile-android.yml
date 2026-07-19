@@ -1,0 +1,171 @@
+name: CD Mobile · Android (DEV → QA → PROD)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Android delivery pipeline for the Expo mobile app using EAS cloud builds.
+#
+# Same progressive flow as the web/backend pipeline:
+#   build-dev  →  build-qa  →  deploy-prod
+# enforced with `needs:` + qa/prod GitHub Environment approval gates.
+#
+#   dev  → internal-distribution APK against the DEV API
+#   qa   → internal-distribution APK against the QA API
+#   prod → store AAB against the PROD API, then `eas submit` to Google Play
+#
+# Per-environment VAR:    API_BASE_URL (baked into the build via eas.json env)
+# Repository SECRETS:     EXPO_TOKEN
+# prod environment SECRET: GOOGLE_SERVICE_ACCOUNT_JSON (Play Console key)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Promote up to which environment?'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - qa
+          - prod
+
+concurrency:
+  group: cd-mobile-android
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # ── Stage 1: DEV build ───────────────────────────────────────────────────────
+  build-dev:
+    name: Stage 1 · DEV build
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Setup EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        working-directory: mobile
+        run: npm ci
+
+      - name: Inject DEV API base URL into eas.json
+        working-directory: mobile
+        run: |
+          jq --arg url "${{ vars.API_BASE_URL }}" \
+            'if $url != "" then .build.dev.env.API_BASE_URL = $url else . end' \
+            eas.json > eas.json.tmp && mv eas.json.tmp eas.json
+
+      - name: EAS build (Android, dev profile)
+        working-directory: mobile
+        run: eas build --platform android --profile dev --non-interactive --wait
+
+  # ── Stage 2: QA build — only after DEV succeeds ──────────────────────────────
+  build-qa:
+    name: Stage 2 · QA build
+    runs-on: ubuntu-latest
+    needs: build-dev
+    if: ${{ inputs.target == 'qa' || inputs.target == 'prod' }}
+    environment: qa
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Setup EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        working-directory: mobile
+        run: npm ci
+
+      - name: Inject QA API base URL into eas.json
+        working-directory: mobile
+        run: |
+          jq --arg url "${{ vars.API_BASE_URL }}" \
+            'if $url != "" then .build.qa.env.API_BASE_URL = $url else . end' \
+            eas.json > eas.json.tmp && mv eas.json.tmp eas.json
+
+      - name: EAS build (Android, qa profile)
+        working-directory: mobile
+        run: eas build --platform android --profile qa --non-interactive --wait
+
+  # ── Stage 3: PROD build + Play Store submit — only after QA succeeds ─────────
+  deploy-prod:
+    name: Stage 3 · PROD build & submit
+    runs-on: ubuntu-latest
+    needs: build-qa
+    if: ${{ inputs.target == 'prod' }}
+    environment: prod
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Setup EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        working-directory: mobile
+        run: npm ci
+
+      - name: Inject PROD API base URL into eas.json
+        working-directory: mobile
+        run: |
+          jq --arg url "${{ vars.API_BASE_URL }}" \
+            'if $url != "" then .build.prod.env.API_BASE_URL = $url else . end' \
+            eas.json > eas.json.tmp && mv eas.json.tmp eas.json
+
+      - name: EAS build (Android, prod profile)
+        working-directory: mobile
+        run: eas build --platform android --profile prod --non-interactive --wait
+
+      - name: Write Play Console service account key
+        working-directory: mobile
+        run: printf '%s' "$GOOGLE_SERVICE_ACCOUNT_JSON" > service-account.json
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+
+      - name: Submit latest build to Google Play
+        working-directory: mobile
+        run: eas submit --platform android --profile prod --latest --non-interactive
+
+      - name: Clean up service account key
+        if: always()
+        working-directory: mobile
+        run: rm -f service-account.json

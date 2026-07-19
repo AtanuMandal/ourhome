@@ -1,0 +1,165 @@
+name: CD Mobile · iOS (DEV → QA → PROD)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# iOS delivery pipeline for the Expo mobile app using EAS cloud builds.
+#
+# Same progressive flow as the Android/web pipelines:
+#   build-dev  →  build-qa  →  deploy-prod
+# enforced with `needs:` + qa/prod GitHub Environment approval gates.
+#
+#   dev  → internal-distribution (ad hoc) build against the DEV API
+#   qa   → internal-distribution (ad hoc) build against the QA API
+#   prod → store build against the PROD API, then `eas submit` to App Store
+#          Connect (TestFlight)
+#
+# Per-environment VAR:  API_BASE_URL (baked into the build via eas.json env)
+# Repository SECRET:    EXPO_TOKEN
+#
+# iOS signing: managed remotely by EAS (run `eas credentials -p ios` once
+# locally to provision certificates/profiles). For non-interactive store
+# submission, configure an App Store Connect API key on expo.dev
+# (Project → Credentials → App Store Connect API Key).
+# ═══════════════════════════════════════════════════════════════════════════════
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Promote up to which environment?'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - qa
+          - prod
+
+concurrency:
+  group: cd-mobile-ios
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # ── Stage 1: DEV build ───────────────────────────────────────────────────────
+  build-dev:
+    name: Stage 1 · DEV build
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Setup EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        working-directory: mobile
+        run: npm ci
+
+      - name: Inject DEV API base URL into eas.json
+        working-directory: mobile
+        run: |
+          jq --arg url "${{ vars.API_BASE_URL }}" \
+            'if $url != "" then .build.dev.env.API_BASE_URL = $url else . end' \
+            eas.json > eas.json.tmp && mv eas.json.tmp eas.json
+
+      - name: EAS build (iOS, dev profile)
+        working-directory: mobile
+        run: eas build --platform ios --profile dev --non-interactive --wait
+
+  # ── Stage 2: QA build — only after DEV succeeds ──────────────────────────────
+  build-qa:
+    name: Stage 2 · QA build
+    runs-on: ubuntu-latest
+    needs: build-dev
+    if: ${{ inputs.target == 'qa' || inputs.target == 'prod' }}
+    environment: qa
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Setup EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        working-directory: mobile
+        run: npm ci
+
+      - name: Inject QA API base URL into eas.json
+        working-directory: mobile
+        run: |
+          jq --arg url "${{ vars.API_BASE_URL }}" \
+            'if $url != "" then .build.qa.env.API_BASE_URL = $url else . end' \
+            eas.json > eas.json.tmp && mv eas.json.tmp eas.json
+
+      - name: EAS build (iOS, qa profile)
+        working-directory: mobile
+        run: eas build --platform ios --profile qa --non-interactive --wait
+
+  # ── Stage 3: PROD build + App Store submit — only after QA succeeds ──────────
+  deploy-prod:
+    name: Stage 3 · PROD build & submit
+    runs-on: ubuntu-latest
+    needs: build-qa
+    if: ${{ inputs.target == 'prod' }}
+    environment: prod
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Setup EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        working-directory: mobile
+        run: npm ci
+
+      - name: Inject PROD API base URL into eas.json
+        working-directory: mobile
+        run: |
+          jq --arg url "${{ vars.API_BASE_URL }}" \
+            'if $url != "" then .build.prod.env.API_BASE_URL = $url else . end' \
+            eas.json > eas.json.tmp && mv eas.json.tmp eas.json
+
+      - name: EAS build (iOS, prod profile)
+        working-directory: mobile
+        run: eas build --platform ios --profile prod --non-interactive --wait
+
+      - name: Submit latest build to App Store Connect (TestFlight)
+        working-directory: mobile
+        run: eas submit --platform ios --profile prod --latest --non-interactive

@@ -25,7 +25,7 @@ targetScope = 'resourceGroup'
 // ─── Parameters ───────────────────────────────────────────────────────────────
 
 @description('Environment name. Controls naming, SKUs, and feature flags.')
-@allowed(['dev', 'prod'])
+@allowed(['dev', 'qa', 'prod'])
 param environment string
 
 @description('Azure region for all resources. Defaults to the resource group location.')
@@ -135,17 +135,23 @@ module functionApp 'modules/functionapp.bicep' = {
 // Grant the Function App's system-assigned identity the "Key Vault Secrets User"
 // role so that @Microsoft.KeyVault() app setting references resolve at runtime.
 
-resource existingKeyVault 'Microsoft.KeyVault/vaults@2023-07-01' existing = {
-  name: keyVault.outputs.keyVaultName
+module kvFunctionAppRoleAssignment 'modules/kvroleassignment.bicep' = {
+  name: 'kv-rbac-functionapp'
+  params: {
+    keyVaultName: keyVault.outputs.keyVaultName
+    principalId: functionApp.outputs.principalId
+    roleDefinitionId: kvSecretsUserRoleId
+  }
 }
 
-resource kvFunctionAppRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  scope: existingKeyVault
-  name: guid(existingKeyVault.id, functionApp.outputs.principalId, kvSecretsUserRoleId)
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', kvSecretsUserRoleId)
-    principalId: functionApp.outputs.principalId
-    principalType: 'ServicePrincipal'
+// The staging slot (blue-green target) has its own managed identity and needs
+// the same secrets access so Key Vault references resolve before the swap.
+module kvStagingSlotRoleAssignment 'modules/kvroleassignment.bicep' = {
+  name: 'kv-rbac-stagingslot'
+  params: {
+    keyVaultName: keyVault.outputs.keyVaultName
+    principalId: functionApp.outputs.stagingSlotPrincipalId
+    roleDefinitionId: kvSecretsUserRoleId
   }
 }
 

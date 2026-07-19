@@ -13,10 +13,32 @@
     "production": {
       "distribution": "store",
       "env": { "API_BASE_URL": "http://192.168.1.5:7071/api" }
+    },
+
+    "dev": {
+      "distribution": "internal",
+      "channel": "dev",
+      "android": { "buildType": "apk" },
+      "env": { "API_BASE_URL": "https://SET_BY_CI.azurewebsites.net/api" }
+    },
+    "qa": {
+      "distribution": "internal",
+      "channel": "qa",
+      "android": { "buildType": "apk" },
+      "env": { "API_BASE_URL": "https://SET_BY_CI.azurewebsites.net/api" }
+    },
+    "prod": {
+      "distribution": "store",
+      "channel": "prod",
+      "env": { "API_BASE_URL": "https://SET_BY_CI.azurewebsites.net/api" }
     }
   },
   "submit": {
     "production": {
+      "ios": { "appleId": "dev@ourhome.in" },
+      "android": { "serviceAccountKeyPath": "./service-account.json", "track": "internal" }
+    },
+    "prod": {
       "ios": { "appleId": "dev@ourhome.in" },
       "android": { "serviceAccountKeyPath": "./service-account.json", "track": "internal" }
     }

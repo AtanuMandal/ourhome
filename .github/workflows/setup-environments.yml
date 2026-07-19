@@ -1,0 +1,122 @@
+name: Setup Environments (one-time)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Creates the three GitHub Environments (dev, qa, prod) used by the CD
+# pipelines and configures their protection rules:
+#
+#   dev  → no gate (auto-deploys)
+#   qa   → required reviewers (must approve before the QA stage runs)
+#   prod → required reviewers + 5-minute wait timer + main-branch-only policy
+#
+# ⚠ Requires a token with repo "Administration" permission. The default
+#   GITHUB_TOKEN cannot manage environments, so add a fine-grained PAT as the
+#   repository secret GH_ADMIN_TOKEN (Repository permissions → Administration:
+#   read/write + Environments: read/write) before running this workflow.
+#
+# Re-runnable: the API calls are idempotent (PUT semantics).
+# ═══════════════════════════════════════════════════════════════════════════════
+
+on:
+  workflow_dispatch:
+    inputs:
+      reviewers:
+        description: 'Comma-separated GitHub usernames who must approve qa/prod deploys'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  create-environments:
+    name: Create dev / qa / prod environments
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GH_ADMIN_TOKEN }}
+      REPO: ${{ github.repository }}
+
+    steps:
+      - name: Verify admin token is configured
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::Secret GH_ADMIN_TOKEN is not set. Create a fine-grained PAT with Administration + Environments read/write and add it as a repository secret."
+            exit 1
+          fi
+
+      - name: Resolve reviewer usernames to user IDs
+        id: reviewers
+        run: |
+          IDS="[]"
+          IFS=',' read -ra USERS <<< "${{ inputs.reviewers }}"
+          for U in "${USERS[@]}"; do
+            U=$(echo "$U" | xargs)   # trim whitespace
+            [ -z "$U" ] && continue
+            ID=$(gh api "/users/${U}" --jq '.id')
+            IDS=$(echo "$IDS" | jq --argjson id "$ID" '. + [{"type":"User","id":$id}]')
+            echo "Reviewer: $U (id $ID)"
+          done
+          if [ "$(echo "$IDS" | jq 'length')" -eq 0 ]; then
+            echo "::error::No valid reviewers resolved"
+            exit 1
+          fi
+          echo "json=$(echo "$IDS" | jq -c .)" >> "$GITHUB_OUTPUT"
+
+      - name: Create DEV environment (no gate)
+        run: |
+          gh api --method PUT "/repos/${REPO}/environments/dev" \
+            --input - <<'EOF'
+          {
+            "wait_timer": 0,
+            "reviewers": null,
+            "deployment_branch_policy": null
+          }
+          EOF
+
+      - name: Create QA environment (required reviewers)
+        run: |
+          jq -n --argjson reviewers '${{ steps.reviewers.outputs.json }}' '{
+            wait_timer: 0,
+            prevent_self_review: false,
+            reviewers: $reviewers,
+            deployment_branch_policy: null
+          }' | gh api --method PUT "/repos/${REPO}/environments/qa" --input -
+
+      - name: Create PROD environment (reviewers + wait timer + main only)
+        run: |
+          jq -n --argjson reviewers '${{ steps.reviewers.outputs.json }}' '{
+            wait_timer: 5,
+            prevent_self_review: false,
+            reviewers: $reviewers,
+            deployment_branch_policy: { protected_branches: false, custom_branch_policies: true }
+          }' | gh api --method PUT "/repos/${REPO}/environments/prod" --input -
+
+          # Restrict prod deployments to the main branch only
+          gh api --method POST "/repos/${REPO}/environments/prod/deployment-branch-policies" \
+            -f name='main' -f type='branch' || true
+
+      - name: Print required secrets & vars checklist
+        run: |
+          cat <<'EOF'
+          ══════════════════════════════════════════════════════════════════
+          Environments dev / qa / prod created.
+
+          Now add these to EACH environment (Settings → Environments → <env>):
+
+          Secrets (required):
+            AZURE_CLIENT_ID        – app registration with OIDC federated
+                                     credential for this environment
+            AZURE_TENANT_ID
+            AZURE_SUBSCRIPTION_ID
+            AZURE_RESOURCE_GROUP   – e.g. rg-aptmgmt-dev / -qa / -prod
+            JWT_SECRET             – 32+ chars, unique per environment
+
+          Variables (optional overrides):
+            APP_NAME               – default: aptmgmt
+            API_BASE_URL           – default: derived from Function App host
+            FUNCTION_APP_NAME, STORAGE_ACCOUNT_NAME
+            CDN_PROFILE_NAME, CDN_ENDPOINT_NAME
+
+          Repository-level secrets for the mobile pipelines:
+            EXPO_TOKEN                    – EAS access token
+            GOOGLE_SERVICE_ACCOUNT_JSON   – Play Console service account (prod env)
+          ══════════════════════════════════════════════════════════════════
+          EOF
