@@ -19,6 +19,7 @@ import { AmenityFormScreen } from '../features/amenities/AmenityFormScreen';
 import { VisitorListScreen } from '../features/visitors/VisitorListScreen';
 import { VisitorRegisterScreen } from '../features/visitors/VisitorRegisterScreen';
 import { VisitorPassScreen } from '../features/visitors/VisitorPassScreen';
+import { VisitorScanScreen } from '../features/visitors/VisitorScanScreen';
 import { NoticeListScreen } from '../features/notices/NoticeListScreen';
 import { NoticeDetailScreen } from '../features/notices/NoticeDetailScreen';
 import { NoticeCreateScreen } from '../features/notices/NoticeCreateScreen';
@@ -60,6 +61,7 @@ type VisitorsParams = {
   VisitorList: undefined;
   VisitorRegister: undefined;
   VisitorDetail: { id: string };
+  VisitorScan: undefined;
 };
 const VS = createNativeStackNavigator<VisitorsParams>();
 function VisitorsStack() {
@@ -68,6 +70,7 @@ function VisitorsStack() {
       <VS.Screen name="VisitorList"     component={VisitorListScreen} />
       <VS.Screen name="VisitorRegister" component={VisitorRegisterScreen} />
       <VS.Screen name="VisitorDetail"   component={VisitorPassScreen} />
+      <VS.Screen name="VisitorScan"     component={VisitorScanScreen} />
     </VS.Navigator>
   );
 }

@@ -217,7 +217,9 @@ public static class MappingExtensions
             booking.Status.ToString(),
             booking.AdminNotes,
             booking.Duration.TotalMinutes,
-            booking.CreatedAt);
+            booking.CreatedAt,
+            booking.CancellationRemarks,
+            booking.CancelledByUserId);
 
     public static ComplaintResponse ToResponse(this Complaint complaint) =>
         new(

@@ -8,6 +8,8 @@ import { visitorsApi } from '../../api/endpoints/visitors';
 import { AppHeader } from '../../shared/components/AppHeader';
 import { StatusChip } from '../../shared/components/StatusChip';
 import { LoadingOverlay } from '../../shared/components/LoadingOverlay';
+import { ImageZoomModal } from '../../shared/components/ImageZoomModal';
+import { resolveFileUrl } from '../../camera/imageUpload';
 import { normalizeError } from '../../shared/utils/errors';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
@@ -23,6 +25,14 @@ function qrImageUri(qrCode: string): string {
   return qrCode.startsWith('data:') ? qrCode : `data:image/png;base64,${qrCode}`;
 }
 
+// Public web pass page origin — the same link the web app's "Copy pass link" produces.
+// Configure per environment via the WEB_BASE_URL env in eas.json build profiles.
+const WEB_BASE_URL = process.env['WEB_BASE_URL'] ?? 'http://localhost:4200';
+
+function publicPassLink(passCode: string): string {
+  return `${WEB_BASE_URL}/visitor-pass/${encodeURIComponent(passCode)}`;
+}
+
 export function VisitorPassScreen({ route }: VisitorPassScreenProps) {
   const societyId = useSocietyId();
   const { id } = route.params;
@@ -31,6 +41,7 @@ export function VisitorPassScreen({ route }: VisitorPassScreenProps) {
   const canManageVisitors = role === 'SUAdmin' || role === 'SUSecurity';
   const { mutateAsync: checkOut, isPending: isCheckingOut } = useCheckOutVisitor(societyId);
   const [sharing, setSharing] = React.useState(false);
+  const [photoZoomVisible, setPhotoZoomVisible] = React.useState(false);
 
   async function handleCheckOut(): Promise<void> {
     try {
@@ -40,13 +51,14 @@ export function VisitorPassScreen({ route }: VisitorPassScreenProps) {
     }
   }
 
-  /** Native share sheet — pass code + details, so the visitor can present it at the gate. */
+  /** Native share sheet — pass link + code + details, matching the web app's "Copy pass link". */
   async function handleNativeShare(): Promise<void> {
     if (!visitor) return;
     await Share.share({
       message:
         `OurHome visitor pass for ${visitor.visitorName}\n` +
         `Pass code: ${visitor.passCode}\n` +
+        (visitor.passCode ? `View pass: ${publicPassLink(visitor.passCode)}\n` : '') +
         `Host: ${visitor.hostResidentName} (${visitor.hostBlockName} ${visitor.hostFloorNumber}-${visitor.hostFlatNumber})` +
         (visitor.validUntil ? `\nValid until: ${formatDateTime(visitor.validUntil)}` : ''),
     });
@@ -79,6 +91,17 @@ export function VisitorPassScreen({ route }: VisitorPassScreenProps) {
         <ScrollView contentContainerStyle={styles.content}>
           <View style={styles.passCard}>
             <Text style={styles.passLabel}>VISITOR PASS</Text>
+            {!!visitor.visitorImageUrl && (
+              <TouchableOpacity
+                onPress={() => setPhotoZoomVisible(true)}
+                accessibilityLabel="View visitor photo"
+              >
+                <Image
+                  source={{ uri: resolveFileUrl(visitor.visitorImageUrl) }}
+                  style={styles.visitorPhoto}
+                />
+              </TouchableOpacity>
+            )}
             {showPass && visitor.qrCode && !visitor.isPassExpired ? (
               <Image
                 source={{ uri: qrImageUri(visitor.qrCode) }}
@@ -152,6 +175,13 @@ export function VisitorPassScreen({ route }: VisitorPassScreenProps) {
           </View>
         </ScrollView>
       )}
+      {visitor?.visitorImageUrl != null && (
+        <ImageZoomModal
+          visible={photoZoomVisible}
+          uri={resolveFileUrl(visitor.visitorImageUrl)}
+          onClose={() => setPhotoZoomVisible(false)}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -175,6 +205,15 @@ const styles = StyleSheet.create({
     color: colors.primary,
     letterSpacing: 2,
     marginBottom: spacing.md,
+  },
+  visitorPhoto: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    marginBottom: spacing.md,
+    backgroundColor: colors.background,
+    borderWidth: 2,
+    borderColor: colors.border,
   },
   qrImage: {
     width: 180,

@@ -24,4 +24,24 @@ export class AmenityService {
   book(societyId: string, dto: BookAmenityDto) {
     return this.api.post<AmenityBooking>(`societies/${societyId}/amenity-bookings`, dto);
   }
+
+  // Admins receive every booking in the society; residents receive their own.
+  listBookings(societyId: string, page = 1, pageSize = 50) {
+    return this.api.getPaged<AmenityBooking>(`societies/${societyId}/amenity-bookings`, page, pageSize);
+  }
+
+  cancelBooking(societyId: string, bookingId: string, remarks?: string) {
+    return this.api.post<AmenityBooking>(
+      `societies/${societyId}/amenity-bookings/${bookingId}/cancel`, { remarks: remarks ?? null });
+  }
+
+  approveBooking(societyId: string, bookingId: string, adminNotes?: string) {
+    return this.api.post<AmenityBooking>(
+      `societies/${societyId}/amenity-bookings/${bookingId}/approve`, { adminNotes: adminNotes ?? null });
+  }
+
+  rejectBooking(societyId: string, bookingId: string, adminNotes?: string) {
+    return this.api.post<AmenityBooking>(
+      `societies/${societyId}/amenity-bookings/${bookingId}/reject`, { adminNotes: adminNotes ?? null });
+  }
 }

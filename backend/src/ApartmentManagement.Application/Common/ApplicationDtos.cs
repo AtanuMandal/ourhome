@@ -463,7 +463,10 @@ public record AmenityResponse(
 public record BookingResponse(
     string Id, string SocietyId, string AmenityId, string AmenityName,
     string BookedByUserId, string BookedByApartmentId, DateTime StartTime, DateTime EndTime,
-    string Status, string? AdminNotes, double Duration, DateTime CreatedAt);
+    string Status, string? AdminNotes, double Duration, DateTime CreatedAt,
+    string? CancellationRemarks = null, string? CancelledByUserId = null);
+
+public record CancelBookingRequest(string? Remarks);
 
 public record AvailabilitySlot(DateTime Start, DateTime End, bool IsAvailable);
 

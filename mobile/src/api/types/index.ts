@@ -217,6 +217,9 @@ export interface AmenityBooking {
   adminNotes?: string;
   duration: number;
   createdAt: string;
+  /** Set when the booking was cancelled — remarks are shown to the booking owner. */
+  cancellationRemarks?: string;
+  cancelledByUserId?: string;
 }
 
 export interface PaginatedResponse<T> {

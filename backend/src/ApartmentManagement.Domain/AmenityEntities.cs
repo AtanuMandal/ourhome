@@ -75,6 +75,8 @@ public sealed class AmenityBooking : BaseEntity
     public DateTime EndTime { get; private set; }
     public BookingStatus Status { get; private set; }
     public string? AdminNotes { get; private set; }
+    public string? CancellationRemarks { get; private set; }
+    public string? CancelledByUserId { get; private set; }
 
     /// <summary>Duration of the booked slot.</summary>
     public TimeSpan Duration => EndTime - StartTime;
@@ -120,9 +122,18 @@ public sealed class AmenityBooking : BaseEntity
         AddDomainEvent(new BookingStatusChangedEvent(Id, SocietyId, BookingStatus.Rejected.ToString()));
     }
 
-    public void Cancel()
+    /// <summary>
+    /// Cancels a pending or approved booking. Remarks are visible to the booking owner
+    /// (required when an admin cancels someone else's booking — enforced in the handler).
+    /// </summary>
+    public void Cancel(string? remarks = null, string? cancelledByUserId = null)
     {
+        if (Status is not (BookingStatus.Pending or BookingStatus.Approved))
+            throw new InvalidOperationException("Only a pending or approved booking can be cancelled.");
+
         Status = BookingStatus.Cancelled;
+        CancellationRemarks = string.IsNullOrWhiteSpace(remarks) ? null : remarks.Trim();
+        CancelledByUserId = cancelledByUserId;
         TouchUpdatedAt();
         AddDomainEvent(new BookingStatusChangedEvent(Id, SocietyId, BookingStatus.Cancelled.ToString()));
     }

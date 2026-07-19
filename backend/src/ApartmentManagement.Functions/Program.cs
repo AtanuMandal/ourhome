@@ -18,6 +18,9 @@ using WebPush;
 var host = new HostBuilder()
     .ConfigureFunctionsWebApplication(builder =>
     {
+        // Outermost: maps pipeline exceptions (validation, forbidden, not-found) to
+        // structured HTTP responses instead of unhandled 500s.
+        builder.UseMiddleware<ExceptionHandlingMiddleware>();
         builder.UseMiddleware<HttpContextAccessorMiddleware>();
     })
     .ConfigureServices((context, services) =>

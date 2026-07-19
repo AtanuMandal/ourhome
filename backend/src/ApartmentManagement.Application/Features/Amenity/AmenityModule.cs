@@ -203,15 +203,17 @@ public sealed class RejectBookingCommandHandler(
 
 // ─── Cancel Booking ───────────────────────────────────────────────────────────
 
-public record CancelBookingCommand(string SocietyId, string BookingId, string UserId) : IRequest<Result<bool>>;
+public record CancelBookingCommand(string SocietyId, string BookingId, string UserId, string? Remarks)
+    : IRequest<Result<BookingResponse>>;
 
 public sealed class CancelBookingCommandHandler(
     IAmenityBookingRepository bookingRepository,
     ICurrentUserService currentUser,
+    INotificationService notificationService,
     ILogger<CancelBookingCommandHandler> logger)
-    : IRequestHandler<CancelBookingCommand, Result<bool>>
+    : IRequestHandler<CancelBookingCommand, Result<BookingResponse>>
 {
-    public async Task<Result<bool>> Handle(CancelBookingCommand request, CancellationToken ct)
+    public async Task<Result<BookingResponse>> Handle(CancelBookingCommand request, CancellationToken ct)
     {
         try
         {
@@ -224,22 +226,40 @@ public sealed class CancelBookingCommandHandler(
             if (!isOwner && !isAdmin)
                 throw new ForbiddenException("Only the booking owner or an admin can cancel a booking.");
 
-            booking.Cancel();
-            await bookingRepository.UpdateAsync(booking, ct);
-            return Result<bool>.Success(true);
+            // An admin cancelling a resident's booking must explain why — the remarks are
+            // shown to the resident in their booking list and pushed as a notification.
+            if (!isOwner && string.IsNullOrWhiteSpace(request.Remarks))
+                return Result<BookingResponse>.Failure(ErrorCodes.ValidationFailed,
+                    "Remarks are required when cancelling another resident's booking.");
+
+            booking.Cancel(request.Remarks, request.UserId);
+            var updated = await bookingRepository.UpdateAsync(booking, ct);
+
+            if (!isOwner)
+            {
+                await notificationService.SendPushNotificationAsync(booking.BookedByUserId,
+                    "Booking Cancelled",
+                    $"Your booking for {booking.AmenityName} on {booking.StartTime:MMM d, HH:mm} was cancelled by the society office. Reason: {updated.CancellationRemarks}", ct);
+            }
+
+            return Result<BookingResponse>.Success(updated.ToResponse());
         }
         catch (NotFoundException ex)
         {
-            return Result<bool>.Failure(ErrorCodes.BookingNotFound, ex.Message);
+            return Result<BookingResponse>.Failure(ErrorCodes.BookingNotFound, ex.Message);
         }
         catch (ForbiddenException ex)
         {
-            return Result<bool>.Failure(ErrorCodes.Forbidden, ex.Message);
+            return Result<BookingResponse>.Failure(ErrorCodes.Forbidden, ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Result<BookingResponse>.Failure(ErrorCodes.ValidationFailed, ex.Message);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to cancel booking {BookingId}", request.BookingId);
-            return Result<bool>.Failure(ErrorCodes.InternalError, ex.Message);
+            return Result<BookingResponse>.Failure(ErrorCodes.InternalError, ex.Message);
         }
     }
 }
@@ -334,6 +354,33 @@ public sealed class GetAmenityAvailabilityQueryHandler(
         catch (Exception ex)
         {
             return Result<IReadOnlyList<AvailabilitySlot>>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
+public record GetSocietyBookingsQuery(string SocietyId, PaginationParams Pagination)
+    : IRequest<Result<PagedResult<BookingResponse>>>;
+
+public sealed class GetSocietyBookingsQueryHandler(IAmenityBookingRepository bookingRepository)
+    : IRequestHandler<GetSocietyBookingsQuery, Result<PagedResult<BookingResponse>>>
+{
+    public async Task<Result<PagedResult<BookingResponse>>> Handle(GetSocietyBookingsQuery request, CancellationToken ct)
+    {
+        try
+        {
+            var all = await bookingRepository.GetAllAsync(request.SocietyId, ct);
+            var ordered = all.OrderByDescending(b => b.StartTime).ToList();
+            var items = ordered
+                .Skip((request.Pagination.Page - 1) * request.Pagination.PageSize)
+                .Take(request.Pagination.PageSize)
+                .Select(b => b.ToResponse())
+                .ToList();
+            return Result<PagedResult<BookingResponse>>.Success(
+                new PagedResult<BookingResponse>(items, ordered.Count, request.Pagination.Page, request.Pagination.PageSize));
+        }
+        catch (Exception ex)
+        {
+            return Result<PagedResult<BookingResponse>>.Failure(ErrorCodes.InternalError, ex.Message);
         }
     }
 }

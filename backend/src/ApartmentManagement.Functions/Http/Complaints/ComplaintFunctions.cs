@@ -1,4 +1,5 @@
 using ApartmentManagement.Application.Commands.Complaint;
+using ApartmentManagement.Application.Interfaces;
 using ApartmentManagement.Application.Queries.Complaint;
 using ApartmentManagement.Functions.Helpers;
 using ApartmentManagement.Shared.Models;
@@ -9,7 +10,7 @@ using Microsoft.Azure.Functions.Worker;
 
 namespace ApartmentManagement.Functions.Http;
 
-public class ComplaintFunctions(ISender mediator)
+public class ComplaintFunctions(ISender mediator, ICurrentUserService currentUser)
 {
     [Function("RaiseComplaint")]
     public async Task<IActionResult> RaiseComplaint(
@@ -18,6 +19,20 @@ public class ComplaintFunctions(ISender mediator)
     {
         var command = await req.DeserializeAsync<CreateComplaintCommand>(ct);
         if (command is null) return HttpHelpers.MissingBody();
+
+        // The raiser is the authenticated user; the apartment falls back to the JWT claim
+        // so residents whose client doesn't send it (or multi-apartment users) still succeed.
+        if (currentUser.IsAuthenticated)
+        {
+            command = command with
+            {
+                UserId = string.IsNullOrWhiteSpace(command.UserId) ? currentUser.UserId : command.UserId,
+                ApartmentId = string.IsNullOrWhiteSpace(command.ApartmentId)
+                    ? currentUser.ApartmentId ?? string.Empty
+                    : command.ApartmentId
+            };
+        }
+
         var result = await mediator.Send(command with { SocietyId = societyId }, ct);
         return result.ToActionResult(201);
     }
