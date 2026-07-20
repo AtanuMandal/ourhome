@@ -1,0 +1,57 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# OurHome — Local/Dev Telemetry Stack
+# ─────────────────────────────────────────────────────────────────────────────
+# "For now" container referenced in requirements/telemetry_observability.md.
+# Single all-in-one image from Grafana that speaks OpenTelemetry natively:
+# an OTLP receiver (gRPC + HTTP) feeding Tempo (traces), Loki (logs), and
+# Prometheus (metrics), fronted by a pre-provisioned Grafana UI. Zero extra
+# config files needed to get traces/logs/metrics flowing and searchable.
+#
+# This is a DEV/LOCAL tool only — see requirements/telemetry_observability.md
+# §13 "Path to Production" for the Collector + Azure Monitor + managed-Grafana
+# topology used in deployed environments. Do not expose these ports publicly.
+#
+# Usage:
+#   cd infra/observability
+#   docker compose up -d
+#   Grafana UI:        http://localhost:3000        (admin / admin — change on first login)
+#   OTLP gRPC endpoint: http://localhost:4317
+#   OTLP HTTP endpoint: http://localhost:4318
+#
+# Point local app config at the HTTP endpoint (see the "Local wiring" table in
+# the plan doc for the exact env vars per app):
+#   OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+#
+# To search a specific failure: copy the `errorId` from an API error response
+# (it IS the trace id) and paste it into Grafana → Explore → Tempo → "Trace ID"
+# search. From the trace you can jump to correlated logs (Loki) via the
+# "Logs for this span" link — including the captured request/response body
+# attributes (redacted; see plan doc §8).
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  otel-lgtm:
+    image: grafana/otel-lgtm:latest
+    container_name: ourhome-otel-lgtm
+    ports:
+      - "3000:3000"   # Grafana UI
+      - "4317:4317"   # OTLP gRPC receiver (traces + logs + metrics)
+      - "4318:4318"   # OTLP HTTP receiver (traces + logs + metrics)
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      # Raise if you plan to load-test locally; defaults are tuned for demo use.
+      - OTEL_COLLECTOR_HOST=0.0.0.0
+    volumes:
+      # Best-effort persistence across restarts — the image is primarily built
+      # for ephemeral/demo use, so treat local telemetry history as disposable.
+      - otel-lgtm-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  otel-lgtm-data:
