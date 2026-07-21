@@ -1,3 +1,4 @@
+using ApartmentManagement.Functions.Helpers;
 using ApartmentManagement.Shared.Exceptions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Azure.Functions.Worker;
@@ -36,6 +37,8 @@ public class ExceptionHandlingMiddleware(ILogger<ExceptionHandlingMiddleware> lo
             // `error` is the field both clients read first (mobile normalizeError,
             // web error.interceptor); `message`/`errorCode`/`errors` mirror
             // HttpHelpers.ToValidationErrorResponse for richer consumers.
+            var errorId = ErrorIdProvider.Current;
+
             object payload;
             int status;
             switch (ex)
@@ -47,19 +50,20 @@ public class ExceptionHandlingMiddleware(ILogger<ExceptionHandlingMiddleware> lo
                         error = FlattenValidationMessage(vex),
                         errorCode = vex.ErrorCode,
                         message = vex.Message,
-                        errors = vex.Errors
+                        errors = vex.Errors,
+                        errorId
                     };
-                    logger.LogWarning(ex, "Validation failed for {Function}", context.FunctionDefinition.Name);
+                    logger.LogWarning(ex, "Validation failed for {Function} (errorId={ErrorId})", context.FunctionDefinition.Name, errorId);
                     break;
                 case AppException aex:
                     status = aex.StatusCode;
-                    payload = new { error = aex.Message, errorCode = aex.ErrorCode, message = aex.Message };
-                    logger.LogWarning(ex, "{ExceptionType} in {Function}", ex.GetType().Name, context.FunctionDefinition.Name);
+                    payload = new { error = aex.Message, errorCode = aex.ErrorCode, message = aex.Message, errorId };
+                    logger.LogWarning(ex, "{ExceptionType} in {Function} (errorId={ErrorId})", ex.GetType().Name, context.FunctionDefinition.Name, errorId);
                     break;
                 default:
                     status = StatusCodes.Status500InternalServerError;
-                    payload = new { error = "An unexpected error occurred.", errorCode = "INTERNAL_ERROR", message = "An unexpected error occurred." };
-                    logger.LogError(ex, "Unhandled exception in {Function}", context.FunctionDefinition.Name);
+                    payload = new { error = "An unexpected error occurred.", errorCode = "INTERNAL_ERROR", message = "An unexpected error occurred.", errorId };
+                    logger.LogError(ex, "Unhandled exception in {Function} (errorId={ErrorId})", context.FunctionDefinition.Name, errorId);
                     break;
             }
 

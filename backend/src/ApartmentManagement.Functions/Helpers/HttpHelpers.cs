@@ -63,27 +63,31 @@ public static class HttpHelpers
         }
 
         var msg = result.ErrorMessage.Length > 0 ? result.ErrorMessage : "An error occurred";
+        // errorId = the OTel trace ID of this request (see requirements/telemetry_observability.md
+        // "The errorId Contract") — every failure branch below carries it so a user/client can
+        // quote one string and a developer lands directly on the matching trace.
+        var errorId = ErrorIdProvider.Current;
         if (result.ErrorCode.Contains("NotFound", StringComparison.OrdinalIgnoreCase)
             || result.ErrorCode.Contains("NOT_FOUND", StringComparison.OrdinalIgnoreCase)
             || result.ErrorCode == "NOT_FOUND")
-            return new NotFoundObjectResult(new { error = msg });
+            return new NotFoundObjectResult(new { error = msg, errorCode = result.ErrorCode, errorId });
         if (result.ErrorCode is "CONFLICT" or "USER_ALREADY_EXISTS" or "SOCIETY_ALREADY_EXISTS" or "APARTMENT_NUMBER_DUPLICATE"
             or "SOS_ALERT_ALREADY_SETTLED" or "BOOKING_CONFLICT")
-            return new ConflictObjectResult(new { error = msg });
+            return new ConflictObjectResult(new { error = msg, errorCode = result.ErrorCode, errorId });
         return result.ErrorCode switch
         {
-            "FORBIDDEN" => new ObjectResult(new { error = msg }) { StatusCode = 403 },
-            "SOCIETY_NOT_ACTIVE" => new ObjectResult(new { error = msg, errorCode = result.ErrorCode }) { StatusCode = 403 },
-            "UNAUTHORIZED" => new UnauthorizedObjectResult(new { error = msg }),
-            "VALIDATION_ERROR" => new BadRequestObjectResult(new { error = msg }),
-            "VALIDATION_FAILED" => new BadRequestObjectResult(new { error = msg }),
+            "FORBIDDEN" => new ObjectResult(new { error = msg, errorCode = result.ErrorCode, errorId }) { StatusCode = 403 },
+            "SOCIETY_NOT_ACTIVE" => new ObjectResult(new { error = msg, errorCode = result.ErrorCode, errorId }) { StatusCode = 403 },
+            "UNAUTHORIZED" => new UnauthorizedObjectResult(new { error = msg, errorCode = result.ErrorCode, errorId }),
+            "VALIDATION_ERROR" => new BadRequestObjectResult(new { error = msg, errorCode = result.ErrorCode, errorId }),
+            "VALIDATION_FAILED" => new BadRequestObjectResult(new { error = msg, errorCode = result.ErrorCode, errorId }),
             // Business-rule rejections are client errors, not server faults — a 500 here
             // makes the web/mobile UI show "Server error" instead of the actual reason.
-            "OUTSIDE_OPERATING_HOURS" => new BadRequestObjectResult(new { error = msg }),
-            "BOOKING_WINDOW_EXCEEDED" => new BadRequestObjectResult(new { error = msg }),
-            "AMENITY_UNAVAILABLE" => new BadRequestObjectResult(new { error = msg }),
-            "USER_HAS_NO_APARTMENT" => new BadRequestObjectResult(new { error = msg }),
-            _ => new ObjectResult(new { error = msg }) { StatusCode = 500 }
+            "OUTSIDE_OPERATING_HOURS" => new BadRequestObjectResult(new { error = msg, errorCode = result.ErrorCode, errorId }),
+            "BOOKING_WINDOW_EXCEEDED" => new BadRequestObjectResult(new { error = msg, errorCode = result.ErrorCode, errorId }),
+            "AMENITY_UNAVAILABLE" => new BadRequestObjectResult(new { error = msg, errorCode = result.ErrorCode, errorId }),
+            "USER_HAS_NO_APARTMENT" => new BadRequestObjectResult(new { error = msg, errorCode = result.ErrorCode, errorId }),
+            _ => new ObjectResult(new { error = msg, errorCode = result.ErrorCode, errorId }) { StatusCode = 500 }
         };
     }
 
@@ -94,7 +98,8 @@ public static class HttpHelpers
         {
             errorCode = ex.ErrorCode,
             message = ex.Message,
-            errors = ex.Errors // IDictionary<string,string[]>
+            errors = ex.Errors, // IDictionary<string,string[]>
+            errorId = ErrorIdProvider.Current
         };
 
         var result = new ObjectResult(payload)
@@ -111,7 +116,8 @@ public static class HttpHelpers
         var payload = new
         {
             errorCode = ex.ErrorCode,
-            message = ex.Message
+            message = ex.Message,
+            errorId = ErrorIdProvider.Current
         };
 
         var result = new ObjectResult(payload)

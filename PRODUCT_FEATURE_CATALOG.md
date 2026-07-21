@@ -386,7 +386,7 @@ OurHome is a cloud-hosted, always-on platform that helps housing societies and a
 - Every visitor receives a numeric pass code and a QR code; security verifies at the gate by typing the code or **scanning the QR with the device camera — on both the web app and the mobile app** — and a valid pass checks the visitor in as a single step
 - A public, no-login shareable link lets a visitor's pass be viewed or shared by email/SMS without exposing sensitive details, and hides itself once expired; on mobile the pass can also be shared through the phone's native share sheet (WhatsApp, SMS, etc.) with the same link included
 - Residents receive a push notification with direct Approve/Deny actions when an unscheduled visitor arrives at the gate
-- Visitors who leave without a recorded exit are **automatically checked out** once their pass validity has long lapsed, and anyone staying past the society's overstay threshold is visibly **flagged as overstaying** in the visitor list
+- A visitor staying past the society's configurable overstay threshold is never auto-checked-out — instead they are visibly **flagged as overstaying** (red warning) and sorted to the **top of the visitor list**, on both web and mobile, so security notices them immediately
 - Full visitor history and CSV export for security review, with company/purpose suggestions drawn from past entries to speed up registration
 - A dedicated view of everyone currently checked in, for real-time premises awareness
 - Visitor photos appear throughout — list thumbnails, gate verification results, and the pass itself — and can be viewed full-screen with zoom, on both web and mobile

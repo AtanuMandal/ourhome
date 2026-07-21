@@ -95,7 +95,6 @@ export interface Visitor {
   isPassExpired: boolean;
   /** Checked in past the society's overstay threshold — render in red. */
   isOverstay?: boolean;
-  isAutoCheckedOut?: boolean;
 }
 
 // Matches backend NoticeResponse
@@ -416,4 +415,6 @@ export interface ApiError {
   error: string;
   details?: string;
   errorCode?: string;
+  /** The OTel trace ID of the failing request — see requirements/telemetry_observability.md "The errorId Contract". */
+  errorId?: string;
 }

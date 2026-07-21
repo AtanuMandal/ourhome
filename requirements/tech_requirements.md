@@ -151,6 +151,7 @@ Triggers on merge to `main` or manual dispatch:
 - `host.json` configures App Insights sampling rate.
 - ⚠️ **Gap:** No custom telemetry events or dependency tracking beyond standard request logging.
 - ⚠️ **Gap:** No Azure Monitor alert rules for error spike, latency degradation, or outbox backlog.
+- 📋 **Planned:** See `requirements/telemetry_observability.md` for the full OpenTelemetry rollout plan (backend/web/mobile instrumentation, request/response body capture with redaction, an `errorId` on every error response that is the OTel trace ID, and a runnable local telemetry container at `infra/observability/docker-compose.yml`) — closes both gaps above.
 
 ---
 

@@ -27,7 +27,6 @@ public sealed class VisitorLog : BaseEntity
     public string? VehicleNumber { get; private set; }
     public DateTime? ValidUntil { get; private set; }
     public string? VisitorImageUrl { get; private set; }
-    public bool IsAutoCheckedOut { get; private set; }
 
     /// <summary>Duration of the visit, available after checkout.</summary>
     public TimeSpan? Duration => CheckOutTime.HasValue && CheckInTime.HasValue
@@ -127,23 +126,8 @@ public sealed class VisitorLog : BaseEntity
     }
 
     /// <summary>
-    /// System-initiated checkout for visitors who never checked out. Unlike <see cref="CheckOut"/>,
-    /// this marks the record so reports can distinguish it from a security-performed checkout.
-    /// </summary>
-    public void AutoCheckOut()
-    {
-        if (Status != VisitorStatus.CheckedIn)
-            throw new InvalidOperationException("Visitor must be checked in before auto check-out.");
-        Status = VisitorStatus.CheckedOut;
-        CheckOutTime = DateTime.UtcNow;
-        IsAutoCheckedOut = true;
-        TouchUpdatedAt();
-    }
-
-    /// <summary>
     /// True while a pre-approved visitor's pass is still valid. A valid pass overrides the
-    /// society's overstay threshold and the 24-hour auto-checkout — the visitor was explicitly
-    /// authorized for that duration.
+    /// society's overstay threshold — the visitor was explicitly authorized for that duration.
     /// </summary>
     public bool HasValidPass(DateTime? nowUtc = null) =>
         IsPreApproved && ValidUntil.HasValue && (nowUtc ?? DateTime.UtcNow) <= ValidUntil.Value;

@@ -108,9 +108,12 @@ The visitor log module maintains a real-time record of all visitors entering and
 - With no filters applied, the visitor list shows all `Pending` visitors plus the 10 most recently updated non-pending visitors (merged and de-duplicated by ID), instead of the full unfiltered history — this keeps the default view focused on visitors needing action.
 - Applying any search or status filter switches to the normal paginated, fully-filtered list.
 
-### 15. Auto Check-Out and Overstay Flagging
-- A timer function automatically checks out visitors whose pass validity has long expired without a recorded exit, so the active list does not accumulate stale entries.
-- Visitors checked in past the society's overstay threshold are flagged (`isOverstay`) and highlighted in the visitor list on both web and mobile.
+### 15. Overstay Flagging (no auto check-out)
+- Visitors are **never automatically checked out**. A visitor checked in past the society's configurable overstay threshold (`Society.VisitorOverstayThresholdHours`, default 5 hours) is flagged (`isOverstay`) and highlighted in red in the visitor list on both web and mobile.
+- Overstaying visitors are sorted to the **top of the visitor list** (ahead of everyone else, regardless of check-in/creation time) so security notices them without scrolling. This ordering applies to the filtered list (`GET /visitors`), the active-visitors view (`GET /visitors/active`), and the default landing view.
+- A page-level red warning banner ("N visitor(s) overstaying the allowed time") is shown above the list whenever at least one visitor is flagged, in addition to the per-card red highlight.
+- A pre-approved visitor with a still-valid pass is never flagged as overstaying even past the threshold — the pass explicitly authorizes that duration (`HasValidPass`).
+- Security must manually check out an overstaying visitor; the system only warns, it never acts on their behalf.
 
 ---
 

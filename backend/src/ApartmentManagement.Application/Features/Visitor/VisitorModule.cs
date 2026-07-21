@@ -293,51 +293,6 @@ public sealed class CheckOutVisitorCommandHandler(
     }
 }
 
-/// <summary>
-/// Checks out every visitor platform-wide who has been checked in for more than 24 hours.
-/// Invoked by the AutoCheckoutVisitors timer; the record is flagged as auto-checked-out so
-/// reports can distinguish it from a security-performed checkout.
-/// </summary>
-public record AutoCheckOutOverdueVisitorsCommand() : IRequest<Result<int>>;
-
-public sealed class AutoCheckOutOverdueVisitorsCommandHandler(
-    IVisitorLogRepository visitorRepository,
-    ILogger<AutoCheckOutOverdueVisitorsCommandHandler> logger)
-    : IRequestHandler<AutoCheckOutOverdueVisitorsCommand, Result<int>>
-{
-    public static readonly TimeSpan AutoCheckoutAfter = TimeSpan.FromHours(24);
-
-    public async Task<Result<int>> Handle(AutoCheckOutOverdueVisitorsCommand request, CancellationToken ct)
-    {
-        try
-        {
-            var checkedIn = await visitorRepository.GetCheckedInAcrossSocietiesAsync(ct);
-            var now = DateTime.UtcNow;
-            var cutoff = now - AutoCheckoutAfter;
-            var count = 0;
-
-            // A pre-approved visitor with a still-valid pass was explicitly authorized for that
-            // duration — their pass validity overrides the default 24-hour auto-checkout.
-            foreach (var visitor in checkedIn.Where(v =>
-                v.CheckInTime.HasValue && v.CheckInTime.Value <= cutoff && !v.HasValidPass(now)))
-            {
-                visitor.AutoCheckOut();
-                await visitorRepository.UpdateAsync(visitor, ct);
-                count++;
-            }
-
-            if (count > 0)
-                logger.LogInformation("Auto-checked-out {Count} visitors checked in for more than 24 hours.", count);
-            return Result<int>.Success(count);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to auto-check-out overdue visitors.");
-            return Result<int>.Failure(ErrorCodes.InternalError, ex.Message);
-        }
-    }
-}
-
 public sealed class UploadVisitorImageCommandHandler(
     IFileStorageService fileStorageService,
     ILogger<UploadVisitorImageCommandHandler> logger)
@@ -440,8 +395,11 @@ public sealed class GetVisitorsBySocietyQueryHandler(IVisitorLogRepository visit
             var overstayThreshold = society?.VisitorOverstayThresholdHours
                 ?? Domain.Entities.Society.DefaultVisitorOverstayThresholdHours;
 
+            // Overstaying visitors surface first so security sees the red warning immediately,
+            // without having to scroll past the rest of the list.
             var filtered = VisitorQueryFiltering.FilterVisitors(await visitorRepository.GetAllAsync(request.SocietyId, ct), request)
-                .OrderByDescending(visitor => visitor.CreatedAt)
+                .OrderByDescending(visitor => visitor.IsOverstaying(overstayThreshold))
+                .ThenByDescending(visitor => visitor.CreatedAt)
                 .ToList();
 
             var page = request.Pagination.Page < 1 ? 1 : request.Pagination.Page;
@@ -507,7 +465,8 @@ public sealed class GetActiveVisitorsQueryHandler(IVisitorLogRepository visitorR
 
             var active = await visitorRepository.GetActiveVisitorsAsync(request.SocietyId, ct);
             var items = active
-                .OrderByDescending(visitor => visitor.CheckInTime ?? visitor.CreatedAt)
+                .OrderByDescending(visitor => visitor.IsOverstaying(overstayThreshold))
+                .ThenByDescending(visitor => visitor.CheckInTime ?? visitor.CreatedAt)
                 .Select(visitor => visitor.ToResponse(overstayThreshold))
                 .ToList();
             return Result<IReadOnlyList<VisitorResponse>>.Success(items);
@@ -548,6 +507,8 @@ public sealed class GetVisitorDefaultViewQueryHandler(IVisitorLogRepository visi
 
             var items = ordered
                 .Where(v => v.Status is VisitorStatus.Pending or VisitorStatus.CheckedIn)
+                .OrderByDescending(v => v.IsOverstaying(overstayThreshold))
+                .ThenByDescending(v => v.CreatedAt)
                 .Concat(ordered
                     .Where(v => v.Status is not VisitorStatus.Pending and not VisitorStatus.CheckedIn)
                     .Take(recentCount))

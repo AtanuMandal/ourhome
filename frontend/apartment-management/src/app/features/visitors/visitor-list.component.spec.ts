@@ -333,6 +333,51 @@ describe('VisitorListComponent — silent background auto-refresh', () => {
   });
 });
 
+describe('VisitorListComponent — overstay warning', () => {
+  function makeVisitor(id: string, isOverstay = false): Visitor {
+    return { id, status: 'CheckedIn', hostApartmentId: 'apt-1', visitorName: `Visitor ${id}`, createdAt: '2026-01-01T00:00:00Z', isOverstay } as Visitor;
+  }
+
+  function setup(items: Visitor[]) {
+    const visitorServiceStub = {
+      list: jasmine.createSpy().and.returnValue(of({ items: [], total: 0, page: 1, pageSize: 100 })),
+      defaultView: jasmine.createSpy().and.returnValue(of(items)),
+    };
+    const authServiceStub = {
+      societyId: () => 'soc-1',
+      isAdmin: () => true,
+      isSecurity: () => false,
+      canManageVisitors: () => true,
+      user: () => ({ role: 'SUAdmin', apartmentId: '' }),
+    };
+    const activatedRouteStub = { snapshot: { queryParamMap: convertToParamMap({}) } };
+
+    TestBed.configureTestingModule({
+      imports: [VisitorListComponent, NoopAnimationsModule],
+      providers: [
+        provideRouter([]),
+        { provide: VisitorService, useValue: visitorServiceStub },
+        { provide: AuthService, useValue: authServiceStub },
+        { provide: ActivatedRoute, useValue: activatedRouteStub },
+      ],
+    });
+
+    const fixture = TestBed.createComponent(VisitorListComponent);
+    fixture.detectChanges();
+    return fixture.componentInstance;
+  }
+
+  it('counts zero overstaying visitors when none are flagged', () => {
+    const component = setup([makeVisitor('v1'), makeVisitor('v2')]);
+    expect(component.overstayCount()).toBe(0);
+  });
+
+  it('counts only the visitors flagged as overstaying — no auto-checkout involved', () => {
+    const component = setup([makeVisitor('v1', true), makeVisitor('v2'), makeVisitor('v3', true)]);
+    expect(component.overstayCount()).toBe(2);
+  });
+});
+
 describe('VisitorListComponent — visitor photo zoom lightbox', () => {
   function setup() {
     const visitorServiceStub = {

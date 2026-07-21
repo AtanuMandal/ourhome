@@ -284,8 +284,7 @@ public static class MappingExtensions
             log.ValidUntil,
             log.VisitorImageUrl,
             log.IsPassExpired,
-            log.IsOverstaying(overstayThresholdHours ?? Society.DefaultVisitorOverstayThresholdHours),
-            log.IsAutoCheckedOut);
+            log.IsOverstaying(overstayThresholdHours ?? Society.DefaultVisitorOverstayThresholdHours));
 
     public static MaintenanceScheduleDto ToResponse(this MaintenanceSchedule schedule) =>
         new(

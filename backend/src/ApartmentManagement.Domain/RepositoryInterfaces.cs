@@ -88,9 +88,6 @@ public interface IVisitorLogRepository : IRepository<VisitorLog>
     Task<IReadOnlyList<VisitorLog>> GetByApartmentAsync(string societyId, string apartmentId, int page, int pageSize, CancellationToken ct = default);
     Task<IReadOnlyList<VisitorLog>> GetActiveVisitorsAsync(string societyId, CancellationToken ct = default);
     Task<VisitorLog?> GetByPassCodeAsync(string passCode, CancellationToken ct = default);
-
-    /// <summary>Cross-partition — every currently checked-in visitor platform-wide, for the auto-checkout timer.</summary>
-    Task<IReadOnlyList<VisitorLog>> GetCheckedInAcrossSocietiesAsync(CancellationToken ct = default);
 }
 
 // ─── Maintenance Schedule ─────────────────────────────────────────────────────

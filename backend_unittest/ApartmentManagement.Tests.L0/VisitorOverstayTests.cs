@@ -4,7 +4,7 @@ using FluentAssertions;
 
 namespace ApartmentManagement.Tests.L0.Domain;
 
-public class VisitorAutoCheckoutTests
+public class VisitorOverstayTests
 {
     private static VisitorLog CreateCheckedInVisitor()
     {
@@ -14,40 +14,6 @@ public class VisitorAutoCheckoutTests
         log.Approve();
         log.CheckIn();
         return log;
-    }
-
-    [Fact]
-    public void AutoCheckOut_WhenCheckedIn_SetsCheckedOutAndFlagsAuto()
-    {
-        var log = CreateCheckedInVisitor();
-
-        log.AutoCheckOut();
-
-        log.Status.Should().Be(VisitorStatus.CheckedOut);
-        log.CheckOutTime.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
-        log.IsAutoCheckedOut.Should().BeTrue();
-    }
-
-    [Fact]
-    public void AutoCheckOut_WhenNotCheckedIn_Throws()
-    {
-        var log = VisitorLog.Create("society-001", "John Visitor", "+91-9876543210",
-            null, null, "Personal visit", "apt-001", "user-001",
-            "Resident User", "A", 1, "A-101", false);
-
-        var act = () => log.AutoCheckOut();
-
-        act.Should().Throw<InvalidOperationException>();
-    }
-
-    [Fact]
-    public void CheckOut_BySecurity_DoesNotFlagAuto()
-    {
-        var log = CreateCheckedInVisitor();
-
-        log.CheckOut();
-
-        log.IsAutoCheckedOut.Should().BeFalse();
     }
 
     [Fact]
