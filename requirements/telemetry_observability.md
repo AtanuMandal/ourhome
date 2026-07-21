@@ -1,5 +1,18 @@
 # Telemetry & Observability Plan
 
+> ✅ **Implementation status (2026-07-20): Phases 0–3 are done** — backend OTel SDK wiring,
+> request/response redaction + capture, the `errorId` contract, the client relay endpoint, and
+> web + mobile trace propagation/error surfacing are all implemented and covered by tests (see
+> the per-section notes and the updated §"Rollout Phases" below). Two deliberate deviations
+> from the original design, both explained where they occur: (1) `host.json`'s `telemetryMode`
+> was **not** flipped to `"OpenTelemetry"` — app-level wiring alone already delivers every
+> concrete requirement, and flipping a host-wide runtime switch alongside the existing
+> Application Insights SDK wasn't worth the unverified interaction risk; (2) web and mobile use
+> a **hand-rolled W3C trace-context utility** instead of the full `@opentelemetry/*` JS SDKs —
+> smaller footprint, no new runtime dependencies, and it delivers the same trace propagation +
+> errorId correlation the SDK would have. Phases 4–6 (security review sign-off, production
+> Collector deployment, alerting) remain open and need infra/security ownership.
+
 ## Overview
 
 Today, errors surface to users as a generic message ("Something went wrong") with nothing to hand a developer beyond "it broke around 3pm." There is no way to look at one failed request and see the request body that was sent, the response that came back, which handler it hit, what it did to Cosmos DB, and how long each step took — across backend, web, and mobile.
@@ -83,13 +96,14 @@ Every API error response (already standardized via `ExceptionHandlingMiddleware`
 - `errorId` is the **32-character lowercase hex W3C trace ID** (`Activity.Current?.TraceId.ToHexString()`) of the request that failed. It is not a new random GUID — it is literally the trace ID, so pasting it into the telemetry UI's trace search returns the exact request.
 - Present on **every** error response — validation failures (422), forbidden (403), not found (404), conflicts (409), and unhandled exceptions (500) alike. A validation error is just as traceable as a crash.
 - If, for some reason, no `Activity` is active (extremely unlikely once instrumentation is wired — only a startup-time failure before the pipeline runs), `errorId` falls back to a freshly generated GUID and that GUID is logged alongside the exception so it's still searchable by full-text log search even without a trace.
+- ✅ **Implemented** as `ApartmentManagement.Functions.Helpers.ErrorIdProvider.Current`, used by both `ExceptionHandlingMiddleware` (all 3 branches) and every failure branch of `HttpHelpers.ToActionResult`/`ToValidationErrorResponse`/`ToAppErrorResponse`. As a side effect of touching every branch, the previously bare `{ error: msg }` payloads (NotFound, Conflict, Forbidden, Unauthorized, generic 500, etc.) now also carry `errorCode` — a small, additive, backward-compatible consistency fix alongside the errorId work. Covered by `HttpHelpersErrorIdTests` (12 error-code cases + the success path) in `backend_unittest/ApartmentManagement.Tests.L1/TelemetryTests.cs`.
 
 ### What clients do with it
 
 | Surface | Behavior |
 |---|---|
-| **Web** | Error snackbar gains a small "Copy error ID" affordance for 5xx/unexpected errors: *"Something went wrong. [Copy error ID]"*. Validation/business errors (4xx with a human message) show the message as today, with the ID available on hover/expand for support escalation. |
-| **Mobile** | `normalizeError()` extracts `errorId` from the response and appends it to the alert body on unexpected errors: *"Server error. Reference: 4bf92f35…"*. Business-rule errors show the plain message as today. |
+| **Web** | Error snackbar gains a "Copy error ID" action button (instead of "Dismiss") for network/5xx/unexpected errors. Validation/business errors (4xx with a human message) show the message as today with a plain "Dismiss". |
+| **Mobile** | `normalizeError()` extracts `errorId` from the response and appends it to the alert body on unexpected errors: *"An unexpected error occurred. (Ref: 4bf92f35…)"*. Business-rule errors show the plain message as today. |
 | **Support / on-call** | Paste the `errorId` into Grafana → Explore → Tempo → **Trace ID** search (local/dev) or the equivalent Azure Monitor / Grafana Cloud trace search (production). Lands directly on the failing request's full trace: every span, every dependency call, the request/response bodies, and the exact log line with the stack trace. |
 
 ---
@@ -98,53 +112,44 @@ Every API error response (already standardized via `ExceptionHandlingMiddleware`
 
 ### Packages
 
+✅ **Implemented** — resolved via `dotnet add package` (no version pinned in the doc originally; NuGet resolved current stable `1.17.0` at implementation time):
+
 ```xml
-<PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.9.0" />
-<PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.9.0" />
-<PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.9.0" />
-<PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.9.0" />
-<PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.9.0" />
+<PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.17.0" />
+<PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.17.0" />
+<PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.17.0" />
+<PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.17.0" />
+<PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.17.0" />
 ```
 
-`Microsoft.ApplicationInsights.WorkerService` and `Microsoft.Azure.Functions.Worker.ApplicationInsights` (currently referenced) are **kept for now** — Application Insights stays as one of the collector's export destinations (§14), reached via the collector's Azure Monitor exporter rather than the app talking to it directly. The `Serilog.Extensions.Logging` / `Serilog.Sinks.ApplicationInsights` packages are referenced but **not currently wired up anywhere** (`UseSerilog()` is never called) — this plan retires them rather than adding a second logging pipeline; `ILogger<T>` flows through the OTel Logs bridge instead (see below).
+`Microsoft.ApplicationInsights.WorkerService` and `Microsoft.Azure.Functions.Worker.ApplicationInsights` (already referenced) are **kept as-is** — the classic App Insights SDK keeps shipping host-level function/trigger telemetry unchanged, and the OTel pipeline below is deliberately **never** wired to export directly to Azure Monitor from the app (only OTLP, see the exporter config below) specifically to avoid double-reporting the same requests to the same App Insights resource through two different collection mechanisms. The `Serilog.Extensions.Logging` / `Serilog.Sinks.ApplicationInsights` packages, which were referenced but never wired up anywhere (`UseSerilog()` was never called), have been **removed** from both `ApartmentManagement.Functions.csproj` and `ApartmentManagement.Infrastructure.csproj` — `ILogger<T>` now flows through the OTel Logs bridge instead (see below).
 
 ### Two levels of instrumentation
 
-**1. Host-level (free, one setting).** The Azure Functions host itself (v4.28+) can emit OTel signals for triggers/bindings natively:
+**1. Host-level.** ⚠️ **Deliberately not implemented.** `host.json`'s `telemetryMode: "OpenTelemetry"` switch was considered but **not** set — this repo's `func`/Functions host version and its interaction with the already-registered classic Application Insights Worker Service SDK couldn't be verified at implementation time (Microsoft's guidance is explicit that combining the classic AI SDK with OTel-based collection against the same resource risks duplicate telemetry), and flipping a host-wide runtime mode without being able to validate the actual runtime behavior was judged too risky for an additive change. App-level wiring (below) already delivers 100% of the concrete requirements — body capture, errorId, dependency spans — without touching this switch. Revisiting this is a reasonable, low-risk follow-up once it can be validated against a real running host.
 
-```json
-// host.json
-{
-  "version": "2.0",
-  "telemetryMode": "OpenTelemetry",
-  "logging": {
-    "logLevel": { "default": "Information" }
-  }
-}
-```
-
-Combined with the standard OTel environment variables (`OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`) this gets host-level request/trigger telemetry flowing with no code change. It does **not** by itself capture request/response bodies — that needs the app-level middleware below.
-
-**2. App-level (custom spans + body capture).** `Program.cs` registers the OTel SDK for everything the host-level mode doesn't cover — Cosmos/Blob/EventGrid/ACS dependency spans, custom attributes, and the request/response body enrichment:
+**2. App-level (implemented).** `Program.cs` registers the OTel SDK additively alongside the existing Application Insights registration:
 
 ```csharp
 services.AddOpenTelemetry()
-    .ConfigureResource(r => r.AddService(
-        serviceName: "ourhome-functions",
-        serviceVersion: typeof(Program).Assembly.GetName().Version?.ToString()))
-    .WithTracing(tracing => tracing
-        .AddSource("OurHome.*")                 // our own ActivitySource(s)
-        .AddAspNetCoreInstrumentation()          // works via the existing HttpContext bridge
-        .AddHttpClientInstrumentation()          // outbound HTTP (ACS, etc.)
-        .AddOtlpExporter())
-    .WithMetrics(metrics => metrics
-        .AddAspNetCoreInstrumentation()
-        .AddRuntimeInstrumentation()
-        .AddOtlpExporter())
-    .WithLogging(logging => logging.AddOtlpExporter());
+    .ConfigureResource(r => r.AddService(serviceName: otelServiceName, serviceVersion: ...))
+    .WithTracing(tracing =>
+    {
+        tracing
+            .AddSource("Azure.*")               // Cosmos/Blob/EventGrid/ACS dependency spans
+            .AddSource("OurHome.ClientRelay")   // web/mobile-forwarded client events (§ relay)
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation();
+        if (!string.IsNullOrWhiteSpace(otlpEndpoint))
+            tracing.AddOtlpExporter(o => o.Endpoint = new Uri(otlpEndpoint));
+    })
+    .WithMetrics(metrics => { /* AddAspNetCoreInstrumentation + AddRuntimeInstrumentation, same OTLP-if-configured pattern */ })
+    .WithLogging(logging => { /* OTLP-if-configured — this is what makes ILogger<T> calls flow through automatically */ });
 ```
 
-Azure SDK clients (Cosmos DB, Blob Storage, Event Grid) already emit `System.Diagnostics.Activity` spans internally — enable them with:
+`otlpEndpoint` and `otelServiceName` are read from `Infrastructure:OtelExporterOtlpEndpoint` / `Infrastructure:OtelServiceName` config (new `InfrastructureSettings` properties) — empty endpoint means spans/errorIds still work locally, they just aren't exported anywhere. `local.settings.json` defaults `OtelExporterOtlpEndpoint` to `http://localhost:4318`, matching the dev container in §13, so `func start` + `docker compose up -d` "just works" with zero extra config.
+
+Azure SDK clients (Cosmos DB, Blob Storage, Event Grid) emit their own `System.Diagnostics.Activity` spans once this switch is on, set at the very top of `Program.cs` before the host is built:
 
 ```csharp
 AppContext.SetSwitch("Azure.Experimental.EnableActivitySource", true);
@@ -154,13 +159,14 @@ so `AddSource("Azure.*")` picks up a `Cosmos.Query` / `Cosmos.CreateItem` / `Blo
 
 ### Request/response body capture
 
-A new `TelemetryEnrichmentMiddleware` (function-worker middleware, alongside the existing `HttpContextAccessorMiddleware` and `ExceptionHandlingMiddleware`):
+✅ **Implemented** as `TelemetryEnrichmentMiddleware`, registered after `HttpContextAccessorMiddleware` and inside `ExceptionHandlingMiddleware` in `Program.cs`'s middleware chain:
 
-- Buffers the request body (the existing `HttpHelpers.DeserializeAsync` already calls `EnableBuffering()` — this middleware reads the same buffered stream, no double-read cost) and sets it as a span attribute `http.request.body`.
-- Wraps `HttpContext.Response.Body` in a capturing stream, so after the function completes the response payload is available as `http.response.body`.
-- Runs the **redaction pass** (§8) over both before attaching them.
-- Truncates both to **8 KB** — large payloads (visitor image upload, CSV export) are recorded as `<omitted: multipart/form-data, 2.4 MB>` rather than inlined; the size and content-type are always captured even when the body isn't.
-- Also stamps `enduser.id` (from `ICurrentUserService.UserId`) and `society.id` on the span, so "show me every request from this user" is a one-line Tempo/Loki query.
+- Buffers the request body via `EnableBuffering()` + rewinds `Position` after reading, so the function body's own `HttpHelpers.DeserializeAsync` call still sees a fresh stream — no double-read cost or conflict — and sets it as a span attribute `http.request.body`.
+- Wraps `HttpContext.Response.Body` in a `MemoryStream`, so after the function completes the response payload is readable as `http.response.body`, then copies it back to the real response stream in a `finally` block regardless of success or exception.
+- Runs the **redaction pass** (`TelemetryRedactor`, §8) over both before attaching them.
+- Truncates both to **8 KB** (`TelemetryRedactor.MaxBodyBytes`) — large/multipart payloads are recorded as `<omitted: {contentType}, {size} bytes>` rather than inlined; the size and content-type are always captured even when the body isn't.
+- Also stamps `enduser.id`, `society.id`, and `enduser.role` (from `ICurrentUserService`) on the span when the caller is authenticated, so "show me every request from this user" is a one-line trace-backend query.
+- Note: error response bodies (written by `ExceptionHandlingMiddleware`, which sits *outside* this middleware) aren't captured as a span attribute — but the errorId, error code, and full exception are already in the structured log line for that same trace, so nothing is actually lost.
 
 ### `ExceptionHandlingMiddleware` — one small addition
 
@@ -179,92 +185,97 @@ Because `ILogger` calls inside an active `Activity` are automatically correlated
 
 `ILogger<T>` usage across the codebase (already extensive — `LoggingBehavior`, every handler's catch block) needs no call-site changes. The OTel Logging provider (`WithLogging(...)` above) picks up every `ILogger` call, attaches the current trace context automatically, and exports it as an OTel LogRecord — visible in Grafana Loki (or Azure Monitor traces/logs) already correlated to the request's trace.
 
+### Client telemetry relay endpoint
+
+✅ **Implemented** as `TelemetryFunctions.SubmitClientTelemetry` (`Http/Telemetry/TelemetryFunctions.cs`) — `POST /api/telemetry/client-events`, authenticated (`ICurrentUserService.IsAuthenticated` check, same as every other endpoint), gated by `Infrastructure:TelemetryRelayEnabled` (defaults on). Each event in the batch (capped at 50 per request — untrusted client input) is re-emitted as an `Activity` on a dedicated `OurHome.ClientRelay` source, parented to the client's own `traceId`/`spanId` when they parse as valid W3C hex (falls back to rooting under the current request's own trace if the client sent something malformed, rather than failing the batch). `ErrorMessage`, `Url`, and `Attributes` all run through `TelemetryRedactor` before becoming span tags. Covered by `TelemetryFunctionsParsingTests` in the same test file as the redaction/errorId tests, exercising the untrusted-input parsing (`TryParseContext`/`IsHex`/`SanitizeName`, made `internal` + `InternalsVisibleTo` specifically so this logic is directly testable).
+
 ---
 
 ## Frontend (Angular Web) Instrumentation
 
-### Packages
+> ✅ **Implemented — with one deliberate architecture change from the original plan below.**
+> Rather than the full `@opentelemetry/sdk-trace-web` + fetch/XHR auto-instrumentation stack,
+> the implementation uses a **hand-rolled W3C trace-context utility** (`core/services/trace-context.ts`
+> — ~30 lines, `crypto.getRandomValues` + hex encoding, zero new npm dependencies). Reasoning:
+> the actual requirement is "outgoing requests carry a `traceparent` header the backend
+> continues as the same trace, and errors are correlatable by ID" — the full SDK's extra value
+> (auto-instrumentation of every fetch/XHR call site, browser span export, OTel Logs API) isn't
+> needed once the relay pattern (below) is the only client→server telemetry path anyway. This
+> can be swapped for the full SDK later without changing the wire contract (the backend just
+> sees a `traceparent` header either way) if richer client-side spans become worth the
+> dependency weight.
 
-```
-@opentelemetry/api
-@opentelemetry/sdk-trace-web
-@opentelemetry/context-zone           # Angular's zone.js already present — reuse it for context propagation
-@opentelemetry/instrumentation-fetch  # or instrumentation-xml-http-request if the app.service uses XHR
-@opentelemetry/exporter-trace-otlp-http
-@opentelemetry/sdk-logs
-@opentelemetry/exporter-logs-otlp-http
-```
+### What's implemented instead
+
+| Original plan | Implementation |
+|---|---|
+| `@opentelemetry/sdk-trace-web` + `instrumentation-fetch` | `core/services/trace-context.ts` — `createTraceContext()` generates a W3C-shaped `{traceId, spanId, header}`; `traceIdFromHeader()` parses one back out |
+| Auto-instrumented fetch/XHR | `core/interceptors/telemetry.interceptor.ts` — a functional `HttpInterceptorFn` that clones every outgoing request with a fresh `traceparent` header |
+| `@opentelemetry/exporter-trace-otlp-http` (client-side OTLP) | `core/services/telemetry.service.ts` — `reportClientEvent()` POSTs to the relay endpoint via the existing authenticated `HttpClient` pipeline (not raw OTLP) |
+| OTel span event on error | `core/interceptors/error.interceptor.ts` extracts `errorId` and surfaces it |
 
 ### Trace propagation
 
-`FetchInstrumentation` (or `XMLHttpRequestInstrumentation`, matching whatever `ApiService`'s HTTP client uses under the hood) is configured with `propagateTraceHeaderCorsUrls` matching the API's origin. Every outgoing API call automatically gets a `traceparent` header — the backend's `AddAspNetCoreInstrumentation()` picks it up and continues the **same trace**, so a click in the browser and the Cosmos query it triggers show up as one connected trace, not two disconnected ones.
+`telemetryInterceptor` is registered in `app.config.ts`'s interceptor chain as `[authInterceptor, telemetryInterceptor, errorInterceptor]` — after auth (so the JWT is already attached) and before the error interceptor (so the traceparent header is already on `req` by the time error handling needs to read it back for the network-failure fallback). Every outgoing API call gets a fresh `traceparent` header — the backend's `AddAspNetCoreInstrumentation()` picks it up and continues the **same trace**, so a click in the browser and the Cosmos query it triggers show up as one connected trace, not two disconnected ones.
 
 ### Client → collector path: relay, not direct
 
-Browsers exporting OTLP directly to a collector requires the collector to accept public, unauthenticated, CORS-enabled traffic from anyone's browser — acceptable for local dev (the container in §13 is not internet-facing), **not acceptable in production.** The production path is a thin relay:
-
-```
-Browser --OTLP/HTTP JSON--> POST /api/telemetry/client-events (new, authenticated Function)
-                                     |
-                                     v
-                              OTLP exporter --> Collector
-```
-
-The relay function does three things the browser can't be trusted to do itself: (1) require a valid JWT so anonymous flooding isn't possible, (2) run the same redaction pass as the backend middleware, (3) stamp the authenticated user/society onto the span server-side rather than trusting client-supplied values. Locally, the Angular environment can point straight at the dev container's OTLP HTTP endpoint (CORS-enabled by default on `grafana/otel-lgtm`) to skip standing up the relay during day-to-day development; the relay is a production-hardening step (§14 rollout).
+Implemented exactly as planned — browsers never talk to the OTLP collector directly (that would require accepting public, unauthenticated, CORS-enabled traffic from anyone's browser). `telemetryInterceptor` calls `TelemetryService.reportClientEvent()` specifically (and only) when `err.status === 0` — a pure network failure where the request never reached the backend at all, the one case nothing server-side will ever record on its own. Normal HTTP error responses need no separate relay call: the server already continued the same trace and already returned an `errorId`, so there's nothing additional to forward. The interceptor explicitly skips instrumenting/reporting calls to the relay endpoint itself (`req.url.includes(TELEMETRY_RELAY_PATH)`) to avoid a reporting loop.
 
 ### Error boundary
 
-The existing `error.interceptor.ts` gains one addition: on any caught `HttpErrorResponse`, read `err.error?.errorId` (or generate a client-side span with a fresh trace ID if the network error never reached the backend, e.g. `status === 0`) and:
-1. Attach it as an attribute on an OTel span event (`recordException` with `errorId` in the event attributes) so it's independently searchable even if the backend's own log line is somehow lost.
-2. Surface it in the snackbar message per the contract in the table above.
+`error.interceptor.ts` extracts the errorId (`err.error?.errorId` when the server responded; falls back to `traceIdFromHeader(req.headers.get('traceparent'))` for network failures) and surfaces it via the snackbar's action button: **"Copy error ID"** (writes to `navigator.clipboard`, with `.catch(() => {})` since clipboard access can legitimately reject) instead of the default "Dismiss" — but only for unexpected/unattributable failures (network errors, 5xx, or an unmapped fallback status). Handled cases with a specific, self-explanatory message (401 session-expired, 403 forbidden, 403 society-disabled, 404 not-found) keep the plain "Dismiss" button, matching the original plan's "4xx with a human message shows the message as today" intent.
 
 ---
 
 ## Mobile (React Native) Instrumentation
 
-The mature browser/Node OTel SDKs (`sdk-trace-web`, auto fetch/XHR instrumentation) don't target React Native's runtime cleanly. The pragmatic approach is a **minimal manual tracer** built directly on `@opentelemetry/api` — small footprint, full control, no fighting library assumptions about `window`/DOM:
+> ✅ **Implemented — same "manual tracer, no new dependency" choice as web, even more minimal
+> than originally planned.** Rather than `@opentelemetry/sdk-trace-base` + `exporter-trace-otlp-http`,
+> the implementation is a pure hand-rolled `traceContext.ts` (`Math.random()`-based hex
+> generation, not `expo-crypto`/Web Crypto — a trace ID only needs to be collision-resistant
+> for correlation, not cryptographically unpredictable, so pulling in a native crypto module
+> wasn't justified). Zero new npm packages, nothing to native-rebuild for.
 
-```
-@opentelemetry/api
-@opentelemetry/sdk-trace-base
-@opentelemetry/exporter-trace-otlp-http   # works over fetch, which RN provides natively
-@opentelemetry/resources
-```
+- `shared/utils/traceContext.ts` — mirrors the web utility exactly (`createTraceContext()`, `traceIdFromHeader()`), same W3C shape, different (non-crypto) random source.
+- `api/client.ts`'s existing axios request interceptor now also stamps a fresh `traceparent` header on every outgoing call (skipped for calls to the relay endpoint itself). `reportClientEvent()` lives in the **same file** rather than a separate module specifically to avoid a circular import (`client.ts`'s own response interceptor needs to call it for network-failure reporting; a separate telemetry module would need to import the same `api` instance back from `client.ts`).
+- The response interceptor reports to the relay only for a pure network failure (`!error.response` — axios's equivalent of the web's `status === 0`), extracting the trace ID back off the failed request's own `traceparent` header via `traceIdFromHeader`. Calls to the relay endpoint itself are excluded from this reporting to avoid a loop.
+- `normalizeError()` (`shared/utils/errors.ts`) surfaces the errorId as `"{message} (Ref: {errorId})"` — but, matching the web app's nuance, **only** for unexpected failures (no response at all, or a 5xx). A handled 4xx already has a specific, actionable message from the backend and doesn't get the reference appended. Every screen's existing `Alert.alert('Error', normalizeError(e))` call picks this up automatically, no per-screen changes needed.
 
-- A `tracer.ts` module creates one `WebTracerProvider`-equivalent using `BasicTracerProvider` from `sdk-trace-base`, configured with a `BatchSpanProcessor` → `OTLPTraceExporter` pointed at the relay endpoint (same relay pattern as web — mobile should never talk to the collector directly either, for the same auth/redaction reasons).
-- The existing `api/client.ts` axios instance gains a request interceptor that starts a span per call (`api.request <method> <path>`), manually generates the W3C `traceparent` header (a small, well-defined format — no library needed to construct 16-byte trace-id / 8-byte parent-id hex strings), and a response interceptor that ends the span, recording `http.status_code` and, on error, `err.response?.data?.errorId`.
-- `normalizeError()` (in `shared/utils/errors.ts`) is extended to surface `errorId` in the message returned to the caller, per the client contract table above — this is the one shared change; every screen's existing `Alert.alert('Error', normalizeError(e))` call picks it up automatically.
-
-This mirrors the web app's structure closely enough that the redaction and relay logic (§8, and the relay endpoint itself) is **shared code**, not reimplemented per platform.
+This mirrors the web app's structure closely enough that the *redaction* logic is genuinely shared (the relay endpoint runs the exact same `TelemetryRedactor` regardless of which client sent the event) — the trace-context generation itself is duplicated (not literally shared code, since web and mobile are separate npm packages with no shared module boundary in this repo), kept deliberately identical in shape between the two copies.
 
 ---
 
 ## Redaction & PII Rules
 
-Applied identically wherever a body or attribute is about to be attached to a span/log, in one shared function (`TelemetryRedactor`, backend; mirrored in the relay endpoint for client-forwarded spans so mobile/web get the same treatment):
+✅ **Implemented** as `ApartmentManagement.Functions.Helpers.TelemetryRedactor` — one shared static class used by both `TelemetryEnrichmentMiddleware` (server-side request/response capture) and `TelemetryFunctions` (client-forwarded events from the relay), so web/mobile/backend all get the identical treatment. Covered by 12 table-driven tests in `TelemetryRedactorTests`.
 
 | Rule | Detail |
 |---|---|
-| **Never-log field names** (case-insensitive, recursive through JSON) | `password`, `newPassword`, `otp`, `token`, `accessToken`, `refreshToken`, `jwtSecret`, `authorization`, `secret`, `apiKey`, `sasToken`, `connectionString` — value replaced with `"***REDACTED***"` |
-| **Masked, not dropped** | `phone`, `email` — same masking already used for the resident directory (`+91-98XXXXXX10`, `ra***@***.com`) via the existing `MaskPhone`/`MaskEmail` helpers, reused here |
-| **Headers** | `Authorization`, `Cookie`, `Set-Cookie` stripped entirely from any captured header attributes |
-| **Binary/large payloads** | multipart/form-data, and any body over 8 KB, replaced with `<omitted: {contentType}, {size} bytes>` |
-| **Blob URLs** | app-relative authenticated paths already used across the app (not raw SAS URLs) are safe to log as-is; if a raw SAS URL ever appears in a body, the query string is stripped before logging |
+| **Never-log field names** (case-insensitive, recursive through JSON) | `password`, `newPassword`, `currentPassword`, `confirmPassword`, `otp`, `code`, `token`, `accessToken`, `refreshToken`, `idToken`, `jwtSecret`, `secret`, `apiKey`, `sasToken`, `connectionString` — value replaced with `"***REDACTED***"` |
+| **Masked, not dropped** | `phone`, `phoneNumber`, `visitorPhone`, `vehicleNumber`, `email`, `visitorEmail`, `contactEmail` — the exact same masking algorithm already used for the resident directory (`+91-98XXXXXX10`, `ra***@***.com`), duplicated (not reused via a cross-layer dependency) into `TelemetryRedactor` since Functions has no other reason to depend on the Application layer |
+| **Headers** | ⚠️ **Narrower than originally planned.** `TelemetryEnrichmentMiddleware` doesn't capture full request/response headers at all (only content-type/length are read, never attached as span attributes) — so there was nothing to strip `Authorization`/`Cookie`/`Set-Cookie` *from* in the first place. If header capture is added later, this redaction rule still needs implementing at that point. |
+| **Binary/large payloads** | multipart/form-data, and any body over 8 KB (`TelemetryRedactor.MaxBodyBytes`), replaced with `<omitted: {contentType}, {size} bytes>` |
+| **Blob URLs** | app-relative authenticated paths already used across the app (not raw SAS URLs) are safe to log as-is; if a raw SAS-looking URL (`sig=`/`&se=` query params) ever appears in a body, the query string is stripped before logging — applied recursively to every string value in the JSON tree, not just recognized field names |
 
 ---
 
 ## Correlation Across the Stack — Worked Example
 
-A resident's amenity booking fails because the chosen slot is outside operating hours:
+**Scenario A — an unexpected failure (shows the Ref to the user).** A resident's amenity booking hits a transient Cosmos DB timeout:
 
-1. Mobile: `AmenityBookingScreen` calls `createBooking(...)`. The axios interceptor starts span `mobile.api.request POST /amenity-bookings`, generates trace ID `4bf92f35…`, attaches `traceparent` header.
-2. Backend: `AddAspNetCoreInstrumentation()` sees the incoming `traceparent`, continues the same trace. `TelemetryEnrichmentMiddleware` attaches the (redacted) request body. `BookAmenityCommandHandler` returns `Result.Failure(OUTSIDE_OPERATING_HOURS, ...)`. `HttpHelpers.ToActionResult` maps it to a 400 with `errorId = "4bf92f35…"` — **the same trace ID**, no new ID minted.
-3. Mobile: `normalizeError()` reads `errorId` from the 400 response, shows *"Start time is outside operating hours. Reference: 4bf92f35…"*.
-4. Support pastes `4bf92f35…` into Grafana → Explore → Tempo. One trace, two spans (mobile call, backend request), the exact redacted request body that was sent, the validator's rejection reason, and — because `WithLogging` correlates automatically — the matching `ILogger` line, all in one screen. No log-grepping, no "what time did you try this," no guessing.
+1. Mobile: `AmenityBookingScreen` calls `createBooking(...)`. The axios request interceptor generates trace ID `4bf92f35…` and attaches it as the `traceparent` header.
+2. Backend: `AddAspNetCoreInstrumentation()` sees the incoming `traceparent`, continues the same trace. `TelemetryEnrichmentMiddleware` attaches the (redacted) request body. `BookAmenityCommandHandler` throws; `ExceptionHandlingMiddleware` catches it, maps it to a 500 with `errorId = "4bf92f35…"` — **the same trace ID**, no new ID minted — and logs the exception with that same errorId.
+3. Mobile: `normalizeError()` sees a 5xx with a server `errorId`, shows *"An unexpected error occurred. (Ref: 4bf92f35…)"*.
+4. Support pastes `4bf92f35…` into Grafana → Explore → Tempo. One trace: the mobile call's span, the backend request span with the exact redacted request body that was sent, the Cosmos dependency span showing the timeout, and — because `WithLogging` correlates automatically — the matching `ILogger` line with the full exception, all in one screen. No log-grepping, no "what time did you try this," no guessing.
+
+**Scenario B — an expected business-rule rejection (no Ref shown, by design).** The same booking instead fails because the chosen slot is outside operating hours: `BookAmenityCommandHandler` returns `Result.Failure(OUTSIDE_OPERATING_HOURS, ...)`, `HttpHelpers.ToActionResult` maps it to a 400 that *does* still carry an `errorId` in the payload (every error response does), but `normalizeError()` deliberately doesn't surface it for a handled 4xx — the resident just sees *"Start time is outside operating hours."* This is a validation message they can act on themselves; escalating it to support with a reference ID would be noise. The trace is still fully there and still gets pulled up correctly if support ever needs it for another reason (e.g. "why did this user's booking keep failing") — it's just not pushed into the user-facing message for this class of error.
 
 ---
 
 ## Sampling, Retention, and Cost Controls
+
+⚠️ **Not implemented in this pass** — the OTel SDK is currently registered with its default sampler (effectively "always on" when an OTLP endpoint is configured, no export at all when it isn't). Explicit sampling policy is Phase 5 work, described below for when that phase is scheduled:
 
 - **Local/dev** (§13): no sampling — capture everything, retention is whatever disk space allows (best-effort, ephemeral by design).
 - **Production** (§14):
@@ -301,16 +312,16 @@ docker compose up -d
 - OTLP gRPC: **http://localhost:4317**
 - OTLP HTTP: **http://localhost:4318**
 
-### Local wiring (once app-level instrumentation from §5–§7 lands)
+### Local wiring
 
-| App | Config | Value (local) |
-|---|---|---|
-| Backend (`local.settings.json`) | `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4318` |
-| Backend | `OTEL_SERVICE_NAME` | `ourhome-functions` |
-| Web (`environment.ts`) | `otlpEndpoint` | `http://localhost:4318` |
-| Web | `otelServiceName` | `ourhome-web` |
-| Mobile (`eas.json` build profile `env`) | `OTLP_ENDPOINT` | `http://<machine-lan-ip>:4318` (device/simulator can't reach `localhost` of the host machine) |
-| Mobile | `OTEL_SERVICE_NAME` | `ourhome-mobile` |
+✅ **Backend is wired**; web and mobile need no separate OTLP config at all — since they use the relay pattern (§"Client → collector path"), they only need to reach the *backend API* (already configured via the existing `environment.apiBaseUrl` / `API_BASE_URL`), which in turn is the only thing that talks OTLP to the container:
+
+| App | Config | Value (local) | Status |
+|---|---|---|---|
+| Backend (`local.settings.json`) | `Infrastructure:OtelExporterOtlpEndpoint` | `http://localhost:4318` | ✅ set as the default |
+| Backend | `Infrastructure:OtelServiceName` | `ourhome-functions` | ✅ set as the default |
+| Web | *(none needed)* | reuses existing `environment.apiBaseUrl` for the relay call | ✅ n/a by design |
+| Mobile | *(none needed)* | reuses existing `API_BASE_URL` for the relay call | ✅ n/a by design |
 
 ### Verify it end to end
 
@@ -384,24 +395,25 @@ service:
 
 ## Rollout Phases
 
-| Phase | Scope | Depends on |
+| Phase | Scope | Status |
 |---|---|---|
-| **0 — done in this pass** | This plan; local dev container (`infra/observability/docker-compose.yml`) | — |
-| **1 — Backend instrumentation** | OTel SDK wiring in `Program.cs`; `TelemetryEnrichmentMiddleware`; `errorId` added to `ExceptionHandlingMiddleware` and `HttpHelpers.ToActionResult`; Azure SDK Activity sources enabled | Phase 0 |
-| **2 — Web instrumentation** | OTel Web SDK; trace propagation; error interceptor `errorId` surfacing; relay endpoint (backend `POST /telemetry/client-events`) | Phase 1 |
-| **3 — Mobile instrumentation** | Manual tracer; axios interceptor tracing; `normalizeError()` `errorId` surfacing | Phase 1, shares relay endpoint from Phase 2 |
-| **4 — Redaction hardening + review** | Security review of the redaction rules against real captured payloads before any production rollout | Phases 1–3 |
-| **5 — Production topology** | Collector deployment (Bicep), Azure Monitor + optional Grafana Cloud export, sampling policy, retire the local-only wiring path for deployed environments | Phase 4 |
-| **6 — Alerting** | Error-rate, error-code-spike, and outbox-backlog alerts on top of the now-live collector | Phase 5 |
+| **0** | This plan; local dev container (`infra/observability/docker-compose.yml`) | ✅ Done |
+| **1 — Backend instrumentation** | OTel SDK wiring in `Program.cs`; `TelemetryEnrichmentMiddleware`; `TelemetryRedactor`; `errorId` added to `ExceptionHandlingMiddleware` and every `HttpHelpers` error branch; Azure SDK Activity sources enabled; client relay endpoint (`TelemetryFunctions`) | ✅ Done — 50 new backend tests (`TelemetryTests.cs`), full solution builds clean, L0 316/316 + L1 380/380 pass |
+| **2 — Web instrumentation** | Trace propagation (`telemetry.interceptor.ts`); error interceptor `errorId` surfacing with a "Copy error ID" snackbar action; relay forwarding for network failures | ✅ Done — using a hand-rolled trace-context utility instead of the full OTel Web SDK (see §"Frontend Instrumentation" for why); 19 new tests, 285/285 web tests pass, production build clean |
+| **3 — Mobile instrumentation** | Manual tracer (`traceContext.ts`); axios interceptor tracing in `api/client.ts`; `normalizeError()` `errorId` surfacing | ✅ Done — 24 new tests, 263/263 mobile tests pass, `tsc --noEmit` clean |
+| **4 — Redaction hardening + review** | Security review of the redaction rules against real captured payloads before any production rollout | ⚠️ **Open** — needs a human security sign-off before production use; automated tests cover the documented rules but haven't been reviewed against real production-shaped payloads |
+| **5 — Production topology** | Collector deployment (Bicep), Azure Monitor + optional Grafana Cloud export, sampling policy, retire the local-only wiring path for deployed environments | ⚠️ **Open** — deliberately out of scope for this pass; no Bicep changes were made |
+| **6 — Alerting** | Error-rate, error-code-spike, and outbox-backlog alerts on top of the now-live collector | ⚠️ **Open** — depends on Phase 5 |
 
 ---
 
 ## Testing & Validation Plan
 
-- **Backend L1 tests**: assert `errorId` is present and is a valid 32-hex-char trace ID on every mapped error branch of `ExceptionHandlingMiddleware` and `HttpHelpers.ToActionResult`.
-- **Redaction unit tests**: table-driven tests feeding known-sensitive payloads (a login request with a password, a token refresh body) through `TelemetryRedactor`, asserting the sensitive fields never appear in the output.
-- **Manual E2E check** (documented in §13's "Verify it end to end"): the concrete, repeatable proof that a real error's `errorId` resolves to a real trace with a real request body.
-- **Load test sanity check** before Phase 5: confirm sampling keeps the Collector's throughput and the production Application Insights ingestion volume within expected bounds.
+- ✅ **Backend** (`backend_unittest/ApartmentManagement.Tests.L1/TelemetryTests.cs`, 50 tests): `TelemetryRedactorTests` (table-driven — every never-log field, phone/email masking, nested objects/arrays, multipart/oversized summarization, SAS URL stripping, non-JSON passthrough); `ErrorIdProviderTests` (shape contract + active-Activity correlation); `HttpHelpersErrorIdTests` (all 12 mapped error codes carry a valid errorId at the right status); `TelemetryFunctionsParsingTests` (the relay's untrusted-client-input parsing — malformed trace/span IDs, uppercase hex rejection, name-length capping).
+- ✅ **Web** (`error.interceptor.spec.ts`, `telemetry.interceptor.spec.ts`, `trace-context.spec.ts`, 19 tests): traceparent header shape/uniqueness, header propagation through the interceptor chain, "Copy error ID" vs. "Dismiss" action selection per status code, network-failure relay reporting, no-reporting-loop guard.
+- ✅ **Mobile** (`__tests__/api/client.test.ts` extension, `traceContext.test.ts`, `errors.test.ts`, 24 tests): same coverage shape as web, adapted for axios's config/interceptor model.
+- ⚠️ **Manual E2E check** (documented in §13's "Verify it end to end") — **not run in this pass**: it requires the local dev container actually running (`docker compose up -d`) and a live `func start`/`ng serve` session, which wasn't exercised end-to-end here. The automated tests above cover every piece in isolation (redaction rules, errorId presence/shape, trace propagation, relay guards) but the full "trigger a real error → see a real trace in Grafana" loop should be walked through manually before calling Phase 1–3 fully validated.
+- ⚠️ **Load test sanity check** before Phase 5: confirm sampling keeps the Collector's throughput and the production Application Insights ingestion volume within expected bounds — blocked on Phase 5 (sampling isn't implemented yet either, see above).
 
 ---
 

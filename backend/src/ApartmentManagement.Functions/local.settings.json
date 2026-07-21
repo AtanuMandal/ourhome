@@ -24,6 +24,10 @@
     "Infrastructure:VapidPublicKey": "BDpFr-ntg2qHNSHsaOaiBYrJwj9yamAIB4Z1RNsQZWlDPFAsT1FMc44o1oUEwogqQiNvNPQ7NHXH1ovIKxmsoXw",
     "Infrastructure:VapidPrivateKey": "Fd0hVgat-M8-A4vdTSuRO6qk3iixotODI8pmVvM94WI",
 
+    "Infrastructure:OtelExporterOtlpEndpoint": "http://localhost:431",
+    "Infrastructure:OtelServiceName": "ourhome-functions",
+    "Infrastructure:TelemetryRelayEnabled": "false",
+
     "CosmosDbConnection": "AccountEndpoint=https://localhost:8081/;AccountKey=C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==",
 
     "AzureAdB2C:Authority": "",

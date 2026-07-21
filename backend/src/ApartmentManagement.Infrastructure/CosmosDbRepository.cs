@@ -69,14 +69,22 @@ public class CosmosDbRepository<T>(
 
     public async Task<T> UpdateAsync(T entity, CancellationToken ct = default)
     {
-        entity.TouchUpdatedAt();
-        ItemRequestOptions? options = null;
-        if (!string.IsNullOrWhiteSpace(entity.ETag))
-            options = new ItemRequestOptions { IfMatchEtag = entity.ETag };
+        try
+        {
+            entity.TouchUpdatedAt();
+            ItemRequestOptions? options = null;
+            if (!string.IsNullOrWhiteSpace(entity.ETag))
+                options = new ItemRequestOptions { IfMatchEtag = entity.ETag };
 
-        var response = await _container.ReplaceItemAsync(entity, entity.Id,
-            new PartitionKey(entity.SocietyId), options, ct);
-        return ApplyResponseMetadata(response.Resource ?? entity, response.ETag);
+            var response = await _container.ReplaceItemAsync(entity, entity.Id,
+                new PartitionKey(entity.SocietyId), options, ct);
+            return ApplyResponseMetadata(response.Resource ?? entity, response.ETag);
+        }
+        catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.PreconditionFailed)
+        {
+            logger.LogWarning("ETag mismatch updating {Type} id={Id}", typeof(T).Name, entity.Id);
+            throw;
+        }
     }
 
     public async Task DeleteAsync(string id, string societyId, CancellationToken ct = default)
