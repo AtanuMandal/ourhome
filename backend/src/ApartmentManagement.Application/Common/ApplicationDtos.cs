@@ -521,8 +521,7 @@ public record VisitorResponse(
     string? VisitorImageUrl = null,
     bool IsPassExpired = false,
     // True when the visitor is checked in past the society's overstay threshold — shown in red in lists.
-    bool IsOverstay = false,
-    bool IsAutoCheckedOut = false);
+    bool IsOverstay = false);
 
 public sealed record CheckInVisitorRequest(string PassCode);
 

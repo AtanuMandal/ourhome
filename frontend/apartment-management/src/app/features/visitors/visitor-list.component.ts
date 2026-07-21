@@ -184,6 +184,12 @@ import { ImageLightboxComponent } from '../../shared/components/image-lightbox/i
           </a>
         </app-empty-state>
       } @else {
+        @if (overstayCount() > 0) {
+          <div class="card overstay-banner">
+            <mat-icon>warning</mat-icon>
+            <span>{{ overstayCount() }} visitor{{ overstayCount() === 1 ? '' : 's' }} overstaying the allowed time — flagged in red below.</span>
+          </div>
+        }
         <div class="visitor-list">
           @for (visitor of items(); track visitor.id) {
             <div class="visitor-card" [class.visitor-card--overstay]="visitor.isOverstay"
@@ -212,7 +218,7 @@ import { ImageLightboxComponent } from '../../shared/components/image-lightbox/i
                 </span>
                 <span class="vc-meta">{{ visitor.visitorPhone }}{{ visitor.vehicleNumber ? ' - ' + visitor.vehicleNumber : '' }}</span>
                 <span class="vc-time">
-                  Requested {{ visitor.createdAt | date:'medium' }}{{ visitor.checkInTime ? ' - Checked in ' + (visitor.checkInTime | date:'short') : '' }}{{ visitor.checkOutTime ? ' - Checked out ' + (visitor.checkOutTime | date:'short') : '' }}{{ visitor.isAutoCheckedOut ? ' (auto)' : '' }}
+                  Requested {{ visitor.createdAt | date:'medium' }}{{ visitor.checkInTime ? ' - Checked in ' + (visitor.checkInTime | date:'short') : '' }}{{ visitor.checkOutTime ? ' - Checked out ' + (visitor.checkOutTime | date:'short') : '' }}
                 </span>
                 @if (visitor.isOverstay) {
                   <span class="vc-overstay-flag">Overstaying — checked in {{ visitor.checkInTime | date:'short' }}</span>
@@ -287,6 +293,8 @@ export class VisitorListComponent implements OnInit, OnDestroy {
   readonly recentlyUpdatedIds = signal<ReadonlySet<string>>(new Set());
   private _highlightTimer: ReturnType<typeof setTimeout> | null = null;
   readonly items = signal<Visitor[]>([]);
+  /** Backend already sorts overstaying visitors to the top of the list; this drives the banner count. */
+  readonly overstayCount = computed(() => this.items().filter(v => v.isOverstay).length);
   readonly errorMessage = signal('');
   readonly successMessage = signal('');
   readonly verifiedVisitor = signal<Visitor | null>(null);

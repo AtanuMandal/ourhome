@@ -79,6 +79,8 @@ export function VisitorListScreen() {
   const defaultView = useVisitorDefaultView(societyId, isDefaultView);
 
   const data = isDefaultView ? (defaultView.data ?? []) : filteredList.data;
+  // Backend already sorts overstaying visitors to the top of the list — this just drives the banner count.
+  const overstayCount = data.filter((v) => v.isOverstay === true).length;
   const isLoading = isDefaultView ? defaultView.isLoading : filteredList.isLoading;
   const hasNextPage = isDefaultView ? false : filteredList.hasNextPage;
   const fetchNextPage = isDefaultView ? async () => undefined : filteredList.fetchNextPage;
@@ -294,6 +296,13 @@ export function VisitorListScreen() {
       {isDefaultView && (
         <Text style={styles.hint}>Showing pending and checked-in visitors plus the 10 most recent. Search or filter for more.</Text>
       )}
+      {overstayCount > 0 && (
+        <View style={styles.overstayBanner}>
+          <Text style={styles.overstayBannerText}>
+            ⚠ {overstayCount} visitor{overstayCount === 1 ? '' : 's'} overstaying the allowed time — flagged in red below.
+          </Text>
+        </View>
+      )}
       <FlatList
         data={data}
         keyExtractor={(item) => item.id}
@@ -382,6 +391,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingTop: spacing.xs,
     backgroundColor: colors.surface,
+  },
+  overstayBanner: {
+    backgroundColor: 'rgba(211, 47, 47, 0.1)',
+    borderLeftWidth: 4,
+    borderLeftColor: colors.error,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  overstayBannerText: {
+    fontSize: typography.fontSize.sm,
+    color: colors.error,
+    fontWeight: typography.fontWeight.semibold,
   },
   item: {
     padding: spacing.md,

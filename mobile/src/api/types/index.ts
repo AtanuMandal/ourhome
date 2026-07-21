@@ -95,7 +95,6 @@ export interface Visitor {
   isPassExpired: boolean;
   /** Checked in past the society's overstay threshold — render in red. */
   isOverstay?: boolean;
-  isAutoCheckedOut?: boolean;
 }
 
 // Matches backend NoticeResponse
