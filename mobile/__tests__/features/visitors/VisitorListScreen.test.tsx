@@ -123,6 +123,35 @@ describe('VisitorListScreen — approve/deny visibility', () => {
     await waitFor(() => expect(screen.getByText('Jane Visitor')).toBeTruthy());
     expect(screen.getByText('Approve')).toBeTruthy();
   });
+
+  // Regression: mobile's Deny gate used to be role-only (SUAdmin/SUSecurity), unlike the web
+  // app's canModerate(visitor) which also lets the host resident deny their own visitor.
+  test('the host resident also sees Deny for their own visitor', async () => {
+    useAuthStore.setState({
+      user: { id: 'res1', societyId: 'soc-1', fullName: 'Resident', email: 'r@a.com', phone: '1', role: 'SUUser', residentType: 'Owner', apartmentId: 'apt-999', isVerified: true, isActive: true },
+      token: 'tok',
+      isAuthenticated: true,
+    });
+
+    renderScreen();
+
+    await waitFor(() => expect(screen.getByText('Jane Visitor')).toBeTruthy());
+    expect(screen.getByText('Deny')).toBeTruthy();
+  });
+
+  test('a resident does NOT see Deny for a visitor hosted by a different apartment', async () => {
+    useAuthStore.setState({
+      user: { id: 'res2', societyId: 'soc-1', fullName: 'Other Resident', email: 'o@a.com', phone: '1', role: 'SUUser', residentType: 'Owner', apartmentId: 'apt-1', isVerified: true, isActive: true },
+      token: 'tok',
+      isAuthenticated: true,
+    });
+
+    renderScreen();
+
+    await waitFor(() => expect(screen.getByText('Jane Visitor')).toBeTruthy());
+    expect(screen.queryByText('Deny')).toBeNull();
+    expect(screen.queryByText('Approve')).toBeNull();
+  });
 });
 
 describe('VisitorListScreen — gate pass verification checks the visitor in', () => {
