@@ -40,15 +40,12 @@ function createWrapper() {
 function makeAlert(overrides: Partial<SosAlert> = {}): SosAlert {
   return {
     id: overrides.id ?? 'a1',
-    societyId: 'soc1',
-    apartmentId: 'apt1',
-    apartmentLabel: 'A-101',
-    triggeredByUserId: 'user1',
-    triggeredByUserName: 'Jane Resident',
-    category: 'Fire',
-    status: 'Triggered',
-    triggeredAt: '2026-01-01T00:00:00Z',
-    escalationCount: 0,
+    al: 'A-101',
+    un: 'Jane Resident',
+    cat: 'Fire',
+    st: 'Triggered',
+    ta: '2026-01-01T00:00:00Z',
+    ec: 0,
     ...overrides,
   };
 }
@@ -60,7 +57,7 @@ describe('useSos', () => {
 
   test('useSosAlertList returns the flat alert list', async () => {
     mockGetAlerts.mockResolvedValue({
-      items: [makeAlert({ id: '1' }), makeAlert({ id: '2', status: 'Resolved' })],
+      items: [makeAlert({ id: '1' }), makeAlert({ id: '2', st: 'Resolved' })],
       total: 2,
       page: 1,
       pageSize: 50,
@@ -84,7 +81,7 @@ describe('useSos', () => {
   });
 
   test('useAcknowledgeSosAlert resolves on success', async () => {
-    mockAcknowledge.mockResolvedValue(makeAlert({ status: 'Acknowledged' }));
+    mockAcknowledge.mockResolvedValue(makeAlert({ st: 'Acknowledged' }));
 
     const { result } = renderHook(() => useAcknowledgeSosAlert('soc1'), { wrapper: createWrapper() });
 
@@ -95,7 +92,7 @@ describe('useSos', () => {
   });
 
   test('useResolveSosAlert resolves on success', async () => {
-    mockResolve.mockResolvedValue(makeAlert({ status: 'Resolved' }));
+    mockResolve.mockResolvedValue(makeAlert({ st: 'Resolved' }));
 
     const { result } = renderHook(() => useResolveSosAlert('soc1'), { wrapper: createWrapper() });
 

@@ -35,7 +35,7 @@ type AmenitiesNav = NativeStackNavigationProp<{
 export function AmenityListScreen() {
   const navigation = useNavigation<AmenitiesNav>();
   const societyId = useSocietyId();
-  const isAdmin = useAuthStore((s) => s.user?.role === 'SUAdmin');
+  const isAdmin = useAuthStore((s) => s.user?.rl === 'SUAdmin');
   const userId = useAuthStore((s) => s.user?.id ?? '');
   const { data: amenities, isLoading, refetch } = useAmenities(societyId);
   const { data: bookingsPage, refetch: refetchBookings } = useBookings(societyId);
@@ -48,14 +48,14 @@ export function AmenityListScreen() {
   const bookings = bookingsPage?.items ?? [];
 
   function canCancel(b: AmenityBooking): boolean {
-    if (b.status !== 'Pending' && b.status !== 'Approved') return false;
-    return isAdmin || b.bookedByUserId === userId;
+    if (b.st !== 'Pending' && b.st !== 'Approved') return false;
+    return isAdmin || b.uid === userId;
   }
 
   function handleCancel(b: AmenityBooking): void {
-    const isOwn = b.bookedByUserId === userId;
+    const isOwn = b.uid === userId;
     if (isOwn) {
-      Alert.alert('Cancel Booking', `Cancel your ${b.amenityName} booking?`, [
+      Alert.alert('Cancel Booking', `Cancel your ${b.an} booking?`, [
         { text: 'No', style: 'cancel' },
         {
           text: 'Yes, cancel',
@@ -97,21 +97,21 @@ export function AmenityListScreen() {
     return (
       <View key={b.id} style={styles.bookingItem}>
         <View style={styles.itemTop}>
-          <Text style={styles.name}>{b.amenityName}</Text>
-          <StatusChip status={b.status} />
+          <Text style={styles.name}>{b.an}</Text>
+          <StatusChip status={b.st} />
         </View>
         <Text style={styles.details}>
-          {formatDateTime(b.startTime)} – {formatDateTime(b.endTime)}
+          {formatDateTime(b.stt)} – {formatDateTime(b.ent)}
         </Text>
-        {!!b.adminNotes && <Text style={styles.details}>Notes: {b.adminNotes}</Text>}
-        {b.status === 'Cancelled' && !!b.cancellationRemarks && (
+        {!!b.adn && <Text style={styles.details}>Notes: {b.adn}</Text>}
+        {b.st === 'Cancelled' && !!b.cr && (
           <Text style={styles.cancelRemarks}>
-            Cancelled{b.cancelledByUserId && b.cancelledByUserId !== b.bookedByUserId ? ' by admin' : ''}:{' '}
-            {b.cancellationRemarks}
+            Cancelled{b.cid && b.cid !== b.uid ? ' by admin' : ''}:{' '}
+            {b.cr}
           </Text>
         )}
         <View style={styles.bookingActions}>
-          {isAdmin && b.status === 'Pending' && (
+          {isAdmin && b.st === 'Pending' && (
             <>
               <TouchableOpacity style={styles.approveBtn} onPress={() => handleApprove(b)}>
                 <Text style={styles.bookBtnText}>Approve</Text>
@@ -135,8 +135,8 @@ export function AmenityListScreen() {
     return (
       <View style={styles.item}>
         <View style={styles.itemTop}>
-          <Text style={styles.name}>{item.name}</Text>
-          {item.isActive ? (
+          <Text style={styles.name}>{item.nm}</Text>
+          {item.ac ? (
             <View style={styles.activeBadge}>
               <Text style={styles.activeBadgeText}>Available</Text>
             </View>
@@ -146,15 +146,15 @@ export function AmenityListScreen() {
             </View>
           )}
         </View>
-        <Text style={styles.description} numberOfLines={2}>{item.description}</Text>
+        <Text style={styles.description} numberOfLines={2}>{item.ds}</Text>
         <View style={styles.footer}>
           <Text style={styles.details}>
-            Capacity: {item.capacity} · {item.operatingStart} – {item.operatingEnd}
+            Capacity: {item.cap} · {item.os} – {item.oe}
           </Text>
-          {item.isActive && (
+          {item.ac && (
             <TouchableOpacity
               style={styles.bookBtn}
-              onPress={() => navigation.navigate('AmenityBooking', { amenityId: item.id, amenityName: item.name })}
+              onPress={() => navigation.navigate('AmenityBooking', { amenityId: item.id, amenityName: item.nm })}
             >
               <Text style={styles.bookBtnText}>Book</Text>
             </TouchableOpacity>

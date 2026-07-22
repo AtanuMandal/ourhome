@@ -410,7 +410,7 @@ public sealed class GetSosAlertReportQueryHandler(ISosAlertRepository alertRepos
                 .ToList();
 
             var report = new SosAlertReportResponse(
-                fromUtc, toUtc, inRange.Count, falseAlarmCount, falseAlarmRate,
+                inRange.Count, falseAlarmRate,
                 acknowledgeSeconds.Count == 0 ? null : Math.Round(acknowledgeSeconds.Average(), 1),
                 resolveSeconds.Count == 0 ? null : Math.Round(resolveSeconds.Average(), 1),
                 byCategory);

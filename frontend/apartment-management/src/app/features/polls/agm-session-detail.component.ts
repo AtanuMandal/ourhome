@@ -27,59 +27,59 @@ import { AgmSessionDetail, Poll } from '../../core/models/poll.model';
     <div class="page-content">
       @if (session(); as s) {
         <div class="card">
-          <h2 class="session-title">{{ s.title }}</h2>
-          <p class="session-desc">{{ s.description }}</p>
-          <p class="session-meta">{{ s.sessionDate | date:'medium' }} · {{ s.resolutions.length }} resolution(s)</p>
+          <h2 class="session-title">{{ s.tt }}</h2>
+          <p class="session-desc">{{ s.ds }}</p>
+          <p class="session-meta">{{ s.sd | date:'medium' }} · {{ s.r.length }} resolution(s)</p>
         </div>
 
-        @for (r of s.resolutions; track r.id) {
+        @for (r of s.r; track r.id) {
           <div class="card resolution-card">
-            <h3 class="resolution-title">{{ r.title }}</h3>
-            <p class="resolution-desc">{{ r.description }}</p>
+            <h3 class="resolution-title">{{ r.tt }}</h3>
+            <p class="resolution-desc">{{ r.ds }}</p>
             <p class="poll-meta">
-              Closes {{ r.closesAt | date:'medium' }}
-              · <span class="status-chip" [class]="'status-chip--' + r.status.toLowerCase()">{{ r.status }}</span>
+              Closes {{ r.ca | date:'medium' }}
+              · <span class="status-chip" [class]="'status-chip--' + r.st.toLowerCase()">{{ r.st }}</span>
             </p>
             <p class="poll-meta">Target: {{ targetAudienceLabel(r) }}</p>
 
-            @if (r.outcome) {
-              <p class="outcome-banner" [class]="'outcome-banner--' + r.outcome.toLowerCase()">
-                Outcome: {{ r.outcome === 'NoQuorum' ? 'No Quorum Reached' : r.outcome }}
+            @if (r.oc) {
+              <p class="outcome-banner" [class]="'outcome-banner--' + r.oc.toLowerCase()">
+                Outcome: {{ r.oc === 'NoQuorum' ? 'No Quorum Reached' : r.oc }}
               </p>
             }
 
             @if (canVote(r)) {
               <section class="vote-section">
-                @if (r.hasVoted && !r.allowVoteChange) {
+                @if (r.hv && !r.avc) {
                   <p>You voted for: {{ myVoteLabels(r) }}</p>
                 } @else {
-                  @if (r.type === 'SingleChoice') {
+                  @if (r.ty === 'SingleChoice') {
                     <mat-radio-group [ngModel]="singleSelection(r.id)" (ngModelChange)="setSingleSelection(r.id, $event)">
-                      @for (o of r.options; track o.id) {
-                        <mat-radio-button [value]="o.id">{{ o.text }}</mat-radio-button>
+                      @for (o of r.op; track o.id) {
+                        <mat-radio-button [value]="o.id">{{ o.tx }}</mat-radio-button>
                       }
                     </mat-radio-group>
                   } @else {
-                    @for (o of r.options; track o.id) {
-                      <mat-checkbox [checked]="multiSelection(r.id).has(o.id)" (change)="toggleOption(r.id, o.id)">{{ o.text }}</mat-checkbox>
+                    @for (o of r.op; track o.id) {
+                      <mat-checkbox [checked]="multiSelection(r.id).has(o.id)" (change)="toggleOption(r.id, o.id)">{{ o.tx }}</mat-checkbox>
                     }
                   }
                   <button mat-raised-button color="primary" (click)="submitVote(r)" [disabled]="voting() === r.id || !hasSelection(r)" style="margin-top:12px">
-                    {{ r.hasVoted ? 'Change Vote' : 'Submit Vote' }}
+                    {{ r.hv ? 'Change Vote' : 'Submit Vote' }}
                   </button>
                 }
               </section>
             }
 
-            @if (r.tally; as tally) {
+            @if (r.tl; as tally) {
               <section class="tally-section">
-                @if (r.participantCount != null && r.eligibleCount != null) {
-                  <p class="poll-meta">{{ r.participantCount }} of {{ r.eligibleCount }} eligible have voted</p>
+                @if (r.pc != null && r.elc != null) {
+                  <p class="poll-meta">{{ r.pc }} of {{ r.elc }} eligible have voted</p>
                 }
                 @for (t of tally; track t.id) {
                   <div class="tally-row">
-                    <span>{{ t.text }}</span>
-                    <span class="tally-count">{{ t.voteCount }}</span>
+                    <span>{{ t.tx }}</span>
+                    <span class="tally-count">{{ t.vc }}</span>
                   </div>
                 }
               </section>
@@ -87,10 +87,10 @@ import { AgmSessionDetail, Poll } from '../../core/models/poll.model';
 
             @if (isAdmin()) {
               <section class="admin-actions">
-                @if (r.status === 'Open') {
+                @if (r.st === 'Open') {
                   <button mat-stroked-button color="warn" (click)="closeResolution(r)" [disabled]="actioning() === r.id">Close Early</button>
                 }
-                @if (r.status === 'Closed' && !r.resultsPublished) {
+                @if (r.st === 'Closed' && !r.rp) {
                   <button mat-stroked-button color="primary" (click)="publishResolution(r)" [disabled]="actioning() === r.id">Publish Results</button>
                 }
               </section>
@@ -153,7 +153,7 @@ export class AgmSessionDetailComponent implements OnInit {
       next: session => {
         this.session.set(session);
         const initial = new Map<string, Set<string>>();
-        for (const r of session.resolutions) initial.set(r.id, new Set(r.mySelectedOptionIds ?? []));
+        for (const r of session.r) initial.set(r.id, new Set(r.mso ?? []));
         this.selections.set(initial);
         this.loading.set(false);
       },
@@ -162,17 +162,17 @@ export class AgmSessionDetailComponent implements OnInit {
   }
 
   canVote(resolution: Poll): boolean {
-    return this.auth.user()?.role === 'SUUser' && resolution.status === 'Open';
+    return this.auth.user()?.rl === 'SUUser' && resolution.st === 'Open';
   }
 
   myVoteLabels(resolution: Poll): string {
-    if (!resolution.mySelectedOptionIds) return '';
-    return resolution.options.filter(o => resolution.mySelectedOptionIds!.includes(o.id)).map(o => o.text).join(', ');
+    if (!resolution.mso) return '';
+    return resolution.op.filter(o => resolution.mso!.includes(o.id)).map(o => o.tx).join(', ');
   }
 
   targetAudienceLabel(resolution: Poll): string {
-    if (resolution.targetAudience === 'FullSociety') return 'Full Society';
-    return `${resolution.targetAudience === 'PerBlock' ? 'Block' : 'Blocks'}: ${resolution.targetBlockNames.join(', ')}`;
+    if (resolution.ta === 'FullSociety') return 'Full Society';
+    return `${resolution.ta === 'PerBlock' ? 'Block' : 'Blocks'}: ${resolution.tbn.join(', ')}`;
   }
 
   singleSelection(pollId: string): string | null {

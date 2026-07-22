@@ -47,15 +47,15 @@ export function StaffFormScreen() {
 
   useEffect(() => {
     if (existingStaff) {
-      setFullName(existingStaff.fullName);
-      setPhone(existingStaff.phone);
-      setCategory(existingStaff.category);
-      setEmploymentType(existingStaff.employmentType);
-      setShiftId(existingStaff.shiftId ?? '');
+      setFullName(existingStaff.fn);
+      setPhone(existingStaff.ph);
+      setCategory(existingStaff.cat);
+      setEmploymentType(existingStaff.et);
+      setShiftId(existingStaff.sid ?? '');
     }
   }, [existingStaff]);
 
-  const shiftOptions = [{ label: 'No shift', value: '' }, ...(shifts ?? []).map((s: Shift) => ({ label: s.name, value: s.id }))];
+  const shiftOptions = [{ label: 'No shift', value: '' }, ...(shifts ?? []).map((s: Shift) => ({ label: s.nm, value: s.id }))];
   const isSaving = createStaff.isPending || updateStaff.isPending;
   const isValid = fullName.trim().length > 0 && /^\d{10}$/.test(phone.trim());
 

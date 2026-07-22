@@ -56,7 +56,7 @@ describe('useDashboard', () => {
 
   test('SUAdmin: fetches the financial dashboard and exposes upcoming-charges data', async () => {
     useAuthStore.setState({
-      user: { id: 'u1', societyId: 'soc-1', fullName: 'Admin', email: 'a@a.com', role: 'SUAdmin' } as never,
+      user: { id: 'u1', sid: 'soc-1', fn: 'Admin', em: 'a@a.com', rl: 'SUAdmin' } as never,
       token: 'tok',
       isAuthenticated: true,
     });
@@ -73,7 +73,7 @@ describe('useDashboard', () => {
 
   test('SUUser: does not call the financial dashboard endpoint and defaults finance fields to zero', async () => {
     useAuthStore.setState({
-      user: { id: 'u2', societyId: 'soc-1', fullName: 'Resident', email: 'r@r.com', role: 'SUUser' } as never,
+      user: { id: 'u2', sid: 'soc-1', fn: 'Resident', em: 'r@r.com', rl: 'SUUser' } as never,
       token: 'tok',
       isAuthenticated: true,
     });

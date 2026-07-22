@@ -21,7 +21,7 @@ describe('VisitorListComponent — approve/deny visibility', () => {
       isAdmin: () => role === 'SUAdmin' || role === 'HQAdmin',
       isSecurity: () => role === 'SUSecurity',
       canManageVisitors: () => role === 'SUAdmin' || role === 'SUSecurity',
-      user: () => ({ role, apartmentId }),
+      user: () => ({ rl: role, aid: apartmentId }),
     };
     const activatedRouteStub = {
       snapshot: { queryParamMap: convertToParamMap({}) },
@@ -42,7 +42,7 @@ describe('VisitorListComponent — approve/deny visibility', () => {
     return fixture.componentInstance;
   }
 
-  const pendingVisitor = { id: 'v1', status: 'Pending', hostApartmentId: 'apt-999' } as Visitor;
+  const pendingVisitor = { id: 'v1', st: 'Pending', aid: 'apt-999' } as Visitor;
 
   it('SUAdmin can moderate (deny) a pending visitor but cannot approve it', () => {
     const component = setup('SUAdmin');
@@ -76,14 +76,14 @@ describe('VisitorListComponent — pass verification doubles as check-in', () =>
       defaultView: jasmine.createSpy().and.returnValue(of([])),
       verify: jasmine.createSpy().and.returnValue(of(verifyResult as Visitor)),
       checkin: jasmine.createSpy().and.returnValue(
-        of({ ...verifyResult, status: 'CheckedIn', visitorName: verifyResult.visitorName } as Visitor)),
+        of({ ...verifyResult, st: 'CheckedIn', vn: verifyResult.vn } as Visitor)),
     };
     const authServiceStub = {
       societyId: () => 'soc-1',
       isAdmin: () => false,
       isSecurity: () => true,
       canManageVisitors: () => true,
-      user: () => ({ role: 'SUSecurity', apartmentId: '' }),
+      user: () => ({ rl: 'SUSecurity', aid: '' }),
     };
     const activatedRouteStub = { snapshot: { queryParamMap: convertToParamMap({}) } };
 
@@ -103,40 +103,40 @@ describe('VisitorListComponent — pass verification doubles as check-in', () =>
   }
 
   it('verifying an approved pass automatically checks the visitor in', () => {
-    const { component, visitorServiceStub } = setup({ id: 'v1', status: 'Approved', visitorName: 'Jane', isPassExpired: false });
+    const { component, visitorServiceStub } = setup({ id: 'v1', st: 'Approved', vn: 'Jane', ipe: false });
     component.verifyForm.patchValue({ passCode: '123456' });
 
     component.verifyPass();
 
     expect(visitorServiceStub.checkin).toHaveBeenCalledWith('soc-1', '123456');
-    expect(component.verifiedVisitor()?.status).toBe('CheckedIn');
+    expect(component.verifiedVisitor()?.st).toBe('CheckedIn');
     expect(component.successMessage()).toContain('checked in');
   });
 
   it('verifying an already checked-in pass shows the visitor without re-checking-in (exit flow)', () => {
-    const { component, visitorServiceStub } = setup({ id: 'v1', status: 'CheckedIn', visitorName: 'Jane' });
+    const { component, visitorServiceStub } = setup({ id: 'v1', st: 'CheckedIn', vn: 'Jane' });
     component.verifyForm.patchValue({ passCode: '123456' });
 
     component.verifyPass();
 
     expect(visitorServiceStub.checkin).not.toHaveBeenCalled();
-    expect(component.verifiedVisitor()?.status).toBe('CheckedIn');
+    expect(component.verifiedVisitor()?.st).toBe('CheckedIn');
   });
 
   it('verifying an expired approved pass does not attempt check-in', () => {
-    const { component, visitorServiceStub } = setup({ id: 'v1', status: 'Approved', visitorName: 'Jane', isPassExpired: true });
+    const { component, visitorServiceStub } = setup({ id: 'v1', st: 'Approved', vn: 'Jane', ipe: true });
     component.verifyForm.patchValue({ passCode: '123456' });
 
     component.verifyPass();
 
     expect(visitorServiceStub.checkin).not.toHaveBeenCalled();
-    expect(component.verifiedVisitor()?.status).toBe('Approved');
+    expect(component.verifiedVisitor()?.st).toBe('Approved');
   });
 });
 
 describe('VisitorListComponent — default pending + recent approved/denied view', () => {
   function makeVisitor(id: string, status: string, createdAt = '2026-01-01T00:00:00Z'): Visitor {
-    return { id, status, hostApartmentId: 'apt-1', visitorName: `Visitor ${id}`, createdAt } as Visitor;
+    return { id, st: status, aid: 'apt-1', vn: `Visitor ${id}`, ca: createdAt } as Visitor;
   }
 
   function setup() {
@@ -157,7 +157,7 @@ describe('VisitorListComponent — default pending + recent approved/denied view
       isAdmin: () => true,
       isSecurity: () => false,
       canManageVisitors: () => true,
-      user: () => ({ role: 'SUAdmin', apartmentId: '' }),
+      user: () => ({ rl: 'SUAdmin', aid: '' }),
     };
     const activatedRouteStub = { snapshot: { queryParamMap: convertToParamMap({}) } };
 
@@ -231,7 +231,7 @@ describe('VisitorListComponent — default pending + recent approved/denied view
 
 describe('VisitorListComponent — silent background auto-refresh', () => {
   function makeVisitor(id: string, status: string): Visitor {
-    return { id, status, hostApartmentId: 'apt-1', visitorName: `Visitor ${id}`, createdAt: '2026-01-01T00:00:00Z' } as Visitor;
+    return { id, st: status, aid: 'apt-1', vn: `Visitor ${id}`, ca: '2026-01-01T00:00:00Z' } as Visitor;
   }
 
   function setup() {
@@ -244,7 +244,7 @@ describe('VisitorListComponent — silent background auto-refresh', () => {
       isAdmin: () => true,
       isSecurity: () => false,
       canManageVisitors: () => true,
-      user: () => ({ role: 'SUAdmin', apartmentId: '' }),
+      user: () => ({ rl: 'SUAdmin', aid: '' }),
     };
     const activatedRouteStub = { snapshot: { queryParamMap: convertToParamMap({}) } };
 
@@ -335,7 +335,7 @@ describe('VisitorListComponent — silent background auto-refresh', () => {
 
 describe('VisitorListComponent — overstay warning', () => {
   function makeVisitor(id: string, isOverstay = false): Visitor {
-    return { id, status: 'CheckedIn', hostApartmentId: 'apt-1', visitorName: `Visitor ${id}`, createdAt: '2026-01-01T00:00:00Z', isOverstay } as Visitor;
+    return { id, st: 'CheckedIn', aid: 'apt-1', vn: `Visitor ${id}`, ca: '2026-01-01T00:00:00Z', ov: isOverstay } as Visitor;
   }
 
   function setup(items: Visitor[]) {
@@ -348,7 +348,7 @@ describe('VisitorListComponent — overstay warning', () => {
       isAdmin: () => true,
       isSecurity: () => false,
       canManageVisitors: () => true,
-      user: () => ({ role: 'SUAdmin', apartmentId: '' }),
+      user: () => ({ rl: 'SUAdmin', aid: '' }),
     };
     const activatedRouteStub = { snapshot: { queryParamMap: convertToParamMap({}) } };
 
@@ -389,7 +389,7 @@ describe('VisitorListComponent — visitor photo zoom lightbox', () => {
       isAdmin: () => true,
       isSecurity: () => false,
       canManageVisitors: () => true,
-      user: () => ({ role: 'SUAdmin', apartmentId: '' }),
+      user: () => ({ rl: 'SUAdmin', aid: '' }),
     };
     const activatedRouteStub = { snapshot: { queryParamMap: convertToParamMap({}) } };
 

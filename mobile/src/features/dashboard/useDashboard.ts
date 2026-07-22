@@ -17,7 +17,7 @@ export interface DashboardSummary {
 
 export function useDashboard() {
   const societyId = useSocietyId();
-  const role = useAuthStore((s) => s.user?.role);
+  const role = useAuthStore((s) => s.user?.rl);
   const isAdmin = role === 'SUAdmin' || role === 'HQAdmin';
 
   return useQuery({
@@ -34,7 +34,7 @@ export function useDashboard() {
       ]);
       return {
         visitorsToday: visitors.total,
-        unreadNotices: notices.items.filter((n) => !n.isReadByCurrentUser).length,
+        unreadNotices: notices.items.filter((n) => !n.rd).length,
         pendingComplaints: complaints.total,
         upcomingCharges: financial?.upcomingCharges ?? [],
         upcomingCashInflow: financial?.upcomingCashInflow ?? 0,

@@ -12,7 +12,7 @@ import { PushNotificationService } from './core/services/push-notification.servi
 function configureAppComponentTestBed(matches: boolean, role: string = 'SUUser') {
   const authServiceStub = {
     isLoggedIn: () => true,
-    user: () => ({ fullName: 'Alice', role }),
+    user: () => ({ fn: 'Alice', rl: role }),
     isTenant: () => false,
     apartments: () => [],
     selectedApartmentId: () => null,
@@ -204,7 +204,7 @@ describe('AppComponent — role-based side nav visibility', () => {
     TestBed.overrideProvider(AuthService, {
       useValue: {
         isLoggedIn: () => true,
-        user: () => ({ fullName: 'Alice', role: 'SUUser' }),
+        user: () => ({ fn: 'Alice', rl: 'SUUser' }),
         isTenant: () => true,
         apartments: () => [],
         selectedApartmentId: () => null,

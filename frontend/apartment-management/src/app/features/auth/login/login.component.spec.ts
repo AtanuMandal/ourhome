@@ -11,9 +11,9 @@ describe('LoginComponent', () => {
     const authServiceStub = {
       getLoginMethod: jasmine.createSpy().and.callFake(() => (store.get('am_login_method') === 'email' ? 'email' : 'phone')),
       setLoginMethod: jasmine.createSpy().and.callFake((m: string) => store.set('am_login_method', m)),
-      login: jasmine.createSpy().and.returnValue(of({ requiresSelection: false, token: 't', user: {}, options: [] })),
-      requestOtpLogin: jasmine.createSpy().and.returnValue(of({ requiresSelection: false, userId: 'u1', options: [{ userId: 'u1', societyId: 'soc-1', societyName: 'Soc', role: 'SUUser', residentType: 'Owner' }] })),
-      verifyOtpLogin: jasmine.createSpy().and.returnValue(of({ accessToken: 't', user: {} })),
+      login: jasmine.createSpy().and.returnValue(of({ rs: false, tok: 't', usr: {}, opts: [] })),
+      requestOtpLogin: jasmine.createSpy().and.returnValue(of({ rs: false, uid: 'u1', opts: [{ uid: 'u1', sid: 'soc-1', snm: 'Soc', rl: 'SUUser', rt: 'Owner' }] })),
+      verifyOtpLogin: jasmine.createSpy().and.returnValue(of({ tok: 't', usr: {} })),
       ...authOverrides,
     };
 
@@ -60,10 +60,10 @@ describe('LoginComponent', () => {
   it('requesting phone OTP for a multi-account phone moves to the select-account step', () => {
     const { component } = setup({
       requestOtpLogin: jasmine.createSpy().and.returnValue(of({
-        requiresSelection: true,
-        options: [
-          { userId: 'u1', societyId: 'soc-1', societyName: 'Soc A', role: 'SUUser', residentType: 'Owner' },
-          { userId: 'u2', societyId: 'soc-2', societyName: 'Soc B', role: 'SUUser', residentType: 'Tenant' },
+        rs: true,
+        opts: [
+          { uid: 'u1', sid: 'soc-1', snm: 'Soc A', rl: 'SUUser', rt: 'Owner' },
+          { uid: 'u2', sid: 'soc-2', snm: 'Soc B', rl: 'SUUser', rt: 'Tenant' },
         ],
       })),
     });

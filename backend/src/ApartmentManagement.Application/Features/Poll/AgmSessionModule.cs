@@ -114,8 +114,7 @@ public sealed class GetAgmSessionQueryHandler(
             }
 
             return Result<AgmSessionDetailResponse>.Success(new AgmSessionDetailResponse(
-                session.Id, session.SocietyId, session.Title, session.Description, session.SessionDate,
-                session.CreatedByUserId, session.CreatedAt, responses));
+                session.Id, session.Title, session.Description, session.SessionDate, responses));
         }
         catch (NotFoundException ex)
         {

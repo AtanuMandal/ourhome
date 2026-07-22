@@ -48,17 +48,17 @@ export function SocietySettingsScreen() {
     ])
       .then(([soc, residents]) => {
         setSociety(soc);
-        setName(soc.name);
-        setContactEmail(soc.contactEmail);
-        setContactPhone(soc.contactPhone);
-        setStreet(soc.address.street);
-        setCity(soc.address.city);
-        setState(soc.address.state);
-        setPostalCode(soc.address.postalCode);
-        setOverdueDays(String(soc.maintenanceOverdueThresholdDays));
-        setOverstayHours(String(soc.visitorOverstayThresholdHours));
-        setSocietyUsers(soc.societyUsers.map((u) => ({ email: u.email, roleTitle: u.roleTitle })));
-        setUsers(residents.items.map((u) => ({ email: u.email, fullName: u.fullName })));
+        setName(soc.nm);
+        setContactEmail(soc.ce);
+        setContactPhone(soc.cp);
+        setStreet(soc.addr.str);
+        setCity(soc.addr.cty);
+        setState(soc.addr.ste);
+        setPostalCode(soc.addr.pc);
+        setOverdueDays(String(soc.mot));
+        setOverstayHours(String(soc.voh));
+        setSocietyUsers(soc.su.map((u) => ({ email: u.em, roleTitle: u.rt })));
+        setUsers(residents.items.map((u) => ({ email: u.em, fullName: u.fn })));
       })
       .catch((e) => Alert.alert('Error', normalizeError(e)))
       .finally(() => setLoading(false));
@@ -82,19 +82,19 @@ export function SocietySettingsScreen() {
       name: name.trim(),
       contactEmail: contactEmail.trim(),
       contactPhone: contactPhone.trim(),
-      totalBlocks: society.totalBlocks,
-      totalApartments: society.totalApartments,
-      maintenanceOverdueThresholdDays: Number(overdueDays) || society.maintenanceOverdueThresholdDays,
-      visitorOverstayThresholdHours: Number(overstayHours) || society.visitorOverstayThresholdHours,
+      totalBlocks: society.tb,
+      totalApartments: society.ta,
+      maintenanceOverdueThresholdDays: Number(overdueDays) || society.mot,
+      visitorOverstayThresholdHours: Number(overstayHours) || society.voh,
       street: street.trim(),
       city: city.trim(),
       state: state.trim(),
       postalCode: postalCode.trim(),
-      country: society.address.country,
+      country: society.addr.co,
       societyUsers: societyUsers.filter((u) => u.email && u.roleTitle.trim()),
-      committees: society.committees.map((c) => ({
-        name: c.name,
-        members: c.members.map((m) => ({ email: m.email, roleTitle: m.roleTitle })),
+      committees: society.cm.map((c) => ({
+        name: c.nm,
+        members: c.mem.map((m) => ({ email: m.em, roleTitle: m.rt })),
       })),
     })
       .then((updated) => {
@@ -137,8 +137,8 @@ export function SocietySettingsScreen() {
         {society && (
           <View style={styles.platformBox}>
             <Text style={styles.platformTitle}>Platform-controlled (HQ only)</Text>
-            <Text style={styles.platformRow}>Total apartments: {society.totalApartments}</Text>
-            <Text style={styles.platformRow}>Max users per apartment: {society.maxUsersPerApartment}</Text>
+            <Text style={styles.platformRow}>Total apartments: {society.ta}</Text>
+            <Text style={styles.platformRow}>Max users per apartment: {society.mua}</Text>
           </View>
         )}
 

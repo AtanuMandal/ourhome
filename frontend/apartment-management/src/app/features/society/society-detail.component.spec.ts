@@ -18,8 +18,8 @@ describe('SocietyDetailComponent — committee member dropdown', () => {
     const userServiceStub = {
       list: jasmine.createSpy().and.returnValue(of({
         items: [
-          { email: 'bob@example.com', fullName: 'Bob Jones' },
-          { email: 'carol@example.com', fullName: 'Carol White' },
+          { em: 'bob@example.com', fn: 'Bob Jones' },
+          { em: 'carol@example.com', fn: 'Carol White' },
         ],
         total: 2, page: 1, pageSize: 500,
       })),
@@ -44,15 +44,15 @@ describe('SocietyDetailComponent — committee member dropdown', () => {
   }
 
   it('offers all society users when no one is assigned yet', () => {
-    const component = setup({ committees: [] });
+    const component = setup({ cm: [] });
     const options = component.optionsForMember(null);
     expect(options.map(o => o.value).sort()).toEqual(['bob@example.com', 'carol@example.com']);
   });
 
   it('excludes a user already assigned to another committee role', () => {
     const component = setup({
-      committees: [
-        { name: 'Managing Committee', members: [{ userId: 'u1', fullName: 'Bob Jones', email: 'bob@example.com', roleTitle: 'Chairman' }] },
+      cm: [
+        { nm: 'Managing Committee', mem: [{ uid: 'u1', fn: 'Bob Jones', em: 'bob@example.com', rt: 'Chairman' }] },
       ],
     });
 
@@ -63,8 +63,8 @@ describe('SocietyDetailComponent — committee member dropdown', () => {
 
   it('still includes the currently selected user in their own row (does not exclude self)', () => {
     const component = setup({
-      committees: [
-        { name: 'Managing Committee', members: [{ userId: 'u1', fullName: 'Bob Jones', email: 'bob@example.com', roleTitle: 'Chairman' }] },
+      cm: [
+        { nm: 'Managing Committee', mem: [{ uid: 'u1', fn: 'Bob Jones', em: 'bob@example.com', rt: 'Chairman' }] },
       ],
     });
 

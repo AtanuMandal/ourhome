@@ -25,14 +25,13 @@ jest.mock('@expo/vector-icons', () => {
 
 function makePoll(overrides: Partial<Poll> = {}): Poll {
   return {
-    id: 'p1', societyId: 'soc-1', title: 'Repaint the gate?', description: 'desc',
-    type: 'SingleChoice', options: [{ id: 'o1', text: 'Yes' }, { id: 'o2', text: 'No' }],
-    opensAt: '2026-01-01T00:00:00Z', closesAt: '2026-01-10T00:00:00Z',
-    targetAudience: 'FullSociety', targetBlockNames: [],
-    eligibilityUnit: 'PerResident', anonymity: 'Anonymous', visibility: 'Immediately',
-    isAgmResolution: false, allowVoteChange: true, status: 'Open',
-    resultsPublished: false, createdByUserId: 'admin-1', createdAt: '2026-01-01T00:00:00Z',
-    hasVoted: false,
+    id: 'p1', tt: 'Repaint the gate?', ds: 'desc',
+    ty: 'SingleChoice', op: [{ id: 'o1', tx: 'Yes' }, { id: 'o2', tx: 'No' }],
+    oa: '2026-01-01T00:00:00Z', ca: '2026-01-10T00:00:00Z',
+    ta: 'FullSociety', tbn: [],
+    agm: false, avc: true, st: 'Open',
+    rp: false,
+    hv: false,
     ...overrides,
   };
 }
@@ -55,7 +54,7 @@ function renderScreen() {
 describe('PollDetailScreen', () => {
   function setUser(role: 'SUAdmin' | 'SUUser' | 'SUSecurity') {
     useAuthStore.setState({
-      user: { id: 'viewer1', societyId: 'soc-1', fullName: 'Viewer', email: 'v@a.com', phone: '1', role, residentType: 'Owner', apartmentId: 'apt-1', isVerified: true, isActive: true },
+      user: { id: 'viewer1', sid: 'soc-1', fn: 'Viewer', em: 'v@a.com', ph: '1', rl: role, rt: 'Owner', aid: 'apt-1', vf: true, ac: true },
       token: 'tok',
       isAuthenticated: true,
     });
@@ -92,7 +91,7 @@ describe('PollDetailScreen', () => {
 
   test('shows a read-only vote label when the resident already voted and cannot change it', async () => {
     setUser('SUUser');
-    mockPoll = makePoll({ hasVoted: true, allowVoteChange: false, mySelectedOptionIds: ['o1'] });
+    mockPoll = makePoll({ hv: true, avc: false, mso: ['o1'] });
 
     renderScreen();
 
@@ -102,7 +101,7 @@ describe('PollDetailScreen', () => {
 
   test('does not show voting controls once the poll is closed', async () => {
     setUser('SUUser');
-    mockPoll = makePoll({ status: 'Closed' });
+    mockPoll = makePoll({ st: 'Closed' });
 
     renderScreen();
 
@@ -124,7 +123,7 @@ describe('PollDetailScreen', () => {
 
   test('SUAdmin sees the publish-results action for a closed unpublished poll', async () => {
     setUser('SUAdmin');
-    mockPoll = makePoll({ status: 'Closed', resultsPublished: false, tally: [{ id: 'o1', text: 'Yes', voteCount: 3 }] });
+    mockPoll = makePoll({ st: 'Closed', rp: false, tl: [{ id: 'o1', tx: 'Yes', vc: 3 }] });
 
     renderScreen();
 
@@ -136,7 +135,7 @@ describe('PollDetailScreen', () => {
 
   test('renders the tally when present', async () => {
     setUser('SUAdmin');
-    mockPoll = makePoll({ tally: [{ id: 'o1', text: 'Yes', voteCount: 5 }, { id: 'o2', text: 'No', voteCount: 2 }] });
+    mockPoll = makePoll({ tl: [{ id: 'o1', tx: 'Yes', vc: 5 }, { id: 'o2', tx: 'No', vc: 2 }] });
 
     renderScreen();
 
@@ -146,7 +145,7 @@ describe('PollDetailScreen', () => {
 
   test('shows the target audience for a block-scoped poll', async () => {
     setUser('SUUser');
-    mockPoll = makePoll({ targetAudience: 'PerBlock', targetBlockNames: ['BLOCK A'] });
+    mockPoll = makePoll({ ta: 'PerBlock', tbn: ['BLOCK A'] });
 
     renderScreen();
 

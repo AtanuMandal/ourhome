@@ -10,7 +10,7 @@ export function useSocietyBlockNames(societyId: string) {
     queryKey: ['society-block-names', societyId],
     queryFn: async () => {
       const response = await apartmentsApi.getApartments(societyId, { page: 1, pageSize: 500 });
-      const blocks = new Set((response.items ?? []).map((a) => a.blockName).filter(Boolean));
+      const blocks = new Set((response.items ?? []).map((a) => a.blk).filter(Boolean));
       return [...blocks].sort();
     },
     enabled: !!societyId,

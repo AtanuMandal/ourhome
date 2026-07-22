@@ -87,14 +87,14 @@ import {
             <div class="vendor-grid">
               @for (vendor of vendors(); track vendor.id) {
                 <button type="button" class="vendor-card" [class.vendor-card--active]="selectedVendorId() === vendor.id" (click)="selectVendor(vendor)">
-                  <div class="vendor-card__title">{{ vendor.name }}</div>
+                  <div class="vendor-card__title">{{ vendor.nm }}</div>
                   <div class="vendor-card__meta">
-                    <span>{{ vendor.businessType || 'Business type not set' }}</span>
-                    <span>{{ vendor.pointOfContact.firstName }} {{ vendor.pointOfContact.lastName }} · {{ vendor.pointOfContact.phoneNumber }}</span>
-                    <span>Valid upto {{ vendor.validUptoDate | date:'mediumDate' }}</span>
+                    <span>{{ vendor.bt || 'Business type not set' }}</span>
+                    <span>{{ vendor.poc.fn }} {{ vendor.poc.ln }} · {{ vendor.poc.ph }}</span>
+                    <span>Valid upto {{ vendor.vud | date:'mediumDate' }}</span>
                   </div>
                   <div class="action-row action-row--compact">
-                    <app-status-chip [status]="vendor.isActive ? 'Active' : 'Inactive'"></app-status-chip>
+                    <app-status-chip [status]="vendor.ac ? 'Active' : 'Inactive'"></app-status-chip>
                   </div>
                 </button>
               }
@@ -229,15 +229,15 @@ import {
             <div class="totals-strip">
               <div class="total-card">
                 <div class="total-card__label">Selected vendor</div>
-                <div class="total-card__value">{{ vendor.name }}</div>
+                <div class="total-card__value">{{ vendor.nm }}</div>
               </div>
               <div class="total-card">
                 <div class="total-card__label">Due days</div>
-                <div class="total-card__value">{{ vendor.paymentDueDays }}</div>
+                <div class="total-card__value">{{ vendor.pdd }}</div>
               </div>
               <div class="total-card">
                 <div class="total-card__label">Valid upto</div>
-                <div class="total-card__value">{{ vendor.validUptoDate | date:'mediumDate' }}</div>
+                <div class="total-card__value">{{ vendor.vud | date:'mediumDate' }}</div>
               </div>
             </div>
 
@@ -275,8 +275,8 @@ import {
                 <div class="schedule-card__title">Schedule window update</div>
                 @if (selectedSchedule(); as schedule) {
                   <div class="schedule-card__meta">
-                    <span>{{ schedule.label || schedule.frequency }} · {{ schedule.amount | currency:'INR':'symbol':'1.2-2' }}</span>
-                    <span>Start {{ monthYearLabel(schedule.startDate) }}</span>
+                    <span>{{ schedule.lbl || schedule.fq }} · {{ schedule.amt | currency:'INR':'symbol':'1.2-2' }}</span>
+                    <span>Start {{ monthYearLabel(schedule.sd) }}</span>
                   </div>
                 } @else {
                   <div class="empty-copy">Select a schedule below to update its end month and/or the month from which future charges should turn inactive.</div>
@@ -330,13 +330,13 @@ import {
             <div class="vendor-grid">
               @for (schedule of schedules(); track schedule.id) {
                 <button type="button" class="schedule-card" [class.schedule-card--active]="selectedScheduleId() === schedule.id" (click)="selectSchedule(schedule)">
-                  <div class="schedule-card__title">{{ schedule.label || schedule.frequency }}</div>
+                  <div class="schedule-card__title">{{ schedule.lbl || schedule.fq }}</div>
                   <div class="schedule-card__meta">
-                    <span>{{ schedule.amount | currency:'INR':'symbol':'1.2-2' }} · {{ schedule.frequency }}</span>
-                    <span>{{ monthYearLabel(schedule.startDate) }} to {{ schedule.endDate ? monthYearLabel(schedule.endDate) : 'Open-ended' }}</span>
+                    <span>{{ schedule.amt | currency:'INR':'symbol':'1.2-2' }} · {{ schedule.fq }}</span>
+                    <span>{{ monthYearLabel(schedule.sd) }} to {{ schedule.ed ? monthYearLabel(schedule.ed) : 'Open-ended' }}</span>
                   </div>
                   <div class="action-row action-row--compact">
-                    <app-status-chip [status]="schedule.isActive ? 'Active' : 'Inactive'"></app-status-chip>
+                    <app-status-chip [status]="schedule.ac ? 'Active' : 'Inactive'"></app-status-chip>
                   </div>
                 </button>
               }
@@ -366,27 +366,27 @@ import {
           @if (charges().length) {
             <div class="vendor-grid">
               @for (charge of charges(); track charge.id) {
-                <div class="charge-card" [class.charge-card--overdue]="charge.isOverdue">
-                  <div class="charge-card__title">{{ charge.description }}</div>
+                <div class="charge-card" [class.charge-card--overdue]="charge.ov">
+                  <div class="charge-card__title">{{ charge.ds }}</div>
                   <div class="charge-card__meta">
-                    <span>{{ periodLabel(charge.chargeYear, charge.chargeMonth) }} · {{ charge.amount | currency:'INR':'symbol':'1.2-2' }}</span>
-                    <span>Effective {{ charge.effectiveDate | date:'mediumDate' }} · Due {{ charge.dueDate | date:'mediumDate' }}</span>
-                    @if (charge.transactionReference) {
-                      <span>Reference: {{ charge.transactionReference }}</span>
+                    <span>{{ periodLabel(charge.cy, charge.cm) }} · {{ charge.amt | currency:'INR':'symbol':'1.2-2' }}</span>
+                    <span>Effective {{ charge.efd | date:'mediumDate' }} · Due {{ charge.dd | date:'mediumDate' }}</span>
+                    @if (charge.tr) {
+                      <span>Reference: {{ charge.tr }}</span>
                     }
                   </div>
                   <div class="action-row">
-                    <app-status-chip [status]="charge.status"></app-status-chip>
-                    <app-status-chip [status]="charge.isActive ? 'Active' : 'Inactive'"></app-status-chip>
-                    @if (charge.receiptUrl) {
-                      <a class="inline-link" [href]="charge.receiptUrl" target="_blank" rel="noreferrer">Receipt</a>
+                    <app-status-chip [status]="charge.st"></app-status-chip>
+                    <app-status-chip [status]="charge.ac ? 'Active' : 'Inactive'"></app-status-chip>
+                    @if (charge.ru) {
+                      <a class="inline-link" [href]="charge.ru" target="_blank" rel="noreferrer">Receipt</a>
                     }
-                    @if (charge.isOverdue) {
+                    @if (charge.ov) {
                       <span class="text-danger">Overdue</span>
                     }
                   </div>
                   <div class="action-row action-row--compact">
-                    @if (charge.isActive) {
+                    @if (charge.ac) {
                       <button mat-stroked-button type="button" [disabled]="processingChargeId() === charge.id" (click)="inactivateCharge(charge)">Inactivate</button>
                     } @else {
                       <button mat-stroked-button color="primary" type="button" [disabled]="processingChargeId() === charge.id" (click)="activateCharge(charge)">Activate</button>
@@ -494,7 +494,7 @@ export class VendorPaymentsAdminComponent {
       new Date().getFullYear() - 1,
       new Date().getFullYear(),
       new Date().getFullYear() + 1,
-      ...this.charges().map(charge => charge.chargeYear),
+      ...this.charges().map(charge => charge.cy),
     ]);
     return Array.from(years).sort((left, right) => right - left);
   });
@@ -533,24 +533,24 @@ export class VendorPaymentsAdminComponent {
     this.selectedVendorId.set(vendor.id);
     this.selectedScheduleId.set(null);
     this.vendorForm.patchValue({
-      name: vendor.name,
-      street: vendor.address.street,
-      city: vendor.address.city,
-      state: vendor.address.state,
-      postalCode: vendor.address.postalCode,
-      country: vendor.address.country,
-      pictureUrl: vendor.pictureUrl ?? '',
-      contactFirstName: vendor.pointOfContact.firstName,
-      contactLastName: vendor.pointOfContact.lastName,
-      contactPhone: vendor.pointOfContact.phoneNumber,
-      contactEmail: vendor.pointOfContact.email,
-      overview: vendor.overview,
-      validUptoDate: this.toDateInputValue(new Date(vendor.validUptoDate)),
-      paymentDueDays: vendor.paymentDueDays,
-      geographicServiceArea: vendor.geographicServiceArea ?? '',
-      businessType: vendor.businessType ?? '',
-      contractUrl: vendor.contractUrl ?? '',
-      isActive: vendor.isActive,
+      name: vendor.nm,
+      street: vendor.addr.str,
+      city: vendor.addr.cty,
+      state: vendor.addr.ste,
+      postalCode: vendor.addr.pc,
+      country: vendor.addr.co,
+      pictureUrl: vendor.pic ?? '',
+      contactFirstName: vendor.poc.fn,
+      contactLastName: vendor.poc.ln,
+      contactPhone: vendor.poc.ph,
+      contactEmail: vendor.poc.em,
+      overview: vendor.ov,
+      validUptoDate: this.toDateInputValue(new Date(vendor.vud)),
+      paymentDueDays: vendor.pdd,
+      geographicServiceArea: vendor.gsa ?? '',
+      businessType: vendor.bt ?? '',
+      contractUrl: vendor.cu ?? '',
+      isActive: vendor.ac,
     });
     this.loadSchedules();
     this.loadCharges();
@@ -635,8 +635,8 @@ export class VendorPaymentsAdminComponent {
       next: response => {
         this.uploadingDocument.set(false);
         this.vendorForm.patchValue({
-          pictureUrl: kind === 'picture' ? response.fileUrl : this.vendorForm.controls.pictureUrl.value,
-          contractUrl: kind === 'contract' ? response.fileUrl : this.vendorForm.controls.contractUrl.value,
+          pictureUrl: kind === 'picture' ? response.fu : this.vendorForm.controls.pictureUrl.value,
+          contractUrl: kind === 'contract' ? response.fu : this.vendorForm.controls.contractUrl.value,
         });
         if (input) input.value = '';
         this.snackBar.open(`${kind === 'picture' ? 'Picture' : 'Contract'} uploaded.`, 'Dismiss', { duration: 4000 });
@@ -682,8 +682,8 @@ export class VendorPaymentsAdminComponent {
   selectSchedule(schedule: VendorRecurringSchedule) {
     this.selectedScheduleId.set(schedule.id);
     this.scheduleWindowForm.patchValue({
-      endDate: schedule.endDate ? this.toMonthInputValue(new Date(schedule.endDate)) : '',
-      inactiveFromDate: schedule.inactiveFromDate ? this.toMonthInputValue(new Date(schedule.inactiveFromDate)) : '',
+      endDate: schedule.ed ? this.toMonthInputValue(new Date(schedule.ed)) : '',
+      inactiveFromDate: schedule.ifd ? this.toMonthInputValue(new Date(schedule.ifd)) : '',
     });
   }
 
@@ -771,7 +771,7 @@ export class VendorPaymentsAdminComponent {
 
     this.vendorPayments.listSchedules(societyId, vendorId).subscribe({
       next: schedules => {
-        const sorted = (schedules ?? []).slice().sort((left, right) => left.startDate.localeCompare(right.startDate));
+        const sorted = (schedules ?? []).slice().sort((left, right) => left.sd.localeCompare(right.sd));
         this.schedules.set(sorted);
         const targetSchedule = sorted.find(schedule => schedule.id === (selectScheduleId ?? this.selectedScheduleId()));
         if (targetSchedule) {
@@ -818,7 +818,7 @@ export class VendorPaymentsAdminComponent {
   }
 
   deleteCharge(charge: VendorCharge) {
-    if (!window.confirm(`Delete "${charge.description}"?`)) {
+    if (!window.confirm(`Delete "${charge.ds}"?`)) {
       return;
     }
 

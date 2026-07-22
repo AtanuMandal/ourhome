@@ -26,10 +26,10 @@ jest.mock('@expo/vector-icons', () => {
 
 function makeNotice(overrides: Partial<Notice> = {}): Notice {
   return {
-    id: 'n1', societyId: 'soc-1', title: 'AGM Announcement', content: 'Please review the resolutions.',
-    category: 'General', postedByUserId: 'admin-1', isArchived: false, isActive: true,
-    publishAt: '2026-01-01T00:00:00Z', targetApartmentIds: [], createdAt: '2026-01-01T00:00:00Z',
-    isReadByCurrentUser: false,
+    id: 'n1', tt: 'AGM Announcement', ct: 'Please review the resolutions.',
+    cat: 'General', pid: 'admin-1',
+    pa: '2026-01-01T00:00:00Z',
+    rd: false,
     ...overrides,
   } as Notice;
 }
@@ -56,7 +56,7 @@ describe('NoticeListScreen', () => {
   });
 
   test('shows a green read tick and no mark-read button for a read notice', () => {
-    mockNotices = [makeNotice({ isReadByCurrentUser: true })];
+    mockNotices = [makeNotice({ rd: true })];
     renderScreen();
 
     expect(screen.getByLabelText('Read')).toBeTruthy();
@@ -64,7 +64,7 @@ describe('NoticeListScreen', () => {
   });
 
   test('shows a mark-read button (no unmark option) for an unread notice', () => {
-    mockNotices = [makeNotice({ isReadByCurrentUser: false })];
+    mockNotices = [makeNotice({ rd: false })];
     renderScreen();
 
     expect(screen.getByLabelText('Mark as read')).toBeTruthy();
@@ -72,7 +72,7 @@ describe('NoticeListScreen', () => {
   });
 
   test('tapping mark-read calls the one-way mark-read mutation', () => {
-    mockNotices = [makeNotice({ isReadByCurrentUser: false })];
+    mockNotices = [makeNotice({ rd: false })];
     renderScreen();
 
     fireEvent.press(screen.getByLabelText('Mark as read'), { stopPropagation: jest.fn() });

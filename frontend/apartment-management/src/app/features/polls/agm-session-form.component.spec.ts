@@ -9,7 +9,7 @@ import { AgmSessionSummary } from '../../core/models/poll.model';
 
 describe('AgmSessionFormComponent', () => {
   function setup() {
-    const created: AgmSessionSummary = { id: 'new-session', title: 'AGM 2026', sessionDate: '2026-04-15T10:00:00Z', resolutionCount: 0 };
+    const created: AgmSessionSummary = { id: 'new-session', tt: 'AGM 2026', sd: '2026-04-15T10:00:00Z', rc: 0 };
     const agmSessionServiceStub = { create: jasmine.createSpy().and.returnValue(of(created)) };
     const authServiceStub = { societyId: () => 'soc-1' };
 

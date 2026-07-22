@@ -116,7 +116,7 @@ export class UserService {
   uploadProfilePicture(societyId: string, id: string, file: Blob, fileName = 'profile.jpg') {
     const form = new FormData();
     form.append('file', file, fileName);
-    return this.api.post<{ profilePictureUrl: string }>(`societies/${societyId}/users/${id}/profile-picture`, form);
+    return this.api.post<{ pic: string }>(`societies/${societyId}/users/${id}/profile-picture`, form);
   }
 
   deactivate(societyId: string, id: string) {

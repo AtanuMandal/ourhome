@@ -274,14 +274,14 @@ public class SocietyIntegrationTests : IntegrationTestBase
         // Assert
         aptResult.IsSuccess.Should().BeTrue();
         var apt = aptResult.Value!;
-        apt.SocietyId.Should().Be(society.Id);
         apt.ApartmentNumber.Should().Be("101");
         apt.BlockName.Should().Be("A");
 
-        // Verify apartment is retrievable via query
+        // Verify the apartment belongs to the society: retrieving it scoped to that society's
+        // partition key succeeds and returns the same apartment.
         var getAptResult = await Mediator.Send(new GetApartmentQuery(society.Id, apt.Id));
         getAptResult.IsSuccess.Should().BeTrue();
-        getAptResult.Value!.SocietyId.Should().Be(society.Id);
+        getAptResult.Value!.Id.Should().Be(apt.Id);
     }
 
     // ─── ConfigureFeeStructure ────────────────────────────────────────────────

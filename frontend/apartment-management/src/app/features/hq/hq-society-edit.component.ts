@@ -178,17 +178,17 @@ export class HqSocietyEditComponent implements OnInit {
       next: society => {
         this.society = society;
         this.form.patchValue({
-          name: society.name,
-          street: society.address.street,
-          city: society.address.city,
-          state: society.address.state,
-          postalCode: society.address.postalCode,
-          country: society.address.country,
-          contactEmail: society.contactEmail ?? '',
-          contactPhone: society.contactPhone ?? '',
-          themeId: society.themeId || DEFAULT_THEME_ID,
-          totalApartments: society.totalApartments,
-          maxUsersPerApartment: society.maxUsersPerApartment ?? 10,
+          name: society.nm,
+          street: society.addr.str,
+          city: society.addr.cty,
+          state: society.addr.ste,
+          postalCode: society.addr.pc,
+          country: society.addr.co,
+          contactEmail: society.ce ?? '',
+          contactPhone: society.cp ?? '',
+          themeId: society.th || DEFAULT_THEME_ID,
+          totalApartments: society.ta,
+          maxUsersPerApartment: society.mua ?? 10,
         });
         this.loading.set(false);
       },
@@ -206,8 +206,8 @@ export class HqSocietyEditComponent implements OnInit {
       contactEmail: value.contactEmail.trim(),
       contactPhone: value.contactPhone.trim(),
       // Numeric fields the HQ admin doesn't edit here — pass through unchanged.
-      totalBlocks: this.society.totalBlocks,
-      maintenanceOverdueThresholdDays: this.society.maintenanceOverdueThresholdDays,
+      totalBlocks: this.society.tb,
+      maintenanceOverdueThresholdDays: this.society.mot,
       // HQAdmin-only capacity settings.
       totalApartments: value.totalApartments,
       maxUsersPerApartment: value.maxUsersPerApartment,

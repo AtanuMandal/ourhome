@@ -40,23 +40,23 @@ export function SosAlertReportScreen() {
         report && (
           <ScrollView contentContainerStyle={styles.content}>
             <View style={styles.summaryGrid}>
-              <SummaryCard label="Total Alerts" value={String(report.totalAlerts)} />
-              <SummaryCard label="False Alarm Rate" value={`${report.falseAlarmRatePercent}%`} />
+              <SummaryCard label="Total Alerts" value={String(report.ta)} />
+              <SummaryCard label="False Alarm Rate" value={`${report.fr}%`} />
               <SummaryCard
                 label="Avg. Time to Acknowledge"
-                value={report.averageAcknowledgeSeconds != null ? `${Math.round(report.averageAcknowledgeSeconds)}s` : '—'}
+                value={report.aa != null ? `${Math.round(report.aa)}s` : '—'}
               />
               <SummaryCard
                 label="Avg. Time to Resolve"
-                value={report.averageResolveSeconds != null ? `${Math.round(report.averageResolveSeconds)}s` : '—'}
+                value={report.ar != null ? `${Math.round(report.ar)}s` : '—'}
               />
             </View>
 
             <Text style={styles.sectionTitle}>By Category</Text>
-            {report.byCategory.map((c: SosCategoryBreakdown) => (
-              <View key={c.category} style={styles.categoryRow}>
-                <Text style={styles.categoryName}>{CATEGORY_LABELS[c.category] ?? c.category}</Text>
-                <Text style={styles.categoryCount}>{c.count}</Text>
+            {report.bc.map((c: SosCategoryBreakdown) => (
+              <View key={c.cat} style={styles.categoryRow}>
+                <Text style={styles.categoryName}>{CATEGORY_LABELS[c.cat] ?? c.cat}</Text>
+                <Text style={styles.categoryCount}>{c.ct}</Text>
               </View>
             ))}
           </ScrollView>

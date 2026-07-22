@@ -126,7 +126,7 @@ function ApartmentInvitationCard({ societyId, userId, apartmentId }: {
   });
 
   const label = apartment
-    ? `${apartment.blockName ? apartment.blockName + ' ' : ''}${apartment.floorNumber}-${apartment.apartmentNumber}`
+    ? `${apartment.blk ? apartment.blk + ' ' : ''}${apartment.flr}-${apartment.num}`
     : 'an apartment';
 
   async function respond(accept: boolean): Promise<void> {
@@ -164,10 +164,10 @@ function ApartmentInvitationCard({ societyId, userId, apartmentId }: {
 export function DashboardScreen() {
   const user = useAuthStore((s) => s.user);
   const { data, isLoading, refetch } = useDashboard();
-  const { data: profile } = useProfile(user?.societyId ?? '', user?.id ?? '');
+  const { data: profile } = useProfile(user?.sid ?? '', user?.id ?? '');
 
   const greeting = getGreeting();
-  const isAdmin = user?.role === 'SUAdmin' || user?.role === 'HQAdmin';
+  const isAdmin = user?.rl === 'SUAdmin' || user?.rl === 'HQAdmin';
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -184,16 +184,16 @@ export function DashboardScreen() {
       >
         <View style={styles.header}>
           <Text style={styles.greeting}>{greeting},</Text>
-          <Text style={styles.name}>{user?.fullName ?? 'User'}</Text>
+          <Text style={styles.name}>{user?.fn ?? 'User'}</Text>
         </View>
 
-        {user?.role === 'SUUser' && <SosTriggerCard />}
+        {user?.rl === 'SUUser' && <SosTriggerCard />}
 
-        {!!profile?.pendingApartmentId && user && (
+        {!!profile?.paid && user && (
           <ApartmentInvitationCard
-            societyId={user.societyId}
+            societyId={user.sid}
             userId={user.id}
-            apartmentId={profile.pendingApartmentId}
+            apartmentId={profile.paid}
           />
         )}
 
@@ -234,7 +234,7 @@ export function DashboardScreen() {
         )}
 
         <Text style={[styles.sectionTitle, { marginTop: spacing.lg }]}>Quick Actions</Text>
-        <QuickActionGrid role={user?.role ?? 'SUUser'} />
+        <QuickActionGrid role={user?.rl ?? 'SUUser'} />
       </ScrollView>
     </SafeAreaView>
   );

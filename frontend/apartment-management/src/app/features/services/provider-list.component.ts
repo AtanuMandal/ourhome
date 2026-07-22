@@ -33,12 +33,12 @@ import { ServiceProvider } from '../../core/models/service-provider.model';
             <div class="provider-card">
               <div class="pc-icon"><span class="material-icons">build</span></div>
               <div class="pc-info">
-                <span class="pc-name">{{ p.providerName }}</span>
-                <span class="pc-cat">{{ p.serviceTypes.join(', ') }}</span>
-                <span class="pc-contact">{{ p.contactName }}</span>
-                @if (p.rating) {
+                <span class="pc-name">{{ p.pn }}</span>
+                <span class="pc-cat">{{ p.svt.join(', ') }}</span>
+                <span class="pc-contact">{{ p.cn }}</span>
+                @if (p.rt) {
                   <span class="pc-rating">
-                    <span class="material-icons">star</span> {{ p.rating | number:'1.1-1' }}
+                    <span class="material-icons">star</span> {{ p.rt | number:'1.1-1' }}
                   </span>
                 }
               </div>

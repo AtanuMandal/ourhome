@@ -42,28 +42,28 @@ import { Apartment, ApartmentStatus, formatApartmentLabel } from '../../core/mod
         <div class="card">
           <div class="detail-row"><span class="label">Unit</span><span>{{ formatApartmentLabel(item()!) }}</span></div>
           <mat-divider></mat-divider>
-          <div class="detail-row"><span class="label">Rooms</span><span>{{ item()!.numberOfRooms }}</span></div>
+          <div class="detail-row"><span class="label">Rooms</span><span>{{ item()!.rms }}</span></div>
           <mat-divider></mat-divider>
-          <div class="detail-row"><span class="label">Floor</span><span>{{ item()!.floorNumber }}</span></div>
-          @if (item()!.blockName) {
+          <div class="detail-row"><span class="label">Floor</span><span>{{ item()!.flr }}</span></div>
+          @if (item()!.blk) {
             <mat-divider></mat-divider>
-            <div class="detail-row"><span class="label">Block</span><span>{{ item()!.blockName }}</span></div>
+            <div class="detail-row"><span class="label">Block</span><span>{{ item()!.blk }}</span></div>
           }
           <mat-divider></mat-divider>
           <div class="detail-row">
             <span class="label">Status</span>
-            <app-status-chip [status]="item()!.status"></app-status-chip>
+            <app-status-chip [status]="item()!.st"></app-status-chip>
           </div>
-          @if (item()!.parkingSlots.length) {
+          @if (item()!.pks.length) {
             <mat-divider></mat-divider>
-            <div class="detail-row"><span class="label">Parking Slots</span><span>{{ item()!.parkingSlots.join(', ') }}</span></div>
+            <div class="detail-row"><span class="label">Parking Slots</span><span>{{ item()!.pks.join(', ') }}</span></div>
           }
           <mat-divider></mat-divider>
-          <div class="detail-row"><span class="label">Carpet Area (SQFT)</span><span>{{ item()!.carpetArea }}</span></div>
+          <div class="detail-row"><span class="label">Carpet Area (SQFT)</span><span>{{ item()!.ca }}</span></div>
           <mat-divider></mat-divider>
-          <div class="detail-row"><span class="label">BuildUp Area (SQFT)</span><span>{{ item()!.buildUpArea }}</span></div>
+          <div class="detail-row"><span class="label">BuildUp Area (SQFT)</span><span>{{ item()!.ba }}</span></div>
           <mat-divider></mat-divider>
-          <div class="detail-row"><span class="label">SuperBuild Area (SQFT)</span><span>{{ item()!.superBuildArea }}</span></div>
+          <div class="detail-row"><span class="label">SuperBuild Area (SQFT)</span><span>{{ item()!.sba }}</span></div>
           <mat-divider></mat-divider>
           <div class="detail-row"><span class="label">Current owner</span><span>{{ currentResidentName('Owner') ?? 'Unassigned' }}</span></div>
           @if (currentResidentName('Tenant')) {
@@ -103,17 +103,17 @@ import { Apartment, ApartmentStatus, formatApartmentLabel } from '../../core/mod
             <div class="action-row">
               <button mat-stroked-button type="button"
                       (click)="changeStatus('Available')"
-                      [disabled]="actionLoading() || item()!.status === 'Available'">
+                      [disabled]="actionLoading() || item()!.st === 'Available'">
                 Mark Available
               </button>
               <button mat-stroked-button color="primary" type="button"
                       (click)="changeStatus('UnderMaintenance')"
-                      [disabled]="actionLoading() || item()!.status === 'UnderMaintenance'">
+                      [disabled]="actionLoading() || item()!.st === 'UnderMaintenance'">
                 Under Maintenance
               </button>
               <button mat-flat-button color="warn" type="button"
                       (click)="deleteApartment()"
-                      [disabled]="actionLoading() || item()!.status === 'Occupied'">
+                      [disabled]="actionLoading() || item()!.st === 'Occupied'">
                 Delete Apartment
               </button>
             </div>
@@ -159,7 +159,7 @@ export class ApartmentDetailComponent implements OnInit {
   readonly isAdmin = this.auth.isAdmin;
   readonly canManageHousehold = computed(() => {
     const user = this.auth.user();
-    return user?.role === 'SUUser' && (user.residentType === 'Owner' || user.residentType === 'Tenant');
+    return user?.rl === 'SUUser' && (user.rt === 'Owner' || user.rt === 'Tenant');
   });
   statusReason = '';
 
@@ -207,7 +207,7 @@ export class ApartmentDetailComponent implements OnInit {
   }
 
   currentResidentName(residentType: 'Owner' | 'Tenant') {
-    return this.item()?.residents?.find(resident => resident.residentType === residentType)?.userName;
+    return this.item()?.res?.find(resident => resident.rt === residentType)?.unm;
   }
 
   formatApartmentLabel(apartment: Apartment) {

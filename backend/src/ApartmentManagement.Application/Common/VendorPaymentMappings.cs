@@ -8,7 +8,6 @@ public static class VendorPaymentMappingExtensions
     public static VendorDto ToResponse(this Vendor vendor) =>
         new(
             vendor.Id,
-            vendor.SocietyId,
             vendor.Name,
             new AddressDto(
                 vendor.Address.Street,
@@ -28,36 +27,23 @@ public static class VendorPaymentMappingExtensions
             vendor.GeographicServiceArea,
             vendor.BusinessType,
             vendor.ContractUrl,
-            vendor.IsActive,
-            vendor.CreatedAt,
-            vendor.UpdatedAt);
+            vendor.IsActive);
 
     public static VendorRecurringScheduleDto ToResponse(this VendorRecurringSchedule schedule, string vendorName) =>
         new(
             schedule.Id,
-            schedule.SocietyId,
-            schedule.VendorId,
-            vendorName,
             schedule.Frequency.ToString(),
             schedule.Amount,
-            schedule.MonthlyEquivalentAmount(),
-            schedule.AnnualEquivalentAmount(),
             schedule.StartDate,
             schedule.EndDate,
             schedule.InactiveFromDate,
-            schedule.NextChargeDate,
             schedule.Label,
-            schedule.IsActive,
-            schedule.CreatedAt,
-            schedule.UpdatedAt);
+            schedule.IsActive);
 
     public static VendorChargeDto ToResponse(this VendorCharge charge) =>
         new(
             charge.Id,
-            charge.SocietyId,
-            charge.VendorId,
             charge.VendorName,
-            charge.ScheduleId,
             charge.ChargeType.ToString(),
             charge.Description,
             charge.EffectiveDate,
@@ -68,18 +54,12 @@ public static class VendorPaymentMappingExtensions
             charge.Status.ToString(),
             charge.IsActive,
             charge.IsOverdue(DateTime.UtcNow),
-            charge.PaidAt,
-            charge.PaymentMethod,
             charge.TransactionReference,
-            charge.ReceiptUrl,
-            charge.Notes,
-            charge.CreatedAt,
-            charge.UpdatedAt);
+            charge.ReceiptUrl);
 
     public static VendorChargeGridChargeDto ToGridResponse(this VendorCharge charge) =>
         new(
             charge.Id,
-            charge.ScheduleId,
             charge.ChargeType.ToString(),
             charge.Description,
             charge.Amount,
@@ -88,7 +68,5 @@ public static class VendorPaymentMappingExtensions
             charge.EffectiveDate,
             charge.DueDate,
             charge.IsOverdue(DateTime.UtcNow),
-            charge.PaidAt,
-            charge.ReceiptUrl,
-            charge.Notes);
+            charge.ReceiptUrl);
 }

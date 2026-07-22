@@ -1,30 +1,22 @@
 import api from '../client';
 import type { PaginatedResponse } from '../types';
 
-// Matches backend VendorChargeDto
+// Matches backend VendorChargeDto — field names shortened to match its compressed JSON keys.
 export interface VendorCharge {
   id: string;
-  societyId: string;
-  vendorId: string;
-  vendorName: string;
-  scheduleId?: string;
-  chargeType: string;
-  description: string;
-  effectiveDate: string;
-  chargeYear: number;
-  chargeMonth: number;
-  amount: number;
-  dueDate: string;
-  status: string;
-  isActive: boolean;
-  isOverdue: boolean;
-  paidAt?: string;
-  paymentMethod?: string;
-  transactionReference?: string;
-  receiptUrl?: string;
-  notes?: string;
-  createdAt: string;
-  updatedAt: string;
+  vnm: string; // vendorName
+  ct: string; // chargeType
+  ds: string; // description
+  efd: string; // effectiveDate
+  cy: number; // chargeYear
+  cm: number; // chargeMonth
+  amt: number; // amount
+  dd: string; // dueDate
+  st: string; // status
+  ac: boolean; // isActive
+  ov: boolean; // isOverdue
+  tr?: string; // transactionReference
+  ru?: string; // receiptUrl
 }
 
 export interface MarkVendorChargePaidRequest {

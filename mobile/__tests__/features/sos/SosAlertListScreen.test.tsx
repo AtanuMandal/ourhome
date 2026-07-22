@@ -30,15 +30,12 @@ jest.mock('@expo/vector-icons', () => {
 function makeAlert(overrides: Partial<SosAlert>): SosAlert {
   return {
     id: overrides.id ?? 'a1',
-    societyId: 'soc-1',
-    apartmentId: 'apt-1',
-    apartmentLabel: 'A-101',
-    triggeredByUserId: 'user-1',
-    triggeredByUserName: 'Jane Resident',
-    category: 'Fire',
-    status: 'Triggered',
-    triggeredAt: '2026-01-01T00:00:00Z',
-    escalationCount: 0,
+    al: 'A-101',
+    un: 'Jane Resident',
+    cat: 'Fire',
+    st: 'Triggered',
+    ta: '2026-01-01T00:00:00Z',
+    ec: 0,
     ...overrides,
   };
 }
@@ -66,7 +63,7 @@ describe('SosAlertListScreen', () => {
 
   function setUser(role: 'SUAdmin' | 'SUSecurity' | 'SUUser') {
     useAuthStore.setState({
-      user: { id: 'viewer1', societyId: 'soc-1', fullName: 'Viewer', email: 'v@a.com', phone: '1', role, residentType: 'SocietyAdmin', apartmentId: undefined, isVerified: true, isActive: true },
+      user: { id: 'viewer1', sid: 'soc-1', fn: 'Viewer', em: 'v@a.com', ph: '1', rl: role, rt: 'SocietyAdmin', aid: undefined, vf: true, ac: true },
       token: 'tok',
       isAuthenticated: true,
     });
@@ -74,7 +71,7 @@ describe('SosAlertListScreen', () => {
 
   test('shows Acknowledge and Resolve for a triggered alert', async () => {
     setUser('SUSecurity');
-    mockAlertData = [makeAlert({ id: '1', apartmentLabel: 'A-101' })];
+    mockAlertData = [makeAlert({ id: '1', al: 'A-101' })];
 
     renderScreen();
 
@@ -85,7 +82,7 @@ describe('SosAlertListScreen', () => {
 
   test('does not show Acknowledge for an already-acknowledged alert', async () => {
     setUser('SUSecurity');
-    mockAlertData = [makeAlert({ id: '1', status: 'Acknowledged' })];
+    mockAlertData = [makeAlert({ id: '1', st: 'Acknowledged' })];
 
     renderScreen();
 

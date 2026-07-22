@@ -1,21 +1,21 @@
 @if (activeAlert(); as alert) {
-  <div class="sos-status" [ngClass]="'sos-status--' + alert.status.toLowerCase()">
+  <div class="sos-status" [ngClass]="'sos-status--' + alert.st.toLowerCase()">
     <span class="material-icons sos-status__icon">
-      {{ alert.status === 'Resolved' || alert.status === 'FalseAlarm' ? 'check_circle' : 'emergency' }}
+      {{ alert.st === 'Resolved' || alert.st === 'FalseAlarm' ? 'check_circle' : 'emergency' }}
     </span>
     <div class="sos-status__content">
-      <span class="sos-status__title">SOS: {{ categoryLabel(alert.category) }} — {{ alert.status }}</span>
-      @if (alert.status === 'Triggered') {
+      <span class="sos-status__title">SOS: {{ categoryLabel(alert.cat) }} — {{ alert.st }}</span>
+      @if (alert.st === 'Triggered') {
         <span class="sos-status__meta">Waiting for security/admin to acknowledge…</span>
-      } @else if (alert.status === 'Acknowledged') {
-        <span class="sos-status__meta">Acknowledged by {{ alert.acknowledgedByUserName }}</span>
-      } @else if (alert.status === 'Resolved') {
-        <span class="sos-status__meta">Resolved by {{ alert.resolvedByUserName }}</span>
+      } @else if (alert.st === 'Acknowledged') {
+        <span class="sos-status__meta">Acknowledged by {{ alert.aun }}</span>
+      } @else if (alert.st === 'Resolved') {
+        <span class="sos-status__meta">Resolved by {{ alert.run }}</span>
       } @else {
         <span class="sos-status__meta">Marked as a false alarm</span>
       }
     </div>
-    @if (alert.status === 'Triggered' || alert.status === 'Acknowledged') {
+    @if (alert.st === 'Triggered' || alert.st === 'Acknowledged') {
       <button mat-stroked-button (click)="markFalseAlarm()">False Alarm</button>
     } @else {
       <button mat-icon-button (click)="dismiss()" aria-label="Dismiss">

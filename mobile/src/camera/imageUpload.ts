@@ -38,7 +38,7 @@ export async function compressAndUpload(uri: string, societyId: string): Promise
 /** Uploads a user profile picture; returns the app-relative file URL stored on the user. */
 export async function uploadProfilePicture(uri: string, societyId: string, userId: string): Promise<string> {
   const body = await compressAndUploadTo(uri, `/societies/${societyId}/users/${userId}/profile-picture`);
-  return (JSON.parse(body) as { profilePictureUrl: string }).profilePictureUrl;
+  return (JSON.parse(body) as { pic: string }).pic;
 }
 
 /** Resolves an app-relative file path (as stored on visitor/maintenance/vendor records) to an absolute URL. */

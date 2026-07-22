@@ -10,15 +10,14 @@ import { Society } from '../../core/models/society.model';
 describe('HqSocietyEditComponent', () => {
   function makeSociety(overrides: Partial<Society> = {}): Society {
     return {
-      id: 's1', name: 'Green Valley',
-      address: { street: '1 Main St', city: 'Bengaluru', state: 'Karnataka', postalCode: '560001', country: 'India' },
-      contactEmail: 'admin@gv.com', contactPhone: '9876543210',
-      totalBlocks: 2, totalApartments: 40, maintenanceOverdueThresholdDays: 7, maxUsersPerApartment: 10, visitorOverstayThresholdHours: 5,
-      status: 'Active', adminUserIds: ['a1'],
-      societyUsers: [{ userId: 'u1', fullName: 'Bob', email: 'bob@gv.com', roleTitle: 'Chairman' }],
-      committees: [{ name: 'Managing Committee', members: [] }],
-      themeId: 'ocean',
-      createdAt: '2026-01-01T00:00:00Z',
+      id: 's1', nm: 'Green Valley',
+      addr: { str: '1 Main St', cty: 'Bengaluru', ste: 'Karnataka', pc: '560001', co: 'India' },
+      ce: 'admin@gv.com', cp: '9876543210',
+      tb: 2, ta: 40, mot: 7, mua: 10, voh: 5,
+      st: 'Active',
+      su: [{ uid: 'u1', fn: 'Bob', em: 'bob@gv.com', rt: 'Chairman' }],
+      cm: [{ nm: 'Managing Committee', mem: [] }],
+      th: 'ocean',
       ...overrides,
     };
   }
@@ -93,19 +92,19 @@ describe('HqSocietyEditComponent', () => {
   });
 
   it('pre-fills the theme picker from the loaded society', () => {
-    const { component } = setup(makeSociety({ themeId: 'violet' }));
+    const { component } = setup(makeSociety({ th: 'violet' }));
 
     expect(component.form.controls.themeId.value).toBe('violet');
   });
 
   it('defaults an unset theme to ocean', () => {
-    const { component } = setup(makeSociety({ themeId: '' }));
+    const { component } = setup(makeSociety({ th: '' }));
 
     expect(component.form.controls.themeId.value).toBe('ocean');
   });
 
   it('submits the newly selected theme', () => {
-    const { component, societyServiceStub } = setup(makeSociety({ themeId: 'ocean' }));
+    const { component, societyServiceStub } = setup(makeSociety({ th: 'ocean' }));
 
     component.form.controls.themeId.setValue('slate');
     component.save();

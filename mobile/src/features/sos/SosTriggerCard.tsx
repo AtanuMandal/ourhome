@@ -29,7 +29,7 @@ export function SosTriggerCard() {
   const markFalseAlarm = useMarkSosAlertFalseAlarm(societyId);
   const { data: activeAlert } = useSosAlert(societyId, activeAlertId ?? '', {
     refetchInterval: (query) => {
-      const status = query.state.data?.status;
+      const status = query.state.data?.st;
       return status && !ACTIVE_STATUSES.has(status) ? false : POLL_INTERVAL_MS;
     },
   });
@@ -61,22 +61,22 @@ export function SosTriggerCard() {
   }
 
   if (activeAlert && activeAlertId) {
-    const settled = !ACTIVE_STATUSES.has(activeAlert.status);
+    const settled = !ACTIVE_STATUSES.has(activeAlert.st);
     return (
       <View style={[styles.statusCard, settled ? styles.statusCardSettled : styles.statusCardActive]}>
         <Text style={styles.statusTitle}>
-          SOS: {activeAlert.category} — {activeAlert.status}
+          SOS: {activeAlert.cat} — {activeAlert.st}
         </Text>
-        {activeAlert.status === 'Triggered' && (
+        {activeAlert.st === 'Triggered' && (
           <Text style={styles.statusMeta}>Waiting for security/admin to acknowledge…</Text>
         )}
-        {activeAlert.status === 'Acknowledged' && (
-          <Text style={styles.statusMeta}>Acknowledged by {activeAlert.acknowledgedByUserName}</Text>
+        {activeAlert.st === 'Acknowledged' && (
+          <Text style={styles.statusMeta}>Acknowledged by {activeAlert.aun}</Text>
         )}
-        {activeAlert.status === 'Resolved' && (
-          <Text style={styles.statusMeta}>Resolved by {activeAlert.resolvedByUserName}</Text>
+        {activeAlert.st === 'Resolved' && (
+          <Text style={styles.statusMeta}>Resolved by {activeAlert.run}</Text>
         )}
-        {activeAlert.status === 'FalseAlarm' && <Text style={styles.statusMeta}>Marked as a false alarm</Text>}
+        {activeAlert.st === 'FalseAlarm' && <Text style={styles.statusMeta}>Marked as a false alarm</Text>}
 
         {!settled ? (
           <TouchableOpacity style={styles.falseAlarmButton} onPress={handleFalseAlarm} disabled={markFalseAlarm.isPending}>

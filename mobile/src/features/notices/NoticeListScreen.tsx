@@ -30,7 +30,7 @@ type NoticesNav = NativeStackNavigationProp<{
 export function NoticeListScreen() {
   const navigation = useNavigation<NoticesNav>();
   const societyId = useSocietyId();
-  const role = useAuthStore((s) => s.user?.role ?? '');
+  const role = useAuthStore((s) => s.user?.rl ?? '');
   const isAdmin = role === 'SUAdmin' || role === 'HQAdmin';
 
   const { data, isLoading, fetchNextPage, hasNextPage, refetch } =
@@ -45,17 +45,17 @@ export function NoticeListScreen() {
   const renderItem = useCallback(({ item }: { item: Notice }) => {
     return (
       <TouchableOpacity
-        style={[styles.item, !item.isReadByCurrentUser && styles.unread]}
+        style={[styles.item, !item.rd && styles.unread]}
         onPress={() => {
-          if (!item.isReadByCurrentUser) markRead(item.id);
+          if (!item.rd) markRead(item.id);
           navigation.navigate('NoticeDetail', { id: item.id });
         }}
       >
-        {!item.isReadByCurrentUser && <View style={styles.dot} />}
+        {!item.rd && <View style={styles.dot} />}
         <View style={styles.itemContent}>
           <View style={styles.titleRow}>
-            <Text style={styles.title} numberOfLines={2}>{item.title}</Text>
-            {item.isReadByCurrentUser ? (
+            <Text style={styles.title} numberOfLines={2}>{item.tt}</Text>
+            {item.rd ? (
               <Text style={styles.readTick} accessibilityLabel="Read">✓</Text>
             ) : (
               <TouchableOpacity
@@ -69,10 +69,10 @@ export function NoticeListScreen() {
             )}
           </View>
           <Text style={styles.meta}>
-            {item.category} · {formatDate(item.publishAt)}
+            {item.cat} · {formatDate(item.pa)}
           </Text>
           <Text style={styles.preview} numberOfLines={2}>
-            {item.content}
+            {item.ct}
           </Text>
         </View>
       </TouchableOpacity>

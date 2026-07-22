@@ -220,17 +220,17 @@ import { CHARGE_STATUS_OPTIONS, MAINTENANCE_PAGE_STYLES, MONTH_OPTIONS, periodLa
                               }
                             </div>
                             @for (charge of cell.charges; track charge.id) {
-                              <div class="grid-charge" [class.grid-charge--overdue]="charge.isOverdue">
+                              <div class="grid-charge" [class.grid-charge--overdue]="charge.ov">
                                 <div class="grid-charge__header">
-                                  <div class="grid-charge__title">{{ charge.scheduleName }}</div>
-                                  <app-status-chip [status]="charge.status"></app-status-chip>
+                                  <div class="grid-charge__title">{{ charge.snm }}</div>
+                                  <app-status-chip [status]="charge.st"></app-status-chip>
                                 </div>
-                                <div class="section-copy">{{ charge.amount | currency:'INR':'symbol':'1.2-2' }} · Due {{ charge.dueDate | date:'mediumDate' }}</div>
-                                @if (charge.transactionReference) {
-                                  <div class="section-copy">Ref: {{ charge.transactionReference }}</div>
+                                <div class="section-copy">{{ charge.amt | currency:'INR':'symbol':'1.2-2' }} · Due {{ charge.dd | date:'mediumDate' }}</div>
+                                @if (charge.tr) {
+                                  <div class="section-copy">Ref: {{ charge.tr }}</div>
                                 }
-                                @if (charge.status === 'Rejected' && charge.rejectionReason) {
-                                  <div class="section-copy text-danger">Denied: {{ charge.rejectionReason }}</div>
+                                @if (charge.st === 'Rejected' && charge.rr) {
+                                  <div class="section-copy text-danger">Denied: {{ charge.rr }}</div>
                                 }
                                 @if (groupForCharge(charge); as group) {
                                   <div class="section-copy">Clubbed submission · {{ group.charges.length }} charges · {{ group.totalAmount | currency:'INR':'symbol':'1.2-2' }} total</div>
@@ -260,7 +260,7 @@ import { CHARGE_STATUS_OPTIONS, MAINTENANCE_PAGE_STYLES, MONTH_OPTIONS, periodLa
                                         View proofs
                                       </button>
                                     }
-                                    @if (charge.status === 'ProofSubmitted') {
+                                    @if (charge.st === 'ProofSubmitted') {
                                       <button mat-raised-button color="primary" type="button"
                                         [disabled]="processingChargeId() === charge.id || settlementForm.invalid"
                                         (click)="approveProof(charge)">
@@ -272,7 +272,7 @@ import { CHARGE_STATUS_OPTIONS, MAINTENANCE_PAGE_STYLES, MONTH_OPTIONS, periodLa
                                         Deny
                                       </button>
                                     }
-                                    @if (charge.status !== 'Paid') {
+                                    @if (charge.st !== 'Paid') {
                                       <button mat-stroked-button color="primary" type="button"
                                         [disabled]="processingChargeId() === charge.id || settlementForm.invalid"
                                         (click)="markPaid(charge)">
@@ -308,36 +308,36 @@ import { CHARGE_STATUS_OPTIONS, MAINTENANCE_PAGE_STYLES, MONTH_OPTIONS, periodLa
           <div class="dialog-card" (click)="$event.stopPropagation()">
             <div class="section-header section-header--compact">
               <div>
-                <h2 class="section-title">{{ selectedCharge.scheduleName }}</h2>
-                <p class="section-copy">{{ selectedCharge.amount | currency:'INR':'symbol':'1.2-2' }} · Due {{ selectedCharge.dueDate | date:'mediumDate' }}</p>
+                <h2 class="section-title">{{ selectedCharge.snm }}</h2>
+                <p class="section-copy">{{ selectedCharge.amt | currency:'INR':'symbol':'1.2-2' }} · Due {{ selectedCharge.dd | date:'mediumDate' }}</p>
               </div>
               <button mat-stroked-button type="button" (click)="closeProofDialog()">Close</button>
             </div>
 
-            @if (selectedCharge.receiptUrl) {
+            @if (selectedCharge.ru) {
               <div class="proof-item">
                 <span class="proof-list__title">Receipt</span>
-                <a [href]="selectedCharge.receiptUrl" target="_blank" rel="noreferrer">{{ selectedCharge.receiptUrl }}</a>
+                <a [href]="selectedCharge.ru" target="_blank" rel="noreferrer">{{ selectedCharge.ru }}</a>
               </div>
             }
 
-            @if (selectedCharge.notes) {
+            @if (selectedCharge.nt) {
               <div class="proof-item">
                 <span class="proof-list__title">Notes</span>
-                <span>{{ selectedCharge.notes }}</span>
+                <span>{{ selectedCharge.nt }}</span>
               </div>
             }
 
-            @if (selectedCharge.proofs.length) {
+            @if (selectedCharge.pf.length) {
               <div class="proof-list">
                 <span class="proof-list__title">Proof uploads</span>
-                @for (proof of selectedCharge.proofs; track proof.proofUrl + proof.submittedAt) {
+                @for (proof of selectedCharge.pf; track proof.pu + proof.sa) {
                   <div class="proof-item">
-                    <app-file-preview [src]="proof.proofUrl" alt="Payment proof" imgClass="proof-thumb"
-                      [clickable]="true" (imageClick)="lightboxSrc.set(proof.proofUrl)"></app-file-preview>
-                    <span>{{ proof.submittedAt | date:'medium' }}</span>
-                    @if (proof.notes) {
-                      <span>{{ proof.notes }}</span>
+                    <app-file-preview [src]="proof.pu" alt="Payment proof" imgClass="proof-thumb"
+                      [clickable]="true" (imageClick)="lightboxSrc.set(proof.pu)"></app-file-preview>
+                    <span>{{ proof.sa | date:'medium' }}</span>
+                    @if (proof.nt) {
+                      <span>{{ proof.nt }}</span>
                     }
                   </div>
                 }
@@ -357,7 +357,7 @@ import { CHARGE_STATUS_OPTIONS, MAINTENANCE_PAGE_STYLES, MONTH_OPTIONS, periodLa
                 <h2 class="section-title">Deny payment proof</h2>
                 <p class="section-copy">
                   @if (target.type === 'single') {
-                    {{ target.charge.scheduleName }} · {{ target.charge.amount | currency:'INR':'symbol':'1.2-2' }}
+                    {{ target.charge.snm }} · {{ target.charge.amt | currency:'INR':'symbol':'1.2-2' }}
                   } @else {
                     {{ target.group.apartmentNumber }} · {{ target.group.charges.length }} charges · {{ target.group.totalAmount | currency:'INR':'symbol':'1.2-2' }} total
                   }
@@ -486,8 +486,8 @@ export class MaintenanceAdminGridComponent {
   readonly apartmentOptions = computed(() =>
     (this.grid()?.rows ?? [])
       .map(row => ({
-        id: row.apartmentId,
-        label: `${row.apartmentNumber}${row.residentName ? ` · ${row.residentName}` : ''}`,
+        id: row.aid,
+        label: `${row.anm}${row.rn ? ` · ${row.rn}` : ''}`,
       }))
       .sort((left, right) => left.label.localeCompare(right.label))
   );
@@ -503,7 +503,7 @@ export class MaintenanceAdminGridComponent {
 
   readonly blockOptions = computed(() =>
     Array.from(new Set((this.grid()?.rows ?? [])
-      .map(row => row.apartmentNumber.split(' ')[0])
+      .map(row => row.anm.split(' ')[0])
       .filter(Boolean)))
       .sort((left, right) => left.localeCompare(right))
   );
@@ -516,7 +516,7 @@ export class MaintenanceAdminGridComponent {
   readonly floorOptions = computed(() =>
     Array.from(new Set((this.grid()?.rows ?? [])
       .map(row => {
-        const match = row.apartmentNumber.match(/\s(\d+)-/);
+        const match = row.anm.match(/\s(\d+)-/);
         return match ? Number(match[1]) : null;
       })
       .filter((value): value is number => value !== null)))
@@ -529,7 +529,7 @@ export class MaintenanceAdminGridComponent {
   ]);
 
   readonly displayPeriods = computed<GridDisplayPeriod[]>(() => {
-    const months = this.grid()?.months ?? [];
+    const months = this.grid()?.mos ?? [];
     const periodView = this.filterForm.controls.periodView.value ?? 'Month';
 
     if (periodView === 'Quarter') {
@@ -560,17 +560,17 @@ export class MaintenanceAdminGridComponent {
 
   readonly displayRows = computed<GridDisplayRow[]>(() =>
     (this.grid()?.rows ?? []).slice(0, this.visibleRowCount()).map(row => ({
-      apartmentId: row.apartmentId,
-      apartmentNumber: row.apartmentNumber,
-      residentName: row.residentName,
+      apartmentId: row.aid,
+      apartmentNumber: row.anm,
+      residentName: row.rn,
       periods: this.displayPeriods().map(period => {
-        const cells = row.months.filter(cell => period.months.includes(cell.month));
-        const charges = cells.flatMap(cell => cell.charges);
+        const cells = row.mos.filter(cell => period.months.includes(cell.mo));
+        const charges = cells.flatMap(cell => cell.chg);
         return {
-          key: `${row.apartmentId}-${period.key}`,
+          key: `${row.aid}-${period.key}`,
           label: period.label,
-          totalAmount: charges.reduce((sum, charge) => sum + charge.amount, 0),
-          hasOverdue: charges.some(charge => charge.isOverdue),
+          totalAmount: charges.reduce((sum, charge) => sum + charge.amt, 0),
+          hasOverdue: charges.some(charge => charge.ov),
           charges,
         };
       }),
@@ -580,18 +580,18 @@ export class MaintenanceAdminGridComponent {
   readonly periodSummaries = computed(() =>
     this.displayPeriods().map(period => {
       const charges = (this.grid()?.rows ?? [])
-        .flatMap(row => row.months.filter(cell => period.months.includes(cell.month)))
-        .flatMap(cell => cell.charges);
+        .flatMap(row => row.mos.filter(cell => period.months.includes(cell.mo)))
+        .flatMap(cell => cell.chg);
 
       return {
         key: period.key,
         label: period.label,
-        pendingAmount: charges.filter(charge => charge.status === 'Pending').reduce((sum, charge) => sum + charge.amount, 0),
-        submittedAmount: charges.filter(charge => charge.status === 'ProofSubmitted').reduce((sum, charge) => sum + charge.amount, 0),
-        paidAmount: charges.filter(charge => charge.status === 'Paid').reduce((sum, charge) => sum + charge.amount, 0),
-        pendingCount: charges.filter(charge => charge.status === 'Pending').length,
-        submittedCount: charges.filter(charge => charge.status === 'ProofSubmitted').length,
-        paidCount: charges.filter(charge => charge.status === 'Paid').length,
+        pendingAmount: charges.filter(charge => charge.st === 'Pending').reduce((sum, charge) => sum + charge.amt, 0),
+        submittedAmount: charges.filter(charge => charge.st === 'ProofSubmitted').reduce((sum, charge) => sum + charge.amt, 0),
+        paidAmount: charges.filter(charge => charge.st === 'Paid').reduce((sum, charge) => sum + charge.amt, 0),
+        pendingCount: charges.filter(charge => charge.st === 'Pending').length,
+        submittedCount: charges.filter(charge => charge.st === 'ProofSubmitted').length,
+        paidCount: charges.filter(charge => charge.st === 'Paid').length,
       };
     })
   );
@@ -622,20 +622,20 @@ export class MaintenanceAdminGridComponent {
     const byKey = new Map<string, { apartmentId: string; apartmentNumber: string; residentName?: string | null; charges: MaintenanceGridCharge[] }>();
 
     for (const row of rows) {
-      for (const cell of row.months) {
-        for (const charge of cell.charges) {
-          if (charge.status !== 'ProofSubmitted' && charge.status !== 'Paid') continue;
-          if (!charge.submissionGroupId) continue;
+      for (const cell of row.mos) {
+        for (const charge of cell.chg) {
+          if (charge.st !== 'ProofSubmitted' && charge.st !== 'Paid') continue;
+          if (!charge.sgi) continue;
 
-          const key = `${row.apartmentId}|${charge.submissionGroupId}`;
+          const key = `${row.aid}|${charge.sgi}`;
           const existing = byKey.get(key);
           if (existing) {
             existing.charges.push(charge);
           } else {
             byKey.set(key, {
-              apartmentId: row.apartmentId,
-              apartmentNumber: row.apartmentNumber,
-              residentName: row.residentName,
+              apartmentId: row.aid,
+              apartmentNumber: row.anm,
+              residentName: row.rn,
               charges: [charge],
             });
           }
@@ -646,15 +646,15 @@ export class MaintenanceAdminGridComponent {
     return Array.from(byKey.entries())
       .filter(([, value]) => value.charges.length >= 2)
       .map(([key, value]) => {
-        const sorted = value.charges.slice().sort((left, right) => new Date(left.dueDate).getTime() - new Date(right.dueDate).getTime());
+        const sorted = value.charges.slice().sort((left, right) => new Date(left.dd).getTime() - new Date(right.dd).getTime());
         return {
           key,
           apartmentId: value.apartmentId,
           apartmentNumber: value.apartmentNumber,
           residentName: value.residentName,
-          status: sorted.every(charge => charge.status === 'Paid') ? 'Paid' : 'ProofSubmitted',
+          status: sorted.every(charge => charge.st === 'Paid') ? 'Paid' : 'ProofSubmitted',
           charges: sorted,
-          totalAmount: sorted.reduce((sum, charge) => sum + charge.amount, 0),
+          totalAmount: sorted.reduce((sum, charge) => sum + charge.amt, 0),
           periodLabel: this.formatPeriodRange(sorted),
         } satisfies GroupedSubmission;
       })
@@ -760,15 +760,15 @@ export class MaintenanceAdminGridComponent {
         this.processingGroupKey.set(null);
         for (const updated of updatedCharges) {
           this.patchChargeInGrid(updated.id, {
-            status: 'Paid',
-            isOverdue: false,
-            paidAt: updated.paidAt ?? new Date().toISOString(),
-            paymentMethod: settlement.paymentMethod,
-            transactionReference: settlement.transactionReference,
-            receiptUrl: settlement.receiptUrl,
-            notes: settlement.notes,
-            rejectionReason: null,
-            rejectedAt: null,
+            st: 'Paid',
+            ov: false,
+            pa: updated.pa ?? new Date().toISOString(),
+            pm: settlement.paymentMethod,
+            tr: settlement.transactionReference,
+            ru: settlement.receiptUrl,
+            nt: settlement.notes,
+            rr: null,
+            ra: null,
           });
         }
         this.snackBar.open('Clubbed submission approved.', 'Dismiss', { duration: 4000 });
@@ -802,9 +802,9 @@ export class MaintenanceAdminGridComponent {
         next: updated => {
           this.processingChargeId.set(null);
           this.patchChargeInGrid(target.charge.id, {
-            status: 'Rejected',
-            rejectionReason: updated.rejectionReason ?? reason,
-            rejectedAt: updated.rejectedAt ?? new Date().toISOString(),
+            st: 'Rejected',
+            rr: updated.rr ?? reason,
+            ra: updated.ra ?? new Date().toISOString(),
           });
           this.closeDenyDialog();
           this.snackBar.open('Maintenance proof denied.', 'Dismiss', { duration: 4000 });
@@ -821,9 +821,9 @@ export class MaintenanceAdminGridComponent {
         this.processingGroupKey.set(null);
         for (const updated of updatedCharges) {
           this.patchChargeInGrid(updated.id, {
-            status: 'Rejected',
-            rejectionReason: updated.rejectionReason ?? reason,
-            rejectedAt: updated.rejectedAt ?? new Date().toISOString(),
+            st: 'Rejected',
+            rr: updated.rr ?? reason,
+            ra: updated.ra ?? new Date().toISOString(),
           });
         }
         this.closeDenyDialog();
@@ -834,7 +834,7 @@ export class MaintenanceAdminGridComponent {
   }
 
   hasSupportingDocs(charge: MaintenanceGridCharge) {
-    return !!charge.receiptUrl || !!charge.notes || charge.proofs.length > 0;
+    return !!charge.ru || !!charge.nt || charge.pf.length > 0;
   }
 
   openProofDialog(charge: MaintenanceGridCharge) {
@@ -909,15 +909,15 @@ export class MaintenanceAdminGridComponent {
   private applySettlementToCharge(chargeId: string): void {
     const settlement = this.settlementPayload();
     this.patchChargeInGrid(chargeId, {
-      status: 'Paid',
-      isOverdue: false,
-      paidAt: new Date().toISOString(),
-      paymentMethod: settlement.paymentMethod,
-      transactionReference: settlement.transactionReference,
-      receiptUrl: settlement.receiptUrl,
-      notes: settlement.notes,
-      rejectionReason: null,
-      rejectedAt: null,
+      st: 'Paid',
+      ov: false,
+      pa: new Date().toISOString(),
+      pm: settlement.paymentMethod,
+      tr: settlement.transactionReference,
+      ru: settlement.receiptUrl,
+      nt: settlement.notes,
+      rr: null,
+      ra: null,
     });
   }
 
@@ -925,7 +925,7 @@ export class MaintenanceAdminGridComponent {
   private formatPeriodRange(charges: MaintenanceGridCharge[]): string {
     if (charges.length === 0) return '';
 
-    const dates = charges.map(charge => new Date(charge.dueDate));
+    const dates = charges.map(charge => new Date(charge.dd));
     const min = dates.reduce((earliest, current) => (current < earliest ? current : earliest));
     const max = dates.reduce((latest, current) => (current > latest ? current : latest));
     const minLabel = periodLabel(min.getUTCFullYear(), min.getUTCMonth() + 1);
@@ -941,17 +941,17 @@ export class MaintenanceAdminGridComponent {
     this.grid.set({
       ...current,
       rows: current.rows.map(row => {
-        if (!row.months.some(cell => cell.charges.some(charge => charge.id === chargeId))) return row;
+        if (!row.mos.some(cell => cell.chg.some(charge => charge.id === chargeId))) return row;
         return {
           ...row,
-          months: row.months.map(cell => {
-            if (!cell.charges.some(charge => charge.id === chargeId)) return cell;
-            const charges = cell.charges.map(charge => (charge.id === chargeId ? { ...charge, ...patch } : charge));
+          mos: row.mos.map(cell => {
+            if (!cell.chg.some(charge => charge.id === chargeId)) return cell;
+            const charges = cell.chg.map(charge => (charge.id === chargeId ? { ...charge, ...patch } : charge));
             return {
               ...cell,
-              charges,
-              totalAmount: charges.reduce((sum, charge) => sum + charge.amount, 0),
-              hasOverdue: charges.some(charge => charge.isOverdue),
+              chg: charges,
+              ta: charges.reduce((sum, charge) => sum + charge.amt, 0),
+              ho: charges.some(charge => charge.ov),
             };
           }),
         };
@@ -971,12 +971,12 @@ export class MaintenanceAdminGridComponent {
    */
   private addChargeToGrid(charge: MaintenanceCharge): void {
     const current = this.grid();
-    if (!current || !current.months.includes(charge.chargeMonth)) return;
+    if (!current || !current.mos.includes(charge.cm)) return;
 
     const statusFilter = this.filterForm.controls.status.value;
-    if (statusFilter && charge.status !== statusFilter) return;
+    if (statusFilter && charge.st !== statusFilter) return;
 
-    const chargeDueDate = charge.dueDate.slice(0, 10);
+    const chargeDueDate = charge.dd.slice(0, 10);
     const fromDate = this.filterForm.controls.fromDate.value;
     if (fromDate && chargeDueDate < fromDate) return;
     const toDate = this.filterForm.controls.toDate.value;
@@ -984,34 +984,34 @@ export class MaintenanceAdminGridComponent {
 
     const gridCharge: MaintenanceGridCharge = {
       id: charge.id,
-      scheduleId: charge.scheduleId,
-      scheduleName: charge.scheduleName,
-      amount: charge.amount,
-      status: charge.status,
-      dueDate: charge.dueDate,
-      isOverdue: charge.isOverdue,
-      paidAt: charge.paidAt,
-      paymentMethod: charge.paymentMethod,
-      transactionReference: charge.transactionReference,
-      receiptUrl: charge.receiptUrl,
-      notes: charge.notes,
-      proofs: charge.proofs,
+      sid: charge.sid,
+      snm: charge.snm,
+      amt: charge.amt,
+      st: charge.st,
+      dd: charge.dd,
+      ov: charge.ov,
+      pa: charge.pa,
+      pm: charge.pm,
+      tr: charge.tr,
+      ru: charge.ru,
+      nt: charge.nt,
+      pf: charge.pf,
     };
 
     let apartmentRowExists = false;
     const rows = current.rows.map(row => {
-      if (row.apartmentId !== charge.apartmentId) return row;
+      if (row.aid !== charge.aid) return row;
       apartmentRowExists = true;
       return {
         ...row,
-        months: row.months.map(cell => {
-          if (cell.month !== charge.chargeMonth) return cell;
-          const charges = [...cell.charges, gridCharge];
+        mos: row.mos.map(cell => {
+          if (cell.mo !== charge.cm) return cell;
+          const charges = [...cell.chg, gridCharge];
           return {
             ...cell,
-            charges,
-            totalAmount: charges.reduce((sum, c) => sum + c.amount, 0),
-            hasOverdue: charges.some(c => c.isOverdue),
+            chg: charges,
+            ta: charges.reduce((sum, c) => sum + c.amt, 0),
+            ho: charges.some(c => c.ov),
           };
         }),
       };

@@ -1,32 +1,26 @@
 export type ServiceCategory = 'Plumber' | 'Electrician' | 'Carpenter' | 'Painter' | 'Cleaner' | 'AC_Repair' | 'Other';
 export type ServiceRequestStatus = 'Pending' | 'Accepted' | 'InProgress' | 'Completed' | 'Cancelled';
 
-// Matches backend ServiceProviderResponse DTO
+// Matches backend ServiceProviderResponse DTO — field names shortened to match its compressed JSON keys.
 export interface ServiceProvider {
   id: string;
-  providerName: string;
-  contactName: string;
-  contactPhone: string;
-  serviceTypes: string[];
-  description: string;
-  status: string;
-  rating: number;
-  reviewCount: number;
+  pn: string; // providerName
+  cn: string; // contactName
+  cp: string; // contactPhone
+  svt: string[]; // serviceTypes
+  ds: string; // description
+  st: string; // status
+  rt: number; // rating
+  rc: number; // reviewCount
 }
 
-// Matches backend ServiceRequestResponse DTO
+// Matches backend ServiceRequestResponse DTO — field names shortened to match its compressed JSON keys.
 export interface ServiceRequest {
   id: string;
-  societyId: string;
-  apartmentId: string;
-  serviceType: string;
-  description: string;
-  preferredDateTime: string;
-  status: ServiceRequestStatus;
-  acceptedByProviderId?: string;
-  rating?: number;
-  reviewComment?: string;
-  createdAt: string;
+  svt: string; // serviceType
+  ds: string; // description
+  pdt: string; // preferredDateTime
+  st: ServiceRequestStatus; // status
 }
 
 export interface RegisterServiceProviderDto {

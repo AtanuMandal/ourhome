@@ -28,23 +28,22 @@ jest.mock('@expo/vector-icons', () => {
 
 function makeResolution(overrides: Partial<Poll>): Poll {
   return {
-    id: overrides.id ?? 'r1', societyId: 'soc-1', title: overrides.title ?? 'Resolution 1', description: 'desc',
-    type: 'SingleChoice', options: [{ id: 'o1', text: 'Yes' }, { id: 'o2', text: 'No' }],
-    opensAt: '2026-01-01T00:00:00Z', closesAt: '2026-01-10T00:00:00Z',
-    targetAudience: 'FullSociety', targetBlockNames: [],
-    eligibilityUnit: 'PerResident', anonymity: 'Anonymous', visibility: 'Immediately',
-    isAgmResolution: true, allowVoteChange: true, status: overrides.status ?? 'Open',
-    resultsPublished: overrides.resultsPublished ?? false, createdByUserId: 'admin-1', createdAt: '2026-01-01T00:00:00Z',
-    hasVoted: false, agmSessionId: 's1',
+    id: overrides.id ?? 'r1', tt: overrides.tt ?? 'Resolution 1', ds: 'desc',
+    ty: 'SingleChoice', op: [{ id: 'o1', tx: 'Yes' }, { id: 'o2', tx: 'No' }],
+    oa: '2026-01-01T00:00:00Z', ca: '2026-01-10T00:00:00Z',
+    ta: 'FullSociety', tbn: [],
+    agm: true, avc: true, st: overrides.st ?? 'Open',
+    rp: overrides.rp ?? false,
+    hv: false,
     ...overrides,
   };
 }
 
 function makeSession(resolutions: Poll[]): AgmSessionDetail {
   return {
-    id: 's1', societyId: 'soc-1', title: 'AGM 2026', description: 'Yearly resolutions',
-    sessionDate: '2026-04-15T10:00:00Z', createdByUserId: 'admin-1', createdAt: '2026-01-01T00:00:00Z',
-    resolutions,
+    id: 's1', tt: 'AGM 2026', ds: 'Yearly resolutions',
+    sd: '2026-04-15T10:00:00Z',
+    r: resolutions,
   };
 }
 
@@ -66,7 +65,7 @@ function renderScreen() {
 describe('AgmSessionDetailScreen', () => {
   function setUser(role: 'SUAdmin' | 'SUUser') {
     useAuthStore.setState({
-      user: { id: 'viewer1', societyId: 'soc-1', fullName: 'Viewer', email: 'v@a.com', phone: '1', role, residentType: 'Owner', apartmentId: 'apt-1', isVerified: true, isActive: true },
+      user: { id: 'viewer1', sid: 'soc-1', fn: 'Viewer', em: 'v@a.com', ph: '1', rl: role, rt: 'Owner', aid: 'apt-1', vf: true, ac: true },
       token: 'tok',
       isAuthenticated: true,
     });
@@ -79,7 +78,7 @@ describe('AgmSessionDetailScreen', () => {
 
   test('renders the session title and its resolutions', async () => {
     setUser('SUUser');
-    mockSession = makeSession([makeResolution({ id: 'r1', title: 'Resolution 1' })]);
+    mockSession = makeSession([makeResolution({ id: 'r1', tt: 'Resolution 1' })]);
 
     renderScreen();
 
@@ -114,7 +113,7 @@ describe('AgmSessionDetailScreen', () => {
 
   test('SUAdmin sees the publish-results action for a closed unpublished resolution', async () => {
     setUser('SUAdmin');
-    mockSession = makeSession([makeResolution({ id: 'r1', status: 'Closed', resultsPublished: false })]);
+    mockSession = makeSession([makeResolution({ id: 'r1', st: 'Closed', rp: false })]);
 
     renderScreen();
 
@@ -136,7 +135,7 @@ describe('AgmSessionDetailScreen', () => {
 
   test('shows the target audience for a block-scoped resolution', async () => {
     setUser('SUUser');
-    mockSession = makeSession([makeResolution({ id: 'r1', targetAudience: 'PerBlock', targetBlockNames: ['BLOCK A'] })]);
+    mockSession = makeSession([makeResolution({ id: 'r1', ta: 'PerBlock', tbn: ['BLOCK A'] })]);
 
     renderScreen();
 

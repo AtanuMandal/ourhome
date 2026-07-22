@@ -1,37 +1,28 @@
-// Matches backend AmenityResponse DTO
+// Matches backend AmenityResponse DTO — field names shortened to match its compressed JSON keys.
 export interface Amenity {
   id: string;
-  societyId: string;
-  name: string;
-  description: string;
-  capacity: number;
-  rules: string;
-  isActive: boolean;
-  bookingSlotMinutes: number;
-  operatingStart: string;
-  operatingEnd: string;
-  advanceBookingDays: number;
+  nm: string; // name
+  ds: string; // description
+  cap: number; // capacity
+  ac: boolean; // isActive
+  os: string; // operatingStart
+  oe: string; // operatingEnd
 }
 
 export type BookingStatus = 'Pending' | 'Approved' | 'Rejected' | 'Cancelled' | 'Completed';
 
-// Matches backend BookingResponse DTO
+// Matches backend BookingResponse DTO — field names shortened to match its compressed JSON keys.
 export interface AmenityBooking {
   id: string;
-  societyId: string;
-  amenityId: string;
-  amenityName: string;
-  bookedByUserId: string;
-  bookedByApartmentId: string;
-  startTime: string;
-  endTime: string;
-  status: BookingStatus | string;
-  adminNotes?: string;
-  duration: number;
-  createdAt: string;
+  an: string; // amenityName
+  uid: string; // bookedByUserId
+  stt: string; // startTime
+  ent: string; // endTime
+  st: BookingStatus | string; // status
+  adn?: string; // adminNotes
   // Set when the booking was cancelled — remarks are shown to the booking owner.
-  cancellationRemarks?: string;
-  cancelledByUserId?: string;
+  cr?: string; // cancellationRemarks
+  cid?: string; // cancelledByUserId
 }
 
 export interface AmenityAvailability {

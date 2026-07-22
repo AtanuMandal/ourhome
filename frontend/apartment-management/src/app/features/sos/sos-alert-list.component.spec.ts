@@ -12,15 +12,12 @@ describe('SosAlertListComponent', () => {
   function alert(overrides: Partial<SosAlert>): SosAlert {
     return {
       id: overrides.id ?? 'a1',
-      societyId: 'soc-1',
-      apartmentId: 'apt-1',
-      apartmentLabel: 'A-101',
-      triggeredByUserId: 'user-1',
-      triggeredByUserName: 'Jane Resident',
-      category: 'Fire',
-      status: 'Triggered',
-      triggeredAt: '2026-01-01T00:00:00Z',
-      escalationCount: 0,
+      al: 'A-101',
+      un: 'Jane Resident',
+      cat: 'Fire',
+      st: 'Triggered',
+      ta: '2026-01-01T00:00:00Z',
+      ec: 0,
       ...overrides,
     };
   }
@@ -33,8 +30,8 @@ describe('SosAlertListComponent', () => {
   ) {
     const sosServiceStub = {
       list: jasmine.createSpy().and.returnValue(of({ items: alerts, total: alerts.length, page: 1, pageSize: 50 })),
-      acknowledge: jasmine.createSpy().and.returnValue(of(alert({ id: 'a1', status: 'Acknowledged', acknowledgedByUserName: 'Guard' }))),
-      resolve: jasmine.createSpy().and.returnValue(of(alert({ id: 'a1', status: 'Resolved', resolvedByUserName: 'Guard' }))),
+      acknowledge: jasmine.createSpy().and.returnValue(of(alert({ id: 'a1', st: 'Acknowledged', aun: 'Guard' }))),
+      resolve: jasmine.createSpy().and.returnValue(of(alert({ id: 'a1', st: 'Resolved', run: 'Guard' }))),
       ...serviceOverrides,
     };
     const authServiceStub = { societyId: () => 'soc-1', isAdmin: () => isAdmin, isSecurity: () => isSecurity };
@@ -56,7 +53,7 @@ describe('SosAlertListComponent', () => {
   }
 
   it('loads alerts on init', () => {
-    const { component, sosServiceStub } = setup([alert({ id: '1' }), alert({ id: '2', status: 'Resolved' })]);
+    const { component, sosServiceStub } = setup([alert({ id: '1' }), alert({ id: '2', st: 'Resolved' })]);
 
     expect(sosServiceStub.list).toHaveBeenCalledWith('soc-1', 1, 50, { status: '' });
     expect(component.items().length).toBe(2);
@@ -77,20 +74,20 @@ describe('SosAlertListComponent', () => {
     component.acknowledge(component.items()[0]);
 
     expect(sosServiceStub.acknowledge).toHaveBeenCalledWith('soc-1', 'a1');
-    expect(component.items()[0].status).toBe('Acknowledged');
+    expect(component.items()[0].st).toBe('Acknowledged');
   });
 
   it('resolves an alert and updates it in place', () => {
-    const { component, sosServiceStub } = setup([alert({ id: 'a1', status: 'Acknowledged' })]);
+    const { component, sosServiceStub } = setup([alert({ id: 'a1', st: 'Acknowledged' })]);
 
     component.resolve(component.items()[0]);
 
     expect(sosServiceStub.resolve).toHaveBeenCalledWith('soc-1', 'a1');
-    expect(component.items()[0].status).toBe('Resolved');
+    expect(component.items()[0].st).toBe('Resolved');
   });
 
   it('shows Acknowledge/Resolve actions for an admin', () => {
-    const { fixture } = setup([alert({ id: 'a1', status: 'Triggered' })], {}, true, false);
+    const { fixture } = setup([alert({ id: 'a1', st: 'Triggered' })], {}, true, false);
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
 
     expect(text).toContain('Acknowledge');
@@ -98,7 +95,7 @@ describe('SosAlertListComponent', () => {
   });
 
   it('shows Acknowledge/Resolve actions for security', () => {
-    const { fixture } = setup([alert({ id: 'a1', status: 'Triggered' })], {}, false, true);
+    const { fixture } = setup([alert({ id: 'a1', st: 'Triggered' })], {}, false, true);
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
 
     expect(text).toContain('Acknowledge');
@@ -106,7 +103,7 @@ describe('SosAlertListComponent', () => {
   });
 
   it('hides Acknowledge/Resolve actions for a plain resident (view-only)', () => {
-    const { fixture } = setup([alert({ id: 'a1', status: 'Triggered' })], {}, false, false);
+    const { fixture } = setup([alert({ id: 'a1', st: 'Triggered' })], {}, false, false);
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
 
     expect(text).not.toContain('Acknowledge');

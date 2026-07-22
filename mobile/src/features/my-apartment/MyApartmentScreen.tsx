@@ -29,7 +29,7 @@ export function MyApartmentScreen() {
   const societyId = useSocietyId();
   const userId = useAuthStore((s) => s.user?.id ?? '');
   const { apartments, activeApartmentId } = useActiveApartment();
-  const apartmentId = activeApartmentId ?? apartments[0]?.apartmentId ?? '';
+  const apartmentId = activeApartmentId ?? apartments[0]?.aid ?? '';
 
   const [inviteEmail, setInviteEmail] = useState('');
   const [joinApartmentId, setJoinApartmentId] = useState('');
@@ -66,10 +66,10 @@ export function MyApartmentScreen() {
   });
 
   const apartmentOptions = (allApartments?.items ?? [])
-    .filter((a) => !apartments.some((mine) => mine.apartmentId === a.id))
+    .filter((a) => !apartments.some((mine) => mine.aid === a.id))
     .map((a) => ({
       value: a.id,
-      label: formatApartmentLabel(a.blockName, a.floorNumber, a.apartmentNumber),
+      label: formatApartmentLabel(a.blk, a.flr, a.num),
     }));
 
   const inviteValid = /\S+@\S+\.\S+/.test(inviteEmail.trim());
@@ -84,17 +84,17 @@ export function MyApartmentScreen() {
         ) : (
           <>
             <Text style={styles.section}>
-              {apartment ? formatApartmentLabel(apartment.blockName, apartment.floorNumber, apartment.apartmentNumber) : 'Apartment'}
+              {apartment ? formatApartmentLabel(apartment.blk, apartment.flr, apartment.num) : 'Apartment'}
             </Text>
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Residents</Text>
-              {(apartment?.residents ?? []).map((r) => (
-                <View key={r.userId} style={styles.residentRow}>
-                  <Text style={styles.residentName}>{r.userName}</Text>
-                  <Text style={styles.residentType}>{r.residentType}</Text>
+              {(apartment?.res ?? []).map((r) => (
+                <View key={r.uid} style={styles.residentRow}>
+                  <Text style={styles.residentName}>{r.unm}</Text>
+                  <Text style={styles.residentType}>{r.rt}</Text>
                 </View>
               ))}
-              {apartment && apartment.residents.length === 0 && (
+              {apartment && apartment.res.length === 0 && (
                 <Text style={styles.hint}>No residents recorded.</Text>
               )}
             </View>

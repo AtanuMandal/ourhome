@@ -25,7 +25,7 @@ describe('themeStore', () => {
   });
 
   test('resolveTheme fetches the society and applies its theme', async () => {
-    (societyApi.getSociety as jest.Mock).mockResolvedValue({ themeId: 'slate' });
+    (societyApi.getSociety as jest.Mock).mockResolvedValue({ th: 'slate' });
 
     const promise = useThemeStore.getState().resolveTheme('society-1');
     expect(useThemeStore.getState().status).toBe('resolving');
@@ -44,7 +44,7 @@ describe('themeStore', () => {
   });
 
   test('resolveTheme normalizes an unrecognized theme id from the server', async () => {
-    (societyApi.getSociety as jest.Mock).mockResolvedValue({ themeId: 'retired-theme' });
+    (societyApi.getSociety as jest.Mock).mockResolvedValue({ th: 'retired-theme' });
 
     await useThemeStore.getState().resolveTheme('society-1');
 

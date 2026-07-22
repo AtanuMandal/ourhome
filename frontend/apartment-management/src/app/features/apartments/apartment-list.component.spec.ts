@@ -11,18 +11,16 @@ import { Apartment } from '../../core/models/apartment.model';
 describe('ApartmentListComponent', () => {
   function makeApartment(overrides: Partial<Apartment>): Apartment {
     return {
-      id: overrides.apartmentNumber ?? 'apt',
-      societyId: 'soc-1',
-      apartmentNumber: 'A100',
-      blockName: 'A',
-      floorNumber: 1,
-      numberOfRooms: 2,
-      parkingSlots: [],
-      carpetArea: 500,
-      buildUpArea: 600,
-      superBuildArea: 700,
-      status: 'Available',
-      createdAt: new Date().toISOString(),
+      id: overrides.num ?? 'apt',
+      num: 'A100',
+      blk: 'A',
+      flr: 1,
+      rms: 2,
+      pks: [],
+      ca: 500,
+      ba: 600,
+      sba: 700,
+      st: 'Available',
       ...overrides,
     };
   }
@@ -51,13 +49,13 @@ describe('ApartmentListComponent', () => {
 
   it('lists apartments ordered by floor number descending', () => {
     const component = setup([
-      makeApartment({ apartmentNumber: 'A101', floorNumber: 1 }),
-      makeApartment({ apartmentNumber: 'A305', floorNumber: 3 }),
-      makeApartment({ apartmentNumber: 'A202', floorNumber: 2 }),
-      makeApartment({ apartmentNumber: 'A301', floorNumber: 3 }),
+      makeApartment({ num: 'A101', flr: 1 }),
+      makeApartment({ num: 'A305', flr: 3 }),
+      makeApartment({ num: 'A202', flr: 2 }),
+      makeApartment({ num: 'A301', flr: 3 }),
     ]);
 
-    expect(component.filtered().map(a => a.apartmentNumber)).toEqual(['A301', 'A305', 'A202', 'A101']);
+    expect(component.filtered().map(a => a.num)).toEqual(['A301', 'A305', 'A202', 'A101']);
   });
 
   it('requests a large page size so societies with more than 20 apartments are not silently truncated', () => {

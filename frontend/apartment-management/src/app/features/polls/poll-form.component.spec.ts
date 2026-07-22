@@ -12,14 +12,13 @@ import { Poll } from '../../core/models/poll.model';
 describe('PollFormComponent', () => {
   function makePoll(): Poll {
     return {
-      id: 'p1', societyId: 'soc-1', title: 'Repaint the gate?', description: 'desc',
-      type: 'SingleChoice', options: [{ id: 'o1', text: 'Yes' }, { id: 'o2', text: 'No' }],
-      opensAt: '2026-01-01T00:00:00Z', closesAt: '2026-01-10T00:00:00Z',
-      targetAudience: 'FullSociety', targetBlockNames: [],
-      eligibilityUnit: 'PerResident', anonymity: 'Anonymous', visibility: 'Immediately',
-      isAgmResolution: false, allowVoteChange: true, status: 'Scheduled',
-      resultsPublished: false, createdByUserId: 'admin-1', createdAt: '2026-01-01T00:00:00Z',
-      hasVoted: false,
+      id: 'p1', tt: 'Repaint the gate?', ds: 'desc',
+      ty: 'SingleChoice', op: [{ id: 'o1', tx: 'Yes' }, { id: 'o2', tx: 'No' }],
+      oa: '2026-01-01T00:00:00Z', ca: '2026-01-10T00:00:00Z',
+      ta: 'FullSociety', tbn: [],
+      agm: false, avc: true, st: 'Scheduled',
+      rp: false,
+      hv: false,
     };
   }
 
@@ -27,14 +26,14 @@ describe('PollFormComponent', () => {
     const pollServiceStub = { create: jasmine.createSpy().and.returnValue(of(makePoll())) };
     const agmSessionServiceStub = {
       list: jasmine.createSpy().and.returnValue(of({
-        items: [{ id: 'agm-1', title: 'AGM 2026', sessionDate: '2026-04-15T10:00:00Z', resolutionCount: 1 }],
+        items: [{ id: 'agm-1', tt: 'AGM 2026', sd: '2026-04-15T10:00:00Z', rc: 1 }],
         total: 1, page: 1, pageSize: 100,
       })),
     };
     const apartmentServiceStub = {
       list: jasmine.createSpy().and.returnValue(of({
         items: [
-          { blockName: 'Block A' }, { blockName: 'Block B' }, { blockName: 'Block A' },
+          { blk: 'Block A' }, { blk: 'Block B' }, { blk: 'Block A' },
         ],
         total: 3, page: 1, pageSize: 500,
       })),
@@ -106,7 +105,7 @@ describe('PollFormComponent', () => {
     const { component, agmSessionServiceStub } = setup();
 
     expect(agmSessionServiceStub.list).toHaveBeenCalledWith('soc-1', 1, 100);
-    expect(component.agmSessions()).toEqual([{ id: 'agm-1', title: 'AGM 2026', sessionDate: '2026-04-15T10:00:00Z', resolutionCount: 1 }]);
+    expect(component.agmSessions()).toEqual([{ id: 'agm-1', tt: 'AGM 2026', sd: '2026-04-15T10:00:00Z', rc: 1 }]);
   });
 
   it('pre-fills the AGM session from a query param and marks the poll as an AGM resolution', () => {

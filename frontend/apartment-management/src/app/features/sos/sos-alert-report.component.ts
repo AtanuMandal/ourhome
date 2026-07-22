@@ -42,19 +42,19 @@ function isoDate(date: Date) {
       } @else {
         <div class="summary-cards">
           <div class="summary-card">
-            <span class="summary-card__value">{{ report()!.totalAlerts }}</span>
+            <span class="summary-card__value">{{ report()!.ta }}</span>
             <span class="summary-card__label">Total Alerts</span>
           </div>
           <div class="summary-card">
-            <span class="summary-card__value">{{ report()!.falseAlarmRatePercent }}%</span>
+            <span class="summary-card__value">{{ report()!.fr }}%</span>
             <span class="summary-card__label">False Alarm Rate</span>
           </div>
           <div class="summary-card">
-            <span class="summary-card__value">{{ report()!.averageAcknowledgeSeconds ? (report()!.averageAcknowledgeSeconds! | number:'1.0-0') + 's' : '—' }}</span>
+            <span class="summary-card__value">{{ report()!.aa ? (report()!.aa! | number:'1.0-0') + 's' : '—' }}</span>
             <span class="summary-card__label">Avg. Time to Acknowledge</span>
           </div>
           <div class="summary-card">
-            <span class="summary-card__value">{{ report()!.averageResolveSeconds ? (report()!.averageResolveSeconds! | number:'1.0-0') + 's' : '—' }}</span>
+            <span class="summary-card__value">{{ report()!.ar ? (report()!.ar! | number:'1.0-0') + 's' : '—' }}</span>
             <span class="summary-card__label">Avg. Time to Resolve</span>
           </div>
         </div>
@@ -64,10 +64,10 @@ function isoDate(date: Date) {
             <tr><th>Category</th><th>Count</th></tr>
           </thead>
           <tbody>
-            @for (c of report()!.byCategory; track c.category) {
+            @for (c of report()!.bc; track c.cat) {
               <tr>
-                <td>{{ categoryLabel(c.category) }}</td>
-                <td>{{ c.count }}</td>
+                <td>{{ categoryLabel(c.cat) }}</td>
+                <td>{{ c.ct }}</td>
               </tr>
             }
           </tbody>

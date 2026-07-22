@@ -38,9 +38,9 @@ export function ApartmentFormScreen() {
 
   useEffect(() => {
     if (existing) {
-      setApartmentNumber(existing.apartmentNumber);
-      setBlockName(existing.blockName);
-      setFloorNumber(String(existing.floorNumber));
+      setApartmentNumber(existing.num);
+      setBlockName(existing.blk);
+      setFloorNumber(String(existing.flr));
     }
   }, [existing]);
 

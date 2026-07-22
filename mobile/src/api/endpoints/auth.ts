@@ -2,27 +2,30 @@ import api from '../client';
 import type { LoginRequest, LoginResponse, AuthUserDto } from '../types';
 
 export interface PasswordResetOption {
-  userId: string;
-  societyId: string;
-  societyName: string;
-  role: string;
-  apartmentLabel: string | null;
+  uid: string; // userId
+  sid: string; // societyId
+  snm: string; // societyName
+  rl: string; // role
+  alb: string | null; // apartmentLabel
 }
 
+// Matches backend PasswordResetRequestResponse — field names shortened to match its compressed JSON keys.
 export interface PasswordResetRequestResponse {
-  requiresSelection: boolean;
-  options: PasswordResetOption[];
+  rs: boolean; // requiresSelection
+  opts: PasswordResetOption[]; // options
 }
 
+// Matches backend PhoneLoginOtpResponse — field names shortened to match its compressed JSON keys.
 export interface PhoneLoginOtpResponse {
-  requiresSelection: boolean;
-  userId: string | null;
-  options: PasswordResetOption[];
+  rs: boolean; // requiresSelection
+  uid: string | null; // userId
+  opts: PasswordResetOption[]; // options
 }
 
+// Matches backend VerifyOtpResponse — field names shortened to match its compressed JSON keys.
 export interface VerifyOtpLoginResponse {
-  accessToken: string;
-  user: AuthUserDto;
+  tok: string; // accessToken
+  usr: AuthUserDto; // user
 }
 
 export interface ConfirmPasswordResetRequest {

@@ -7,7 +7,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { SearchableSelectComponent } from '../../shared/components/searchable-select/searchable-select.component';
-import { MaintenanceFrequency } from '../../core/models/maintenance.model';
+import { MaintenanceFrequency, MaintenanceProofUploadResponse } from '../../core/models/maintenance.model';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 import { LoadingSpinnerComponent } from '../../shared/components/loading-spinner/loading-spinner.component';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
@@ -76,9 +76,9 @@ import { MAINTENANCE_PAGE_STYLES, formatFrequencyLabel } from './maintenance-sha
                   <span class="section-copy">Accepted: JPEG, PNG, PDF, Word, or Excel.</span>
                   @if (uploadedProof(); as uploadedProof) {
                     <div class="proof-item">
-                      <span class="proof-list__title">{{ uploadedProof.fileName }}</span>
-                      <app-file-preview [src]="uploadedProof.fileUrl" alt="Payment proof preview" imgClass="proof-thumb"
-                        [clickable]="true" (imageClick)="lightboxSrc.set(uploadedProof.fileUrl)"></app-file-preview>
+                      <span class="proof-list__title">{{ uploadedProof.fn }}</span>
+                      <app-file-preview [src]="uploadedProof.fu" alt="Payment proof preview" imgClass="proof-thumb"
+                        [clickable]="true" (imageClick)="lightboxSrc.set(uploadedProof.fu)"></app-file-preview>
                     </div>
                   }
                 </div>
@@ -113,32 +113,32 @@ import { MAINTENANCE_PAGE_STYLES, formatFrequencyLabel } from './maintenance-sha
                   </div>
 
                   @for (charge of section.charges; track charge.id) {
-                    <div class="charge-card" [class.charge-card--overdue]="charge.isOverdue">
+                    <div class="charge-card" [class.charge-card--overdue]="charge.ov">
                       <div class="charge-card__header">
                         <div class="charge-card__meta">
-                          <div class="charge-card__title">{{ charge.scheduleName }}</div>
+                          <div class="charge-card__title">{{ charge.snm }}</div>
                           <div class="charge-card__sub">
-                            Apt {{ charge.apartmentNumber }} · Due {{ charge.dueDate | date:'mediumDate' }}
+                            Apt {{ charge.anm }} · Due {{ charge.dd | date:'mediumDate' }}
                           </div>
                         </div>
-                        <app-status-chip [status]="charge.status"></app-status-chip>
+                        <app-status-chip [status]="charge.st"></app-status-chip>
                       </div>
 
                       <div class="charge-card__details">
-                        <span>Amount: {{ charge.amount | currency:'INR':'symbol':'1.2-2' }}</span>
-                        @if (charge.isOverdue) {
+                        <span>Amount: {{ charge.amt | currency:'INR':'symbol':'1.2-2' }}</span>
+                        @if (charge.ov) {
                           <span class="text-danger">Overdue</span>
                         }
-                        @if (charge.transactionReference) {
-                          <span>Ref: {{ charge.transactionReference }}</span>
+                        @if (charge.tr) {
+                          <span>Ref: {{ charge.tr }}</span>
                         }
-                        @if (charge.paidAt) {
-                          <span>Paid: {{ charge.paidAt | date:'mediumDate' }}</span>
+                        @if (charge.pa) {
+                          <span>Paid: {{ charge.pa | date:'mediumDate' }}</span>
                         }
                       </div>
 
-                      @if (charge.status === 'Rejected' && charge.rejectionReason) {
-                        <div class="section-copy text-danger">Denied: {{ charge.rejectionReason }}</div>
+                      @if (charge.st === 'Rejected' && charge.rr) {
+                        <div class="section-copy text-danger">Denied: {{ charge.rr }}</div>
                       }
 
                       @if (isSelectableCharge(charge)) {
@@ -149,16 +149,16 @@ import { MAINTENANCE_PAGE_STYLES, formatFrequencyLabel } from './maintenance-sha
                         </mat-checkbox>
                       }
 
-                      @if (charge.proofs.length) {
+                      @if (charge.pf.length) {
                         <div class="proof-list">
                           <div class="section-copy proof-list__title">Submitted proofs</div>
-                          @for (proof of charge.proofs; track proof.proofUrl + proof.submittedAt) {
+                          @for (proof of charge.pf; track proof.pu + proof.sa) {
                             <div class="proof-item">
-                              <app-file-preview [src]="proof.proofUrl" alt="Payment proof" imgClass="proof-thumb"
-                                [clickable]="true" (imageClick)="lightboxSrc.set(proof.proofUrl)"></app-file-preview>
-                              <span>{{ proof.submittedAt | date:'medium' }}</span>
-                              @if (proof.notes) {
-                                <span>{{ proof.notes }}</span>
+                              <app-file-preview [src]="proof.pu" alt="Payment proof" imgClass="proof-thumb"
+                                [clickable]="true" (imageClick)="lightboxSrc.set(proof.pu)"></app-file-preview>
+                              <span>{{ proof.sa | date:'medium' }}</span>
+                              @if (proof.nt) {
+                                <span>{{ proof.nt }}</span>
                               }
                             </div>
                           }
@@ -192,28 +192,28 @@ import { MAINTENANCE_PAGE_STYLES, formatFrequencyLabel } from './maintenance-sha
                 <div class="sub-card stack">
                   <div class="section-header section-header--compact">
                     <div>
-                      <div class="section-title">{{ schedule.name }}</div>
+                      <div class="section-title">{{ schedule.nm }}</div>
                       <div class="section-copy">
-                        {{ schedule.apartmentId ? 'Specific apartment' : 'Entire society' }} ·
-                        {{ formatFrequency(schedule.frequency) }} ·
-                        Due on day {{ schedule.dueDay }}
+                        {{ schedule.aid ? 'Specific apartment' : 'Entire society' }} ·
+                        {{ formatFrequency(schedule.fq) }} ·
+                        Due on day {{ schedule.dd }}
                       </div>
                     </div>
                     <app-status-chip [status]="scheduleStatus(schedule)"></app-status-chip>
                   </div>
 
                   <div class="charge-card__details">
-                    <span>Rate: {{ schedule.rate | currency:'INR':'symbol':'1.2-2' }}</span>
-                    <span>{{ schedule.pricingType === 'PerSquareFoot' ? 'Per sq. ft.' : 'Fixed amount' }}</span>
-                    @if (schedule.areaBasis) {
-                      <span>{{ formatAreaBasis(schedule.areaBasis) }}</span>
+                    <span>Rate: {{ schedule.rt | currency:'INR':'symbol':'1.2-2' }}</span>
+                    <span>{{ schedule.pt === 'PerSquareFoot' ? 'Per sq. ft.' : 'Fixed amount' }}</span>
+                    @if (schedule.ab) {
+                      <span>{{ formatAreaBasis(schedule.ab) }}</span>
                     }
-                    <span>Active until: {{ schedule.activeUntilDate | date:'MMM yyyy' }}</span>
-                    <span>Next due: {{ schedule.nextDueDate | date:'mediumDate' }}</span>
+                    <span>Active until: {{ schedule.aud | date:'MMM yyyy' }}</span>
+                    <span>Next due: {{ schedule.ndd | date:'mediumDate' }}</span>
                   </div>
 
-                  @if (schedule.description) {
-                    <div class="section-copy">{{ schedule.description }}</div>
+                  @if (schedule.ds) {
+                    <div class="section-copy">{{ schedule.ds }}</div>
                   }
                 </div>
               }
@@ -237,7 +237,7 @@ export class MaintenanceUserComponent extends MaintenancePageBase {
   readonly submittingProof = signal(false);
   readonly uploadingProof = signal(false);
   readonly selectedChargeIds = signal<string[]>([]);
-  readonly uploadedProof = signal<{ fileName: string; fileUrl: string } | null>(null);
+  readonly uploadedProof = signal<MaintenanceProofUploadResponse | null>(null);
   readonly lightboxSrc = signal<string | null>(null);
 
   readonly proofForm = this.fb.group({
@@ -312,7 +312,7 @@ export class MaintenanceUserComponent extends MaintenancePageBase {
     this.submittingProof.set(true);
     this.maintenance.submitProof(societyId, {
       chargeIds: this.selectedChargeIds(),
-      proofUrl: this.uploadedProof()!.fileUrl,
+      proofUrl: this.uploadedProof()!.fu,
       notes: this.proofForm.controls.notes.value?.trim() || null,
     }).subscribe({
       next: () => {

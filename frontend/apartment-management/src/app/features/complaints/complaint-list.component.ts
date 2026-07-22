@@ -31,13 +31,13 @@ import { Complaint } from '../../core/models/complaint.model';
           @for (c of items(); track c.id) {
             <a [routerLink]="[c.id]" class="complaint-card">
               <div class="cc-header">
-                <span class="cc-title">{{ c.title }}</span>
-                <app-status-chip [status]="c.status"></app-status-chip>
+                <span class="cc-title">{{ c.tt }}</span>
+                <app-status-chip [status]="c.st"></app-status-chip>
               </div>
-              <p class="cc-desc">{{ c.description }}</p>
+              <p class="cc-desc">{{ c.ds }}</p>
               <div class="cc-meta">
-                <span class="material-icons">category</span> {{ c.category }} &nbsp;·&nbsp;
-                <span class="material-icons">schedule</span> {{ c.createdAt | date:'mediumDate' }}
+                <span class="material-icons">category</span> {{ c.cat }} &nbsp;·&nbsp;
+                <span class="material-icons">schedule</span> {{ c.ca | date:'mediumDate' }}
               </div>
             </a>
           }

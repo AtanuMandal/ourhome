@@ -78,12 +78,12 @@ export class ApartmentHouseholdMemberComponent implements OnInit {
 
   ngOnInit() {
     const user = this.auth.user();
-    if (!user || user.role !== 'SUUser' || (user.residentType !== 'Owner' && user.residentType !== 'Tenant')) {
+    if (!user || user.rl !== 'SUUser' || (user.rt !== 'Owner' && user.rt !== 'Tenant')) {
       this.router.navigate(['/apartments', this.route.snapshot.paramMap.get('id')]);
       return;
     }
 
-    const options = user.residentType === 'Owner'
+    const options = user.rt === 'Owner'
       ? [{ value: 'FamilyMember' as const, label: 'Family Member' }]
       : [{ value: 'CoOccupant' as const, label: 'Co-Occupant' }];
 

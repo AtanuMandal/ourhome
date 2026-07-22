@@ -37,7 +37,7 @@ export function VisitorPassScreen({ route }: VisitorPassScreenProps) {
   const societyId = useSocietyId();
   const { id } = route.params;
   const { data: visitor, isLoading } = useVisitor(societyId, id);
-  const role = useAuthStore((s) => s.user?.role ?? '');
+  const role = useAuthStore((s) => s.user?.rl ?? '');
   const canManageVisitors = role === 'SUAdmin' || role === 'SUSecurity';
   const { mutateAsync: checkOut, isPending: isCheckingOut } = useCheckOutVisitor(societyId);
   const [sharing, setSharing] = React.useState(false);
@@ -56,11 +56,11 @@ export function VisitorPassScreen({ route }: VisitorPassScreenProps) {
     if (!visitor) return;
     await Share.share({
       message:
-        `OurHome visitor pass for ${visitor.visitorName}\n` +
-        `Pass code: ${visitor.passCode}\n` +
-        (visitor.passCode ? `View pass: ${publicPassLink(visitor.passCode)}\n` : '') +
-        `Host: ${visitor.hostResidentName} (${visitor.hostBlockName} ${visitor.hostFloorNumber}-${visitor.hostFlatNumber})` +
-        (visitor.validUntil ? `\nValid until: ${formatDateTime(visitor.validUntil)}` : ''),
+        `OurHome visitor pass for ${visitor.vn}\n` +
+        `Pass code: ${visitor.pc}\n` +
+        (visitor.pc ? `View pass: ${publicPassLink(visitor.pc)}\n` : '') +
+        `Host: ${visitor.hrn} (${visitor.hbn} ${visitor.hfn}-${visitor.hft})` +
+        (visitor.vu ? `\nValid until: ${formatDateTime(visitor.vu)}` : ''),
     });
   }
 
@@ -70,10 +70,10 @@ export function VisitorPassScreen({ route }: VisitorPassScreenProps) {
     setSharing(true);
     try {
       await visitorsApi.sharePass(societyId, visitor.id, {
-        email: visitor.visitorEmail || undefined,
-        phone: visitor.visitorPhone || undefined,
+        email: visitor.ve || undefined,
+        phone: visitor.vp || undefined,
       });
-      Alert.alert('Pass sent', `The pass link has been sent to ${visitor.visitorName}.`);
+      Alert.alert('Pass sent', `The pass link has been sent to ${visitor.vn}.`);
     } catch (e) {
       Alert.alert('Could not send the pass', normalizeError(e));
     } finally {
@@ -81,7 +81,7 @@ export function VisitorPassScreen({ route }: VisitorPassScreenProps) {
     }
   }
 
-  const showPass = visitor != null && (visitor.status === 'Approved' || visitor.status === 'CheckedIn');
+  const showPass = visitor != null && (visitor.st === 'Approved' || visitor.st === 'CheckedIn');
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -91,58 +91,58 @@ export function VisitorPassScreen({ route }: VisitorPassScreenProps) {
         <ScrollView contentContainerStyle={styles.content}>
           <View style={styles.passCard}>
             <Text style={styles.passLabel}>VISITOR PASS</Text>
-            {!!visitor.visitorImageUrl && (
+            {!!visitor.img && (
               <TouchableOpacity
                 onPress={() => setPhotoZoomVisible(true)}
                 accessibilityLabel="View visitor photo"
               >
                 <Image
-                  source={{ uri: resolveFileUrl(visitor.visitorImageUrl) }}
+                  source={{ uri: resolveFileUrl(visitor.img) }}
                   style={styles.visitorPhoto}
                 />
               </TouchableOpacity>
             )}
-            {showPass && visitor.qrCode && !visitor.isPassExpired ? (
+            {showPass && visitor.qr && !visitor.ipe ? (
               <Image
-                source={{ uri: qrImageUri(visitor.qrCode) }}
+                source={{ uri: qrImageUri(visitor.qr) }}
                 style={styles.qrImage}
                 accessibilityLabel="Visitor pass QR code"
               />
             ) : (
               <View style={styles.qrPlaceholder}>
-                <Text style={styles.qrText}>{visitor.isPassExpired ? 'EXPIRED' : '—'}</Text>
-                <Text style={styles.qrId}>{visitor.passCode || visitor.id.slice(0, 8)}</Text>
+                <Text style={styles.qrText}>{visitor.ipe ? 'EXPIRED' : '—'}</Text>
+                <Text style={styles.qrId}>{visitor.pc || visitor.id.slice(0, 8)}</Text>
               </View>
             )}
-            {!!visitor.passCode && (
-              <Text style={styles.passCode}>Pass code: {visitor.passCode}</Text>
+            {!!visitor.pc && (
+              <Text style={styles.passCode}>Pass code: {visitor.pc}</Text>
             )}
-            <Text style={styles.visitorName}>{visitor.visitorName}</Text>
-            <Text style={styles.meta}>Phone: {visitor.visitorPhone}</Text>
-            <Text style={styles.meta}>Purpose: {visitor.purpose}</Text>
+            <Text style={styles.visitorName}>{visitor.vn}</Text>
+            <Text style={styles.meta}>Phone: {visitor.vp}</Text>
+            <Text style={styles.meta}>Purpose: {visitor.pu}</Text>
             <Text style={styles.meta}>
-              Host: {visitor.hostResidentName} · {visitor.hostBlockName} {visitor.hostFloorNumber}-{visitor.hostFlatNumber}
+              Host: {visitor.hrn} · {visitor.hbn} {visitor.hfn}-{visitor.hft}
             </Text>
-            {visitor.validUntil != null && (
-              <Text style={styles.meta}>Valid until: {formatDateTime(visitor.validUntil)}</Text>
+            {visitor.vu != null && (
+              <Text style={styles.meta}>Valid until: {formatDateTime(visitor.vu)}</Text>
             )}
 
             <View style={styles.statusRow}>
-              <StatusChip status={visitor.status} />
+              <StatusChip status={visitor.st} />
             </View>
 
-            {visitor.checkInTime != null && (
+            {visitor.cit != null && (
               <Text style={styles.time}>
-                Check-in: {formatDateTime(visitor.checkInTime)}
+                Check-in: {formatDateTime(visitor.cit)}
               </Text>
             )}
-            {visitor.checkOutTime != null && (
+            {visitor.cot != null && (
               <Text style={styles.time}>
-                Check-out: {formatDateTime(visitor.checkOutTime)}
+                Check-out: {formatDateTime(visitor.cot)}
               </Text>
             )}
 
-            {showPass && !visitor.isPassExpired && (
+            {showPass && !visitor.ipe && (
               <View style={styles.shareRow}>
                 <TouchableOpacity
                   style={[styles.shareBtn, styles.shareBtnOutline]}
@@ -162,7 +162,7 @@ export function VisitorPassScreen({ route }: VisitorPassScreenProps) {
               </View>
             )}
 
-            {canManageVisitors && visitor.status === 'CheckedIn' && (
+            {canManageVisitors && visitor.st === 'CheckedIn' && (
               <TouchableOpacity
                 style={styles.checkOutBtn}
                 onPress={() => void handleCheckOut()}
@@ -175,10 +175,10 @@ export function VisitorPassScreen({ route }: VisitorPassScreenProps) {
           </View>
         </ScrollView>
       )}
-      {visitor?.visitorImageUrl != null && (
+      {visitor?.img != null && (
         <ImageZoomModal
           visible={photoZoomVisible}
-          uri={resolveFileUrl(visitor.visitorImageUrl)}
+          uri={resolveFileUrl(visitor.img)}
           onClose={() => setPhotoZoomVisible(false)}
         />
       )}

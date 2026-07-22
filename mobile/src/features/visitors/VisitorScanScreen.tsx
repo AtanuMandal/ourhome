@@ -48,7 +48,7 @@ export function VisitorScanScreen() {
       const visitor = await checkInByPass(passCode);
       Alert.alert(
         'Pass valid — checked in',
-        `${visitor.visitorName} is now checked in.`,
+        `${visitor.vn} is now checked in.`,
         [
           { text: 'Scan next', onPress: () => { scanLock.current = false; } },
           { text: 'Done', onPress: () => navigation.goBack() },

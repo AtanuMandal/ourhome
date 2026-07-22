@@ -16,6 +16,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../auth/useAuth';
 import { authApi, type PasswordResetOption } from '../api/endpoints/auth';
+import type { LoginOptionDto } from '../api/types';
 import * as loginPreference from '../auth/loginPreference';
 import type { LoginMethod } from '../auth/loginPreference';
 import { validatePassword } from '../shared/utils/password';
@@ -61,7 +62,7 @@ function EmailPasswordLoginScreen({ navigation, onSwitchToPhone }: { navigation:
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [options, setOptions] = useState<Array<{ userId: string; societyId: string; societyName: string; role: string; apartmentLabel: string | null }> | null>(null);
+  const [options, setOptions] = useState<LoginOptionDto[] | null>(null);
   const { login } = useAuth();
 
   async function handleLogin(selectedUserId?: string): Promise<void> {
@@ -92,13 +93,13 @@ function EmailPasswordLoginScreen({ navigation, onSwitchToPhone }: { navigation:
           <Text style={styles.subheading}>Your email is linked to multiple accounts</Text>
           {options.map((opt) => (
             <TouchableOpacity
-              key={opt.userId}
+              key={opt.uid}
               style={styles.optionRow}
-              onPress={() => void handleLogin(opt.userId)}
+              onPress={() => void handleLogin(opt.uid)}
             >
               <View style={styles.optionLeft}>
-                <Text style={styles.optionSociety}>{opt.societyName}</Text>
-                <Text style={styles.optionMeta}>{opt.role}{opt.apartmentLabel ? ` · ${opt.apartmentLabel}` : ''}</Text>
+                <Text style={styles.optionSociety}>{opt.snm}</Text>
+                <Text style={styles.optionMeta}>{opt.rl}{opt.alb ? ` · ${opt.alb}` : ''}</Text>
               </View>
               <Text style={styles.optionArrow}>›</Text>
             </TouchableOpacity>
@@ -178,14 +179,14 @@ function PhoneOtpLoginScreen({ navigation, onSwitchToEmail }: { navigation: Auth
     setLoading(true);
     try {
       const res = await authApi.requestOtpLogin(phone.trim(), selectedUserId);
-      if (res.requiresSelection && !selectedUserId) {
-        setOptions(res.options);
+      if (res.rs && !selectedUserId) {
+        setOptions(res.opts);
         setStep('select-account');
         return;
       }
-      const opt = res.options[0] ?? null;
-      setResolvedUserId(res.userId ?? opt?.userId ?? null);
-      setResolvedSocietyId(opt?.societyId ?? null);
+      const opt = res.opts[0] ?? null;
+      setResolvedUserId(res.uid ?? opt?.uid ?? null);
+      setResolvedSocietyId(opt?.sid ?? null);
       setStep('enter-otp');
     } catch (e) {
       Alert.alert('Error', normalizeError(e));
@@ -196,7 +197,7 @@ function PhoneOtpLoginScreen({ navigation, onSwitchToEmail }: { navigation: Auth
 
   function handleSelectOption(opt: PasswordResetOption): void {
     setOptions(null);
-    void handleRequestOtp(opt.userId);
+    void handleRequestOtp(opt.uid);
   }
 
   async function handleVerifyOtp(): Promise<void> {
@@ -220,10 +221,10 @@ function PhoneOtpLoginScreen({ navigation, onSwitchToEmail }: { navigation: Auth
           <Text style={styles.heading}>Select Account</Text>
           <Text style={styles.subheading}>This number is linked to multiple accounts</Text>
           {options.map((opt) => (
-            <TouchableOpacity key={opt.userId} style={styles.optionRow} onPress={() => handleSelectOption(opt)}>
+            <TouchableOpacity key={opt.uid} style={styles.optionRow} onPress={() => handleSelectOption(opt)}>
               <View style={styles.optionLeft}>
-                <Text style={styles.optionSociety}>{opt.societyName}</Text>
-                <Text style={styles.optionMeta}>{opt.role}{opt.apartmentLabel ? ` · ${opt.apartmentLabel}` : ''}</Text>
+                <Text style={styles.optionSociety}>{opt.snm}</Text>
+                <Text style={styles.optionMeta}>{opt.rl}{opt.alb ? ` · ${opt.alb}` : ''}</Text>
               </View>
               <Text style={styles.optionArrow}>›</Text>
             </TouchableOpacity>
@@ -315,11 +316,11 @@ function ForgotPasswordScreen() {
     setLoading(true);
     try {
       const res = await authApi.requestPasswordReset(email.trim());
-      if (res.requiresSelection && res.options.length > 1) {
-        setOptions(res.options);
+      if (res.rs && res.opts.length > 1) {
+        setOptions(res.opts);
       } else {
         // Single account — OTP sent automatically
-        const opt = res.options[0] ?? null;
+        const opt = res.opts[0] ?? null;
         setSelectedOption(opt);
         setStep('confirm');
       }
@@ -348,8 +349,8 @@ function ForgotPasswordScreen() {
     setLoading(true);
     try {
       await authApi.confirmPasswordReset({
-        userId: selectedOption.userId,
-        societyId: selectedOption.societyId,
+        userId: selectedOption.uid,
+        societyId: selectedOption.sid,
         otpCode: otpCode.trim(),
         newPassword,
       });
@@ -370,10 +371,10 @@ function ForgotPasswordScreen() {
           <Text style={styles.heading}>Select Account</Text>
           <Text style={styles.subheading}>Choose which account to reset</Text>
           {options.map((opt) => (
-            <TouchableOpacity key={opt.userId} style={styles.optionRow} onPress={() => handleSelectOption(opt)}>
+            <TouchableOpacity key={opt.uid} style={styles.optionRow} onPress={() => handleSelectOption(opt)}>
               <View style={styles.optionLeft}>
-                <Text style={styles.optionSociety}>{opt.societyName}</Text>
-                <Text style={styles.optionMeta}>{opt.role}{opt.apartmentLabel ? ` · ${opt.apartmentLabel}` : ''}</Text>
+                <Text style={styles.optionSociety}>{opt.snm}</Text>
+                <Text style={styles.optionMeta}>{opt.rl}{opt.alb ? ` · ${opt.alb}` : ''}</Text>
               </View>
               <Text style={styles.optionArrow}>›</Text>
             </TouchableOpacity>

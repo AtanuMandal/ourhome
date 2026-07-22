@@ -42,25 +42,25 @@ jest.mock('@expo/vector-icons', () => {
 
 const mockSociety = {
   id: 'soc-1',
-  name: 'Green Valley',
-  contactEmail: 'admin@gv.com',
-  contactPhone: '+91-9876543210',
-  totalBlocks: 2,
-  totalApartments: 40,
-  maintenanceOverdueThresholdDays: 7,
-  societyUsers: [],
-  committees: [
+  nm: 'Green Valley',
+  ce: 'admin@gv.com',
+  cp: '+91-9876543210',
+  tb: 2,
+  ta: 40,
+  mot: 7,
+  su: [],
+  cm: [
     {
-      name: 'Managing Committee',
-      members: [{ userId: 'u1', fullName: 'Bob Jones', email: 'bob@example.com', roleTitle: 'Chairman' }],
+      nm: 'Managing Committee',
+      mem: [{ uid: 'u1', fn: 'Bob Jones', em: 'bob@example.com', rt: 'Chairman' }],
     },
   ],
 };
 
 const mockResidents = {
   items: [
-    { id: 'u1', fullName: 'Bob Jones', email: 'bob@example.com' },
-    { id: 'u2', fullName: 'Carol White', email: 'carol@example.com' },
+    { id: 'u1', fn: 'Bob Jones', em: 'bob@example.com' },
+    { id: 'u2', fn: 'Carol White', em: 'carol@example.com' },
   ],
   total: 2,
   page: 1,
@@ -71,7 +71,7 @@ describe('CommitteeScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     useAuthStore.setState({
-      user: { id: 'admin1', societyId: 'soc-1', fullName: 'Admin', email: 'a@a.com', phone: '1', role: 'SUAdmin', residentType: 'SocietyAdmin', isVerified: true, isActive: true },
+      user: { id: 'admin1', sid: 'soc-1', fn: 'Admin', em: 'a@a.com', ph: '1', rl: 'SUAdmin', rt: 'SocietyAdmin', vf: true, ac: true },
       token: 'tok',
       isAuthenticated: true,
     });

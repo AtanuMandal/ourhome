@@ -10,10 +10,10 @@ import { Notice } from '../../core/models/notice.model';
 describe('NoticeListComponent', () => {
   function makeNotice(overrides: Partial<Notice> = {}): Notice {
     return {
-      id: 'n1', societyId: 'soc-1', title: 'AGM Announcement', content: 'Please review the resolutions.',
-      category: 'General', postedByUserId: 'admin-1', isArchived: false, isActive: true,
-      publishAt: '2026-01-01T00:00:00Z', targetApartmentIds: [], createdAt: '2026-01-01T00:00:00Z',
-      isReadByCurrentUser: false,
+      id: 'n1', tt: 'AGM Announcement', ct: 'Please review the resolutions.',
+      cat: 'General', pid: 'admin-1',
+      pa: '2026-01-01T00:00:00Z',
+      rd: false,
       ...overrides,
     } as Notice;
   }
@@ -45,7 +45,7 @@ describe('NoticeListComponent', () => {
   });
 
   it('shows a green read tick and no mark-read button for a read notice', () => {
-    const { fixture } = setup([makeNotice({ isReadByCurrentUser: true })]);
+    const { fixture } = setup([makeNotice({ rd: true })]);
     const el = fixture.nativeElement as HTMLElement;
 
     expect(el.querySelector('.nc-read-tick')).toBeTruthy();
@@ -53,7 +53,7 @@ describe('NoticeListComponent', () => {
   });
 
   it('shows a mark-read button (no unmark option) for an unread notice', () => {
-    const { fixture } = setup([makeNotice({ isReadByCurrentUser: false })]);
+    const { fixture } = setup([makeNotice({ rd: false })]);
     const el = fixture.nativeElement as HTMLElement;
 
     expect(el.querySelector('.nc-read-toggle')).toBeTruthy();
@@ -61,13 +61,13 @@ describe('NoticeListComponent', () => {
   });
 
   it('marks a notice read and swaps in the green tick, with no way to undo it', () => {
-    const { component, noticeServiceStub, fixture } = setup([makeNotice({ isReadByCurrentUser: false })]);
+    const { component, noticeServiceStub, fixture } = setup([makeNotice({ rd: false })]);
 
     component.markRead(component.items()[0], new MouseEvent('click'));
     fixture.detectChanges();
 
     expect(noticeServiceStub.markRead).toHaveBeenCalledWith('soc-1', 'n1');
-    expect(component.items()[0].isReadByCurrentUser).toBeTrue();
+    expect(component.items()[0].rd).toBeTrue();
 
     const el = fixture.nativeElement as HTMLElement;
     expect(el.querySelector('.nc-read-tick')).toBeTruthy();

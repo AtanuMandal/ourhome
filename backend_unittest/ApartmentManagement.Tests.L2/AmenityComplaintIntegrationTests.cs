@@ -90,7 +90,7 @@ public class AmenityComplaintIntegrationTests : IntegrationTestBase
             SocietyId, UserId, new PaginationParams { Page = 1, PageSize = 10 }));
 
         myBookings.IsSuccess.Should().BeTrue();
-        myBookings.Value!.Items.Should().ContainSingle(b => b.AmenityId == amenityId);
+        myBookings.Value!.Items.Should().ContainSingle(b => b.AmenityName == "Tennis Court");
     }
 
     // ─── Amenity: overlapping slot → conflict ─────────────────────────────────
@@ -224,7 +224,7 @@ public class AmenityComplaintIntegrationTests : IntegrationTestBase
 
         result.IsSuccess.Should().BeTrue();
         result.Value!.Status.Should().Be("InProgress");
-        result.Value.AssignedToUserId.Should().Be("staff-user-001");
+        ComplaintRepo.Store[complaintId].AssignedToUserId.Should().Be("staff-user-001");
     }
 
     [Fact]
@@ -315,12 +315,19 @@ public class AmenityComplaintIntegrationTests : IntegrationTestBase
     [Fact]
     public async Task GetComplaintsByApartment_ReturnsOnlyApartmentComplaints()
     {
-        await CreateTestComplaintAsync();
+        var matchingId = await CreateTestComplaintAsync();
+        var otherApartmentCmd = new CreateComplaintCommand(
+            SocietyId, "apt-999", UserId,
+            "Other apartment issue", "Not related to the target apartment",
+            ComplaintCategory.Maintenance, ComplaintPriority.Medium, []);
+        var otherResult = await Mediator.Send(otherApartmentCmd);
+        var otherId = otherResult.Value!.Id;
 
         var result = await Mediator.Send(new GetComplaintsByApartmentQuery(
             SocietyId, ApartmentId, new PaginationParams { Page = 1, PageSize = 10 }));
 
         result.IsSuccess.Should().BeTrue();
-        result.Value!.Items.Should().OnlyContain(c => c.ApartmentId == ApartmentId);
+        result.Value!.Items.Should().Contain(c => c.Id == matchingId);
+        result.Value.Items.Should().NotContain(c => c.Id == otherId);
     }
 }

@@ -44,7 +44,7 @@ export class LoginComponent {
   readonly error = signal('');
   readonly options = signal<LoginOption[]>([]);
   readonly loginSelectOptions = computed(() =>
-    this.options().map(o => ({ value: o.userId, label: this.labelFor(o) }))
+    this.options().map(o => ({ value: o.uid, label: this.labelFor(o) }))
   );
 
   // ── Login method (phone+OTP is the default) ──────────────────────────────
@@ -74,10 +74,10 @@ export class LoginComponent {
     this.auth.login(value.email, value.password, value.selectedUserId || undefined).subscribe({
       next: res => {
         this.loading.set(false);
-        if (res.requiresSelection) {
-          this.options.set(res.options);
-          if (!value.selectedUserId && res.options.length) {
-            this.form.patchValue({ selectedUserId: res.options[0].userId });
+        if (res.rs) {
+          this.options.set(res.opts);
+          if (!value.selectedUserId && res.opts.length) {
+            this.form.patchValue({ selectedUserId: res.opts[0].uid });
           }
           return;
         }
@@ -112,17 +112,17 @@ export class LoginComponent {
     this.auth.requestOtpLogin(value.phone, value.selectedUserId || undefined).subscribe({
       next: res => {
         this.loading.set(false);
-        if (res.requiresSelection) {
-          this.options.set(res.options);
-          if (res.options.length) {
-            this.phoneForm.patchValue({ selectedUserId: res.options[0].userId });
+        if (res.rs) {
+          this.options.set(res.opts);
+          if (res.opts.length) {
+            this.phoneForm.patchValue({ selectedUserId: res.opts[0].uid });
           }
           this.phoneStep.set('select-account');
           return;
         }
 
-        this.otpUserId = res.userId!;
-        this.otpSocietyId = res.options[0]?.societyId ?? '';
+        this.otpUserId = res.uid!;
+        this.otpSocietyId = res.opts[0]?.sid ?? '';
         this.phoneStep.set('enter-otp');
       },
       error: (err: HttpErrorResponse) => {
@@ -157,8 +157,8 @@ export class LoginComponent {
   }
 
   labelFor(option: LoginOption) {
-    const apartment = option.apartmentLabel ?? option.apartmentId ?? 'No apartment';
-    return `${option.societyName} - ${apartment} - ${option.residentType}`;
+    const apartment = option.alb ?? option.aid ?? 'No apartment';
+    return `${option.snm} - ${apartment} - ${option.rt}`;
   }
 
   private messageFor(err: HttpErrorResponse, fallback: string): string {

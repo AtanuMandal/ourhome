@@ -12,35 +12,28 @@ describe('AgmSessionDetailComponent', () => {
   function makeResolution(overrides: Partial<Poll>): Poll {
     return {
       id: overrides.id ?? 'r1',
-      societyId: 'soc-1',
-      title: overrides.title ?? 'Resolution 1',
-      description: 'desc',
-      type: overrides.type ?? 'SingleChoice',
-      options: [{ id: 'o1', text: 'Yes' }, { id: 'o2', text: 'No' }],
-      opensAt: '2026-01-01T00:00:00Z',
-      closesAt: '2026-01-10T00:00:00Z',
-      targetAudience: 'FullSociety',
-      targetBlockNames: [],
-      eligibilityUnit: 'PerResident',
-      anonymity: 'Anonymous',
-      visibility: 'Immediately',
-      isAgmResolution: true,
-      allowVoteChange: true,
-      status: overrides.status ?? 'Open',
-      resultsPublished: overrides.resultsPublished ?? false,
-      createdByUserId: 'admin-1',
-      createdAt: '2026-01-01T00:00:00Z',
-      hasVoted: false,
-      agmSessionId: 's1',
+      tt: 'Resolution 1',
+      ds: 'desc',
+      ty: 'SingleChoice',
+      op: [{ id: 'o1', tx: 'Yes' }, { id: 'o2', tx: 'No' }],
+      oa: '2026-01-01T00:00:00Z',
+      ca: '2026-01-10T00:00:00Z',
+      ta: 'FullSociety',
+      tbn: [],
+      agm: true,
+      avc: true,
+      st: 'Open',
+      rp: false,
+      hv: false,
       ...overrides,
     };
   }
 
   function makeSession(resolutions: Poll[]): AgmSessionDetail {
     return {
-      id: 's1', societyId: 'soc-1', title: 'AGM 2026', description: 'Yearly resolutions',
-      sessionDate: '2026-04-15T10:00:00Z', createdByUserId: 'admin-1', createdAt: '2026-01-01T00:00:00Z',
-      resolutions,
+      id: 's1', tt: 'AGM 2026', ds: 'Yearly resolutions',
+      sd: '2026-04-15T10:00:00Z',
+      r: resolutions,
     };
   }
 
@@ -55,7 +48,7 @@ describe('AgmSessionDetailComponent', () => {
     const authServiceStub = {
       societyId: () => 'soc-1',
       isAdmin: () => role === 'SUAdmin',
-      user: () => ({ role }),
+      user: () => ({ rl: role }),
     };
 
     TestBed.configureTestingModule({
@@ -76,21 +69,21 @@ describe('AgmSessionDetailComponent', () => {
   it('loads the session and its resolutions', () => {
     const { component } = setup(makeSession([makeResolution({ id: 'r1' })]), 'SUUser');
 
-    expect(component.session()?.resolutions.length).toBe(1);
+    expect(component.session()?.r.length).toBe(1);
   });
 
   it('allows a resident to vote on an open resolution', () => {
     const { component, pollServiceStub } = setup(makeSession([makeResolution({ id: 'r1' })]), 'SUUser');
 
     component.setSingleSelection('r1', 'o1');
-    component.submitVote(component.session()!.resolutions[0]);
+    component.submitVote(component.session()!.r[0]);
 
     expect(pollServiceStub.vote).toHaveBeenCalledWith('soc-1', 'r1', { selectedOptionIds: ['o1'] });
   });
 
   it('tracks selections independently per resolution', () => {
     const { component } = setup(
-      makeSession([makeResolution({ id: 'r1' }), makeResolution({ id: 'r2', title: 'Resolution 2' })]),
+      makeSession([makeResolution({ id: 'r1' }), makeResolution({ id: 'r2', tt: 'Resolution 2' })]),
       'SUUser',
     );
 
@@ -104,28 +97,28 @@ describe('AgmSessionDetailComponent', () => {
   it('SUAdmin can close a resolution early', () => {
     const { component, pollServiceStub } = setup(makeSession([makeResolution({ id: 'r1' })]), 'SUAdmin');
 
-    component.closeResolution(component.session()!.resolutions[0]);
+    component.closeResolution(component.session()!.r[0]);
 
     expect(pollServiceStub.close).toHaveBeenCalledWith('soc-1', 'r1');
   });
 
   it('SUAdmin can publish results for a closed, unpublished resolution', () => {
     const { component, pollServiceStub } = setup(
-      makeSession([makeResolution({ id: 'r1', status: 'Closed', resultsPublished: false })]),
+      makeSession([makeResolution({ id: 'r1', st: 'Closed', rp: false })]),
       'SUAdmin',
     );
 
-    component.publishResolution(component.session()!.resolutions[0]);
+    component.publishResolution(component.session()!.r[0]);
 
     expect(pollServiceStub.publishResults).toHaveBeenCalledWith('soc-1', 'r1');
   });
 
   it('labels a block-targeted resolution', () => {
     const { component } = setup(
-      makeSession([makeResolution({ id: 'r1', targetAudience: 'PerBlock', targetBlockNames: ['BLOCK A'] })]),
+      makeSession([makeResolution({ id: 'r1', ta: 'PerBlock', tbn: ['BLOCK A'] })]),
       'SUUser',
     );
 
-    expect(component.targetAudienceLabel(component.session()!.resolutions[0])).toBe('Block: BLOCK A');
+    expect(component.targetAudienceLabel(component.session()!.r[0])).toBe('Block: BLOCK A');
   });
 });

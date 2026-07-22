@@ -47,7 +47,7 @@ const STATUS_OPTIONS = [
 export function VisitorListScreen() {
   const navigation = useNavigation<VisitorsNav>();
   const societyId = useSocietyId();
-  const role = useAuthStore((s) => s.user?.role ?? '');
+  const role = useAuthStore((s) => s.user?.rl ?? '');
   // Multi-apartment aware: host-approval rights follow the apartment selected in the drawer.
   const { activeApartmentId } = useActiveApartment();
   const myApartmentId = activeApartmentId ?? '';
@@ -80,7 +80,7 @@ export function VisitorListScreen() {
 
   const data = isDefaultView ? (defaultView.data ?? []) : filteredList.data;
   // Backend already sorts overstaying visitors to the top of the list — this just drives the banner count.
-  const overstayCount = data.filter((v) => v.isOverstay === true).length;
+  const overstayCount = data.filter((v) => v.ov === true).length;
   const isLoading = isDefaultView ? defaultView.isLoading : filteredList.isLoading;
   const hasNextPage = isDefaultView ? false : filteredList.hasNextPage;
   const fetchNextPage = isDefaultView ? async () => undefined : filteredList.fetchNextPage;
@@ -118,62 +118,62 @@ export function VisitorListScreen() {
     try {
       const visitor = await checkInByPass(code);
       setPassCode('');
-      Alert.alert('Pass verified', `${visitor.visitorName} is checked in.`);
+      Alert.alert('Pass verified', `${visitor.vn} is checked in.`);
     } catch (e) {
       Alert.alert('Could not verify the pass', normalizeError(e));
     }
   }
 
   const canApprove = useCallback((item: Visitor): boolean => {
-    if (item.status !== 'Pending') return false;
+    if (item.st !== 'Pending') return false;
     // Only the host resident can approve a visitor — SUAdmin and SUSecurity may deny but not approve.
-    return item.hostApartmentId === myApartmentId;
+    return item.aid === myApartmentId;
   }, [myApartmentId]);
 
   const canCheckOut = useCallback((item: Visitor): boolean => {
-    return canModerate && item.status === 'CheckedIn';
+    return canModerate && item.st === 'CheckedIn';
   }, [canModerate]);
 
   const renderItem = useCallback(({ item }: { item: Visitor }) => {
     return (
       <TouchableOpacity
-        style={[styles.item, item.isOverstay === true && styles.itemOverstay]}
+        style={[styles.item, item.ov === true && styles.itemOverstay]}
         onPress={() => navigation.navigate('VisitorDetail', { id: item.id })}
       >
         <View style={styles.itemTop}>
-          {item.visitorImageUrl ? (
+          {item.img ? (
             <Image
-              source={{ uri: resolveFileUrl(item.visitorImageUrl) }}
+              source={{ uri: resolveFileUrl(item.img) }}
               style={styles.avatarImage}
-              accessibilityLabel={`Photo of ${item.visitorName}`}
+              accessibilityLabel={`Photo of ${item.vn}`}
             />
           ) : (
             <View style={styles.avatarFallback}>
-              <Text style={styles.avatarFallbackText}>{item.visitorName?.[0] ?? '?'}</Text>
+              <Text style={styles.avatarFallbackText}>{item.vn?.[0] ?? '?'}</Text>
             </View>
           )}
           <View style={styles.itemLeft}>
-            <Text style={[styles.visitorName, item.isOverstay === true && styles.visitorNameOverstay]}>
-              {item.visitorName}
+            <Text style={[styles.visitorName, item.ov === true && styles.visitorNameOverstay]}>
+              {item.vn}
             </Text>
-            {item.companyName != null && item.companyName !== '' && (
-              <Text style={styles.company}>{item.companyName}</Text>
+            {item.cn != null && item.cn !== '' && (
+              <Text style={styles.company}>{item.cn}</Text>
             )}
             <Text style={styles.meta}>
-              {item.hostResidentName} • {item.hostBlockName} {item.hostFloorNumber}-{item.hostFlatNumber}
+              {item.hrn} • {item.hbn} {item.hfn}-{item.hft}
             </Text>
-            <Text style={styles.purpose}>{item.purpose}</Text>
-            {item.checkInTime != null && (
-              <Text style={styles.time}>{formatDateTime(item.checkInTime)}</Text>
+            <Text style={styles.purpose}>{item.pu}</Text>
+            {item.cit != null && (
+              <Text style={styles.time}>{formatDateTime(item.cit)}</Text>
             )}
-            {item.isOverstay === true && (
+            {item.ov === true && (
               <Text style={styles.overstayFlag}>Overstaying past the society threshold</Text>
             )}
           </View>
-          <StatusChip status={item.status} />
+          <StatusChip status={item.st} />
         </View>
 
-        {(canApprove(item) || canCheckOut(item) || (canModerate && item.status === 'Pending')) && (
+        {(canApprove(item) || canCheckOut(item) || (canModerate && item.st === 'Pending')) && (
           <View style={styles.actions}>
             {canApprove(item) && (
               <TouchableOpacity
@@ -183,7 +183,7 @@ export function VisitorListScreen() {
                 <Text style={styles.actionBtnText}>Approve</Text>
               </TouchableOpacity>
             )}
-            {(canModerate && item.status === 'Pending') && (
+            {(canModerate && item.st === 'Pending') && (
               <TouchableOpacity
                 style={[styles.actionBtn, styles.denyBtn]}
                 onPress={(e) => { e.stopPropagation(); deny(item.id); }}

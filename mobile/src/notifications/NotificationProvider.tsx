@@ -63,7 +63,7 @@ export function NotificationProvider({
         if (user) {
           const platform = Platform.OS === 'ios' ? 'ios' : 'android';
           await profileApi.registerMobilePushToken(
-            user.societyId,
+            user.sid,
             user.id,
             platform,
             token
@@ -83,7 +83,7 @@ export function NotificationProvider({
     responseSub.current = Notifications.addNotificationResponseReceivedListener(
       (response) => {
         if (navigationRef?.current && user) {
-          routeNotification(response, navigationRef.current, user.societyId);
+          routeNotification(response, navigationRef.current, user.sid);
         }
       }
     );

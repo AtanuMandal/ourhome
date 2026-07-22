@@ -15,15 +15,15 @@ interface UseAuthReturn {
 function toUser(dto: AuthUserDto): User {
   return {
     id: dto.id,
-    societyId: dto.societyId,
-    fullName: dto.name,
-    email: dto.email,
-    phone: dto.phone ?? '',
-    role: dto.role,
-    residentType: (dto.residentType as ResidentType) ?? 'Owner',
-    apartmentId: dto.apartmentId ?? undefined,
-    isVerified: dto.isVerified,
-    isActive: true,
+    sid: dto.sid,
+    fn: dto.nm,
+    em: dto.em,
+    ph: dto.ph ?? '',
+    rl: dto.rl,
+    rt: (dto.rt as ResidentType) ?? 'Owner',
+    aid: dto.aid ?? undefined,
+    vf: dto.vf,
+    ac: true,
   };
 }
 
@@ -33,21 +33,21 @@ export function useAuth(): UseAuthReturn {
   async function login(email: string, password: string, selectedUserId?: string): Promise<void> {
     const response = await authApi.login({ email, password, selectedUserId });
 
-    if (response.requiresSelection || !response.token || !response.user) {
+    if (response.rs || !response.tok || !response.usr) {
       // Multi-society account: caller should present options and re-call with selectedUserId
       const err = new Error('REQUIRES_SELECTION');
-      (err as Error & { options: typeof response.options }).options = response.options;
+      (err as Error & { options: typeof response.opts }).options = response.opts;
       throw err;
     }
 
-    await tokenStore.setToken(response.token);
-    setUser(toUser(response.user), response.token);
+    await tokenStore.setToken(response.tok);
+    setUser(toUser(response.usr), response.tok);
   }
 
   async function loginWithOtp(societyId: string, userId: string, otpCode: string): Promise<void> {
     const response = await authApi.verifyOtpLogin(societyId, userId, otpCode);
-    await tokenStore.setToken(response.accessToken);
-    setUser(toUser(response.user), response.accessToken);
+    await tokenStore.setToken(response.tok);
+    setUser(toUser(response.usr), response.tok);
   }
 
   async function logout(): Promise<void> {

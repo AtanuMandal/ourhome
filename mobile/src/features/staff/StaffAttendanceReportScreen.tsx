@@ -21,7 +21,7 @@ export function StaffAttendanceReportScreen() {
   const [toDate] = useState(isoDate(new Date()));
 
   const { data: report, isLoading } = useStaffAttendanceReport(societyId, fromDate, toDate);
-  const entries = report?.entries ?? [];
+  const entries = report?.e ?? [];
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -33,14 +33,14 @@ export function StaffAttendanceReportScreen() {
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
           {entries.map((entry: StaffAttendanceReportEntry) => (
-            <View key={entry.staffId} style={styles.card}>
-              <Text style={styles.name}>{entry.staffName}</Text>
-              <Text style={styles.category}>{entry.category}</Text>
+            <View key={entry.sid} style={styles.card}>
+              <Text style={styles.name}>{entry.sn}</Text>
+              <Text style={styles.category}>{entry.cat}</Text>
               <View style={styles.row}>
-                <Text style={styles.stat}>Present: {entry.presentDays}</Text>
-                <Text style={styles.stat}>Late: {entry.lateDays}</Text>
-                <Text style={styles.stat}>Absent: {entry.absentDays}</Text>
-                <Text style={styles.stat}>On Leave: {entry.onLeaveDays}</Text>
+                <Text style={styles.stat}>Present: {entry.pd}</Text>
+                <Text style={styles.stat}>Late: {entry.ld}</Text>
+                <Text style={styles.stat}>Absent: {entry.ad}</Text>
+                <Text style={styles.stat}>On Leave: {entry.od}</Text>
               </View>
             </View>
           ))}

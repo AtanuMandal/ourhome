@@ -37,7 +37,7 @@ describe('ContactUsScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     useAuthStore.setState({
-      user: { id: 'u1', societyId: 'soc-1', fullName: 'Alice', email: 'a@a.com', phone: '1', role: 'SUUser', residentType: 'Owner', isVerified: true, isActive: true },
+      user: { id: 'u1', sid: 'soc-1', fn: 'Alice', em: 'a@a.com', ph: '1', rl: 'SUUser', rt: 'Owner', vf: true, ac: true },
       token: 'tok',
       isAuthenticated: true,
     });
@@ -46,15 +46,15 @@ describe('ContactUsScreen', () => {
   test('renders society contact info and committee members', async () => {
     (societyApi.getSociety as jest.Mock).mockResolvedValue({
       id: 'soc-1',
-      name: 'Green Valley',
-      contactEmail: 'admin@gv.com',
-      contactPhone: '+91-9876543210',
-      totalBlocks: 2,
-      totalApartments: 40,
-      maintenanceOverdueThresholdDays: 7,
-      societyUsers: [],
-      committees: [
-        { name: 'Managing Committee', members: [{ userId: 'u1', fullName: 'Bob Jones', email: 'bob@example.com', roleTitle: 'Chairman' }] },
+      nm: 'Green Valley',
+      ce: 'admin@gv.com',
+      cp: '+91-9876543210',
+      tb: 2,
+      ta: 40,
+      mot: 7,
+      su: [],
+      cm: [
+        { nm: 'Managing Committee', mem: [{ uid: 'u1', fn: 'Bob Jones', em: 'bob@example.com', rt: 'Chairman' }] },
       ],
     });
 

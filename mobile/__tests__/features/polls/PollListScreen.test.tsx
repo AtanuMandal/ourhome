@@ -26,13 +26,11 @@ jest.mock('@expo/vector-icons', () => {
 function makeSummary(overrides: Partial<PollSummary>): PollSummary {
   return {
     id: overrides.id ?? 'p1',
-    title: overrides.title ?? 'Repaint the gate?',
-    type: overrides.type ?? 'SingleChoice',
-    opensAt: '2026-01-01T00:00:00Z',
-    closesAt: '2026-01-10T00:00:00Z',
-    status: overrides.status ?? 'Open',
-    isAgmResolution: overrides.isAgmResolution ?? false,
-    resultsPublished: overrides.resultsPublished ?? false,
+    tt: 'Repaint the gate?',
+    ty: 'SingleChoice',
+    ca: '2026-01-10T00:00:00Z',
+    st: 'Open',
+    agm: false,
     ...overrides,
   };
 }
@@ -55,7 +53,7 @@ function renderScreen() {
 describe('PollListScreen', () => {
   function setUser(role: 'SUAdmin' | 'SUUser' | 'SUSecurity') {
     useAuthStore.setState({
-      user: { id: 'viewer1', societyId: 'soc-1', fullName: 'Viewer', email: 'v@a.com', phone: '1', role, residentType: 'SocietyAdmin', apartmentId: undefined, isVerified: true, isActive: true },
+      user: { id: 'viewer1', sid: 'soc-1', fn: 'Viewer', em: 'v@a.com', ph: '1', rl: role, rt: 'SocietyAdmin', aid: undefined, vf: true, ac: true },
       token: 'tok',
       isAuthenticated: true,
     });
@@ -67,7 +65,7 @@ describe('PollListScreen', () => {
 
   test('renders poll titles from the list', async () => {
     setUser('SUUser');
-    mockPollData = [makeSummary({ id: '1', title: 'Repaint the gate?' })];
+    mockPollData = [makeSummary({ id: '1', tt: 'Repaint the gate?' })];
 
     renderScreen();
 

@@ -114,7 +114,7 @@ export function CustomDrawer({ navigation, state }: DrawerContentComponentProps)
   const styles = getStyles(colors);
   const { apartments, activeApartmentId, setSelectedApartment } = useActiveApartment();
 
-  const menuItems = getMenuItems(user?.role);
+  const menuItems = getMenuItems(user?.rl);
   const activeRoute = state.routeNames[state.index];
 
   return (
@@ -126,12 +126,12 @@ export function CustomDrawer({ navigation, state }: DrawerContentComponentProps)
 
       {/* User info */}
       <View style={styles.userInfo}>
-        <UserAvatar name={user?.fullName ?? 'User'} pictureUrl={user && 'profilePictureUrl' in user ? user.profilePictureUrl : undefined} size={44} zoom={false} />
+        <UserAvatar name={user?.fn ?? 'User'} pictureUrl={user && 'pic' in user ? user.pic : undefined} size={44} zoom={false} />
         <View style={styles.userMeta}>
           <Text style={styles.userName} numberOfLines={1}>
-            {user?.fullName ?? 'User'}
+            {user?.fn ?? 'User'}
           </Text>
-          <Text style={styles.userRole}>{getRoleLabel(user?.role)}</Text>
+          <Text style={styles.userRole}>{getRoleLabel(user?.rl)}</Text>
         </View>
       </View>
 
@@ -141,13 +141,13 @@ export function CustomDrawer({ navigation, state }: DrawerContentComponentProps)
         <View style={styles.apartmentSelector}>
           <Text style={styles.apartmentSelectorLabel}>Apartment</Text>
           {apartments.map((apt) => {
-            const isSelected = apt.apartmentId === activeApartmentId;
+            const isSelected = apt.aid === activeApartmentId;
             return (
               <TouchableOpacity
-                key={apt.apartmentId}
+                key={apt.aid}
                 style={[styles.apartmentOption, isSelected && styles.apartmentOptionSelected]}
-                onPress={() => setSelectedApartment(apt.apartmentId)}
-                accessibilityLabel={`Select apartment ${apt.name}`}
+                onPress={() => setSelectedApartment(apt.aid)}
+                accessibilityLabel={`Select apartment ${apt.nm}`}
               >
                 <MaterialIcons
                   name={isSelected ? 'radio-button-checked' : 'radio-button-unchecked'}
@@ -155,7 +155,7 @@ export function CustomDrawer({ navigation, state }: DrawerContentComponentProps)
                   color={isSelected ? colors.primaryLight : colors.text.secondary}
                 />
                 <Text style={[styles.apartmentOptionText, isSelected && styles.apartmentOptionTextSelected]} numberOfLines={1}>
-                  {apt.name} ({apt.residentType})
+                  {apt.nm} ({apt.rt})
                 </Text>
               </TouchableOpacity>
             );

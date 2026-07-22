@@ -1,50 +1,47 @@
 export type ApartmentStatus = 'Available' | 'Occupied' | 'UnderMaintenance';
 
-// Matches backend ApartmentResponse DTO
+// Matches backend ApartmentResponse DTO — field names shortened to match its compressed JSON keys.
 export interface Apartment {
   id: string;
-  societyId: string;
-  apartmentNumber: string;
-  blockName: string;
-  floorNumber: number;
-  numberOfRooms: number;
-  parkingSlots: string[];
-  carpetArea: number;
-  buildUpArea: number;
-  superBuildArea: number;
-  status: ApartmentStatus;
-  primaryResidentName?: string;
-  residents?: ApartmentResident[];
-  ownershipHistory?: ApartmentResidentHistory[];
-  tenantHistory?: ApartmentResidentHistory[];
-  createdAt: string;
+  num: string; // apartmentNumber
+  blk: string; // blockName
+  flr: number; // floorNumber
+  rms: number; // numberOfRooms
+  pks: string[]; // parkingSlots
+  ca: number; // carpetArea
+  ba: number; // buildUpArea
+  sba: number; // superBuildArea
+  st: ApartmentStatus; // status
+  prn?: string; // primaryResidentName
+  res?: ApartmentResident[]; // residents
+  oh?: ApartmentResidentHistory[]; // ownershipHistory
+  th?: ApartmentResidentHistory[]; // tenantHistory
 }
 
 export interface ApartmentLabelSource {
-  apartmentNumber: string;
-  blockName?: string | null;
-  floorNumber?: number | null;
+  num: string; // apartmentNumber
+  blk?: string | null; // blockName
+  flr?: number | null; // floorNumber
 }
 
 export interface ApartmentResident {
-  userId: string;
-  userName: string;
-  residentType: 'Owner' | 'Tenant' | 'FamilyMember' | 'CoOccupant' | 'SocietyAdmin';
+  uid: string; // userId
+  unm: string; // userName
+  rt: 'Owner' | 'Tenant' | 'FamilyMember' | 'CoOccupant' | 'SocietyAdmin'; // residentType
 }
 
 export interface ApartmentResidentHistory {
-  userId: string;
-  fullName: string;
-  fromUtc: string;
-  toUtc?: string;
+  uid: string; // userId
+  fn: string; // fullName
+  fu: string; // fromUtc
+  tu?: string; // toUtc
 }
 
 export interface ApartmentResidentHistoryResponse {
-  apartmentId: string;
-  apartmentNumber: string;
-  residents: ApartmentResident[];
-  ownershipHistory: ApartmentResidentHistory[];
-  tenantHistory: ApartmentResidentHistory[];
+  num: string; // apartmentNumber
+  res: ApartmentResident[]; // residents
+  oh: ApartmentResidentHistory[]; // ownershipHistory
+  th: ApartmentResidentHistory[]; // tenantHistory
 }
 
 export interface CreateApartmentDto {
@@ -64,7 +61,7 @@ export interface CreateApartmentResidentDto {
   fullName: string;
   email: string;
   phone: string;
-  residentType: Extract<ApartmentResident['residentType'], 'Owner' | 'Tenant'>;
+  residentType: Extract<ApartmentResident['rt'], 'Owner' | 'Tenant'>;
 }
 
 export interface UpdateApartmentDto {
@@ -94,9 +91,9 @@ export function formatApartmentLabel(apartment: ApartmentLabelSource | null | un
     return 'Assigned apartment';
   }
 
-  const apartmentNumber = apartment.apartmentNumber?.trim() ?? '';
-  const blockName = apartment.blockName?.trim() ?? '';
-  const floorNumber = apartment.floorNumber;
+  const apartmentNumber = apartment.num?.trim() ?? '';
+  const blockName = apartment.blk?.trim() ?? '';
+  const floorNumber = apartment.flr;
 
   if (!blockName && (floorNumber === undefined || floorNumber === null)) {
     return apartmentNumber;

@@ -208,8 +208,6 @@ public sealed class GetMaintenanceChargeGridQueryHandler(
             var gridView = await gridViewRepository.GetByFinancialYearAsync(request.SocietyId, request.FinancialYearStart, ct);
             if (gridView is null)
                 return Result<MaintenanceChargeGridDto>.Success(new MaintenanceChargeGridDto(
-                    request.SocietyId,
-                    request.FinancialYearStart,
                     Enumerable.Range(0, 12).Select(offset => new DateTime(request.FinancialYearStart, 4, 1).AddMonths(offset).Month).ToList(),
                     new MaintenanceChargeGridSummaryDto(0, 0, 0, 0, 0, 0),
                     []));
@@ -267,8 +265,6 @@ public sealed class GetMaintenanceChargeGridQueryHandler(
                 allCharges.Count(charge => charge.Status == PaymentStatus.Paid.ToString()));
 
             return Result<MaintenanceChargeGridDto>.Success(new MaintenanceChargeGridDto(
-                request.SocietyId,
-                request.FinancialYearStart,
                 gridView.Months,
                 summary,
                 filteredRows));
@@ -306,9 +302,7 @@ public sealed class GetMaintenanceChargeGridQueryHandler(
                 .Select(proof => new MaintenancePaymentProofDto(
                     proof.ProofUrl,
                     proof.Notes,
-                    proof.SubmittedByUserId,
-                    proof.SubmittedAt,
-                    proof.SubmissionGroupId))
+                    proof.SubmittedAt))
                 .ToList(),
             charge.RejectionReason,
             charge.RejectedAt,

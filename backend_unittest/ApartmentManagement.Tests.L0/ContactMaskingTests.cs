@@ -7,8 +7,8 @@ namespace ApartmentManagement.Tests.L0.Application;
 public class ContactMaskingTests
 {
     private static UserResponse BuildResponse(string id = "user-002", string email = "ranadip.bec@gmail.com", string phone = "+91-9876543210") =>
-        new(id, "society-001", "Bob Jones", email, phone, "SUUser", "Owner", "apt-001", null,
-            true, true, true, [], [], DateTime.UtcNow);
+        new(id, "society-001", "Bob Jones", email, phone, "SUUser", "Owner", "apt-001",
+            true, true, [], []);
 
     [Fact]
     public void ApplyContactMasking_SUUserViewingOtherResident_MasksPhoneAndEmailToDocumentedFormat()

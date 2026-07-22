@@ -31,7 +31,7 @@ export class VerifyOtpComponent {
   readonly options = signal<LoginOption[]>([]);
   readonly selected = signal<LoginOption | null>(null);
   readonly loginSelectOptions = computed(() =>
-    this.options().map(o => ({ value: o.userId, label: this.labelFor(o) }))
+    this.options().map(o => ({ value: o.uid, label: this.labelFor(o) }))
   );
 
   readonly form = this.fb.nonNullable.group({
@@ -54,16 +54,16 @@ export class VerifyOtpComponent {
     this.auth.requestPasswordReset(email, selectedUserId || undefined).subscribe({
       next: res => {
         this.loading.set(false);
-        if (res.requiresSelection) {
-          this.options.set(res.options);
-          if (res.options.length) {
-            this.form.patchValue({ selectedUserId: res.options[0].userId });
+        if (res.rs) {
+          this.options.set(res.opts);
+          if (res.opts.length) {
+            this.form.patchValue({ selectedUserId: res.opts[0].uid });
           }
           return;
         }
 
-        this.options.set(res.options);
-        const selected = res.options.find(option => option.userId === (selectedUserId || res.userId))
+        this.options.set(res.opts);
+        const selected = res.opts.find(option => option.uid === (selectedUserId || res.uid))
           ?? null;
         this.selected.set(selected);
         this.requested.set(true);
@@ -83,7 +83,7 @@ export class VerifyOtpComponent {
     }
 
     const option = this.selected()
-      ?? this.options().find(item => item.userId === this.form.getRawValue().selectedUserId);
+      ?? this.options().find(item => item.uid === this.form.getRawValue().selectedUserId);
     if (!option) {
       this.error.set('Please choose the account you want to reset.');
       return;
@@ -93,7 +93,7 @@ export class VerifyOtpComponent {
     this.loading.set(true);
     this.error.set('');
 
-    this.auth.confirmPasswordReset(option.societyId, option.userId, otp, newPassword).subscribe({
+    this.auth.confirmPasswordReset(option.sid, option.uid, otp, newPassword).subscribe({
       next: () => {
         this.loading.set(false);
         this.router.navigate(['/auth/login']);
@@ -106,7 +106,7 @@ export class VerifyOtpComponent {
   }
 
   selectAccount() {
-    const option = this.options().find(item => item.userId === this.form.getRawValue().selectedUserId) ?? null;
+    const option = this.options().find(item => item.uid === this.form.getRawValue().selectedUserId) ?? null;
     this.selected.set(option);
     if (option) {
       this.requestReset();
@@ -114,8 +114,8 @@ export class VerifyOtpComponent {
   }
 
   labelFor(option: LoginOption) {
-    const apartment = option.apartmentLabel ?? option.apartmentId ?? 'No apartment';
-    return `${option.societyName} - ${apartment} - ${option.residentType}`;
+    const apartment = option.alb ?? option.aid ?? 'No apartment';
+    return `${option.snm} - ${apartment} - ${option.rt}`;
   }
 
   back() {

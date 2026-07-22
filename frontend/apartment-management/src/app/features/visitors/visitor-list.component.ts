@@ -150,7 +150,7 @@ import { ImageLightboxComponent } from '../../shared/components/image-lightbox/i
 
             <div class="verify-card__actions">
               <button mat-raised-button color="primary" type="button" (click)="verifyPass()">Verify &amp; check in</button>
-              @if (verifiedVisitor()?.status === 'CheckedIn') {
+              @if (verifiedVisitor()?.st === 'CheckedIn') {
                 <button mat-raised-button color="warn" type="button" (click)="checkOutVerifiedVisitor()">
                   Check out visitor
                 </button>
@@ -160,16 +160,16 @@ import { ImageLightboxComponent } from '../../shared/components/image-lightbox/i
 
           @if (verifiedVisitor()) {
             <div class="verify-card__result">
-              @if (verifiedVisitor()!.visitorImageUrl) {
-                <app-secure-image [src]="verifiedVisitor()!.visitorImageUrl!" alt="Visitor photo" imgClass="verify-card__photo"
-                  [clickable]="true" (imageClick)="lightboxSrc.set(verifiedVisitor()!.visitorImageUrl!)"></app-secure-image>
+              @if (verifiedVisitor()!.img) {
+                <app-secure-image [src]="verifiedVisitor()!.img!" alt="Visitor photo" imgClass="verify-card__photo"
+                  [clickable]="true" (imageClick)="lightboxSrc.set(verifiedVisitor()!.img!)"></app-secure-image>
               }
               <div>
-                <strong>{{ verifiedVisitor()!.visitorName }}</strong>
-                <p>{{ verifiedVisitor()!.purpose }} for {{ verifiedVisitor()!.hostFlatNumber }}</p>
-                <p>{{ verifiedVisitor()!.visitorPhone }}</p>
+                <strong>{{ verifiedVisitor()!.vn }}</strong>
+                <p>{{ verifiedVisitor()!.pu }} for {{ verifiedVisitor()!.hft }}</p>
+                <p>{{ verifiedVisitor()!.vp }}</p>
               </div>
-              <app-status-chip [status]="verifiedVisitor()!.status"></app-status-chip>
+              <app-status-chip [status]="verifiedVisitor()!.st"></app-status-chip>
             </div>
           }
         </div>
@@ -192,65 +192,65 @@ import { ImageLightboxComponent } from '../../shared/components/image-lightbox/i
         }
         <div class="visitor-list">
           @for (visitor of items(); track visitor.id) {
-            <div class="visitor-card" [class.visitor-card--overstay]="visitor.isOverstay"
+            <div class="visitor-card" [class.visitor-card--overstay]="visitor.ov"
               [class.visitor-card--updated]="recentlyUpdatedIds().has(visitor.id)">
               <div class="vc-avatar-wrap">
-                @if (visitor.visitorImageUrl) {
-                  <app-secure-image [src]="visitor.visitorImageUrl" alt="Visitor photo" imgClass="vc-avatar-img"
-                    [clickable]="true" (imageClick)="lightboxSrc.set(visitor.visitorImageUrl!)"></app-secure-image>
+                @if (visitor.img) {
+                  <app-secure-image [src]="visitor.img" alt="Visitor photo" imgClass="vc-avatar-img"
+                    [clickable]="true" (imageClick)="lightboxSrc.set(visitor.img!)"></app-secure-image>
                 } @else {
-                  <div class="vc-avatar">{{ visitor.visitorName[0] }}</div>
+                  <div class="vc-avatar">{{ visitor.vn[0] }}</div>
                 }
               </div>
 
               <div class="vc-info">
                 <div class="vc-title-row">
-                  <span class="vc-name">{{ visitor.visitorName }}</span>
-                  @if (visitor.companyName) {
-                    <span class="vc-company">{{ visitor.companyName }}</span>
+                  <span class="vc-name">{{ visitor.vn }}</span>
+                  @if (visitor.cn) {
+                    <span class="vc-company">{{ visitor.cn }}</span>
                   }
                 </div>
 
-                <span class="vc-purpose">{{ visitor.purpose }}</span>
+                <span class="vc-purpose">{{ visitor.pu }}</span>
                 <span class="vc-meta">
-                  {{ visitor.hostBlockName }} {{ visitor.hostFloorNumber }}-{{ visitor.hostFlatNumber }}
-                  - {{ visitor.hostResidentName }}
+                  {{ visitor.hbn }} {{ visitor.hfn }}-{{ visitor.hft }}
+                  - {{ visitor.hrn }}
                 </span>
-                <span class="vc-meta">{{ visitor.visitorPhone }}{{ visitor.vehicleNumber ? ' - ' + visitor.vehicleNumber : '' }}</span>
+                <span class="vc-meta">{{ visitor.vp }}{{ visitor.vh ? ' - ' + visitor.vh : '' }}</span>
                 <span class="vc-time">
-                  Requested {{ visitor.createdAt | date:'medium' }}{{ visitor.checkInTime ? ' - Checked in ' + (visitor.checkInTime | date:'short') : '' }}{{ visitor.checkOutTime ? ' - Checked out ' + (visitor.checkOutTime | date:'short') : '' }}
+                  Requested {{ visitor.ca | date:'medium' }}{{ visitor.cit ? ' - Checked in ' + (visitor.cit | date:'short') : '' }}{{ visitor.cot ? ' - Checked out ' + (visitor.cot | date:'short') : '' }}
                 </span>
-                @if (visitor.isOverstay) {
-                  <span class="vc-overstay-flag">Overstaying — checked in {{ visitor.checkInTime | date:'short' }}</span>
+                @if (visitor.ov) {
+                  <span class="vc-overstay-flag">Overstaying — checked in {{ visitor.cit | date:'short' }}</span>
                 }
 
-                @if (visitor.status === 'Approved' || visitor.status === 'CheckedIn') {
+                @if (visitor.st === 'Approved' || visitor.st === 'CheckedIn') {
                   <div class="pass-meta">
-                    <span>Pass: <strong>{{ visitor.passCode }}</strong></span>
-                    @if (visitor.isPreApproved) {
+                    <span>Pass: <strong>{{ visitor.pc }}</strong></span>
+                    @if (visitor.ipa) {
                       <span class="pass-meta__pill">Pre-approved</span>
                     }
-                    @if (visitor.isPassExpired) {
+                    @if (visitor.ipe) {
                       <span class="pass-meta__pill pass-meta__pill--expired">Expired</span>
-                    } @else if (visitor.validUntil) {
-                      <span class="pass-meta__pill pass-meta__pill--expiry">Until {{ visitor.validUntil | date:'shortTime' }}</span>
+                    } @else if (visitor.vu) {
+                      <span class="pass-meta__pill pass-meta__pill--expiry">Until {{ visitor.vu | date:'shortTime' }}</span>
                     }
                   </div>
                 }
               </div>
 
               <div class="vc-right">
-                <app-status-chip [status]="visitor.status"></app-status-chip>
+                <app-status-chip [status]="visitor.st"></app-status-chip>
 
                 <div class="vc-actions">
-                  @if (visitor.status === 'Pending' && canModerate(visitor)) {
+                  @if (visitor.st === 'Pending' && canModerate(visitor)) {
                     @if (canApprove(visitor)) {
                       <button mat-stroked-button color="primary" type="button" (click)="approve(visitor)">Approve</button>
                     }
                     <button mat-stroked-button color="warn" type="button" (click)="deny(visitor)">Deny</button>
                   }
 
-                  @if (visitor.status === 'CheckedIn' && canManageVisitors()) {
+                  @if (visitor.st === 'CheckedIn' && canManageVisitors()) {
                     <button mat-stroked-button color="primary" type="button" (click)="checkout(visitor)">Check out</button>
                   }
                 </div>
@@ -294,14 +294,14 @@ export class VisitorListComponent implements OnInit, OnDestroy {
   private _highlightTimer: ReturnType<typeof setTimeout> | null = null;
   readonly items = signal<Visitor[]>([]);
   /** Backend already sorts overstaying visitors to the top of the list; this drives the banner count. */
-  readonly overstayCount = computed(() => this.items().filter(v => v.isOverstay).length);
+  readonly overstayCount = computed(() => this.items().filter(v => v.ov).length);
   readonly errorMessage = signal('');
   readonly successMessage = signal('');
   readonly verifiedVisitor = signal<Visitor | null>(null);
   readonly scanning = signal(false);
   readonly isAdmin = this.auth.isAdmin;
   readonly canManageVisitors = this.auth.canManageVisitors;
-  readonly residentApartmentId = computed(() => this.auth.user()?.apartmentId ?? this.auth.user()?.apartments?.[0]?.apartmentId ?? '');
+  readonly residentApartmentId = computed(() => this.auth.user()?.aid ?? this.auth.user()?.apts?.[0]?.aid ?? '');
   readonly statusOptions = [
     { value: '', label: 'All' },
     ...(['Pending', 'Approved', 'Denied', 'CheckedIn', 'CheckedOut'] as VisitorStatus[])
@@ -517,7 +517,7 @@ export class VisitorListComponent implements OnInit, OnDestroy {
         this.errorMessage.set('');
         // Pass verification doubles as check-in: an approved visitor is checked in
         // immediately — security never has to check them in as a separate step.
-        if (visitor.status === 'Approved' && !visitor.isPassExpired) {
+        if (visitor.st === 'Approved' && !visitor.ipe) {
           this.checkInVerifiedVisitor();
         } else {
           this.verifiedVisitor.set(visitor);
@@ -538,7 +538,7 @@ export class VisitorListComponent implements OnInit, OnDestroy {
     this.visitorService.checkin(societyId, passCode).subscribe({
       next: visitor => {
         this.verifiedVisitor.set(visitor);
-        this.successMessage.set(`${visitor.visitorName} checked in.`);
+        this.successMessage.set(`${visitor.vn} checked in.`);
         this.loadVisitors();
       },
       error: error => this.errorMessage.set(error?.error?.message ?? 'Unable to check in the visitor.')
@@ -553,8 +553,8 @@ export class VisitorListComponent implements OnInit, OnDestroy {
 
     this.visitorService.checkout(societyId, visitor.id).subscribe({
       next: () => {
-        this.verifiedVisitor.set({ ...visitor, status: 'CheckedOut' });
-        this.successMessage.set(`${visitor.visitorName} checked out.`);
+        this.verifiedVisitor.set({ ...visitor, st: 'CheckedOut' });
+        this.successMessage.set(`${visitor.vn} checked out.`);
         this.loadVisitors();
       },
       error: error => this.errorMessage.set(error?.error?.message ?? 'Unable to check out the visitor.')
@@ -587,13 +587,13 @@ export class VisitorListComponent implements OnInit, OnDestroy {
   canModerate(visitor: Visitor) {
     if (this.canManageVisitors()) return true;
     const apartmentId = this.residentApartmentId();
-    return !!apartmentId && apartmentId === visitor.hostApartmentId;
+    return !!apartmentId && apartmentId === visitor.aid;
   }
 
   /** Only the host resident can approve a visitor — SUAdmin, HQAdmin and SUSecurity may deny but not approve. */
   canApprove(visitor: Visitor) {
     const apartmentId = this.residentApartmentId();
-    return !!apartmentId && apartmentId === visitor.hostApartmentId;
+    return !!apartmentId && apartmentId === visitor.aid;
   }
 
   async startQrScan() {

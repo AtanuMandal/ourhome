@@ -61,11 +61,11 @@ function createWrapper() {
 
 function makeSociety(overrides: Partial<Society> = {}): Society {
   return {
-    id: 's1', name: 'Green Valley',
-    address: { street: '1 Main St', city: 'Bengaluru', state: 'Karnataka', postalCode: '560001', country: 'India' },
-    contactEmail: 'admin@gv.com', contactPhone: '9876543210',
-    totalBlocks: 2, totalApartments: 40, maintenanceOverdueThresholdDays: 7, status: 'Active',
-    societyUsers: [], committees: [], themeId: 'ocean',
+    id: 's1', nm: 'Green Valley',
+    addr: { str: '1 Main St', cty: 'Bengaluru', ste: 'Karnataka', pc: '560001', co: 'India' },
+    ce: 'admin@gv.com', cp: '9876543210',
+    tb: 2, ta: 40, mot: 7, mua: 10, voh: 5, st: 'Active',
+    su: [], cm: [], th: 'ocean',
     ...overrides,
   };
 }
@@ -132,16 +132,16 @@ describe('useHq', () => {
 
   test('useHqSocietyReport returns occupancy data with no financial fields', async () => {
     const report: SocietySummaryReport = {
-      societyId: 's1', societyName: 'Green Valley', status: 'Active',
-      totalApartments: 40, occupiedApartments: 30, vacantApartments: 8, underMaintenanceApartments: 2,
-      ownerCount: 25, tenantCount: 5, totalResidents: 30,
+      sn: 'Green Valley', st: 'Active',
+      ta: 40, oa: 30, va: 8, uma: 2,
+      oc: 25, tc: 5, tr: 30,
     };
     mockGetSummaryReport.mockResolvedValue(report);
 
     const { result } = renderHook(() => useHqSocietyReport('s1'), { wrapper: createWrapper() });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data!.totalApartments).toBe(40);
+    expect(result.current.data!.ta).toBe(40);
     expect(Object.keys(result.current.data!)).not.toContain('totalIncome');
   });
 
@@ -175,7 +175,7 @@ describe('useHq', () => {
   });
 
   test('useUpdateSociety calls the update endpoint with the full payload', async () => {
-    mockUpdateSociety.mockResolvedValue(makeSociety({ name: 'Green Valley Updated' }));
+    mockUpdateSociety.mockResolvedValue(makeSociety({ nm: 'Green Valley Updated' }));
 
     const { result } = renderHook(() => useUpdateSociety(), { wrapper: createWrapper() });
     result.current.mutate({

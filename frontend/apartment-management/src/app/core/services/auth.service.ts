@@ -26,32 +26,32 @@ export class AuthService {
   readonly societyId = computed(() => this._state().societyId);
   readonly isLoggedIn = computed(() => !!this._state().token && !!this._state().user);
   readonly isAdmin = computed(() => {
-    const role = this._state().user?.role;
+    const role = this._state().user?.rl;
     return role === 'SUAdmin' || role === 'HQAdmin';
   });
 
-  readonly isSecurity = computed(() => this._state().user?.role === 'SUSecurity');
+  readonly isSecurity = computed(() => this._state().user?.rl === 'SUSecurity');
 
   // ── Selected apartment (multi-apartment users) ────────────────────────────
   // A user linked to several apartments picks one from the sidenav dropdown; menus and
   // apartment-scoped features follow the role they hold on the *selected* apartment.
   private readonly _selectedApartmentId = signal<string | null>(localStorage.getItem(SELECTED_APT_KEY));
 
-  readonly apartments = computed(() => this._state().user?.apartments ?? []);
+  readonly apartments = computed(() => this._state().user?.apts ?? []);
 
   readonly selectedApartmentId = computed(() => {
     const memberships = this.apartments();
     const selected = this._selectedApartmentId();
-    if (selected && memberships.some(a => a.apartmentId === selected)) return selected;
-    return this._state().user?.apartmentId ?? memberships[0]?.apartmentId ?? null;
+    if (selected && memberships.some(a => a.aid === selected)) return selected;
+    return this._state().user?.aid ?? memberships[0]?.aid ?? null;
   });
 
   readonly selectedApartment = computed(() =>
-    this.apartments().find(a => a.apartmentId === this.selectedApartmentId()) ?? null);
+    this.apartments().find(a => a.aid === this.selectedApartmentId()) ?? null);
 
   /** Resident type for the selected apartment; falls back to the account-level resident type. */
   readonly activeResidentType = computed(() =>
-    this.selectedApartment()?.residentType ?? this._state().user?.residentType);
+    this.selectedApartment()?.rt ?? this._state().user?.rt);
 
   setSelectedApartment(apartmentId: string) {
     localStorage.setItem(SELECTED_APT_KEY, apartmentId);
@@ -82,29 +82,29 @@ export class AuthService {
     const sid = this.societyId();
     if (!current || !sid) return;
 
-    this.http.get<Partial<User> & { fullName?: string }>(
+    this.http.get<Partial<User>>(
       `${environment.apiBaseUrl}/societies/${sid}/users/${current.id}`
     ).subscribe({
       next: fresh => this.updateUser({
-        fullName: fresh.fullName,
-        name: fresh.fullName ?? current.name,
-        apartments: fresh.apartments,
-        profilePictureUrl: fresh.profilePictureUrl,
-        pendingApartmentId: fresh.pendingApartmentId,
-        pendingResidentType: fresh.pendingResidentType,
-        apartmentId: fresh.apartmentId ?? current.apartmentId,
-        residentType: fresh.residentType ?? current.residentType,
+        fn: fresh.fn,
+        nm: fresh.fn ?? current.nm,
+        apts: fresh.apts,
+        pic: fresh.pic,
+        paid: fresh.paid,
+        prt: fresh.prt,
+        aid: fresh.aid ?? current.aid,
+        rt: fresh.rt ?? current.rt,
       }),
       error: () => { /* non-fatal — session keeps the login-time snapshot */ },
     });
   }
 
-  readonly isHqAdmin = computed(() => this._state().user?.role === 'HQAdmin');
-  readonly isHqUser  = computed(() => this._state().user?.role === 'HQUser');
+  readonly isHqAdmin = computed(() => this._state().user?.rl === 'HQAdmin');
+  readonly isHqUser  = computed(() => this._state().user?.rl === 'HQUser');
   readonly isHq      = computed(() => this.isHqAdmin() || this.isHqUser());
 
   readonly canManageVisitors = computed(() => {
-    const role = this._state().user?.role;
+    const role = this._state().user?.rl;
     return role === 'SUAdmin' || role === 'SUSecurity';
   });
 
@@ -115,8 +115,8 @@ export class AuthService {
       { email, password, selectedUserId }
     ).pipe(
       tap(res => {
-        if (!res.requiresSelection && res.token && res.user) {
-          this.persistSession(res.token, res.user, res.user.societyId);
+        if (!res.rs && res.tok && res.usr) {
+          this.persistSession(res.tok, res.usr, res.usr.sid);
         }
       })
     );
@@ -171,12 +171,12 @@ export class AuthService {
   }
 
   verifyOtp(societyId: string, userId: string, otp: string) {
-    return this.http.post<{ accessToken: string; user: User }>(
+    return this.http.post<{ tok: string; usr: User }>(
       `${environment.apiBaseUrl}/societies/${societyId}/users/${userId}/verify-otp`,
       { otpCode: otp }
     ).pipe(
       tap(res => {
-        this.persistSession(res.accessToken, res.user, societyId);
+        this.persistSession(res.tok, res.usr, societyId);
       })
     );
   }

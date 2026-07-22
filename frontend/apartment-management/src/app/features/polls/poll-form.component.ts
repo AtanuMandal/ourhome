@@ -130,7 +130,7 @@ import { AgmSessionSummary, PollAnonymity, PollEligibilityUnit, PollTargetAudien
             <mat-select formControlName="agmSessionId">
               <mat-option value="">None — standalone poll</mat-option>
               @for (s of agmSessions(); track s.id) {
-                <mat-option [value]="s.id">{{ s.title }}</mat-option>
+                <mat-option [value]="s.id">{{ s.tt }}</mat-option>
               }
             </mat-select>
           </mat-form-field>
@@ -190,7 +190,7 @@ export class PollFormComponent implements OnInit {
       });
       this.apartmentSvc.list(sid, 1, 500).subscribe({
         next: response => {
-          const blocks = new Set((response.items ?? []).map(a => a.blockName).filter(Boolean));
+          const blocks = new Set((response.items ?? []).map(a => a.blk).filter(Boolean));
           this.blockOptions.set([...blocks].sort());
         },
         error: () => {},

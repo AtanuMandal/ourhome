@@ -6,14 +6,14 @@ import { AuthService } from './auth.service';
 import { User } from '../models/user.model';
 
 describe('AuthService.isTenant', () => {
-  function makeUser(residentType: User['residentType']): User {
+  function makeUser(residentType: User['rt']): User {
     return {
-      id: 'u1', societyId: 's1', email: 'r@test.com',
-      role: 'SUUser', residentType, isVerified: true, permissions: [],
+      id: 'u1', sid: 's1', em: 'r@test.com',
+      rl: 'SUUser', rt: residentType, vf: true,
     };
   }
 
-  function setup(residentType: User['residentType'] | null) {
+  function setup(residentType: User['rt'] | null) {
     localStorage.clear();
     if (residentType) {
       localStorage.setItem('am_token', 'fake.token.value');

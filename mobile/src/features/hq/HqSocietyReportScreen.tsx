@@ -35,19 +35,19 @@ export function HqSocietyReportScreen({ route }: HqSocietyReportScreenProps) {
           <>
             <View style={styles.card}>
               <View style={styles.rowBetween}>
-                <Text style={styles.title}>{report.societyName}</Text>
-                <StatusChip status={report.status} />
+                <Text style={styles.title}>{report.sn}</Text>
+                <StatusChip status={report.st} />
               </View>
             </View>
 
             <View style={styles.grid}>
-              <Stat label="Total Apartments" value={report.totalApartments} />
-              <Stat label="Occupied" value={report.occupiedApartments} />
-              <Stat label="Vacant" value={report.vacantApartments} />
-              <Stat label="Under Maintenance" value={report.underMaintenanceApartments} />
-              <Stat label="Owners" value={report.ownerCount} />
-              <Stat label="Tenants" value={report.tenantCount} />
-              <Stat label="Total Residents" value={report.totalResidents} />
+              <Stat label="Total Apartments" value={report.ta} />
+              <Stat label="Occupied" value={report.oa} />
+              <Stat label="Vacant" value={report.va} />
+              <Stat label="Under Maintenance" value={report.uma} />
+              <Stat label="Owners" value={report.oc} />
+              <Stat label="Tenants" value={report.tc} />
+              <Stat label="Total Residents" value={report.tr} />
             </View>
             <Text style={styles.disclaimer}>This report contains occupancy data only — no financial information.</Text>
           </>

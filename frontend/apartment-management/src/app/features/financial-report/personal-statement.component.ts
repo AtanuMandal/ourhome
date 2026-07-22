@@ -159,7 +159,7 @@ export class PersonalStatementComponent {
 
   load() {
     const societyId   = this.auth.societyId();
-    const apartmentId = this.auth.user()?.apartmentId;
+    const apartmentId = this.auth.user()?.aid;
     if (!societyId || !apartmentId) return;
 
     this.loading.set(true);

@@ -12,11 +12,11 @@ describe('ThemeService', () => {
 
   function makeSociety(themeId: string): Society {
     return {
-      id: 's1', name: 'Green Valley',
-      address: { street: '1 Main St', city: 'Bengaluru', state: 'Karnataka', postalCode: '560001', country: 'India' },
-      totalBlocks: 2, totalApartments: 40, maintenanceOverdueThresholdDays: 7, maxUsersPerApartment: 10, visitorOverstayThresholdHours: 5,
-      status: 'Active', adminUserIds: [], societyUsers: [], committees: [],
-      themeId, createdAt: '2026-01-01T00:00:00Z',
+      id: 's1', nm: 'Green Valley',
+      addr: { str: '1 Main St', cty: 'Bengaluru', ste: 'Karnataka', pc: '560001', co: 'India' },
+      tb: 2, ta: 40, mot: 7, mua: 10, voh: 5,
+      st: 'Active', su: [], cm: [],
+      th: themeId,
     };
   }
 

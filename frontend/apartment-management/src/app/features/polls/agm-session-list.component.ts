@@ -33,8 +33,8 @@ import { AgmSessionSummary } from '../../core/models/poll.model';
           @for (s of items(); track s.id) {
             <a [routerLink]="[s.id]" class="session-card">
               <div class="session-card__info">
-                <span class="session-card__title">{{ s.title }}</span>
-                <span class="session-card__meta">{{ s.sessionDate | date:'mediumDate' }} · {{ s.resolutionCount }} resolution(s)</span>
+                <span class="session-card__title">{{ s.tt }}</span>
+                <span class="session-card__meta">{{ s.sd | date:'mediumDate' }} · {{ s.rc }} resolution(s)</span>
               </div>
             </a>
           }

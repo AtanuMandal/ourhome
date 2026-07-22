@@ -41,7 +41,7 @@ describe('RewardsScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     useAuthStore.setState({
-      user: { id: 'u1', societyId: 'soc-1', fullName: 'Resident', email: 'r@a.com', phone: '1', role: 'SUUser', residentType: 'Owner', apartmentId: 'apt-1', isVerified: true, isActive: true },
+      user: { id: 'u1', sid: 'soc-1', fn: 'Resident', em: 'r@a.com', ph: '1', rl: 'SUUser', rt: 'Owner', aid: 'apt-1', vf: true, ac: true },
       token: 'tok',
       isAuthenticated: true,
     });
@@ -49,12 +49,10 @@ describe('RewardsScreen', () => {
 
   test('shows the points balance and earning history', async () => {
     mockGetUserPoints.mockResolvedValue({
-      userId: 'u1',
-      societyId: 'soc-1',
-      totalPoints: 120,
-      history: [
-        { id: 'p1', action: 'Poll participation', points: 20, earnedAt: '2026-07-01T10:00:00Z' },
-        { id: 'p2', action: 'On-time payment', points: 100, description: 'June maintenance', earnedAt: '2026-06-05T10:00:00Z' },
+      tp: 120,
+      h: [
+        { pts: 20, rsn: 'Poll participation', ca: '2026-07-01T10:00:00Z' },
+        { pts: 100, rsn: 'On-time payment', ca: '2026-06-05T10:00:00Z' },
       ],
     });
 
@@ -64,11 +62,10 @@ describe('RewardsScreen', () => {
     expect(mockGetUserPoints).toHaveBeenCalledWith('soc-1', 'u1');
     expect(screen.getByText('Poll participation')).toBeTruthy();
     expect(screen.getByText('+100')).toBeTruthy();
-    expect(screen.getByText('June maintenance')).toBeTruthy();
   });
 
   test('shows an empty state when the user has no points yet', async () => {
-    mockGetUserPoints.mockResolvedValue({ userId: 'u1', societyId: 'soc-1', totalPoints: 0, history: [] });
+    mockGetUserPoints.mockResolvedValue({ tp: 0, h: [] });
 
     renderScreen();
 

@@ -23,11 +23,11 @@ jest.mock('@expo/vector-icons', () => {
 
 function makeSociety(overrides: Partial<Society> = {}): Society {
   return {
-    id: 's1', name: 'Green Valley',
-    address: { street: '1 Main St', city: 'Bengaluru', state: 'Karnataka', postalCode: '560001', country: 'India' },
-    contactEmail: 'admin@gv.com', contactPhone: '9876543210',
-    totalBlocks: 2, totalApartments: 40, maintenanceOverdueThresholdDays: 7, status: 'Active',
-    societyUsers: [], committees: [], themeId: 'ocean',
+    id: 's1', nm: 'Green Valley',
+    addr: { str: '1 Main St', cty: 'Bengaluru', ste: 'Karnataka', pc: '560001', co: 'India' },
+    ce: 'admin@gv.com', cp: '9876543210',
+    tb: 2, ta: 40, mot: 7, mua: 10, voh: 5, st: 'Active',
+    su: [], cm: [], th: 'ocean',
     ...overrides,
   };
 }
@@ -49,8 +49,8 @@ function renderScreen() {
 
 function setUser(role: 'HQAdmin' | 'HQUser') {
   useAuthStore.setState({
-    user: { id: 'u1', societyId: 'hq', fullName: 'Platform Admin', email: 'admin@platform.com', phone: '9000000000',
-      role, residentType: 'SocietyAdmin', apartmentId: undefined, isVerified: true, isActive: true },
+    user: { id: 'u1', sid: 'hq', fn: 'Platform Admin', em: 'admin@platform.com', ph: '9000000000',
+      rl: role, rt: 'SocietyAdmin', aid: undefined, vf: true, ac: true },
     token: 'token',
     isAuthenticated: true,
   });
@@ -64,7 +64,7 @@ describe('HqSocietyListScreen', () => {
 
   test('renders societies regardless of status', () => {
     setUser('HQAdmin');
-    mockSocieties = [makeSociety({ status: 'Active' }), makeSociety({ id: 's2', name: 'Blue Ridge', status: 'Inactive' })];
+    mockSocieties = [makeSociety({ st: 'Active' }), makeSociety({ id: 's2', nm: 'Blue Ridge', st: 'Inactive' })];
 
     renderScreen();
 
@@ -74,7 +74,7 @@ describe('HqSocietyListScreen', () => {
 
   test('HQAdmin sees Disable action for an active society', () => {
     setUser('HQAdmin');
-    mockSocieties = [makeSociety({ status: 'Active' })];
+    mockSocieties = [makeSociety({ st: 'Active' })];
 
     renderScreen();
     fireEvent.press(screen.getByText('Disable'));
@@ -84,7 +84,7 @@ describe('HqSocietyListScreen', () => {
 
   test('HQAdmin sees Enable action for an inactive society', () => {
     setUser('HQAdmin');
-    mockSocieties = [makeSociety({ status: 'Inactive' })];
+    mockSocieties = [makeSociety({ st: 'Inactive' })];
 
     renderScreen();
     fireEvent.press(screen.getByText('Enable'));
@@ -94,7 +94,7 @@ describe('HqSocietyListScreen', () => {
 
   test('HQUser does not see enable/disable actions', () => {
     setUser('HQUser');
-    mockSocieties = [makeSociety({ status: 'Active' })];
+    mockSocieties = [makeSociety({ st: 'Active' })];
 
     renderScreen();
 

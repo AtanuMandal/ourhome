@@ -43,7 +43,7 @@ function renderScreen() {
 
 function loginAs(role: string): void {
   useAuthStore.setState({
-    user: { id: 'u1', societyId: 'soc-1', fullName: 'User', email: 'u@a.com', phone: '1', role: role as never, residentType: 'Owner' as never, apartmentId: 'apt-1', isVerified: true, isActive: true },
+    user: { id: 'u1', sid: 'soc-1', fn: 'User', em: 'u@a.com', ph: '1', rl: role as never, rt: 'Owner' as never, aid: 'apt-1', vf: true, ac: true },
     token: 'tok',
     isAuthenticated: true,
   });
@@ -54,15 +54,15 @@ describe('ServicesScreen', () => {
     jest.clearAllMocks();
     mockListProviders.mockResolvedValue({
       items: [{
-        id: 'sp1', providerName: 'CleanSphere', contactName: 'Ravi', contactPhone: '9876500000',
-        serviceTypes: ['Cleaner'], description: 'Deep cleaning services', status: 'Active', rating: 4.5, reviewCount: 12,
+        id: 'sp1', pn: 'CleanSphere', cn: 'Ravi', cp: '9876500000',
+        svt: ['Cleaner'], ds: 'Deep cleaning services', st: 'Active', rt: 4.5, rc: 12,
       }],
       total: 1, page: 1, pageSize: 100,
     });
     mockListRequests.mockResolvedValue({
       items: [{
-        id: 'sr1', societyId: 'soc-1', apartmentId: 'apt-1', serviceType: 'Plumber',
-        description: 'Leaking tap in kitchen', preferredDateTime: '2026-07-20T10:00:00Z', status: 'Pending', createdAt: '2026-07-15T10:00:00Z',
+        id: 'sr1', svt: 'Plumber',
+        ds: 'Leaking tap in kitchen', pdt: '2026-07-20T10:00:00Z', st: 'Pending',
       }],
       total: 1, page: 1, pageSize: 100,
     });

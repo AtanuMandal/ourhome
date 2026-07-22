@@ -11,14 +11,14 @@ describe('MyApartmentComponent', () => {
   function setup(userOverrides: Partial<User> = {}, userServiceOverrides: Partial<Record<string, unknown>> = {}) {
     const currentUser: User = {
       id: 'u1',
-      societyId: 'soc-1',
-      fullName: 'Alice Smith',
-      email: 'alice@example.com',
-      phone: '9876543210',
-      role: 'SUUser',
-      apartments: [{ apartmentId: 'apt-1', name: 'A-101', residentType: 'Owner' }],
-      isActive: true,
-      isVerified: true,
+      sid: 'soc-1',
+      fn: 'Alice Smith',
+      em: 'alice@example.com',
+      ph: '9876543210',
+      rl: 'SUUser',
+      apts: [{ aid: 'apt-1', nm: 'A-101', rt: 'Owner' }],
+      ac: true,
+      vf: true,
       ...userOverrides,
     } as User;
 

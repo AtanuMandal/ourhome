@@ -19,19 +19,17 @@ export interface LeaderboardEntry {
   rank: number;
 }
 
+// Matches backend UserPointsResponse DTO — field names shortened to match its compressed JSON keys.
 export interface UserPoints {
-  userId: string;
-  societyId: string;
-  totalPoints: number;
-  history: PointEvent[];
+  tp: number; // totalPoints
+  h: PointEvent[]; // history
 }
 
+// Matches backend PointHistoryDto DTO — field names shortened to match its compressed JSON keys.
 export interface PointEvent {
-  id: string;
-  action: string;
-  points: number;
-  description?: string;
-  earnedAt: string;
+  pts: number; // points
+  rsn: string; // reason
+  ca: string; // createdAt
 }
 
 export interface AwardPointsDto {

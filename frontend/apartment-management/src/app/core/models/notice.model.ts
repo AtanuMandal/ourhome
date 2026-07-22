@@ -1,22 +1,17 @@
 export type NoticeCategory = 'General' | 'Maintenance' | 'Event' | 'Emergency' | 'Financial' | 'Bylaw';
 
-// Matches backend NoticeResponse DTO
+// Matches backend NoticeResponse DTO — field names shortened to match its compressed JSON keys.
 export interface Notice {
   id: string;
-  societyId: string;
-  title: string;
-  content: string;
-  category: NoticeCategory;
-  postedByUserId: string;
-  isArchived: boolean;
-  isActive: boolean;
-  publishAt: string;
-  expiresAt?: string;
-  targetApartmentIds: string[];
-  createdAt: string;
-  isReadByCurrentUser: boolean;
+  tt: string; // title
+  ct: string; // content
+  cat: NoticeCategory; // category
+  pid: string; // postedByUserId
+  pa: string; // publishAt
+  ea?: string; // expiresAt
+  rd: boolean; // isReadByCurrentUser
   /** Full name of the poster — always show this instead of the raw user id. */
-  postedByName?: string;
+  pn?: string; // postedByName
 }
 
 export interface PostNoticeDto {

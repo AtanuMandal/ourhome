@@ -34,7 +34,7 @@ describe('DashboardComponent', () => {
       getDashboard: jasmine.createSpy().and.returnValue(of(makeFinancialDashboard())),
     };
     const authServiceStub = {
-      user: () => ({ role: isAdmin ? 'SUAdmin' : 'SUUser', fullName: 'Test User' }),
+      user: () => ({ rl: isAdmin ? 'SUAdmin' : 'SUUser', fn: 'Test User' }),
       societyId: () => 'soc-1',
       isAdmin: () => isAdmin,
       updateUser: jasmine.createSpy(),

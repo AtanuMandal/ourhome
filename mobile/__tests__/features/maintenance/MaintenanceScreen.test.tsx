@@ -61,8 +61,8 @@ jest.mock('../../../src/features/maintenance/hooks/useMaintenance', () => ({
 jest.mock('../../../src/api/endpoints/profile', () => ({
   profileApi: {
     getProfile: jest.fn().mockResolvedValue({
-      id: 'u1', societyId: 'soc-1',
-      apartments: [{ apartmentId: 'apt-1', name: 'A 1-101', residentType: 'Owner' }],
+      id: 'u1', sid: 'soc-1',
+      apts: [{ aid: 'apt-1', nm: 'A 1-101', rt: 'Owner' }],
     }),
   },
 }));
@@ -97,20 +97,17 @@ jest.mock('../../../src/camera/imageUpload', () => ({
 function makeCharge(overrides: Partial<MaintenanceCharge> = {}): MaintenanceCharge {
   return {
     id: 'charge-1',
-    societyId: 'soc-1',
-    apartmentId: 'apt-1',
-    apartmentNumber: 'A-101',
-    scheduleId: 'sched-1',
-    scheduleName: 'Monthly Maintenance',
-    chargeYear: 2026,
-    chargeMonth: 7,
-    amount: 5000,
-    status: 'Pending',
-    dueDate: '2026-07-05T00:00:00Z',
-    isOverdue: false,
-    proofs: [],
-    createdAt: '2026-07-01T00:00:00Z',
-    updatedAt: '2026-07-01T00:00:00Z',
+    aid: 'apt-1',
+    anm: 'A-101',
+    sid: 'sched-1',
+    snm: 'Monthly Maintenance',
+    cy: 2026,
+    cm: 7,
+    amt: 5000,
+    st: 'Pending',
+    dd: '2026-07-05T00:00:00Z',
+    ov: false,
+    pf: [],
     ...overrides,
   };
 }
@@ -118,9 +115,9 @@ function makeCharge(overrides: Partial<MaintenanceCharge> = {}): MaintenanceChar
 function loginAs(role: string, apartmentId?: string): void {
   useAuthStore.setState({
     user: {
-      id: 'u1', societyId: 'soc-1', fullName: 'User', email: 'u@a.com', phone: '1',
-      role: role as never, residentType: 'Owner' as never, apartmentId,
-      isVerified: true, isActive: true,
+      id: 'u1', sid: 'soc-1', fn: 'User', em: 'u@a.com', ph: '1',
+      rl: role as never, rt: 'Owner' as never, aid: apartmentId,
+      vf: true, ac: true,
     },
     token: 'tok',
     isAuthenticated: true,
@@ -182,7 +179,7 @@ describe('MaintenanceScreen', () => {
   });
 
   test('shows the proof-submission form when a selectable charge exists', () => {
-    mockCharges = [makeCharge({ status: 'Pending' })];
+    mockCharges = [makeCharge({ st: 'Pending' })];
     renderScreen();
 
     expect(screen.getByText('Submit payment proof')).toBeTruthy();
@@ -190,7 +187,7 @@ describe('MaintenanceScreen', () => {
   });
 
   test('does not show the proof-submission form or checkbox when no charge is selectable', () => {
-    mockCharges = [makeCharge({ status: 'Paid' })];
+    mockCharges = [makeCharge({ st: 'Paid' })];
     renderScreen();
 
     expect(screen.queryByText('Submit payment proof')).toBeNull();
@@ -198,7 +195,7 @@ describe('MaintenanceScreen', () => {
   });
 
   test('a ProofSubmitted charge is not selectable either', () => {
-    mockCharges = [makeCharge({ status: 'ProofSubmitted' })];
+    mockCharges = [makeCharge({ st: 'ProofSubmitted' })];
     renderScreen();
 
     expect(screen.queryByText('Include in proof submission')).toBeNull();
@@ -207,7 +204,7 @@ describe('MaintenanceScreen', () => {
   test('picking a proof photo uploads it and shows a preview', async () => {
     mockCharges = [makeCharge()];
     (pickImageFile as jest.Mock).mockResolvedValue({ uri: 'file://photo.jpg', name: 'photo.jpg', mimeType: 'image/jpeg' });
-    (maintenanceApi.uploadPaymentProof as jest.Mock).mockResolvedValue({ fileName: 'receipt.jpg', fileUrl: 'files/proofs/receipt.jpg' });
+    (maintenanceApi.uploadPaymentProof as jest.Mock).mockResolvedValue({ fn: 'receipt.jpg', fu: 'files/proofs/receipt.jpg' });
 
     renderScreen();
     fireEvent.press(screen.getByText('Pick proof photo'));
@@ -225,7 +222,7 @@ describe('MaintenanceScreen', () => {
   test('picking a proof document uploads it and shows a file-type thumbnail', async () => {
     mockCharges = [makeCharge()];
     (pickProofDocument as jest.Mock).mockResolvedValue({ uri: 'file://receipt.pdf', name: 'receipt.pdf', mimeType: 'application/pdf' });
-    (maintenanceApi.uploadPaymentProof as jest.Mock).mockResolvedValue({ fileName: 'receipt.pdf', fileUrl: 'files/proofs/receipt.pdf' });
+    (maintenanceApi.uploadPaymentProof as jest.Mock).mockResolvedValue({ fn: 'receipt.pdf', fu: 'files/proofs/receipt.pdf' });
 
     renderScreen();
     fireEvent.press(screen.getByText('Pick proof document'));
@@ -242,7 +239,7 @@ describe('MaintenanceScreen', () => {
   });
 
   test('tapping a non-image proof thumbnail downloads and opens it', async () => {
-    mockCharges = [makeCharge({ proofs: [{ proofUrl: 'files/proofs/receipt.pdf', submittedByUserId: 'u1', submittedAt: '2026-07-02T00:00:00Z' }] })];
+    mockCharges = [makeCharge({ pf: [{ pu: 'files/proofs/receipt.pdf', sa: '2026-07-02T00:00:00Z' }] })];
     (viewRemoteFile as jest.Mock).mockResolvedValue(undefined);
 
     renderScreen();
@@ -253,7 +250,7 @@ describe('MaintenanceScreen', () => {
 
   test('shows an alert when opening a non-image proof fails', async () => {
     jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    mockCharges = [makeCharge({ proofs: [{ proofUrl: 'files/proofs/receipt.pdf', submittedByUserId: 'u1', submittedAt: '2026-07-02T00:00:00Z' }] })];
+    mockCharges = [makeCharge({ pf: [{ pu: 'files/proofs/receipt.pdf', sa: '2026-07-02T00:00:00Z' }] })];
     (viewRemoteFile as jest.Mock).mockRejectedValue(new Error('network error'));
 
     renderScreen();
@@ -263,7 +260,7 @@ describe('MaintenanceScreen', () => {
   });
 
   test('an image proof renders inline instead of a file-type tile', () => {
-    mockCharges = [makeCharge({ proofs: [{ proofUrl: 'files/proofs/receipt.jpg', submittedByUserId: 'u1', submittedAt: '2026-07-02T00:00:00Z' }] })];
+    mockCharges = [makeCharge({ pf: [{ pu: 'files/proofs/receipt.jpg', sa: '2026-07-02T00:00:00Z' }] })];
     renderScreen();
 
     expect(screen.queryByLabelText('View proof file')).toBeNull();
@@ -272,7 +269,7 @@ describe('MaintenanceScreen', () => {
   test('submitting proof requires at least one selected charge and an uploaded proof', async () => {
     mockCharges = [makeCharge()];
     (pickImageFile as jest.Mock).mockResolvedValue({ uri: 'file://photo.jpg', name: 'photo.jpg', mimeType: 'image/jpeg' });
-    (maintenanceApi.uploadPaymentProof as jest.Mock).mockResolvedValue({ fileName: 'receipt.jpg', fileUrl: 'files/proofs/receipt.jpg' });
+    (maintenanceApi.uploadPaymentProof as jest.Mock).mockResolvedValue({ fn: 'receipt.jpg', fu: 'files/proofs/receipt.jpg' });
 
     renderScreen();
 
@@ -302,13 +299,10 @@ describe('MaintenanceScreen', () => {
 });
 
 describe('MaintenanceScreen — clubbed submissions (grouping, approve, deny)', () => {
-  function makeProof(overrides: Partial<{ proofUrl: string; submittedByUserId: string; submittedAt: string; submissionGroupId: string }> = {}) {
+  function makeProof(overrides: Partial<{ proofUrl: string; submittedAt: string }> = {}) {
     return {
-      proofUrl: 'files/proofs/receipt.jpg',
-      submittedByUserId: 'resident-1',
-      submittedAt: '2026-07-02T00:00:00Z',
-      submissionGroupId: 'group-1',
-      ...overrides,
+      pu: overrides.proofUrl ?? 'files/proofs/receipt.jpg',
+      sa: overrides.submittedAt ?? '2026-07-02T00:00:00Z',
     };
   }
 
@@ -317,9 +311,9 @@ describe('MaintenanceScreen — clubbed submissions (grouping, approve, deny)', 
   // that's what the screen's grouping predicate reads, not proofs[].submissionGroupId directly.
   function makeClubbedCharges(): MaintenanceCharge[] {
     return [
-      makeCharge({ id: 'charge-apr', chargeMonth: 4, status: 'ProofSubmitted', proofs: [makeProof()], submissionGroupId: 'group-1' }),
-      makeCharge({ id: 'charge-may', chargeMonth: 5, status: 'ProofSubmitted', proofs: [makeProof()], submissionGroupId: 'group-1' }),
-      makeCharge({ id: 'charge-jun', chargeMonth: 6, status: 'ProofSubmitted', proofs: [makeProof()], submissionGroupId: 'group-1' }),
+      makeCharge({ id: 'charge-apr', cm: 4, st: 'ProofSubmitted', pf: [makeProof()], sgi: 'group-1' }),
+      makeCharge({ id: 'charge-may', cm: 5, st: 'ProofSubmitted', pf: [makeProof()], sgi: 'group-1' }),
+      makeCharge({ id: 'charge-jun', cm: 6, st: 'ProofSubmitted', pf: [makeProof()], sgi: 'group-1' }),
     ];
   }
 
@@ -339,7 +333,7 @@ describe('MaintenanceScreen — clubbed submissions (grouping, approve, deny)', 
   });
 
   test('does not show the clubbed section for a lone submission', () => {
-    mockCharges = [makeCharge({ id: 'charge-solo', status: 'ProofSubmitted', proofs: [makeProof()], submissionGroupId: 'group-solo' })];
+    mockCharges = [makeCharge({ id: 'charge-solo', st: 'ProofSubmitted', pf: [makeProof()], sgi: 'group-solo' })];
     renderScreen();
 
     expect(screen.queryByText('Clubbed payment proof submissions')).toBeNull();
@@ -393,7 +387,7 @@ describe('MaintenanceScreen — clubbed submissions (grouping, approve, deny)', 
   });
 
   test('denying a single ungrouped charge calls denyProof with its id and reason', async () => {
-    mockCharges = [makeCharge({ id: 'charge-solo', status: 'ProofSubmitted' })];
+    mockCharges = [makeCharge({ id: 'charge-solo', st: 'ProofSubmitted' })];
     (maintenanceApi.denyProof as jest.Mock).mockResolvedValue({});
     renderScreen();
 
@@ -405,7 +399,7 @@ describe('MaintenanceScreen — clubbed submissions (grouping, approve, deny)', 
   });
 
   test('the deny confirm button stays disabled until a reason is entered', () => {
-    mockCharges = [makeCharge({ id: 'charge-solo', status: 'ProofSubmitted' })];
+    mockCharges = [makeCharge({ id: 'charge-solo', st: 'ProofSubmitted' })];
     renderScreen();
 
     fireEvent.press(screen.getByText('Deny'));
@@ -415,7 +409,7 @@ describe('MaintenanceScreen — clubbed submissions (grouping, approve, deny)', 
   });
 
   test('a Rejected charge shows the denial reason', () => {
-    mockCharges = [makeCharge({ id: 'charge-rejected', status: 'Rejected', rejectionReason: 'Amount mismatch.' })];
+    mockCharges = [makeCharge({ id: 'charge-rejected', st: 'Rejected', rr: 'Amount mismatch.' })];
     renderScreen();
 
     expect(screen.getByText('Denied: Amount mismatch.')).toBeTruthy();
@@ -428,10 +422,10 @@ describe('MaintenanceScreen — clubbed submissions (grouping, approve, deny)', 
   test('a resubmitted charge (Rejected then re-proofed) shows normal Approve/Deny, not the clubbed note', async () => {
     mockCharges = [makeCharge({
       id: 'charge-resubmitted',
-      status: 'ProofSubmitted',
-      rejectionReason: null,
-      proofs: [makeProof({ submissionGroupId: 'group-fresh' })],
-      submissionGroupId: 'group-fresh',
+      st: 'ProofSubmitted',
+      rr: null,
+      pf: [makeProof()],
+      sgi: 'group-fresh',
     })];
     renderScreen();
 

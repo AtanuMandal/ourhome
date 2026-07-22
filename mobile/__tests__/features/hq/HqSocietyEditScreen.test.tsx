@@ -22,11 +22,11 @@ jest.mock('@expo/vector-icons', () => {
 
 function makeSociety(overrides: Partial<Society> = {}): Society {
   return {
-    id: 's1', name: 'Green Valley',
-    address: { street: '1 Main St', city: 'Bengaluru', state: 'Karnataka', postalCode: '560001', country: 'India' },
-    contactEmail: 'admin@gv.com', contactPhone: '9876543210',
-    totalBlocks: 2, totalApartments: 40, maintenanceOverdueThresholdDays: 7, status: 'Active',
-    societyUsers: [], committees: [], themeId: 'ocean',
+    id: 's1', nm: 'Green Valley',
+    addr: { str: '1 Main St', cty: 'Bengaluru', ste: 'Karnataka', pc: '560001', co: 'India' },
+    ce: 'admin@gv.com', cp: '9876543210',
+    tb: 2, ta: 40, mot: 7, mua: 10, voh: 5, st: 'Active',
+    su: [], cm: [], th: 'ocean',
     ...overrides,
   };
 }
@@ -130,7 +130,7 @@ describe('HqSocietyEditScreen', () => {
   });
 
   test('pre-selects the swatch matching the society theme', () => {
-    mockSociety = makeSociety({ themeId: 'violet' });
+    mockSociety = makeSociety({ th: 'violet' });
     renderScreen();
 
     expect(screen.getByTestId('theme-swatch-violet').props.accessibilityState).toMatchObject({ selected: true });
@@ -138,7 +138,7 @@ describe('HqSocietyEditScreen', () => {
   });
 
   test('falls back to the default swatch for an unrecognized theme id', () => {
-    mockSociety = makeSociety({ themeId: 'retired-theme' });
+    mockSociety = makeSociety({ th: 'retired-theme' });
     renderScreen();
 
     expect(screen.getByTestId('theme-swatch-ocean').props.accessibilityState).toMatchObject({ selected: true });

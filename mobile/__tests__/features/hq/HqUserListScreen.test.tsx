@@ -26,8 +26,8 @@ jest.mock('@expo/vector-icons', () => {
 
 function makeUser(overrides: Partial<User> = {}): User {
   return {
-    id: 'u1', societyId: 'hq', fullName: 'Platform Admin', email: 'admin@platform.com', phone: '9000000000',
-    role: 'HQAdmin', residentType: 'SocietyAdmin', isVerified: true, isActive: true,
+    id: 'u1', sid: 'hq', fn: 'Platform Admin', em: 'admin@platform.com', ph: '9000000000',
+    rl: 'HQAdmin', rt: 'SocietyAdmin', vf: true, ac: true,
     ...overrides,
   } as User;
 }
@@ -49,8 +49,8 @@ function renderScreen() {
 
 function setUser(role: 'HQAdmin' | 'HQUser') {
   useAuthStore.setState({
-    user: { id: 'u1', societyId: 'hq', fullName: 'Platform Admin', email: 'admin@platform.com', phone: '9000000000',
-      role, residentType: 'SocietyAdmin', apartmentId: undefined, isVerified: true, isActive: true },
+    user: { id: 'u1', sid: 'hq', fn: 'Platform Admin', em: 'admin@platform.com', ph: '9000000000',
+      rl: role, rt: 'SocietyAdmin', aid: undefined, vf: true, ac: true },
     token: 'token',
     isAuthenticated: true,
   });
@@ -65,7 +65,7 @@ describe('HqUserListScreen', () => {
 
   test('lists existing HQ users', () => {
     setUser('HQAdmin');
-    mockUsers = [makeUser({ fullName: 'Jane Viewer', email: 'jane@platform.com' })];
+    mockUsers = [makeUser({ fn: 'Jane Viewer', em: 'jane@platform.com' })];
 
     renderScreen();
 
@@ -107,7 +107,7 @@ describe('HqUserListScreen', () => {
 
   test('HQAdmin can activate and deactivate a user', () => {
     setUser('HQAdmin');
-    mockUsers = [makeUser({ id: 'u2', isActive: false })];
+    mockUsers = [makeUser({ id: 'u2', ac: false })];
 
     renderScreen();
     fireEvent.press(screen.getByText('Enable'));

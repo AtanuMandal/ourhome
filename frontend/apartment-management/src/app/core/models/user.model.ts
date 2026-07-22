@@ -6,10 +6,11 @@ export interface PagedResult<T> {
   pageSize: number;
 }
 
+// Matches backend ResidentApartmentDto — field names shortened to match its compressed JSON keys.
 export interface ResidentApartment {
-  apartmentId: string;
-  name: string;
-  residentType: 'Owner' | 'Tenant' | 'FamilyMember' | 'CoOccupant' | 'SocietyAdmin';
+  aid: string; // apartmentId
+  nm: string; // name
+  rt: 'Owner' | 'Tenant' | 'FamilyMember' | 'CoOccupant' | 'SocietyAdmin'; // residentType
 }
 
 export interface CreateHqUserDto {
@@ -19,37 +20,38 @@ export interface CreateHqUserDto {
   role: 'HQAdmin' | 'HQUser';
 }
 
+// Matches backend UserResponse/AuthUserDto — field names shortened to match their compressed JSON keys.
 export interface User {
   id: string;
-  societyId: string;
-  name?: string;
-  email: string;
-  phone?: string;
-  role: 'HQAdmin' | 'HQUser' | 'SUAdmin' | 'SUUser' | 'SUSecurity';
-  residentType: 'SocietyAdmin' | 'Owner' | 'Tenant' | 'FamilyMember' | 'CoOccupant';
-  apartmentId?: string;
-  isActive?: boolean;
-  isVerified: boolean;
-  hasPassword?: boolean;
-  permissions: string[];
-  fullName?: string;
+  sid: string; // societyId
+  nm?: string; // name (AuthUserDto)
+  em: string; // email
+  ph?: string; // phone
+  rl: 'HQAdmin' | 'HQUser' | 'SUAdmin' | 'SUUser' | 'SUSecurity'; // role
+  rt: 'SocietyAdmin' | 'Owner' | 'Tenant' | 'FamilyMember' | 'CoOccupant'; // residentType
+  aid?: string; // apartmentId
+  ac?: boolean; // isActive
+  vf: boolean; // isVerified
+  perm?: string[]; // permissions (UserResponse only)
+  fn?: string; // fullName (UserResponse)
   avatarUrl?: string;
-  profilePictureUrl?: string;
-  apartments?: ResidentApartment[];
-  createdAt?: string;
-  pendingApartmentId?: string;
-  pendingResidentType?: string;
+  pic?: string; // profilePictureUrl
+  apts?: ResidentApartment[]; // apartments
+  paid?: string; // pendingApartmentId
+  prt?: string; // pendingResidentType
 }
 
+// Matches backend InviteLinkResponse — field names shortened to match its compressed JSON keys.
 export interface InviteLink {
-  token: string;
-  inviteUrl: string;
+  tok: string; // token
+  url: string; // inviteUrl
 }
 
+// Matches backend ValidateInviteTokenResponse — field names shortened to match its compressed JSON keys.
 export interface InviteTokenValidation {
-  valid: boolean;
-  societyId?: string;
-  apartmentId?: string;
+  vl: boolean; // valid
+  sid?: string; // societyId
+  aid?: string; // apartmentId
 }
 
 export interface AuthState {
@@ -75,33 +77,37 @@ export interface AuthToken {
   user: User;
 }
 
+// Matches backend LoginOptionDto — field names shortened to match its compressed JSON keys.
 export interface LoginOption {
-  userId: string;
-  societyId: string;
-  societyName: string;
-  apartmentId?: string;
-  apartmentLabel?: string;
-  role: string;
-  residentType: string;
+  uid: string; // userId
+  sid: string; // societyId
+  snm: string; // societyName
+  aid?: string; // apartmentId
+  alb?: string; // apartmentLabel
+  rl: string; // role
+  rt: string; // residentType
 }
 
+// Matches backend LoginResponse — field names shortened to match its compressed JSON keys.
 export interface LoginResponse {
-  requiresSelection: boolean;
-  token?: string;
-  user?: User;
-  options: LoginOption[];
+  rs: boolean; // requiresSelection
+  tok?: string; // token
+  usr?: User; // user
+  opts: LoginOption[]; // options
 }
 
+// Matches backend PasswordResetRequestResponse — field names shortened to match its compressed JSON keys.
 export interface PasswordResetRequestResponse {
-  requiresSelection: boolean;
-  userId?: string;
-  options: LoginOption[];
+  rs: boolean; // requiresSelection
+  uid?: string; // userId
+  opts: LoginOption[]; // options
 }
 
+// Matches backend PhoneLoginOtpResponse — field names shortened to match its compressed JSON keys.
 export interface PhoneLoginOtpResponse {
-  requiresSelection: boolean;
-  userId?: string;
-  options: LoginOption[];
+  rs: boolean; // requiresSelection
+  uid?: string; // userId
+  opts: LoginOption[]; // options
 }
 
 export type LoginMethod = 'phone' | 'email';

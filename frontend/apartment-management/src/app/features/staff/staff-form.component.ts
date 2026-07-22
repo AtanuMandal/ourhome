@@ -101,7 +101,7 @@ export class StaffFormComponent implements OnInit {
   readonly isEditMode = computed(() => this.staffId() !== null);
   readonly shiftOptions = computed(() => [
     { value: '', label: 'No shift' },
-    ...this.shifts().map(s => ({ value: s.id, label: s.name })),
+    ...this.shifts().map(s => ({ value: s.id, label: s.nm })),
   ]);
 
   readonly form = this.fb.group({
@@ -128,9 +128,9 @@ export class StaffFormComponent implements OnInit {
       this.staffSvc.get(sid, id).subscribe({
         next: staff => {
           this.form.patchValue({
-            fullName: staff.fullName,
-            phone: staff.phone,
-            shiftId: staff.shiftId ?? '',
+            fullName: staff.fn,
+            phone: staff.ph,
+            shiftId: staff.sid ?? '',
           });
           this.loading.set(false);
         },

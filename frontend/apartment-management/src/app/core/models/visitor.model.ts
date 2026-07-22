@@ -1,33 +1,31 @@
 export type VisitorStatus = 'Pending' | 'Approved' | 'Denied' | 'CheckedIn' | 'CheckedOut';
 
+// Field names are shortened to match the backend's compressed JSON keys (see VisitorResponse).
 export interface Visitor {
   id: string;
-  societyId: string;
-  visitorName: string;
-  visitorPhone: string;
-  visitorEmail?: string;
-  companyName?: string;
-  purpose: string;
-  hostApartmentId: string;
-  hostResidentName: string;
-  hostBlockName: string;
-  hostFloorNumber: number;
-  hostFlatNumber: string;
-  isPreApproved: boolean;
-  status: VisitorStatus;
-  qrCode?: string;
-  passCode: string;
-  vehicleNumber?: string;
-  approvedAt?: string;
-  checkInTime?: string;
-  checkOutTime?: string;
-  duration?: number;
-  createdAt: string;
-  validUntil?: string;
-  visitorImageUrl?: string;
-  isPassExpired?: boolean;
+  vn: string; // visitorName
+  vp: string; // visitorPhone
+  ve?: string; // visitorEmail
+  cn?: string; // companyName
+  pu: string; // purpose
+  aid: string; // hostApartmentId
+  hrn: string; // hostResidentName
+  hbn: string; // hostBlockName
+  hfn: number; // hostFloorNumber
+  hft: string; // hostFlatNumber
+  ipa: boolean; // isPreApproved
+  st: VisitorStatus; // status
+  qr?: string; // qrCode
+  pc: string; // passCode
+  vh?: string; // vehicleNumber
+  cit?: string; // checkInTime
+  cot?: string; // checkOutTime
+  ca: string; // createdAt
+  vu?: string; // validUntil
+  img?: string; // visitorImageUrl
+  ipe?: boolean; // isPassExpired
   /** Checked in past the society's overstay threshold — render in red. */
-  isOverstay?: boolean;
+  ov?: boolean; // isOverstay
 }
 
 export interface RegisterVisitorDto {
@@ -58,15 +56,15 @@ export interface VisitorListFilters {
 }
 
 export interface PublicVisitorPass {
-  visitorName: string;
-  purpose: string;
-  hostBlockName: string;
-  hostFlatNumber: string;
-  status: VisitorStatus;
-  qrCode?: string;
-  validUntil?: string;
-  isPassExpired: boolean;
-  visitorImageUrl?: string;
+  vn: string; // visitorName
+  pu: string; // purpose
+  hbn: string; // hostBlockName
+  hft: string; // hostFlatNumber
+  st: VisitorStatus; // status
+  qr?: string; // qrCode
+  vu?: string; // validUntil
+  ipe: boolean; // isPassExpired
+  img?: string; // visitorImageUrl
 }
 
 export interface ShareVisitorPassRequest {

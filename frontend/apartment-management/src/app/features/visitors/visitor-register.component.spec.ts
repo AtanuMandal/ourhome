@@ -22,7 +22,7 @@ describe('VisitorRegisterComponent — company/purpose lookups', () => {
       societyId: () => 'soc-1',
       isAdmin: () => role === 'SUAdmin',
       canManageVisitors: () => role === 'SUAdmin' || role === 'SUSecurity',
-      user: () => ({ role, apartmentId: 'apt-1', apartments: [{ apartmentId: 'apt-1', name: 'A-101' }] }),
+      user: () => ({ rl: role, aid: 'apt-1', apts: [{ aid: 'apt-1', nm: 'A-101' }] }),
     };
 
     TestBed.configureTestingModule({

@@ -55,7 +55,7 @@ export function ResidentFormScreen() {
     { label: 'No apartment', value: '' },
     ...(apartments?.items ?? []).map((a) => ({
       value: a.id,
-      label: formatApartmentLabel(a.blockName, a.floorNumber, a.apartmentNumber),
+      label: formatApartmentLabel(a.blk, a.flr, a.num),
     })),
   ];
 

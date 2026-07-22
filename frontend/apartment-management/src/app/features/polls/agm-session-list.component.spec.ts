@@ -11,9 +11,9 @@ describe('AgmSessionListComponent', () => {
   function summary(overrides: Partial<AgmSessionSummary>): AgmSessionSummary {
     return {
       id: overrides.id ?? 's1',
-      title: overrides.title ?? 'AGM 2026',
-      sessionDate: '2026-04-15T10:00:00Z',
-      resolutionCount: overrides.resolutionCount ?? 3,
+      tt: 'AGM 2026',
+      sd: '2026-04-15T10:00:00Z',
+      rc: 3,
       ...overrides,
     };
   }

@@ -16,7 +16,7 @@ import { PollSummary } from '../../core/models/poll.model';
   standalone: true,
   imports: [RouterLink, DatePipe, MatButtonModule, MatIconModule, PageHeaderComponent, LoadingSpinnerComponent],
   template: `
-    <app-page-header [title]="item()?.title ?? 'Notice'" [showBack]="true">
+    <app-page-header [title]="item()?.tt ?? 'Notice'" [showBack]="true">
       @if (auth.isAdmin() && item()) {
         <div actions class="header-actions">
           <button mat-icon-button [routerLink]="['/notices', 'edit', item()!.id]" aria-label="Edit notice">
@@ -34,15 +34,15 @@ import { PollSummary } from '../../core/models/poll.model';
       } @else if (item()) {
         <div class="card">
           <div class="notice-meta">
-            <span class="category">{{ item()!.category }}</span>
-            <span class="date">{{ item()!.publishAt | date:'medium' }}</span>
+            <span class="category">{{ item()!.cat }}</span>
+            <span class="date">{{ item()!.pa | date:'medium' }}</span>
           </div>
-          <h2 class="notice-title">{{ item()!.title }}</h2>
-          <div class="notice-body">{{ item()!.content }}</div>
-          @if (item()!.postedByName || item()!.postedByUserId) {
+          <h2 class="notice-title">{{ item()!.tt }}</h2>
+          <div class="notice-body">{{ item()!.ct }}</div>
+          @if (item()!.pn || item()!.pid) {
             <div class="notice-author">
               <span class="material-icons">person</span>
-              Posted by {{ item()!.postedByName || 'Unknown' }}
+              Posted by {{ item()!.pn || 'Unknown' }}
             </div>
           }
         </div>
@@ -84,7 +84,7 @@ import { PollSummary } from '../../core/models/poll.model';
         @if (linkedPoll(); as poll) {
           <a [routerLink]="['/polls', poll.id]" class="linked-poll-banner">
             <span class="material-icons">how_to_vote</span>
-            <span>This notice has an associated poll: <strong>{{ poll.title }}</strong> — tap to view or vote</span>
+            <span>This notice has an associated poll: <strong>{{ poll.tt }}</strong> — tap to view or vote</span>
           </a>
         }
       }
@@ -136,7 +136,7 @@ export class NoticeDetailComponent implements OnInit {
       next: n => {
         this.item.set(n);
         this.loading.set(false);
-        if (!n.isReadByCurrentUser) {
+        if (!n.rd) {
           this.svc.markRead(sid, id).subscribe();
         }
       },

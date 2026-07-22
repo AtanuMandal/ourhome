@@ -24,7 +24,7 @@ export function ServiceRequestFormScreen() {
   const societyId = useSocietyId();
   const userId = useAuthStore((s) => s.user?.id ?? '');
   const { apartments, activeApartmentId } = useActiveApartment();
-  const apartmentId = activeApartmentId ?? apartments[0]?.apartmentId ?? '';
+  const apartmentId = activeApartmentId ?? apartments[0]?.aid ?? '';
 
   const [serviceType, setServiceType] = useState('Plumber');
   const [description, setDescription] = useState('');

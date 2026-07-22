@@ -15,7 +15,7 @@ import type { AgmSessionSummary } from '../../api/types';
 export function AgmSessionListScreen() {
   const navigation = useNavigation<any>(); // eslint-disable-line @typescript-eslint/no-explicit-any
   const societyId = useSocietyId();
-  const role = useAuthStore((s) => s.user?.role ?? '');
+  const role = useAuthStore((s) => s.user?.rl ?? '');
   const isAdmin = role === 'SUAdmin';
 
   const { data, isLoading, fetchNextPage, hasNextPage, refetch } = useAgmSessionList(societyId);
@@ -24,9 +24,9 @@ export function AgmSessionListScreen() {
     return (
       <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('AgmSessionDetail', { id: item.id })}>
         <View style={styles.cardInfo}>
-          <Text style={styles.cardTitle}>{item.title}</Text>
+          <Text style={styles.cardTitle}>{item.tt}</Text>
           <Text style={styles.cardMeta}>
-            {new Date(item.sessionDate).toLocaleDateString()} · {item.resolutionCount} resolution(s)
+            {new Date(item.sd).toLocaleDateString()} · {item.rc} resolution(s)
           </Text>
         </View>
       </TouchableOpacity>

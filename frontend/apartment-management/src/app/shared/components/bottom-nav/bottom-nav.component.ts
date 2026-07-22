@@ -66,6 +66,6 @@ export class BottomNavComponent {
   private readonly auth = inject(AuthService);
 
   readonly navItems = computed<NavItem[]>(() =>
-    ROLE_NAV[this.auth.user()?.role ?? ''] ?? ROLE_NAV['default']!
+    ROLE_NAV[this.auth.user()?.rl ?? ''] ?? ROLE_NAV['default']!
   );
 }

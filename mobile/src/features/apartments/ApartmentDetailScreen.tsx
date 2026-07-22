@@ -131,7 +131,7 @@ export function ApartmentDetailScreen() {
   const memberValid = memberName.trim() && /\S+@\S+\.\S+/.test(memberEmail.trim()) && memberPhone.trim();
   const transferValid = transferName.trim() && /\S+@\S+\.\S+/.test(transferEmail.trim()) && transferPhone.trim();
   const label = apartment
-    ? formatApartmentLabel(apartment.blockName, apartment.floorNumber, apartment.apartmentNumber)
+    ? formatApartmentLabel(apartment.blk, apartment.flr, apartment.num)
     : 'Apartment';
 
   return (
@@ -143,15 +143,15 @@ export function ApartmentDetailScreen() {
           <View style={styles.card}>
             <View style={styles.cardTopRow}>
               <Text style={styles.cardTitle}>Status</Text>
-              <StatusChip status={apartment.status} />
+              <StatusChip status={apartment.st} />
             </View>
             <View style={styles.btnRow}>
-              {apartment.status !== 'Available' && (
+              {apartment.st !== 'Available' && (
                 <TouchableOpacity style={styles.smallBtn} onPress={() => changeStatus.mutate('Available')}>
                   <Text style={styles.smallBtnText}>Mark Available</Text>
                 </TouchableOpacity>
               )}
-              {apartment.status !== 'UnderMaintenance' && (
+              {apartment.st !== 'UnderMaintenance' && (
                 <TouchableOpacity style={[styles.smallBtn, styles.warnBtn]} onPress={() => changeStatus.mutate('UnderMaintenance')}>
                   <Text style={styles.smallBtnText}>Under Maintenance</Text>
                 </TouchableOpacity>
@@ -165,13 +165,13 @@ export function ApartmentDetailScreen() {
 
         <Text style={styles.section}>Residents</Text>
         <View style={styles.card}>
-          {(apartment?.residents ?? []).map((r) => (
-            <View key={r.userId} style={styles.residentRow}>
-              <Text style={styles.residentName}>{r.userName}</Text>
-              <Text style={styles.residentType}>{r.residentType}</Text>
+          {(apartment?.res ?? []).map((r) => (
+            <View key={r.uid} style={styles.residentRow}>
+              <Text style={styles.residentName}>{r.unm}</Text>
+              <Text style={styles.residentType}>{r.rt}</Text>
             </View>
           ))}
-          {apartment && apartment.residents.length === 0 && <Text style={styles.hint}>No residents.</Text>}
+          {apartment && apartment.res.length === 0 && <Text style={styles.hint}>No residents.</Text>}
         </View>
 
         <Text style={styles.section}>Add household member</Text>
@@ -208,18 +208,18 @@ export function ApartmentDetailScreen() {
         {showHistory && (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Ownership history</Text>
-            {(history?.ownershipHistory ?? []).map((h, i) => (
-              <Text key={`o-${h.userId}-${i}`} style={styles.historyRow}>
-                {h.fullName} — {formatDate(h.fromUtc)}{h.toUtc ? ` to ${formatDate(h.toUtc)}` : ' (current)'}
+            {(history?.oh ?? []).map((h, i) => (
+              <Text key={`o-${h.uid}-${i}`} style={styles.historyRow}>
+                {h.fn} — {formatDate(h.fu)}{h.tu ? ` to ${formatDate(h.tu)}` : ' (current)'}
               </Text>
             ))}
             <Text style={[styles.cardTitle, styles.inputGap]}>Tenant history</Text>
-            {(history?.tenantHistory ?? []).map((h, i) => (
-              <Text key={`t-${h.userId}-${i}`} style={styles.historyRow}>
-                {h.fullName} — {formatDate(h.fromUtc)}{h.toUtc ? ` to ${formatDate(h.toUtc)}` : ' (current)'}
+            {(history?.th ?? []).map((h, i) => (
+              <Text key={`t-${h.uid}-${i}`} style={styles.historyRow}>
+                {h.fn} — {formatDate(h.fu)}{h.tu ? ` to ${formatDate(h.tu)}` : ' (current)'}
               </Text>
             ))}
-            {!historyLoading && (history?.ownershipHistory ?? []).length === 0 && (history?.tenantHistory ?? []).length === 0 && (
+            {!historyLoading && (history?.oh ?? []).length === 0 && (history?.th ?? []).length === 0 && (
               <Text style={styles.hint}>No history recorded.</Text>
             )}
           </View>

@@ -46,14 +46,14 @@ function isoDate(date: Date) {
             </tr>
           </thead>
           <tbody>
-            @for (entry of entries(); track entry.staffId) {
+            @for (entry of entries(); track entry.sid) {
               <tr>
-                <td>{{ entry.staffName }}</td>
-                <td>{{ entry.category }}</td>
-                <td>{{ entry.presentDays }}</td>
-                <td>{{ entry.lateDays }}</td>
-                <td>{{ entry.absentDays }}</td>
-                <td>{{ entry.onLeaveDays }}</td>
+                <td>{{ entry.sn }}</td>
+                <td>{{ entry.cat }}</td>
+                <td>{{ entry.pd }}</td>
+                <td>{{ entry.ld }}</td>
+                <td>{{ entry.ad }}</td>
+                <td>{{ entry.od }}</td>
               </tr>
             }
           </tbody>
@@ -88,7 +88,7 @@ export class StaffAttendanceReportComponent implements OnInit {
     this.loading.set(true);
     this.staffSvc.attendanceReport(sid, this.fromDate(), this.toDate()).subscribe({
       next: report => {
-        this.entries.set(report.entries ?? []);
+        this.entries.set(report.e ?? []);
         this.loading.set(false);
       },
       error: () => this.loading.set(false),

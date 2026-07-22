@@ -1,32 +1,26 @@
 import api from '../client';
 import type { PaginatedResponse } from '../types';
 
-// Matches backend ServiceProviderResponse
+// Matches backend ServiceProviderResponse — field names shortened to match its compressed JSON keys.
 export interface ServiceProvider {
   id: string;
-  providerName: string;
-  contactName: string;
-  contactPhone: string;
-  serviceTypes: string[];
-  description: string;
-  status: string;
-  rating: number;
-  reviewCount: number;
+  pn: string; // providerName
+  cn: string; // contactName
+  cp: string; // contactPhone
+  svt: string[]; // serviceTypes
+  ds: string; // description
+  st: string; // status
+  rt: number; // rating
+  rc: number; // reviewCount
 }
 
-// Matches backend ServiceRequestResponse
+// Matches backend ServiceRequestResponse — field names shortened to match its compressed JSON keys.
 export interface ServiceRequest {
   id: string;
-  societyId: string;
-  apartmentId: string;
-  serviceType: string;
-  description: string;
-  preferredDateTime: string;
-  status: string;
-  acceptedByProviderId?: string;
-  rating?: number;
-  reviewComment?: string;
-  createdAt: string;
+  svt: string; // serviceType
+  ds: string; // description
+  pdt: string; // preferredDateTime
+  st: string; // status
 }
 
 export interface RegisterServiceProviderRequest {

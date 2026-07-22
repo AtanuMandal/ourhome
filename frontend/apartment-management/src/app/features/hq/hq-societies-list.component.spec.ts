@@ -11,10 +11,10 @@ import { Society } from '../../core/models/society.model';
 describe('HqSocietiesListComponent', () => {
   function makeSociety(overrides: Partial<Society> = {}): Society {
     return {
-      id: 's1', name: 'Green Valley',
-      address: { street: '1 Main St', city: 'Bengaluru', state: 'Karnataka', postalCode: '560001', country: 'India' },
-      totalBlocks: 2, totalApartments: 40, maintenanceOverdueThresholdDays: 7, maxUsersPerApartment: 10, visitorOverstayThresholdHours: 5,
-      status: 'Active', adminUserIds: [], societyUsers: [], committees: [], themeId: 'ocean', createdAt: '2026-01-01T00:00:00Z',
+      id: 's1', nm: 'Green Valley',
+      addr: { str: '1 Main St', cty: 'Bengaluru', ste: 'Karnataka', pc: '560001', co: 'India' },
+      tb: 2, ta: 40, mot: 7, mua: 10, voh: 5,
+      st: 'Active', su: [], cm: [], th: 'ocean',
       ...overrides,
     };
   }
@@ -44,18 +44,18 @@ describe('HqSocietiesListComponent', () => {
   }
 
   it('loads and displays all societies regardless of status', () => {
-    const { component } = setup([makeSociety({ status: 'Active' }), makeSociety({ id: 's2', status: 'Inactive' })]);
+    const { component } = setup([makeSociety({ st: 'Active' }), makeSociety({ id: 's2', st: 'Inactive' })]);
     expect(component.societies().length).toBe(2);
   });
 
   it('activates a society and reloads the list', () => {
-    const { component, societyServiceStub } = setup([makeSociety({ status: 'Inactive' })]);
+    const { component, societyServiceStub } = setup([makeSociety({ st: 'Inactive' })]);
     component.activate(component.societies()[0]);
     expect(societyServiceStub.activate).toHaveBeenCalledWith('s1');
   });
 
   it('deactivates a society and reloads the list', () => {
-    const { component, societyServiceStub } = setup([makeSociety({ status: 'Active' })]);
+    const { component, societyServiceStub } = setup([makeSociety({ st: 'Active' })]);
     component.deactivate(component.societies()[0]);
     expect(societyServiceStub.deactivate).toHaveBeenCalledWith('s1');
   });

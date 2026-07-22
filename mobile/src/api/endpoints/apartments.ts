@@ -32,18 +32,17 @@ export interface UpdateApartmentRequest {
 }
 
 export interface ApartmentResidentHistoryEntry {
-  userId: string;
-  fullName: string;
-  fromUtc: string;
-  toUtc?: string;
+  uid: string; // userId
+  fn: string; // fullName
+  fu: string; // fromUtc
+  tu?: string; // toUtc
 }
 
 export interface ApartmentResidentHistoryResponse {
-  apartmentId: string;
-  apartmentNumber: string;
-  residents: { userId: string; userName: string; residentType: string }[];
-  ownershipHistory: ApartmentResidentHistoryEntry[];
-  tenantHistory: ApartmentResidentHistoryEntry[];
+  num: string; // apartmentNumber
+  res: { uid: string; unm: string; rt: string }[]; // residents
+  oh: ApartmentResidentHistoryEntry[]; // ownershipHistory
+  th: ApartmentResidentHistoryEntry[]; // tenantHistory
 }
 
 export const apartmentsApi = {

@@ -25,14 +25,14 @@ function outcomeStyle(outcome: string) {
 }
 
 function targetAudienceLabel(poll: Poll): string {
-  if (poll.targetAudience === 'FullSociety') return 'Full Society';
-  return `${poll.targetAudience === 'PerBlock' ? 'Block' : 'Blocks'}: ${poll.targetBlockNames.join(', ')}`;
+  if (poll.ta === 'FullSociety') return 'Full Society';
+  return `${poll.ta === 'PerBlock' ? 'Block' : 'Blocks'}: ${poll.tbn.join(', ')}`;
 }
 
 export function PollDetailScreen({ route }: PollDetailScreenProps) {
   const { id } = route.params;
   const societyId = useSocietyId();
-  const role = useAuthStore((s) => s.user?.role ?? '');
+  const role = useAuthStore((s) => s.user?.rl ?? '');
   const isAdmin = role === 'SUAdmin';
 
   const { data: poll, isLoading } = usePoll(societyId, id);
@@ -43,8 +43,8 @@ export function PollDetailScreen({ route }: PollDetailScreenProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    setSelected(new Set(poll?.mySelectedOptionIds ?? []));
-  }, [poll?.mySelectedOptionIds]);
+    setSelected(new Set(poll?.mso ?? []));
+  }, [poll?.mso]);
 
   if (isLoading || !poll) {
     return (
@@ -55,13 +55,13 @@ export function PollDetailScreen({ route }: PollDetailScreenProps) {
     );
   }
 
-  const canVote = role === 'SUUser' && poll.status === 'Open';
-  const readOnlyVote = poll.hasVoted && !poll.allowVoteChange;
+  const canVote = role === 'SUUser' && poll.st === 'Open';
+  const readOnlyVote = poll.hv && !poll.avc;
 
   function toggleOption(optionId: string): void {
     setSelected((prev) => {
-      const next = new Set(poll!.type === 'SingleChoice' ? [] : prev);
-      if (poll!.type === 'SingleChoice') {
+      const next = new Set(poll!.ty === 'SingleChoice' ? [] : prev);
+      if (poll!.ty === 'SingleChoice') {
         next.add(optionId);
       } else if (next.has(optionId)) {
         next.delete(optionId);
@@ -102,20 +102,20 @@ export function PollDetailScreen({ route }: PollDetailScreenProps) {
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <AppHeader title="Poll" showBack />
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>{poll.title}</Text>
-        {poll.isAgmResolution && (
+        <Text style={styles.title}>{poll.tt}</Text>
+        {poll.agm && (
           <View style={styles.agmBadge}><Text style={styles.agmBadgeText}>AGM Resolution</Text></View>
         )}
-        <Text style={styles.description}>{poll.description}</Text>
+        <Text style={styles.description}>{poll.ds}</Text>
         <Text style={styles.meta}>
-          Opens {new Date(poll.opensAt).toLocaleString()} · Closes {new Date(poll.closesAt).toLocaleString()} · {poll.status}
+          Opens {new Date(poll.oa).toLocaleString()} · Closes {new Date(poll.ca).toLocaleString()} · {poll.st}
         </Text>
         <Text style={styles.meta}>Target: {targetAudienceLabel(poll)}</Text>
 
-        {poll.outcome && (
-          <View style={[styles.outcomeBanner, { backgroundColor: outcomeStyle(poll.outcome).backgroundColor }]}>
-            <Text style={{ color: outcomeStyle(poll.outcome).color, fontWeight: typography.fontWeight.bold }}>
-              Outcome: {poll.outcome === 'NoQuorum' ? 'No Quorum Reached' : poll.outcome}
+        {poll.oc && (
+          <View style={[styles.outcomeBanner, { backgroundColor: outcomeStyle(poll.oc).backgroundColor }]}>
+            <Text style={{ color: outcomeStyle(poll.oc).color, fontWeight: typography.fontWeight.bold }}>
+              Outcome: {poll.oc === 'NoQuorum' ? 'No Quorum Reached' : poll.oc}
             </Text>
           </View>
         )}
@@ -125,34 +125,34 @@ export function PollDetailScreen({ route }: PollDetailScreenProps) {
             <Text style={styles.sectionTitle}>Cast Your Vote</Text>
             {readOnlyVote ? (
               <Text>
-                You voted for: {poll.options.filter((o: PollOption) => poll.mySelectedOptionIds?.includes(o.id)).map((o: PollOption) => o.text).join(', ')}
+                You voted for: {poll.op.filter((o: PollOption) => poll.mso?.includes(o.id)).map((o: PollOption) => o.tx).join(', ')}
               </Text>
             ) : (
               <>
-                {poll.options.map((o: PollOption) => (
+                {poll.op.map((o: PollOption) => (
                   <TouchableOpacity key={o.id} style={styles.optionRow} onPress={() => toggleOption(o.id)}>
                     <View style={[styles.optionMarker, selected.has(o.id) && styles.optionMarkerSelected]} />
-                    <Text style={styles.optionLabel}>{o.text}</Text>
+                    <Text style={styles.optionLabel}>{o.tx}</Text>
                   </TouchableOpacity>
                 ))}
                 <TouchableOpacity style={styles.voteButton} onPress={() => void handleVote()} disabled={castVote.isPending || selected.size === 0}>
-                  <Text style={styles.voteButtonText}>{poll.hasVoted ? 'Change Vote' : 'Submit Vote'}</Text>
+                  <Text style={styles.voteButtonText}>{poll.hv ? 'Change Vote' : 'Submit Vote'}</Text>
                 </TouchableOpacity>
               </>
             )}
           </View>
         )}
 
-        {poll.tally && (
+        {poll.tl && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Tally</Text>
-            {poll.participantCount != null && poll.eligibleCount != null && (
-              <Text style={styles.meta}>{poll.participantCount} of {poll.eligibleCount} eligible have voted</Text>
+            {poll.pc != null && poll.elc != null && (
+              <Text style={styles.meta}>{poll.pc} of {poll.elc} eligible have voted</Text>
             )}
-            {poll.tally.map((t: PollOptionTally) => (
+            {poll.tl.map((t: PollOptionTally) => (
               <View key={t.id} style={styles.tallyRow}>
-                <Text>{t.text}</Text>
-                <Text style={styles.tallyCount}>{t.voteCount}</Text>
+                <Text>{t.tx}</Text>
+                <Text style={styles.tallyCount}>{t.vc}</Text>
               </View>
             ))}
           </View>
@@ -160,12 +160,12 @@ export function PollDetailScreen({ route }: PollDetailScreenProps) {
 
         {isAdmin && (
           <View style={styles.adminActions}>
-            {poll.status === 'Open' && (
+            {poll.st === 'Open' && (
               <TouchableOpacity style={styles.adminButton} onPress={() => void handleClose()} disabled={closePoll.isPending}>
                 <Text style={styles.adminButtonText}>Close Poll Early</Text>
               </TouchableOpacity>
             )}
-            {poll.status === 'Closed' && !poll.resultsPublished && (
+            {poll.st === 'Closed' && !poll.rp && (
               <TouchableOpacity style={styles.adminButton} onPress={() => void handlePublish()} disabled={publishResults.isPending}>
                 <Text style={styles.adminButtonText}>Publish Results</Text>
               </TouchableOpacity>

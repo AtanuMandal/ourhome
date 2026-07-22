@@ -46,26 +46,26 @@ const STATUS_OPTIONS: (SosAlertStatus | '')[] = ['', 'Triggered', 'Acknowledged'
       } @else {
         <div class="alert-list">
           @for (a of items(); track a.id) {
-            <div class="alert-card" [class.alert-card--active]="a.status === 'Triggered'">
+            <div class="alert-card" [class.alert-card--active]="a.st === 'Triggered'">
               <div class="alert-card__icon">
                 <mat-icon>emergency</mat-icon>
               </div>
               <div class="alert-card__info">
-                <span class="alert-card__title">{{ categoryLabel(a.category) }} — {{ a.apartmentLabel }}</span>
-                <span class="alert-card__meta">{{ a.triggeredByUserName }} · {{ a.triggeredAt | date:'medium' }}</span>
-                @if (a.note) { <span class="alert-card__note">{{ a.note }}</span> }
-                @if (a.escalationCount > 0) {
-                  <span class="alert-card__escalated">Escalated {{ a.escalationCount }}x</span>
+                <span class="alert-card__title">{{ categoryLabel(a.cat) }} — {{ a.al }}</span>
+                <span class="alert-card__meta">{{ a.un }} · {{ a.ta | date:'medium' }}</span>
+                @if (a.nt) { <span class="alert-card__note">{{ a.nt }}</span> }
+                @if (a.ec > 0) {
+                  <span class="alert-card__escalated">Escalated {{ a.ec }}x</span>
                 }
               </div>
-              <span class="status-chip" [class]="'status-chip--' + a.status.toLowerCase()">{{ a.status }}</span>
+              <span class="status-chip" [class]="'status-chip--' + a.st.toLowerCase()">{{ a.st }}</span>
               @if (canAct()) {
-                @if (a.status === 'Triggered') {
+                @if (a.st === 'Triggered') {
                   <button mat-stroked-button color="primary" type="button" [disabled]="actioning() === a.id" (click)="acknowledge(a)">
                     Acknowledge
                   </button>
                 }
-                @if (a.status === 'Triggered' || a.status === 'Acknowledged') {
+                @if (a.st === 'Triggered' || a.st === 'Acknowledged') {
                   <button mat-stroked-button color="warn" type="button" [disabled]="actioning() === a.id" (click)="resolve(a)">
                     Resolve
                   </button>
@@ -109,7 +109,7 @@ export class SosAlertListComponent implements OnInit {
   /** Only SUAdmin/SUSecurity can acknowledge/resolve — everyone else can view only. */
   readonly canAct  = computed(() => this.auth.isAdmin() || this.auth.isSecurity());
 
-  categoryLabel(category: SosAlert['category']) {
+  categoryLabel(category: SosAlert['cat']) {
     return SOS_CATEGORY_LABELS[category];
   }
 

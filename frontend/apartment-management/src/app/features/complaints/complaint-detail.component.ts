@@ -24,20 +24,20 @@ import { Complaint } from '../../core/models/complaint.model';
       } @else if (item()) {
         <div class="card detail-card">
           <div class="detail-header">
-            <h2>{{ item()!.title }}</h2>
-            <app-status-chip [status]="item()!.status"></app-status-chip>
+            <h2>{{ item()!.tt }}</h2>
+            <app-status-chip [status]="item()!.st"></app-status-chip>
           </div>
-          <p class="detail-category"><span class="material-icons">category</span>{{ item()!.category }}</p>
-          <p class="detail-desc">{{ item()!.description }}</p>
+          <p class="detail-category"><span class="material-icons">category</span>{{ item()!.cat }}</p>
+          <p class="detail-desc">{{ item()!.ds }}</p>
           <mat-divider></mat-divider>
 
           <div class="meta-row">
             <span class="material-icons">schedule</span>
-            Raised {{ item()!.createdAt | date:'medium' }}
+            Raised {{ item()!.ca | date:'medium' }}
           </div>
-          
 
-          @if (isAdmin() && item()!.status !== 'Resolved') {
+
+          @if (isAdmin() && item()!.st !== 'Resolved') {
             <button mat-raised-button color="primary" style="margin-top:16px" (click)="resolve()">
               Mark Resolved
             </button>

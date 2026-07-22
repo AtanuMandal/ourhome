@@ -1,18 +1,16 @@
 import api from '../client';
 
+// Matches backend PointHistoryDto — field names shortened to match its compressed JSON keys.
 export interface PointEvent {
-  id: string;
-  action: string;
-  points: number;
-  description?: string;
-  earnedAt: string;
+  pts: number; // points
+  rsn: string; // reason
+  ca: string; // createdAt
 }
 
+// Matches backend UserPointsResponse — field names shortened to match its compressed JSON keys.
 export interface UserPoints {
-  userId: string;
-  societyId: string;
-  totalPoints: number;
-  history: PointEvent[];
+  tp: number; // totalPoints
+  h: PointEvent[]; // history
 }
 
 export const gamificationApi = {

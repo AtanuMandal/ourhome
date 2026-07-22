@@ -163,25 +163,25 @@ import { StatusChipComponent } from '../../shared/components/status-chip/status-
         <div class="card pass-card">
           <div class="pass-card__header">
             <div>
-              <h3>{{ createdVisitor()!.visitorName }}</h3>
-              <p>{{ createdVisitor()!.purpose }} for {{ createdVisitor()!.hostFlatNumber }}</p>
+              <h3>{{ createdVisitor()!.vn }}</h3>
+              <p>{{ createdVisitor()!.pu }} for {{ createdVisitor()!.hft }}</p>
             </div>
-            <app-status-chip [status]="createdVisitor()!.status"></app-status-chip>
+            <app-status-chip [status]="createdVisitor()!.st"></app-status-chip>
           </div>
 
           <div class="pass-card__body">
             <div>
               <span class="pass-card__label">Pass code</span>
-              <strong class="pass-card__code">{{ createdVisitor()!.passCode }}</strong>
+              <strong class="pass-card__code">{{ createdVisitor()!.pc }}</strong>
             </div>
             <div>
               <span class="pass-card__label">Resident</span>
-              <strong>{{ createdVisitor()!.hostResidentName }}</strong>
+              <strong>{{ createdVisitor()!.hrn }}</strong>
             </div>
-            @if (createdVisitor()!.validUntil) {
+            @if (createdVisitor()!.vu) {
               <div>
                 <span class="pass-card__label">Valid until</span>
-                <strong>{{ createdVisitor()!.validUntil | date:'short' }}</strong>
+                <strong>{{ createdVisitor()!.vu | date:'short' }}</strong>
               </div>
             }
             @if (qrImageUrl()) {
@@ -193,7 +193,7 @@ import { StatusChipComponent } from '../../shared/components/status-chip/status-
           </div>
 
           <p class="pass-card__note">
-            @if (createdVisitor()!.isPreApproved) {
+            @if (createdVisitor()!.ipa) {
               Share this pass with the visitor or security for quick verification and check-in.
             } @else {
               Visitor request created. Resident approval is still required before entry.
@@ -281,7 +281,7 @@ export class VisitorRegisterComponent implements OnInit {
 
   readonly residentApartmentLabel = computed(() => {
     const user = this.auth.user();
-    return user?.apartments?.[0]?.name ?? 'Your apartment';
+    return user?.apts?.[0]?.nm ?? 'Your apartment';
   });
 
   readonly resolvedApartmentId = computed(() => {
@@ -290,7 +290,7 @@ export class VisitorRegisterComponent implements OnInit {
     }
 
     const user = this.auth.user();
-    return user?.apartmentId ?? user?.apartments?.[0]?.apartmentId ?? '';
+    return user?.aid ?? user?.apts?.[0]?.aid ?? '';
   });
 
   readonly form = this.fb.group({
@@ -384,7 +384,7 @@ export class VisitorRegisterComponent implements OnInit {
   }
 
   qrImageUrl() {
-    const qrCode = this.createdVisitor()?.qrCode;
+    const qrCode = this.createdVisitor()?.qr;
     if (!qrCode) {
       return null;
     }
@@ -467,7 +467,7 @@ export class VisitorRegisterComponent implements OnInit {
   copyPassLink() {
     const visitor = this.createdVisitor();
     if (!visitor) return;
-    const link = `${window.location.origin}/visitor-pass/${visitor.passCode}`;
+    const link = `${window.location.origin}/visitor-pass/${visitor.pc}`;
     navigator.clipboard.writeText(link).catch(() => {});
   }
 

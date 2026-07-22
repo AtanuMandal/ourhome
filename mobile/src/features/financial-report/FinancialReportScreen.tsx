@@ -25,7 +25,7 @@ type Tab = 'summary' | 'ledger';
 
 export function FinancialReportScreen() {
   const societyId = useSocietyId();
-  const role = useAuthStore((s) => s.user?.role);
+  const role = useAuthStore((s) => s.user?.rl);
   const { activeResidentType } = useActiveApartment();
   const isAdmin = role === 'SUAdmin' || role === 'HQAdmin' || role === 'HQUser';
   // Society summary is aggregate/society-wide reporting — tenants keep their own

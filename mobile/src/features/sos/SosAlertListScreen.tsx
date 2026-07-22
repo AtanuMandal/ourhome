@@ -31,7 +31,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 export function SosAlertListScreen() {
   const navigation = useNavigation<any>(); // eslint-disable-line @typescript-eslint/no-explicit-any
   const societyId = useSocietyId();
-  const role = useAuthStore((s) => s.user?.role ?? '');
+  const role = useAuthStore((s) => s.user?.rl ?? '');
   const isAdmin = role === 'SUAdmin';
   // Any resident can view alerts; only SUAdmin/SUSecurity can acknowledge/resolve them.
   const canAct = role === 'SUAdmin' || role === 'SUSecurity';
@@ -54,26 +54,26 @@ export function SosAlertListScreen() {
 
   const renderItem = useCallback(({ item }: { item: SosAlert }) => {
     return (
-      <View style={[styles.card, item.status === 'Triggered' && styles.cardActive]}>
+      <View style={[styles.card, item.st === 'Triggered' && styles.cardActive]}>
         <Text style={styles.cardTitle}>
-          {CATEGORY_LABELS[item.category] ?? item.category} — {item.apartmentLabel}
+          {CATEGORY_LABELS[item.cat] ?? item.cat} — {item.al}
         </Text>
         <Text style={styles.cardMeta}>
-          {item.triggeredByUserName} · {new Date(item.triggeredAt).toLocaleString()}
+          {item.un} · {new Date(item.ta).toLocaleString()}
         </Text>
-        {!!item.note && <Text style={styles.cardNote}>{item.note}</Text>}
-        {item.escalationCount > 0 && <Text style={styles.escalated}>Escalated {item.escalationCount}x</Text>}
+        {!!item.nt && <Text style={styles.cardNote}>{item.nt}</Text>}
+        {item.ec > 0 && <Text style={styles.escalated}>Escalated {item.ec}x</Text>}
         <View style={styles.cardFooter}>
-          <View style={[styles.statusChip, statusChipStyle(item.status)]}>
-            <Text style={styles.statusChipText}>{item.status}</Text>
+          <View style={[styles.statusChip, statusChipStyle(item.st)]}>
+            <Text style={styles.statusChipText}>{item.st}</Text>
           </View>
           <View style={styles.actions}>
-            {canAct && item.status === 'Triggered' && (
+            {canAct && item.st === 'Triggered' && (
               <TouchableOpacity style={styles.ackButton} onPress={() => handleAcknowledge(item)} disabled={acknowledge.isPending}>
                 <Text style={styles.ackButtonText}>Acknowledge</Text>
               </TouchableOpacity>
             )}
-            {canAct && (item.status === 'Triggered' || item.status === 'Acknowledged') && (
+            {canAct && (item.st === 'Triggered' || item.st === 'Acknowledged') && (
               <TouchableOpacity style={styles.resolveButton} onPress={() => handleResolve(item)} disabled={resolve.isPending}>
                 <Text style={styles.resolveButtonText}>Resolve</Text>
               </TouchableOpacity>

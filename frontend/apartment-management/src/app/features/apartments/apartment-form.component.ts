@@ -193,14 +193,14 @@ export class ApartmentFormComponent implements OnInit {
       this.svc.get(sid, this.editId).subscribe({
         next: a => {
           this.form.patchValue({
-            apartmentNumber: a.apartmentNumber,
-            blockName: a.blockName,
-            floorNumber: a.floorNumber,
-            numberOfRooms: a.numberOfRooms,
-            parkingSlots: a.parkingSlots.join(', '),
-            carpetArea: a.carpetArea,
-            buildUpArea: a.buildUpArea,
-            superBuildArea: a.superBuildArea,
+            apartmentNumber: a.num,
+            blockName: a.blk,
+            floorNumber: a.flr,
+            numberOfRooms: a.rms,
+            parkingSlots: a.pks.join(', '),
+            carpetArea: a.ca,
+            buildUpArea: a.ba,
+            superBuildArea: a.sba,
           });
           this.loading.set(false);
         },

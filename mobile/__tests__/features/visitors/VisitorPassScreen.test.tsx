@@ -27,24 +27,24 @@ const initialMetrics = {
 function makeVisitor(status: string): Partial<Visitor> {
   return {
     id: 'v1',
-    visitorName: 'Jane Visitor',
-    visitorPhone: '9876543210',
-    purpose: 'Delivery',
-    hostResidentName: 'Host Resident',
-    hostBlockName: 'A',
-    hostFloorNumber: 1,
-    hostFlatNumber: '101',
-    status,
-    checkInTime: status === 'CheckedIn' ? '2026-07-15T09:00:00Z' : undefined,
+    vn: 'Jane Visitor',
+    vp: '9876543210',
+    pu: 'Delivery',
+    hrn: 'Host Resident',
+    hbn: 'A',
+    hfn: 1,
+    hft: '101',
+    st: status,
+    cit: status === 'CheckedIn' ? '2026-07-15T09:00:00Z' : undefined,
   };
 }
 
 function setUser(role: string): void {
   useAuthStore.setState({
     user: {
-      id: 'u1', societyId: 'soc-1', fullName: 'Test User', email: 't@a.com', phone: '1',
-      role: role as never, residentType: 'SocietyAdmin' as never, apartmentId: undefined,
-      isVerified: true, isActive: true,
+      id: 'u1', sid: 'soc-1', fn: 'Test User', em: 't@a.com', ph: '1',
+      rl: role as never, rt: 'SocietyAdmin' as never, aid: undefined,
+      vf: true, ac: true,
     },
     token: 'tok',
     isAuthenticated: true,
@@ -113,7 +113,7 @@ describe('VisitorPassScreen — real QR pass and sharing', () => {
   });
 
   test('an approved visitor with a QR code renders the scannable QR image and share actions', () => {
-    mockVisitor = { ...makeVisitor('Approved'), qrCode: 'aGVsbG8=', passCode: 'ABC123', isPassExpired: false };
+    mockVisitor = { ...makeVisitor('Approved'), qr: 'aGVsbG8=', pc: 'ABC123', ipe: false };
     setUser('SUUser');
 
     renderScreen();
@@ -125,7 +125,7 @@ describe('VisitorPassScreen — real QR pass and sharing', () => {
   });
 
   test('an expired pass shows the EXPIRED placeholder instead of a QR image and hides sharing', () => {
-    mockVisitor = { ...makeVisitor('Approved'), qrCode: 'aGVsbG8=', passCode: 'ABC123', isPassExpired: true };
+    mockVisitor = { ...makeVisitor('Approved'), qr: 'aGVsbG8=', pc: 'ABC123', ipe: true };
     setUser('SUUser');
 
     renderScreen();
@@ -136,7 +136,7 @@ describe('VisitorPassScreen — real QR pass and sharing', () => {
   });
 
   test('a pending visitor has no QR image or share actions', () => {
-    mockVisitor = { ...makeVisitor('Pending'), passCode: '', isPassExpired: false };
+    mockVisitor = { ...makeVisitor('Pending'), pc: '', ipe: false };
     setUser('SUUser');
 
     renderScreen();

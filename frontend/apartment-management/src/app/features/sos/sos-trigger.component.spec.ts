@@ -10,15 +10,12 @@ describe('SosTriggerComponent', () => {
   function alert(overrides: Partial<SosAlert> = {}): SosAlert {
     return {
       id: 'alert-1',
-      societyId: 'soc-1',
-      apartmentId: 'apt-1',
-      apartmentLabel: 'A-101',
-      triggeredByUserId: 'user-1',
-      triggeredByUserName: 'Jane Resident',
-      category: 'Fire',
-      status: 'Triggered',
-      triggeredAt: '2026-01-01T00:00:00Z',
-      escalationCount: 0,
+      al: 'A-101',
+      un: 'Jane Resident',
+      cat: 'Fire',
+      st: 'Triggered',
+      ta: '2026-01-01T00:00:00Z',
+      ec: 0,
       ...overrides,
     };
   }
@@ -27,7 +24,7 @@ describe('SosTriggerComponent', () => {
     const sosServiceStub = {
       trigger: jasmine.createSpy().and.returnValue(of(alert())),
       get: jasmine.createSpy().and.returnValue(of(alert())),
-      markFalseAlarm: jasmine.createSpy().and.returnValue(of(alert({ status: 'FalseAlarm' }))),
+      markFalseAlarm: jasmine.createSpy().and.returnValue(of(alert({ st: 'FalseAlarm' }))),
       ...serviceOverrides,
     };
     const authServiceStub = { societyId: () => 'soc-1' };
@@ -75,7 +72,7 @@ describe('SosTriggerComponent', () => {
     tick();
 
     expect(sosServiceStub.markFalseAlarm).toHaveBeenCalledWith('soc-1', 'alert-1');
-    expect(component.activeAlert()?.status).toBe('FalseAlarm');
+    expect(component.activeAlert()?.st).toBe('FalseAlarm');
 
     // No further polling calls after the alert is settled.
     tick(30_000);
@@ -85,14 +82,14 @@ describe('SosTriggerComponent', () => {
 
   it('polls for status updates while the alert remains active', fakeAsync(() => {
     const { component, sosServiceStub } = setup({
-      get: jasmine.createSpy().and.returnValue(of(alert({ status: 'Acknowledged', acknowledgedByUserName: 'Guard' }))),
+      get: jasmine.createSpy().and.returnValue(of(alert({ st: 'Acknowledged', aun: 'Guard' }))),
     });
 
     component.confirmTrigger();
     tick(10_000);
 
     expect(sosServiceStub.get).toHaveBeenCalledWith('soc-1', 'alert-1');
-    expect(component.activeAlert()?.status).toBe('Acknowledged');
+    expect(component.activeAlert()?.st).toBe('Acknowledged');
     component.ngOnDestroy();
   }));
 

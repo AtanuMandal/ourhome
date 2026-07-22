@@ -21,20 +21,19 @@ import { UserPoints } from '../../core/models/gamification.model';
           <span class="material-icons">emoji_events</span>
           <div>
             <p class="pt-label">Total Points</p>
-            <p class="pt-value">{{ data()!.totalPoints }}</p>
+            <p class="pt-value">{{ data()!.tp }}</p>
           </div>
         </div>
 
-        @if (data()!.history.length) {
+        @if (data()!.h.length) {
           <div class="card" style="margin-top:12px">
             <h3 style="font-size:14px;font-weight:600;margin:0 0 12px">Points History</h3>
-            @for (event of data()!.history; track event.id) {
+            @for (event of data()!.h; track event.ca + event.pts) {
               <div class="point-event">
-                <div class="pe-action">{{ event.action }}</div>
-                @if (event.description) { <div class="pe-desc">{{ event.description }}</div> }
-                <div class="pe-meta">{{ event.earnedAt | date:'medium' }}</div>
-                <div class="pe-pts" [class.positive]="event.points > 0">
-                  {{ event.points > 0 ? '+' : '' }}{{ event.points }}
+                <div class="pe-action">{{ event.rsn }}</div>
+                <div class="pe-meta">{{ event.ca | date:'medium' }}</div>
+                <div class="pe-pts" [class.positive]="event.pts > 0">
+                  {{ event.pts > 0 ? '+' : '' }}{{ event.pts }}
                 </div>
               </div>
             }

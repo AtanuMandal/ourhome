@@ -34,13 +34,11 @@ jest.mock('@expo/vector-icons', () => {
 function makeStaff(overrides: Partial<Staff>): Staff {
   return {
     id: overrides.id ?? 's1',
-    societyId: 'soc-1',
-    fullName: overrides.fullName ?? 'John Guard',
-    phone: overrides.phone ?? '9876543210',
-    category: overrides.category ?? 'Security',
-    employmentType: overrides.employmentType ?? 'OnPayroll',
-    isActive: overrides.isActive ?? true,
-    createdAt: '2026-01-01T00:00:00Z',
+    fn: 'John Guard',
+    ph: '9876543210',
+    cat: 'Security',
+    et: 'OnPayroll',
+    ac: true,
     ...overrides,
   } as Staff;
 }
@@ -69,7 +67,7 @@ describe('StaffListScreen', () => {
 
   function setUser(role: 'SUAdmin' | 'SUSecurity') {
     useAuthStore.setState({
-      user: { id: 'viewer1', societyId: 'soc-1', fullName: 'Viewer', email: 'v@a.com', phone: '1', role, residentType: 'SocietyAdmin', apartmentId: undefined, isVerified: true, isActive: true },
+      user: { id: 'viewer1', sid: 'soc-1', fn: 'Viewer', em: 'v@a.com', ph: '1', rl: role, rt: 'SocietyAdmin', aid: undefined, vf: true, ac: true },
       token: 'tok',
       isAuthenticated: true,
     });
@@ -77,7 +75,7 @@ describe('StaffListScreen', () => {
 
   test('shows Check In for a staff member not currently on duty', async () => {
     setUser('SUSecurity');
-    mockStaffData = [makeStaff({ id: '1', fullName: 'John Guard' })];
+    mockStaffData = [makeStaff({ id: '1', fn: 'John Guard' })];
 
     renderScreen();
 
@@ -88,8 +86,8 @@ describe('StaffListScreen', () => {
 
   test('shows On Duty badge and Check Out for a staff member currently checked in', async () => {
     setUser('SUSecurity');
-    mockStaffData = [makeStaff({ id: '1', fullName: 'John Guard' })];
-    mockOnDutyData = [{ id: 'a1', societyId: 'soc-1', staffId: '1', staffName: 'John Guard', attendanceDate: '2026-01-01', isLate: false, status: 'CheckedIn' }];
+    mockStaffData = [makeStaff({ id: '1', fn: 'John Guard' })];
+    mockOnDutyData = [{ sid: '1' }];
 
     renderScreen();
 
@@ -100,7 +98,7 @@ describe('StaffListScreen', () => {
 
   test('tapping Check In calls the mutation with the staff id', async () => {
     setUser('SUSecurity');
-    mockStaffData = [makeStaff({ id: '1', fullName: 'John Guard' })];
+    mockStaffData = [makeStaff({ id: '1', fn: 'John Guard' })];
 
     renderScreen();
 
@@ -112,7 +110,7 @@ describe('StaffListScreen', () => {
 
   test('SUSecurity does not see the add-staff FAB or attendance report link', async () => {
     setUser('SUSecurity');
-    mockStaffData = [makeStaff({ id: '1', fullName: 'John Guard' })];
+    mockStaffData = [makeStaff({ id: '1', fn: 'John Guard' })];
 
     renderScreen();
 
@@ -122,7 +120,7 @@ describe('StaffListScreen', () => {
 
   test('SUAdmin sees the attendance report link', async () => {
     setUser('SUAdmin');
-    mockStaffData = [makeStaff({ id: '1', fullName: 'John Guard' })];
+    mockStaffData = [makeStaff({ id: '1', fn: 'John Guard' })];
 
     renderScreen();
 

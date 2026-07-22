@@ -33,13 +33,13 @@ import { Amenity, AmenityBooking } from '../../core/models/amenity.model';
             <div class="amenity-card">
               <div class="ac-icon"><span class="material-icons">event_seat</span></div>
               <div class="ac-info">
-                <h3>{{ a.name }}</h3>
-                <p>{{ a.description }}</p>
+                <h3>{{ a.nm }}</h3>
+                <p>{{ a.ds }}</p>
                 <div class="ac-hours">
                   <span class="material-icons">schedule</span>
-                  {{ a.operatingStart }} &ndash; {{ a.operatingEnd }}
+                  {{ a.os }} &ndash; {{ a.oe }}
                 </div>
-                <div class="ac-cap">Capacity: {{ a.capacity }}</div>
+                <div class="ac-cap">Capacity: {{ a.cap }}</div>
               </div>
               <a [routerLink]="['/amenities/book', a.id]" mat-stroked-button color="primary" class="book-btn">
                 Book
@@ -57,24 +57,24 @@ import { Amenity, AmenityBooking } from '../../core/models/amenity.model';
           <div class="card" style="margin-bottom:12px;padding:12px 16px">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
               <div>
-                <strong>{{ b.amenityName }}</strong>
+                <strong>{{ b.an }}</strong>
                 <div style="font-size:13px;color:#666">
-                  {{ b.startTime | date:'MMM d, HH:mm' }} &ndash; {{ b.endTime | date:'HH:mm' }}
+                  {{ b.stt | date:'MMM d, HH:mm' }} &ndash; {{ b.ent | date:'HH:mm' }}
                 </div>
-                @if (b.adminNotes) {
-                  <div style="font-size:13px;color:#666">Notes: {{ b.adminNotes }}</div>
+                @if (b.adn) {
+                  <div style="font-size:13px;color:#666">Notes: {{ b.adn }}</div>
                 }
-                @if (b.status === 'Cancelled' && b.cancellationRemarks) {
+                @if (b.st === 'Cancelled' && b.cr) {
                   <div style="font-size:13px;color:#c62828">
-                    Cancelled{{ b.cancelledByUserId !== b.bookedByUserId ? ' by admin' : '' }}:
-                    {{ b.cancellationRemarks }}
+                    Cancelled{{ b.cid !== b.uid ? ' by admin' : '' }}:
+                    {{ b.cr }}
                   </div>
                 }
               </div>
-              <app-status-chip [status]="b.status"></app-status-chip>
+              <app-status-chip [status]="b.st"></app-status-chip>
             </div>
             <div style="display:flex;gap:8px;margin-top:8px">
-              @if (isAdmin() && b.status === 'Pending') {
+              @if (isAdmin() && b.st === 'Pending') {
                 <button mat-stroked-button color="primary" (click)="approve(b)">Approve</button>
                 <button mat-stroked-button color="warn" (click)="reject(b)">Reject</button>
               }
@@ -120,13 +120,13 @@ export class AmenityListComponent implements OnInit {
 
   /** Owners cancel their own pending/approved bookings; admins can cancel any (with remarks). */
   canCancel(b: AmenityBooking): boolean {
-    if (b.status !== 'Pending' && b.status !== 'Approved') return false;
-    return this.isAdmin() || b.bookedByUserId === this.auth.user()?.id;
+    if (b.st !== 'Pending' && b.st !== 'Approved') return false;
+    return this.isAdmin() || b.uid === this.auth.user()?.id;
   }
 
   cancel(b: AmenityBooking) {
     const sid = this.auth.societyId()!;
-    const isOwn = b.bookedByUserId === this.auth.user()?.id;
+    const isOwn = b.uid === this.auth.user()?.id;
     let remarks: string | undefined;
     if (!isOwn) {
       // Admin cancelling a resident's booking must give a reason — shown to the resident.

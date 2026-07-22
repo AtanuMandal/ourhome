@@ -93,10 +93,10 @@ export class NoticeFormComponent {
       this.svc.get(sid, this.noticeId).subscribe({
         next: notice => {
           this.form.patchValue({
-            category: notice.category,
-            title: notice.title,
-            content: notice.content,
-            expiresAt: notice.expiresAt ? notice.expiresAt.slice(0, 16) : null,
+            category: notice.cat,
+            title: notice.tt,
+            content: notice.ct,
+            expiresAt: notice.ea ? notice.ea.slice(0, 16) : null,
           });
           this.loading.set(false);
         },

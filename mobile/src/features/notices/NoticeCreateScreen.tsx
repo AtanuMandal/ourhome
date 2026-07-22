@@ -53,10 +53,10 @@ export function NoticeCreateScreen({ route }: NoticeCreateScreenProps) {
 
   useEffect(() => {
     if (existingNotice) {
-      setTitle(existingNotice.title);
-      setCategory(existingNotice.category as CreateNoticeRequest['category']);
-      setContent(existingNotice.content);
-      setExpiresAt(existingNotice.expiresAt ?? '');
+      setTitle(existingNotice.tt);
+      setCategory(existingNotice.cat as CreateNoticeRequest['category']);
+      setContent(existingNotice.ct);
+      setExpiresAt(existingNotice.ea ?? '');
     }
   }, [existingNotice]);
 

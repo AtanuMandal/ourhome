@@ -105,7 +105,7 @@ public class VendorPaymentIntegrationTests : IntegrationTestBase
             "Weekly cleaning"));
 
         scheduleResult.IsSuccess.Should().BeTrue();
-        scheduleResult.Value!.AnnualEquivalentAmount.Should().Be(26000m);
+        VendorRecurringScheduleRepo.Store[scheduleResult.Value!.Id].AnnualEquivalentAmount().Should().Be(26000m);
         VendorChargeRepo.Store.Values
             .Where(charge => charge.ScheduleId == scheduleResult.Value.Id)
             .Should()
@@ -299,7 +299,7 @@ public class VendorPaymentIntegrationTests : IntegrationTestBase
 
         paid.IsSuccess.Should().BeTrue();
         paid.Value!.Status.Should().Be("Paid");
-        paid.Value.PaidAt.Should().Be(DateTime.UtcNow.Date.AddDays(2));
+        VendorChargeRepo.Store[paid.Value.Id].PaidAt.Should().Be(DateTime.UtcNow.Date.AddDays(2));
         paid.Value.TransactionReference.Should().Be("VND-001");
     }
 

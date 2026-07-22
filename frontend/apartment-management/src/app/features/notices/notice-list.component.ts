@@ -26,19 +26,19 @@ import { Notice } from '../../core/models/notice.model';
       } @else {
         <div class="notice-list">
           @for (n of items(); track n.id) {
-            <div class="notice-card" [class.notice-card--unread]="!n.isReadByCurrentUser">
+            <div class="notice-card" [class.notice-card--unread]="!n.rd">
               <a [routerLink]="[n.id]" class="notice-card__link">
-                <div class="nc-category">{{ n.category }}</div>
+                <div class="nc-category">{{ n.cat }}</div>
                 <h3 class="nc-title">
-                  @if (!n.isReadByCurrentUser) {
+                  @if (!n.rd) {
                     <span class="nc-unread-dot" title="Unread"></span>
                   }
-                  {{ n.title }}
+                  {{ n.tt }}
                 </h3>
-                <p class="nc-body">{{ n.content }}</p>
-                <span class="nc-date">{{ n.publishAt | date:'mediumDate' }}</span>
+                <p class="nc-body">{{ n.ct }}</p>
+                <span class="nc-date">{{ n.pa | date:'mediumDate' }}</span>
               </a>
-              @if (n.isReadByCurrentUser) {
+              @if (n.rd) {
                 <span class="nc-read-tick" title="Read">
                   <mat-icon>check_circle</mat-icon>
                 </span>
@@ -92,7 +92,7 @@ export class NoticeListComponent implements OnInit {
     this.svc.markRead(sid, notice.id).subscribe({
       next: () => {
         this.items.update(list =>
-          list.map(n => n.id === notice.id ? { ...n, isReadByCurrentUser: true } : n)
+          list.map(n => n.id === notice.id ? { ...n, rd: true } : n)
         );
       }
     });

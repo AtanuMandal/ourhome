@@ -2,14 +2,10 @@ export type StaffCategory = 'Security' | 'Housekeeping' | 'Gardener' | 'Plumber'
 export type StaffEmploymentType = 'OnPayroll' | 'Contractor';
 export type StaffAttendanceStatus = 'CheckedIn' | 'CheckedOut' | 'Absent' | 'OnLeave';
 
+// Matches backend ShiftResponse DTO — field names shortened to match its compressed JSON keys.
 export interface Shift {
   id: string;
-  societyId: string;
-  name: string;
-  /** "HH:mm:ss" time-of-day string, as returned by the backend's TimeSpan serialization. */
-  startTime: string;
-  endTime: string;
-  graceMinutes: number;
+  nm: string; // name
 }
 
 export interface CreateShiftDto {
@@ -19,19 +15,16 @@ export interface CreateShiftDto {
   graceMinutes: number;
 }
 
+// Matches backend StaffResponse DTO — field names shortened to match its compressed JSON keys.
 export interface Staff {
   id: string;
-  societyId: string;
-  fullName: string;
-  phone: string;
-  photoUrl?: string;
-  category: StaffCategory;
-  employmentType: StaffEmploymentType;
-  vendorId?: string;
-  shiftId?: string;
-  shiftName?: string;
-  isActive: boolean;
-  createdAt: string;
+  fn: string; // fullName
+  ph: string; // phone
+  cat: StaffCategory; // category
+  et: StaffEmploymentType; // employmentType
+  sid?: string; // shiftId
+  sn?: string; // shiftName
+  ac: boolean; // isActive
 }
 
 export interface CreateStaffDto {
@@ -51,31 +44,25 @@ export interface UpdateStaffDto {
   shiftId?: string;
 }
 
+// Matches backend StaffAttendanceResponse DTO — only StaffId is ever read by either client.
 export interface StaffAttendance {
-  id: string;
-  societyId: string;
-  staffId: string;
-  staffName: string;
-  shiftId?: string;
-  attendanceDate: string;
-  checkInTime?: string;
-  checkOutTime?: string;
-  isLate: boolean;
-  status: StaffAttendanceStatus;
+  sid: string; // staffId
 }
 
+// Matches backend StaffAttendanceReportEntry DTO — field names shortened to match its compressed JSON keys.
 export interface StaffAttendanceReportEntry {
-  staffId: string;
-  staffName: string;
-  category: StaffCategory;
-  presentDays: number;
-  absentDays: number;
-  lateDays: number;
-  onLeaveDays: number;
+  sid: string; // staffId
+  sn: string; // staffName
+  cat: StaffCategory; // category
+  pd: number; // presentDays
+  ad: number; // absentDays
+  ld: number; // lateDays
+  od: number; // onLeaveDays
 }
 
+// Matches backend StaffAttendanceReportResponse DTO — field names shortened to match its compressed JSON keys.
 export interface StaffAttendanceReport {
-  fromDate: string;
-  toDate: string;
-  entries: StaffAttendanceReportEntry[];
+  fd: string; // fromDate
+  td: string; // toDate
+  e: StaffAttendanceReportEntry[]; // entries
 }

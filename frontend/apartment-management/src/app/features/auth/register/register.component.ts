@@ -134,9 +134,9 @@ export class RegisterComponent implements OnInit {
     this.auth.validateInviteToken(this.inviteToken).subscribe({
       next: res => {
         this.validating.set(false);
-        this.tokenValid.set(res.valid);
-        if (res.valid && res.societyId) {
-          this.societyId = res.societyId;
+        this.tokenValid.set(res.vl);
+        if (res.vl && res.sid) {
+          this.societyId = res.sid;
         }
       },
       error: () => {

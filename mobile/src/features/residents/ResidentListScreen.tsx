@@ -50,7 +50,7 @@ type ResidentsNav = NativeStackNavigationProp<{
 export function ResidentListScreen() {
   const navigation = useNavigation<ResidentsNav>();
   const societyId = useSocietyId();
-  const role = useAuthStore((s) => s.user?.role ?? '');
+  const role = useAuthStore((s) => s.user?.rl ?? '');
   const isAdmin = role === 'SUAdmin' || role === 'HQAdmin';
   const [search, setSearch] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
@@ -81,9 +81,9 @@ export function ResidentListScreen() {
   const sections = useMemo(() => {
     const byRole = new Map<string, User[]>();
     for (const user of data) {
-      const list = byRole.get(user.role) ?? [];
+      const list = byRole.get(user.rl) ?? [];
       list.push(user);
-      byRole.set(user.role, list);
+      byRole.set(user.rl, list);
     }
     const roles = [...byRole.keys()].sort((a, b) => {
       const ia = ROLE_ORDER.indexOf(a);
@@ -94,7 +94,7 @@ export function ResidentListScreen() {
   }, [data]);
 
   const handleDelete = useCallback((user: User): void => {
-    Alert.alert('Delete user', `Delete ${user.fullName}? This cannot be undone.`, [
+    Alert.alert('Delete user', `Delete ${user.fn}? This cannot be undone.`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
@@ -112,30 +112,30 @@ export function ResidentListScreen() {
     return (
       <View style={styles.item}>
         <View style={styles.avatarWrap}>
-          <UserAvatar name={item.fullName} pictureUrl={item.profilePictureUrl} size={44} />
+          <UserAvatar name={item.fn} pictureUrl={item.pic} size={44} />
         </View>
         <View style={styles.itemInfo}>
-          <Text style={styles.name}>{item.fullName}</Text>
-          <Text style={styles.meta}>{item.residentType} · {item.phone}</Text>
-          {(item.apartments && item.apartments.length > 0) && (
+          <Text style={styles.name}>{item.fn}</Text>
+          <Text style={styles.meta}>{item.rt} · {item.ph}</Text>
+          {(item.apts && item.apts.length > 0) && (
             <Text style={styles.apartment}>
-              {item.apartments.map((a) => a.name).join(', ')}
+              {item.apts.map((a) => a.nm).join(', ')}
             </Text>
           )}
         </View>
-        <StatusChip status={item.isActive ? 'Active' : 'Inactive'} />
+        <StatusChip status={item.ac ? 'Active' : 'Inactive'} />
         {isAdmin && (
           <>
             <TouchableOpacity
               style={styles.deleteButton}
-              accessibilityLabel={item.isActive ? `Deactivate ${item.fullName}` : `Activate ${item.fullName}`}
+              accessibilityLabel={item.ac ? `Deactivate ${item.fn}` : `Activate ${item.fn}`}
               onPress={() => setActive.mutate(
-                { id: item.id, active: !item.isActive },
+                { id: item.id, active: !item.ac },
                 { onError: (e) => Alert.alert('Could not update user', normalizeError(e)) }
               )}
               disabled={setActive.isPending}
             >
-              <Text style={styles.deleteButtonText}>{item.isActive ? '⏸' : '▶️'}</Text>
+              <Text style={styles.deleteButtonText}>{item.ac ? '⏸' : '▶️'}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.deleteButton}
@@ -197,8 +197,8 @@ export function ResidentListScreen() {
           {(joinRequests ?? []).map((u) => (
             <View key={u.id} style={styles.joinRow}>
               <View style={styles.joinInfo}>
-                <Text style={styles.joinName}>{u.fullName}</Text>
-                <Text style={styles.joinMeta}>{u.pendingResidentType ?? 'Resident'}</Text>
+                <Text style={styles.joinName}>{u.fn}</Text>
+                <Text style={styles.joinMeta}>{u.prt ?? 'Resident'}</Text>
               </View>
               <TouchableOpacity
                 style={[styles.joinBtn, styles.joinApprove]}

@@ -8,7 +8,7 @@ import { UserService } from '../../core/services/apartment.service';
 import { AuthService } from '../../core/services/auth.service';
 
 describe('ApartmentHouseholdMemberComponent', () => {
-  function setup(user: { role: string; residentType: string } | null) {
+  function setup(user: { rl: string; rt: string } | null) {
     const routerStub = { navigate: jasmine.createSpy() };
     const userServiceStub = { addHouseholdMember: jasmine.createSpy().and.returnValue(of({})) };
     const authStub = { user: () => user, societyId: () => 'soc-1' };
@@ -33,21 +33,21 @@ describe('ApartmentHouseholdMemberComponent', () => {
   }
 
   it('allows owners to add only family members', () => {
-    const { component } = setup({ role: 'SUUser', residentType: 'Owner' });
+    const { component } = setup({ rl: 'SUUser', rt: 'Owner' });
 
     expect(component.residentTypes()).toEqual([{ value: 'FamilyMember', label: 'Family Member' }]);
     expect(component.form.controls.residentType.value).toBe('FamilyMember');
   });
 
   it('allows tenants to add only co-occupants', () => {
-    const { component } = setup({ role: 'SUUser', residentType: 'Tenant' });
+    const { component } = setup({ rl: 'SUUser', rt: 'Tenant' });
 
     expect(component.residentTypes()).toEqual([{ value: 'CoOccupant', label: 'Co-Occupant' }]);
     expect(component.form.controls.residentType.value).toBe('CoOccupant');
   });
 
   it('redirects non-owner and non-tenant users', () => {
-    const { routerStub } = setup({ role: 'SUAdmin', residentType: 'SocietyAdmin' });
+    const { routerStub } = setup({ rl: 'SUAdmin', rt: 'SocietyAdmin' });
 
     expect(routerStub.navigate).toHaveBeenCalledWith(['/apartments', 'apt-1']);
   });

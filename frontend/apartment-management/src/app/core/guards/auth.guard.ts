@@ -42,7 +42,7 @@ export const visitorGuard: CanActivateFn = () => {
     return false;
   }
 
-  const role = auth.user()?.role;
+  const role = auth.user()?.rl;
   const allowed = role === 'SUAdmin' || role === 'SUUser' || role === 'SUSecurity';
   if (allowed) return true;
 
@@ -60,7 +60,7 @@ export const staffGuard: CanActivateFn = () => {
     return false;
   }
 
-  const role = auth.user()?.role;
+  const role = auth.user()?.rl;
   const allowed = role === 'SUAdmin' || role === 'SUSecurity';
   if (allowed) return true;
 

@@ -75,7 +75,7 @@ export class DashboardComponent implements OnInit {
   readonly user      = this.auth.user;
   readonly societyId = this.auth.societyId;
   readonly isAdmin   = this.auth.isAdmin;
-  readonly isResident = computed(() => this.user()?.role === 'SUUser');
+  readonly isResident = computed(() => this.user()?.rl === 'SUUser');
 
   readonly loading          = signal(true);
   readonly recentComplaints = signal<Complaint[]>([]);
@@ -84,7 +84,7 @@ export class DashboardComponent implements OnInit {
 
   // Apartment joining invitation — shown when another resident shared a joining link with this
   // (already-registered) account; the invited user accepts or declines it right here.
-  readonly pendingInvitationApartmentId = computed(() => this.user()?.pendingApartmentId ?? null);
+  readonly pendingInvitationApartmentId = computed(() => this.user()?.paid ?? null);
   readonly pendingInvitationApartmentLabel = signal('');
   readonly invitationBusy  = signal(false);
   readonly invitationError = signal('');
@@ -98,7 +98,7 @@ export class DashboardComponent implements OnInit {
   }
 
   readonly quickActions = computed<QuickAction[]>(() =>
-    ROLE_ACTIONS[this.user()?.role ?? ''] ?? ROLE_ACTIONS['default']!
+    ROLE_ACTIONS[this.user()?.rl ?? ''] ?? ROLE_ACTIONS['default']!
   );
 
   get greeting() {
@@ -140,7 +140,7 @@ export class DashboardComponent implements OnInit {
 
     this.apartmentSvc.get(sid, apartmentId).subscribe({
       next: apt => this.pendingInvitationApartmentLabel.set(
-        `${apt.blockName ? apt.blockName + ' ' : ''}${apt.floorNumber}-${apt.apartmentNumber}`),
+        `${apt.blk ? apt.blk + ' ' : ''}${apt.flr}-${apt.num}`),
       error: () => this.pendingInvitationApartmentLabel.set(''),
     });
   }
@@ -163,10 +163,10 @@ export class DashboardComponent implements OnInit {
       next: updated => {
         this.invitationBusy.set(false);
         this.auth.updateUser({
-          apartments: updated.apartments,
-          apartmentId: updated.apartmentId ?? this.user()?.apartmentId,
-          pendingApartmentId: undefined,
-          pendingResidentType: undefined,
+          apts: updated.apts,
+          aid: updated.aid ?? this.user()?.aid,
+          paid: undefined,
+          prt: undefined,
         });
       },
       error: err => {

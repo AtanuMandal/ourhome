@@ -33,7 +33,7 @@ type ApartmentsNav = NativeStackNavigationProp<{
 export function ApartmentListScreen() {
   const navigation = useNavigation<ApartmentsNav>();
   const societyId = useSocietyId();
-  const isAdmin = useAuthStore((s) => s.user?.role === 'SUAdmin');
+  const isAdmin = useAuthStore((s) => s.user?.rl === 'SUAdmin');
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search);
 
@@ -44,14 +44,14 @@ export function ApartmentListScreen() {
     () =>
       [...data].sort(
         (a, b) =>
-          b.floorNumber - a.floorNumber ||
-          a.apartmentNumber.localeCompare(b.apartmentNumber)
+          b.flr - a.flr ||
+          a.num.localeCompare(b.num)
       ),
     [data]
   );
 
   function renderItem({ item }: { item: Apartment }) {
-    const label = formatApartmentLabel(item.blockName, item.floorNumber, item.apartmentNumber);
+    const label = formatApartmentLabel(item.blk, item.flr, item.num);
     return (
       <TouchableOpacity
         style={styles.item}
@@ -61,10 +61,10 @@ export function ApartmentListScreen() {
         <View style={styles.itemLeft}>
           <Text style={styles.number}>{label}</Text>
           <Text style={styles.residents}>
-            {item.residents.length} resident{item.residents.length !== 1 ? 's' : ''}
+            {item.res.length} resident{item.res.length !== 1 ? 's' : ''}
           </Text>
         </View>
-        <StatusChip status={item.status} />
+        <StatusChip status={item.st} />
       </TouchableOpacity>
     );
   }

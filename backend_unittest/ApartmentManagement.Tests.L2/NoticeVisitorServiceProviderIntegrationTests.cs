@@ -490,9 +490,11 @@ public class NoticeVisitorServiceProviderIntegrationTests : IntegrationTestBase
         myRequests.IsSuccess.Should().BeTrue();
         myRequests.Value!.Items.Should().ContainSingle(r =>
             r.Id == createdRequest.Value.Id &&
-            r.Status == "Completed" &&
-            r.Rating == 5 &&
-            r.ReviewComment == "Resolved quickly");
+            r.Status == "Completed");
+
+        var storedRequest = ServiceProviderRequestRepo.Store[createdRequest.Value.Id];
+        storedRequest.Rating.Should().Be(5);
+        storedRequest.ReviewComment.Should().Be("Resolved quickly");
     }
 
     [Fact]

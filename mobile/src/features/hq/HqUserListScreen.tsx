@@ -13,7 +13,7 @@ import { spacing } from '../../theme/spacing';
 import type { User } from '../../api/types';
 
 export function HqUserListScreen() {
-  const role = useAuthStore((s) => s.user?.role ?? '');
+  const role = useAuthStore((s) => s.user?.rl ?? '');
   const isHqAdmin = role === 'HQAdmin';
 
   const { data, isLoading, refetch, isRefetching } = useHqUsers();
@@ -92,17 +92,17 @@ export function HqUserListScreen() {
           <View style={styles.card}>
             <View style={styles.rowBetween}>
               <View>
-                <Text style={styles.name}>{item.fullName}</Text>
-                <Text style={styles.meta}>{item.email} · {item.role}</Text>
+                <Text style={styles.name}>{item.fn}</Text>
+                <Text style={styles.meta}>{item.em} · {item.rl}</Text>
               </View>
-              <View style={[styles.badge, item.isActive ? styles.badgeActive : styles.badgeInactive]}>
-                <Text style={item.isActive ? styles.badgeTextActive : styles.badgeTextInactive}>
-                  {item.isActive ? 'Active' : 'Inactive'}
+              <View style={[styles.badge, item.ac ? styles.badgeActive : styles.badgeInactive]}>
+                <Text style={item.ac ? styles.badgeTextActive : styles.badgeTextInactive}>
+                  {item.ac ? 'Active' : 'Inactive'}
                 </Text>
               </View>
             </View>
             {isHqAdmin && (
-              item.isActive ? (
+              item.ac ? (
                 <TouchableOpacity style={styles.disableBtn} onPress={() => handleDeactivate(item)}>
                   <Text style={styles.disableBtnText}>Disable</Text>
                 </TouchableOpacity>

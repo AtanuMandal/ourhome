@@ -179,7 +179,7 @@ export class AppComponent {
 
   readonly visibleNav = computed<SideNavItem[]>(() => {
     const items = (() => {
-      switch (this.user()?.role) {
+      switch (this.user()?.rl) {
         case 'SUUser':     return AppComponent.NAV_SUUSER;
         case 'SUAdmin':    return AppComponent.NAV_SUADMIN;
         case 'SUSecurity': return AppComponent.NAV_SECURITY;
@@ -198,7 +198,7 @@ export class AppComponent {
   logout() { this.auth.logout(); }
 
   readonly userInitials = computed(() => {
-    const name = this.user()?.fullName ?? this.user()?.name ?? '';
+    const name = this.user()?.fn ?? this.user()?.nm ?? '';
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   });
 

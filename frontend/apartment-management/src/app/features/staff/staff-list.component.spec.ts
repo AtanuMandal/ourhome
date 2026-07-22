@@ -12,13 +12,11 @@ describe('StaffListComponent', () => {
   function staff(overrides: Partial<Staff>): Staff {
     return {
       id: overrides.id ?? 's1',
-      societyId: 'soc-1',
-      fullName: overrides.fullName ?? 'Test Staff',
-      phone: overrides.phone ?? '9876543210',
-      category: overrides.category ?? 'Security',
-      employmentType: overrides.employmentType ?? 'OnPayroll',
-      isActive: overrides.isActive ?? true,
-      createdAt: '2026-01-01T00:00:00Z',
+      fn: 'Test Staff',
+      ph: '9876543210',
+      cat: 'Security',
+      et: 'OnPayroll',
+      ac: true,
       ...overrides,
     } as Staff;
   }
@@ -27,8 +25,8 @@ describe('StaffListComponent', () => {
     const staffServiceStub = {
       list: jasmine.createSpy().and.returnValue(of({ items: staffList, total: staffList.length, page: 1, pageSize: 100 })),
       onDuty: jasmine.createSpy().and.returnValue(of(onDuty)),
-      checkIn: jasmine.createSpy().and.returnValue(of({ id: 'a1', status: 'CheckedIn' })),
-      checkOut: jasmine.createSpy().and.returnValue(of({ id: 'a1', status: 'CheckedOut' })),
+      checkIn: jasmine.createSpy().and.returnValue(of({ sid: 's1' })),
+      checkOut: jasmine.createSpy().and.returnValue(of({ sid: 's1' })),
       deactivate: jasmine.createSpy().and.returnValue(of(true)),
       ...serviceOverrides,
     };
@@ -52,8 +50,8 @@ describe('StaffListComponent', () => {
 
   it('groups staff by category in a fixed order', () => {
     const { component } = setup([
-      staff({ id: '1', fullName: 'Sam Gardener', category: 'Gardener' }),
-      staff({ id: '2', fullName: 'John Guard', category: 'Security' }),
+      staff({ id: '1', fn: 'Sam Gardener', cat: 'Gardener' }),
+      staff({ id: '2', fn: 'John Guard', cat: 'Security' }),
     ]);
 
     const groups = component.groupedByCategory();
@@ -62,8 +60,8 @@ describe('StaffListComponent', () => {
 
   it('marks staff present in the on-duty list as on duty', () => {
     const { component } = setup(
-      [staff({ id: '1', fullName: 'John Guard' })],
-      [{ id: 'a1', societyId: 'soc-1', staffId: '1', staffName: 'John Guard', attendanceDate: '2026-01-01', isLate: false, status: 'CheckedIn' }],
+      [staff({ id: '1', fn: 'John Guard' })],
+      [{ sid: '1' }],
     );
 
     expect(component.isOnDuty('1')).toBeTrue();
@@ -71,7 +69,7 @@ describe('StaffListComponent', () => {
   });
 
   it('checks in a staff member and updates on-duty state', () => {
-    const { component, staffServiceStub } = setup([staff({ id: '1', fullName: 'John Guard' })]);
+    const { component, staffServiceStub } = setup([staff({ id: '1', fn: 'John Guard' })]);
 
     component.checkIn(component.items()[0]);
 
@@ -81,8 +79,8 @@ describe('StaffListComponent', () => {
 
   it('checks out a staff member and clears on-duty state', () => {
     const { component, staffServiceStub } = setup(
-      [staff({ id: '1', fullName: 'John Guard' })],
-      [{ id: 'a1', societyId: 'soc-1', staffId: '1', staffName: 'John Guard', attendanceDate: '2026-01-01', isLate: false, status: 'CheckedIn' }],
+      [staff({ id: '1', fn: 'John Guard' })],
+      [{ sid: '1' }],
     );
 
     component.checkOut(component.items()[0]);
@@ -93,12 +91,12 @@ describe('StaffListComponent', () => {
 
   it('deactivates a staff member when confirmed', () => {
     spyOn(window, 'confirm').and.returnValue(true);
-    const { component, staffServiceStub } = setup([staff({ id: '1', fullName: 'John Guard' })]);
+    const { component, staffServiceStub } = setup([staff({ id: '1', fn: 'John Guard' })]);
 
     component.deactivate(component.items()[0]);
 
     expect(staffServiceStub.deactivate).toHaveBeenCalledWith('soc-1', '1');
-    expect(component.items()[0].isActive).toBeFalse();
+    expect(component.items()[0].ac).toBeFalse();
   });
 
   it('does not deactivate when the user cancels the confirmation', () => {
@@ -112,8 +110,8 @@ describe('StaffListComponent', () => {
 
   it('filters staff by name or phone search term', () => {
     const { component } = setup([
-      staff({ id: '1', fullName: 'Alice Guard', phone: '1112223333' }),
-      staff({ id: '2', fullName: 'Bob Gardener', phone: '4445556666' }),
+      staff({ id: '1', fn: 'Alice Guard', ph: '1112223333' }),
+      staff({ id: '2', fn: 'Bob Gardener', ph: '4445556666' }),
     ]);
 
     component.search.set('alice');

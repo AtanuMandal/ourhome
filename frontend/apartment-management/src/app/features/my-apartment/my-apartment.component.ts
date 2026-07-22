@@ -40,14 +40,14 @@ import { Apartment, formatApartmentLabel } from '../../core/models/apartment.mod
         <app-loading-spinner></app-loading-spinner>
       } @else {
 
-        @if (currentUser()?.apartments?.length) {
+        @if (currentUser()?.apts?.length) {
           <div class="card">
             <div class="section-title">Your Apartments</div>
-            @for (apt of currentUser()!.apartments!; track apt.apartmentId) {
+            @for (apt of currentUser()!.apts!; track apt.aid) {
               <div class="apartment-pill">
                 <div class="apt-info">
-                  <span class="apt-name">{{ apt.name }}</span>
-                  <span class="apt-type">{{ apt.residentType }}</span>
+                  <span class="apt-name">{{ apt.nm }}</span>
+                  <span class="apt-type">{{ apt.rt }}</span>
                 </div>
                 <div class="invite-row">
                   <mat-form-field appearance="outline" class="invite-email-field">
@@ -56,7 +56,7 @@ import { Apartment, formatApartmentLabel } from '../../core/models/apartment.mod
                            placeholder="name@example.com">
                   </mat-form-field>
                   <button mat-stroked-button color="primary" type="button"
-                          (click)="sendInviteLink(apt.apartmentId)"
+                          (click)="sendInviteLink(apt.aid)"
                           [disabled]="sendingLink() || !shareEmail()">
                     Send Invite Link
                   </button>
@@ -66,7 +66,7 @@ import { Apartment, formatApartmentLabel } from '../../core/models/apartment.mod
           </div>
         }
 
-        @if (currentUser()?.pendingApartmentId) {
+        @if (currentUser()?.paid) {
           <div class="card pending-card">
             <div class="section-title">Pending Apartment Request</div>
             <p>Your request to join an apartment is awaiting approval from your society admin.</p>
@@ -76,17 +76,17 @@ import { Apartment, formatApartmentLabel } from '../../core/models/apartment.mod
             </div>
             <div class="pending-info">
               <span class="label">As:</span>
-              <span>{{ currentUser()!.pendingResidentType }}</span>
+              <span>{{ currentUser()!.prt }}</span>
             </div>
           </div>
         }
 
-        @if (!currentUser()?.pendingApartmentId) {
+        @if (!currentUser()?.paid) {
           <div class="card">
             <div class="section-title">
-              {{ currentUser()?.apartments?.length ? 'Join Another Apartment' : 'Select Your Apartment' }}
+              {{ currentUser()?.apts?.length ? 'Join Another Apartment' : 'Select Your Apartment' }}
             </div>
-            @if (!currentUser()?.apartments?.length) {
+            @if (!currentUser()?.apts?.length) {
               <p class="help-text">You're not linked to any apartment yet. Select the apartment you live in and submit a request. Your society admin will approve it.</p>
             }
             <form [formGroup]="joinForm" (ngSubmit)="submitJoinRequest()" novalidate>
@@ -154,7 +154,7 @@ export class MyApartmentComponent implements OnInit {
   formatApartmentLabel(apt: Apartment) { return formatApartmentLabel(apt); }
 
   pendingApartmentName(): string {
-    const pid = this.currentUser()?.pendingApartmentId;
+    const pid = this.currentUser()?.paid;
     if (!pid) return '';
     const apt = this.allApartments().find(a => a.id === pid);
     return apt ? formatApartmentLabel(apt) : pid;
@@ -172,7 +172,7 @@ export class MyApartmentComponent implements OnInit {
       next: ({ user, apartments }) => {
         this.currentUser.set(user);
         this.allApartments.set(apartments.items);
-        const linked = new Set((user.apartments ?? []).map(a => a.apartmentId));
+        const linked = new Set((user.apts ?? []).map(a => a.aid));
         this.apartments.set(apartments.items.filter(a => !linked.has(a.id)));
         this.loading.set(false);
       },

@@ -55,7 +55,7 @@ type VisitorsNav = NativeStackNavigationProp<{
 export function VisitorRegisterScreen() {
   const navigation = useNavigation<VisitorsNav>();
   const societyId = useSocietyId();
-  const role = useAuthStore((s) => s.user?.role ?? '');
+  const role = useAuthStore((s) => s.user?.rl ?? '');
   // Multi-apartment aware: the account-level apartmentId may be absent — follow the
   // apartment selected in the drawer (falls back to the primary apartment).
   const { activeApartmentId } = useActiveApartment();
@@ -81,7 +81,7 @@ export function VisitorRegisterScreen() {
   const [photoZoomVisible, setPhotoZoomVisible] = useState(false);
 
   const apartmentOptions = (apartments ?? []).map((a) => ({
-    label: formatApartmentLabel(a.blockName, a.floorNumber, a.apartmentNumber),
+    label: formatApartmentLabel(a.blk, a.flr, a.num),
     value: a.id,
   }));
 

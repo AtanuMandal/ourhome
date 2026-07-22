@@ -37,43 +37,43 @@ type ResidentApartmentType = 'Owner' | 'Tenant';
     UserAvatarComponent,
   ],
   template: `
-    <app-page-header [title]="user()?.fullName ?? user()?.name ?? 'Profile'" [showBack]="true"></app-page-header>
+    <app-page-header [title]="user()?.fn ?? user()?.nm ?? 'Profile'" [showBack]="true"></app-page-header>
     <div class="page-content">
       @if (loading()) {
         <app-loading-spinner></app-loading-spinner>
       } @else if (user()) {
         <div class="profile-header">
-          <app-user-avatar class="avatar-xl-host" [name]="user()!.fullName ?? user()!.name ?? ''"
-            [pictureUrl]="user()!.profilePictureUrl"></app-user-avatar>
-          <h2>{{ user()!.fullName ?? user()!.name }}</h2>
-          <span class="role-chip">{{ user()!.role }}</span>
+          <app-user-avatar class="avatar-xl-host" [name]="user()!.fn ?? user()!.nm ?? ''"
+            [pictureUrl]="user()!.pic"></app-user-avatar>
+          <h2>{{ user()!.fn ?? user()!.nm }}</h2>
+          <span class="role-chip">{{ user()!.rl }}</span>
         </div>
 
         <div class="card" style="margin-top:16px">
-          @if (user()!.email) {
-            <div class="row"><span class="label">Email</span><span>{{ user()!.email }}</span></div>
+          @if (user()!.em) {
+            <div class="row"><span class="label">Email</span><span>{{ user()!.em }}</span></div>
           }
-          @if (user()!.phone) {
-            <div class="row"><span class="label">Phone</span><span>{{ user()!.phone }}</span></div>
+          @if (user()!.ph) {
+            <div class="row"><span class="label">Phone</span><span>{{ user()!.ph }}</span></div>
           }
-          <div class="row"><span class="label">Resident Type</span><span>{{ user()!.residentType }}</span></div>
+          <div class="row"><span class="label">Resident Type</span><span>{{ user()!.rt }}</span></div>
           <div class="row"><span class="label">Primary Apartment</span><span>{{ primaryApartmentLabel() }}</span></div>
         </div>
 
         <div class="card" style="margin-top:16px">
           <div class="section-title">Linked Apartments</div>
-          @if (user()!.apartments?.length) {
+          @if (user()!.apts?.length) {
             <div class="linked-apartments">
-              @for (apartment of user()!.apartments!; track apartment.apartmentId) {
+              @for (apartment of user()!.apts!; track apartment.aid) {
                 <div class="apartment-pill">
                   <div class="apartment-pill__details">
-                    <span>{{ apartment.name }}</span>
-                    <span class="pill-type">{{ apartment.residentType }}</span>
+                    <span>{{ apartment.nm }}</span>
+                    <span class="pill-type">{{ apartment.rt }}</span>
                   </div>
                   @if (canRemoveApartment()) {
                     <button mat-stroked-button color="warn" type="button"
-                            (click)="removeApartment(apartment.apartmentId, apartment.name)"
-                            [disabled]="removingApartmentId() === apartment.apartmentId">
+                            (click)="removeApartment(apartment.aid, apartment.nm)"
+                            [disabled]="removingApartmentId() === apartment.aid">
                       Remove
                     </button>
                   }
@@ -138,7 +138,7 @@ type ResidentApartmentType = 'Owner' | 'Tenant';
               <button mat-stroked-button (click)="resendOtp()" [disabled]="actioning()">
                 Resend OTP
               </button>
-              @if (user()?.isActive) {
+              @if (user()?.ac) {
                 <button mat-stroked-button color="warn" (click)="deactivate()" [disabled]="actioning()">
                   Deactivate
                 </button>
@@ -208,7 +208,7 @@ export class ResidentProfileComponent implements OnInit {
     phone: ['', [Validators.required, Validators.pattern(PHONE_PATTERN)]],
   });
 
-  initials = () => (this.user()?.fullName ?? this.user()?.name ?? '')
+  initials = () => (this.user()?.fn ?? this.user()?.nm ?? '')
     .split(' ')
     .map(n => n[0])
     .join('')
@@ -220,7 +220,7 @@ export class ResidentProfileComponent implements OnInit {
   }
 
   canAddApartment() {
-    const residentType = this.user()?.residentType;
+    const residentType = this.user()?.rt;
     return residentType === 'Owner' || residentType === 'Tenant';
   }
 
@@ -228,28 +228,28 @@ export class ResidentProfileComponent implements OnInit {
     const resident = this.user();
     if (!resident || !this.canAddApartment()) return [];
 
-    const linkedApartmentIds = new Set((resident.apartments ?? []).map(apartment => apartment.apartmentId));
+    const linkedApartmentIds = new Set((resident.apts ?? []).map(apartment => apartment.aid));
     const selectedResidentType = this.addApartmentForm.controls.residentType.value;
     return this.apartments().filter(apartment => {
       if (linkedApartmentIds.has(apartment.id)) return false;
-      const currentOwner = apartment.residents?.find(current => current.residentType === 'Owner');
-      const currentTenant = apartment.residents?.find(current => current.residentType === 'Tenant');
+      const currentOwner = apartment.res?.find(current => current.rt === 'Owner');
+      const currentTenant = apartment.res?.find(current => current.rt === 'Tenant');
 
-      if (selectedResidentType === 'Owner') return !currentOwner || currentOwner.userId === resident.id;
-      return !currentTenant || currentTenant.userId === resident.id;
+      if (selectedResidentType === 'Owner') return !currentOwner || currentOwner.uid === resident.id;
+      return !currentTenant || currentTenant.uid === resident.id;
     });
   }
 
   canRemoveApartment() {
-    return this.auth.user()?.role === 'SUAdmin';
+    return this.auth.user()?.rl === 'SUAdmin';
   }
 
   primaryApartmentLabel() {
     const resident = this.user();
-    if (!resident?.apartments?.length) return resident?.apartmentId ?? '–';
-    const primaryApartment = resident.apartments.find(apartment => apartment.apartmentId === resident.apartmentId)
-      ?? resident.apartments[0];
-    return primaryApartment.name;
+    if (!resident?.apts?.length) return resident?.aid ?? '–';
+    const primaryApartment = resident.apts.find(apartment => apartment.aid === resident.aid)
+      ?? resident.apts[0];
+    return primaryApartment.nm;
   }
 
   formatApartmentLabel(apartment: Apartment) {
@@ -281,7 +281,7 @@ export class ResidentProfileComponent implements OnInit {
     const sid = this.auth.societyId();
     const resident = this.user();
     if (!sid || !resident || !this.canRemoveApartment()) return;
-    if (!window.confirm(`Remove ${apartmentName} from ${resident.fullName ?? resident.name}?`)) return;
+    if (!window.confirm(`Remove ${apartmentName} from ${resident.fn ?? resident.nm}?`)) return;
 
     this.removingApartmentId.set(apartmentId);
     this.userSvc.removeApartment(sid, resident.id, apartmentId).subscribe({
@@ -338,7 +338,7 @@ export class ResidentProfileComponent implements OnInit {
     this.actioning.set(true);
     this.userSvc.deactivate(sid, uid).subscribe({
       next: () => {
-        this.user.update(u => u ? { ...u, isActive: false } : u);
+        this.user.update(u => u ? { ...u, ac: false } : u);
         this.actioning.set(false);
         this.snackBar.open('User deactivated.', 'Dismiss', { duration: 3000 });
       },
@@ -354,7 +354,7 @@ export class ResidentProfileComponent implements OnInit {
     this.actioning.set(true);
     this.userSvc.activate(sid, uid).subscribe({
       next: () => {
-        this.user.update(u => u ? { ...u, isActive: true } : u);
+        this.user.update(u => u ? { ...u, ac: true } : u);
         this.actioning.set(false);
         this.snackBar.open('User activated.', 'Dismiss', { duration: 3000 });
       },
@@ -372,12 +372,12 @@ export class ResidentProfileComponent implements OnInit {
       next: ({ user, apartments }) => {
         this.user.set(user);
         this.apartments.set(apartments.items ?? []);
-        if (user.residentType === 'Owner' || user.residentType === 'Tenant') {
-          this.addApartmentForm.patchValue({ residentType: user.residentType });
+        if (user.rt === 'Owner' || user.rt === 'Tenant') {
+          this.addApartmentForm.patchValue({ residentType: user.rt });
         }
         this.editInfoForm.patchValue({
-          fullName: user.fullName ?? user.name ?? '',
-          phone: user.phone ?? '',
+          fullName: user.fn ?? user.nm ?? '',
+          phone: user.ph ?? '',
         });
         this.loading.set(false);
 

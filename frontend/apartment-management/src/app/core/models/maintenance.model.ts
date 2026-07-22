@@ -6,124 +6,121 @@ export type MaintenanceAreaBasis = 'CarpetArea' | 'BuildUpArea' | 'SuperBuildUpA
 export type MaintenanceFrequency = 'Monthly' | 'Quarterly' | 'Annual';
 export type MaintenanceChargeStatus = ChargeStatus;
 
+// Matches backend MaintenanceScheduleChangeDto — field names shortened to match its compressed JSON keys.
 export interface MaintenanceScheduleChange {
-  previousRate: number;
-  newRate: number;
-  areaBasis?: MaintenanceAreaBasis | null;
-  changedByUserId: string;
-  changedByUserName: string;
-  reason: string;
-  changedAt: string;
+  pr: number; // previousRate
+  nr: number; // newRate
+  cbn: string; // changedByUserName
+  rsn: string; // reason
+  ca: string; // changedAt
 }
 
+// Matches backend MaintenanceScheduleDto — field names shortened to match its compressed JSON keys.
 export interface MaintenanceSchedule {
   id: string;
-  societyId: string;
-  apartmentId?: string | null;
-  name: string;
-  description?: string | null;
-  rate: number;
-  pricingType: MaintenancePricingType;
-  areaBasis?: MaintenanceAreaBasis | null;
-  frequency: MaintenanceFrequency;
-  dueDay: number;
-  startMonth: number;
-  startYear: number;
-  endMonth: number;
-  endYear: number;
-  activeFromDate: string;
-  activeUntilDate: string;
-  inactiveFromDate?: string | null;
-  nextDueDate: string;
-  isActive: boolean;
-  changeHistory: MaintenanceScheduleChange[];
-  createdAt: string;
-  updatedAt: string;
+  aid?: string | null; // apartmentId
+  nm: string; // name
+  ds?: string | null; // description
+  rt: number; // rate
+  pt: MaintenancePricingType; // pricingType
+  ab?: MaintenanceAreaBasis | null; // areaBasis
+  fq: MaintenanceFrequency; // frequency
+  dd: number; // dueDay
+  sm: number; // startMonth
+  sy: number; // startYear
+  em: number; // endMonth
+  ey: number; // endYear
+  afd: string; // activeFromDate
+  aud: string; // activeUntilDate
+  ifd?: string | null; // inactiveFromDate
+  ndd: string; // nextDueDate
+  ac: boolean; // isActive
+  ch: MaintenanceScheduleChange[]; // changeHistory
 }
 
+// Matches backend MaintenancePaymentProofDto — field names shortened to match its compressed JSON keys.
 export interface MaintenancePaymentProof {
-  proofUrl: string;
-  notes?: string | null;
-  submittedByUserId: string;
-  submittedAt: string;
-  submissionGroupId?: string;
+  pu: string; // proofUrl
+  nt?: string | null; // notes
+  sa: string; // submittedAt
 }
 
+// Matches backend MaintenanceChargeGridChargeDto — field names shortened to match its compressed JSON keys.
 export interface MaintenanceGridCharge {
   id: string;
-  scheduleId: string;
-  scheduleName: string;
-  amount: number;
-  status: MaintenanceChargeStatus;
-  dueDate: string;
-  isOverdue: boolean;
-  paidAt?: string | null;
-  paymentMethod?: string | null;
-  transactionReference?: string | null;
-  receiptUrl?: string | null;
-  notes?: string | null;
-  proofs: MaintenancePaymentProof[];
-  rejectionReason?: string | null;
-  rejectedAt?: string | null;
+  sid: string; // scheduleId
+  snm: string; // scheduleName
+  amt: number; // amount
+  st: MaintenanceChargeStatus; // status
+  dd: string; // dueDate
+  ov: boolean; // isOverdue
+  pa?: string | null; // paidAt
+  pm?: string | null; // paymentMethod
+  tr?: string | null; // transactionReference
+  ru?: string | null; // receiptUrl
+  nt?: string | null; // notes
+  pf: MaintenancePaymentProof[]; // proofs
+  rr?: string | null; // rejectionReason
+  ra?: string | null; // rejectedAt
   /** Latest proof's group id — charges submitted together (a clubbed submission) share this. */
-  submissionGroupId?: string | null;
+  sgi?: string | null; // submissionGroupId
 }
 
+// Matches backend MaintenanceChargeGridCellDto — field names shortened to match its compressed JSON keys.
 export interface MaintenanceGridCell {
-  month: number;
-  totalAmount: number;
-  hasOverdue: boolean;
-  charges: MaintenanceGridCharge[];
+  mo: number; // month
+  ta: number; // totalAmount
+  ho: boolean; // hasOverdue
+  chg: MaintenanceGridCharge[]; // charges
 }
 
+// Matches backend MaintenanceChargeGridRowDto — field names shortened to match its compressed JSON keys.
 export interface MaintenanceGridRow {
-  apartmentId: string;
-  apartmentNumber: string;
-  residentName?: string | null;
-  months: MaintenanceGridCell[];
+  aid: string; // apartmentId
+  anm: string; // apartmentNumber
+  rn?: string | null; // residentName
+  mos: MaintenanceGridCell[]; // months
 }
 
+// Matches backend MaintenanceChargeGridDto — field names shortened to match its compressed JSON keys.
 export interface MaintenanceChargeGrid {
-  societyId: string;
-  year: number;
-  months: number[];
-  summary: MaintenanceChargeGridSummary;
+  mos: number[]; // months
+  sum: MaintenanceChargeGridSummary; // summary
   rows: MaintenanceGridRow[];
 }
 
+// Matches backend MaintenanceChargeGridSummaryDto — field names shortened to match its compressed JSON keys.
 export interface MaintenanceChargeGridSummary {
-  pendingAmount: number;
-  submittedAmount: number;
-  paidAmount: number;
-  pendingCount: number;
-  submittedCount: number;
-  paidCount: number;
+  pa: number; // pendingAmount
+  sa: number; // submittedAmount
+  pda: number; // paidAmount
+  pc: number; // pendingCount
+  sc: number; // submittedCount
+  pdc: number; // paidCount
 }
 
+// Matches backend MaintenanceChargeDto — field names shortened to match its compressed JSON keys.
 export interface MaintenanceCharge {
   id: string;
-  societyId: string;
-  apartmentId: string;
-  apartmentNumber: string;
-  scheduleId: string;
-  scheduleName: string;
-  chargeYear: number;
-  chargeMonth: number;
-  amount: number;
-  status: MaintenanceChargeStatus;
-  dueDate: string;
-  isOverdue: boolean;
-  paidAt?: string | null;
-  paymentMethod?: string | null;
-  transactionReference?: string | null;
-  receiptUrl?: string | null;
-  notes?: string | null;
-  proofs: MaintenancePaymentProof[];
-  createdAt: string;
-  updatedAt: string;
-  rejectionReason?: string | null;
-  rejectedAt?: string | null;
-  submissionGroupId?: string | null;
+  aid: string; // apartmentId
+  anm: string; // apartmentNumber
+  sid: string; // scheduleId
+  snm: string; // scheduleName
+  cy: number; // chargeYear
+  cm: number; // chargeMonth
+  amt: number; // amount
+  st: MaintenanceChargeStatus; // status
+  dd: string; // dueDate
+  ov: boolean; // isOverdue
+  pa?: string | null; // paidAt
+  pm?: string | null; // paymentMethod
+  tr?: string | null; // transactionReference
+  ru?: string | null; // receiptUrl
+  nt?: string | null; // notes
+  pf: MaintenancePaymentProof[]; // proofs
+  rr?: string | null; // rejectionReason
+  ra?: string | null; // rejectedAt
+  sgi?: string | null; // submissionGroupId
 }
 
 export interface CreateMaintenanceScheduleDto {
@@ -158,7 +155,12 @@ export interface SubmitMaintenancePaymentProofDto {
   notes?: string | null;
 }
 
-export type { ChargeDocumentUploadResponse as MaintenanceProofUploadResponse } from './charge-status.model';
+// Matches backend MaintenanceProofUploadResponse — distinct from the shared ChargeDocumentUploadResponse
+// (vendor payments' upload response keeps full field names; this one is compressed).
+export interface MaintenanceProofUploadResponse {
+  fn: string; // fileName
+  fu: string; // fileUrl
+}
 
 export interface MarkMaintenanceChargePaidDto {
   paymentMethod: string;

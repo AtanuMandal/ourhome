@@ -18,7 +18,7 @@ import { useSocietyId } from '../../shared/hooks/useSocietyId';
 import { useAuthStore } from '../../store/authStore';
 import { useActiveApartment } from '../../shared/hooks/useActiveApartment';
 import { useMaintenanceList, useSubmitPaymentProof } from './hooks/useMaintenance';
-import { maintenanceApi } from '../../api/endpoints/maintenance';
+import { maintenanceApi, type MaintenanceProofUploadResult } from '../../api/endpoints/maintenance';
 import { pickImageFile, type PickedFile } from '../../camera/ImagePicker';
 import { pickProofDocument } from '../../camera/DocumentPicker';
 import { viewRemoteFile } from '../../camera/fileViewer';
@@ -79,7 +79,7 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 
 // A charge that hasn't been paid and isn't already awaiting admin review can have proof submitted.
 function isSelectableCharge(charge: MaintenanceCharge): boolean {
-  return charge.status === 'Pending' || charge.status === 'Rejected';
+  return charge.st === 'Pending' || charge.st === 'Rejected';
 }
 
 interface GroupedSubmission {
@@ -95,18 +95,18 @@ type DenyTarget = { type: 'single'; chargeId: string } | { type: 'group'; charge
 /** "Apr 2026" for a single-period group, "Apr 2026 – Jun 2026" when it spans several. */
 function formatPeriodRange(charges: MaintenanceCharge[]): string {
   if (charges.length === 0) return '';
-  const sorted = [...charges].sort((a, b) => (a.chargeYear * 100 + a.chargeMonth) - (b.chargeYear * 100 + b.chargeMonth));
+  const sorted = [...charges].sort((a, b) => (a.cy * 100 + a.cm) - (b.cy * 100 + b.cm));
   const first = sorted[0];
   const last = sorted[sorted.length - 1];
-  const firstLabel = `${MONTHS[first.chargeMonth - 1]} ${first.chargeYear}`;
-  const lastLabel = `${MONTHS[last.chargeMonth - 1]} ${last.chargeYear}`;
+  const firstLabel = `${MONTHS[first.cm - 1]} ${first.cy}`;
+  const lastLabel = `${MONTHS[last.cm - 1]} ${last.cy}`;
   return firstLabel === lastLabel ? firstLabel : `${firstLabel} – ${lastLabel}`;
 }
 
 export function MaintenanceScreen() {
   const societyId = useSocietyId();
   const queryClient = useQueryClient();
-  const role = useAuthStore((s) => s.user?.role ?? '');
+  const role = useAuthStore((s) => s.user?.rl ?? '');
   // Matches the backend's allow-list: only SUAdmin/HQAdmin may list charges society-wide;
   // everyone else must scope the query to their own apartment or the API returns Forbidden.
   const isAdmin = role === 'SUAdmin' || role === 'HQAdmin';
@@ -115,7 +115,7 @@ export function MaintenanceScreen() {
   const [selectedChargeIds, setSelectedChargeIds] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
   const [uploading, setUploading] = useState(false);
-  const [uploadedProof, setUploadedProof] = useState<{ fileName: string; fileUrl: string } | null>(null);
+  const [uploadedProof, setUploadedProof] = useState<MaintenanceProofUploadResult | null>(null);
 
   const params: Record<string, string | number> = {};
   if (selectedStatus !== 'All') params.status = selectedStatus;
@@ -137,9 +137,9 @@ export function MaintenanceScreen() {
   const groupedSubmissions = useMemo<GroupedSubmission[]>(() => {
     const byKey = new Map<string, MaintenanceCharge[]>();
     for (const charge of data) {
-      if (charge.status !== 'ProofSubmitted' && charge.status !== 'Paid') continue;
-      if (!charge.submissionGroupId) continue;
-      const key = `${charge.apartmentId}|${charge.submissionGroupId}`;
+      if (charge.st !== 'ProofSubmitted' && charge.st !== 'Paid') continue;
+      if (!charge.sgi) continue;
+      const key = `${charge.aid}|${charge.sgi}`;
       const list = byKey.get(key) ?? [];
       list.push(charge);
       byKey.set(key, list);
@@ -148,13 +148,13 @@ export function MaintenanceScreen() {
     return Array.from(byKey.entries())
       .filter(([, charges]) => charges.length >= 2)
       .map(([key, charges]) => {
-        const sorted = [...charges].sort((a, b) => (a.chargeYear * 100 + a.chargeMonth) - (b.chargeYear * 100 + b.chargeMonth));
+        const sorted = [...charges].sort((a, b) => (a.cy * 100 + a.cm) - (b.cy * 100 + b.cm));
         return {
           key,
-          apartmentNumber: sorted[0].apartmentNumber,
-          status: sorted.every((c) => c.status === 'Paid') ? ('Paid' as const) : ('ProofSubmitted' as const),
+          apartmentNumber: sorted[0].anm,
+          status: sorted.every((c) => c.st === 'Paid') ? ('Paid' as const) : ('ProofSubmitted' as const),
           charges: sorted,
-          totalAmount: sorted.reduce((sum, c) => sum + c.amount, 0),
+          totalAmount: sorted.reduce((sum, c) => sum + c.amt, 0),
         };
       });
   }, [data]);
@@ -245,7 +245,7 @@ export function MaintenanceScreen() {
     if (selectedChargeIds.length === 0 || !uploadedProof) return;
 
     submitProof(
-      { chargeIds: selectedChargeIds, proofUrl: uploadedProof.fileUrl, notes: notes.trim() || undefined },
+      { chargeIds: selectedChargeIds, proofUrl: uploadedProof.fu, notes: notes.trim() || undefined },
       {
         onSuccess: () => {
           setSelectedChargeIds([]);
@@ -264,16 +264,16 @@ export function MaintenanceScreen() {
     return (
       <View style={styles.item}>
         <View style={styles.itemTop}>
-          <Text style={styles.apartment}>{item.apartmentNumber}</Text>
-          <CurrencyText amount={item.amount} style={styles.amount} />
+          <Text style={styles.apartment}>{item.anm}</Text>
+          <CurrencyText amount={item.amt} style={styles.amount} />
         </View>
         <Text style={styles.period}>
-          {MONTHS[(item.chargeMonth ?? 1) - 1]} {item.chargeYear}
+          {MONTHS[(item.cm ?? 1) - 1]} {item.cy}
         </Text>
         <View style={styles.itemBottom}>
-          <StatusChip status={item.status} />
-          <Text style={[styles.dueDate, item.isOverdue && styles.overdue]}>
-            Due: {formatDate(item.dueDate)}
+          <StatusChip status={item.st} />
+          <Text style={[styles.dueDate, item.ov && styles.overdue]}>
+            Due: {formatDate(item.dd)}
           </Text>
         </View>
         {selectable && (
@@ -288,16 +288,16 @@ export function MaintenanceScreen() {
             <Text style={styles.selectRowText}>Include in proof submission</Text>
           </TouchableOpacity>
         )}
-        {item.status === 'Rejected' && item.rejectionReason && (
-          <Text style={styles.rejectionText}>Denied: {item.rejectionReason}</Text>
+        {item.st === 'Rejected' && item.rr && (
+          <Text style={styles.rejectionText}>Denied: {item.rr}</Text>
         )}
-        {item.proofs.length > 0 && (
+        {item.pf.length > 0 && (
           <View style={styles.proofList}>
             <Text style={styles.proofListTitle}>Submitted proofs</Text>
-            {item.proofs.map((proof) => (
-              <View key={proof.proofUrl + proof.submittedAt} style={styles.proofItem}>
-                <ProofThumb url={proof.proofUrl} />
-                <Text style={styles.proofItemText}>{formatDate(proof.submittedAt)}</Text>
+            {item.pf.map((proof) => (
+              <View key={proof.pu + proof.sa} style={styles.proofItem}>
+                <ProofThumb url={proof.pu} />
+                <Text style={styles.proofItemText}>{formatDate(proof.sa)}</Text>
               </View>
             ))}
           </View>
@@ -305,9 +305,9 @@ export function MaintenanceScreen() {
         {isAdmin && groupedChargeIds.has(item.id) && (
           <Text style={styles.groupedNote}>Part of a clubbed submission — review it above.</Text>
         )}
-        {isAdmin && item.status !== 'Paid' && !groupedChargeIds.has(item.id) && (
+        {isAdmin && item.st !== 'Paid' && !groupedChargeIds.has(item.id) && (
           <View style={styles.adminRow}>
-            {item.status === 'ProofSubmitted' && (
+            {item.st === 'ProofSubmitted' && (
               <>
                 <TouchableOpacity
                   style={[styles.adminBtn, styles.adminApprove]}
@@ -366,7 +366,7 @@ export function MaintenanceScreen() {
           <Text style={styles.groupSectionTitle}>Clubbed payment proof submissions</Text>
           <Text style={styles.groupSectionCopy}>Charges a resident submitted together in one proof upload.</Text>
           {groupedSubmissions.map((group) => {
-            const latestProof = group.charges[0].proofs[group.charges[0].proofs.length - 1];
+            const latestProof = group.charges[0].pf[group.charges[0].pf.length - 1];
             return (
               <View key={group.key} style={styles.groupCard}>
                 <View style={styles.groupCardTop}>
@@ -379,8 +379,8 @@ export function MaintenanceScreen() {
                 <CurrencyText amount={group.totalAmount} style={styles.groupAmount} />
                 {latestProof && (
                   <View style={styles.proofItem}>
-                    <ProofThumb url={latestProof.proofUrl} />
-                    <Text style={styles.proofItemText}>Proof submitted {formatDate(latestProof.submittedAt)}</Text>
+                    <ProofThumb url={latestProof.pu} />
+                    <Text style={styles.proofItemText}>Proof submitted {formatDate(latestProof.sa)}</Text>
                   </View>
                 )}
                 {group.status === 'ProofSubmitted' && (
@@ -426,8 +426,8 @@ export function MaintenanceScreen() {
 
           {uploadedProof && (
             <View style={styles.proofItem}>
-              <ProofThumb url={uploadedProof.fileUrl} fileName={uploadedProof.fileName} />
-              <Text style={styles.proofItemText}>{uploadedProof.fileName}</Text>
+              <ProofThumb url={uploadedProof.fu} fileName={uploadedProof.fn} />
+              <Text style={styles.proofItemText}>{uploadedProof.fn}</Text>
             </View>
           )}
 

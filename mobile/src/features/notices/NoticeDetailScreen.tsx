@@ -21,7 +21,7 @@ interface NoticeDetailScreenProps {
 export function NoticeDetailScreen({ route }: NoticeDetailScreenProps) {
   const navigation = useNavigation<any>(); // eslint-disable-line @typescript-eslint/no-explicit-any
   const societyId = useSocietyId();
-  const role = useAuthStore((s) => s.user?.role);
+  const role = useAuthStore((s) => s.user?.rl);
   const isAdmin = role === 'SUAdmin' || role === 'HQAdmin';
   const { id } = route.params;
   const { data: notice, isLoading } = useNotice(societyId, id);
@@ -33,7 +33,7 @@ export function NoticeDetailScreen({ route }: NoticeDetailScreenProps) {
   const { data: readReceipts, isLoading: isLoadingReceipts } = useNoticeReadReceipts(societyId, id, showReadReport);
 
   useEffect(() => {
-    if (notice && !notice.isReadByCurrentUser) {
+    if (notice && !notice.rd) {
       markRead(id);
     }
   }, [notice, id, markRead]);
@@ -45,7 +45,7 @@ export function NoticeDetailScreen({ route }: NoticeDetailScreenProps) {
       {notice != null && (
         <ScrollView contentContainerStyle={styles.content}>
           <View style={styles.titleRow}>
-            <Text style={styles.title}>{notice.title}</Text>
+            <Text style={styles.title}>{notice.tt}</Text>
             {isAdmin && (
               <View style={styles.headerActions}>
                 <TouchableOpacity
@@ -64,10 +64,10 @@ export function NoticeDetailScreen({ route }: NoticeDetailScreenProps) {
             )}
           </View>
           <Text style={styles.meta}>
-            {notice.category} · {formatDateTime(notice.publishAt)}
+            {notice.cat} · {formatDateTime(notice.pa)}
           </Text>
           <View style={styles.divider} />
-          <Text style={styles.body}>{notice.content}</Text>
+          <Text style={styles.body}>{notice.ct}</Text>
 
           {showReadReport && (
             <View style={styles.readReportCard}>
@@ -99,7 +99,7 @@ export function NoticeDetailScreen({ route }: NoticeDetailScreenProps) {
           {linkedPoll && (
             <TouchableOpacity style={styles.linkedPollBanner} onPress={() => navigation.navigate('PollDetail', { id: linkedPoll.id })}>
               <Text style={styles.linkedPollText}>
-                🗳️ This notice has an associated poll: <Text style={styles.linkedPollTitle}>{linkedPoll.title}</Text> — tap to view or vote
+                🗳️ This notice has an associated poll: <Text style={styles.linkedPollTitle}>{linkedPoll.tt}</Text> — tap to view or vote
               </Text>
             </TouchableOpacity>
           )}

@@ -83,8 +83,8 @@ export function monthInputToIsoDate(value: string) {
 
 export function sortVendorCharges(charges: VendorCharge[]) {
   return charges.slice().sort((left, right) => {
-    const rightKey = new Date(right.effectiveDate).getTime();
-    const leftKey = new Date(left.effectiveDate).getTime();
+    const rightKey = new Date(right.efd).getTime();
+    const leftKey = new Date(left.efd).getTime();
     return rightKey - leftKey;
   });
 }

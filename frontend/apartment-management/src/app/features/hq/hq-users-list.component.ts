@@ -56,14 +56,14 @@ import { User } from '../../core/models/user.model';
         @for (user of users(); track user.id) {
           <div class="card user-row">
             <div class="user-info">
-              <div class="user-name">{{ user.fullName || user.name }}</div>
-              <div class="user-meta">{{ user.email }} &middot; {{ user.role }}</div>
+              <div class="user-name">{{ user.fn || user.nm }}</div>
+              <div class="user-meta">{{ user.em }} &middot; {{ user.rl }}</div>
             </div>
-            <span class="badge" [class.badge--active]="user.isActive" [class.badge--inactive]="!user.isActive">
-              {{ user.isActive ? 'Active' : 'Inactive' }}
+            <span class="badge" [class.badge--active]="user.ac" [class.badge--inactive]="!user.ac">
+              {{ user.ac ? 'Active' : 'Inactive' }}
             </span>
             @if (isHqAdmin()) {
-              @if (user.isActive) {
+              @if (user.ac) {
                 <button mat-stroked-button color="warn" (click)="deactivate(user)">Disable</button>
               } @else {
                 <button mat-stroked-button color="primary" (click)="activate(user)">Enable</button>
@@ -144,7 +144,7 @@ export class HqUsersListComponent implements OnInit {
   activate(user: User) {
     this.svc.activate(user.id).subscribe({
       next: () => {
-        this.snackBar.open(`${user.fullName || user.email} enabled.`, 'Dismiss', { duration: 3000 });
+        this.snackBar.open(`${user.fn || user.em} enabled.`, 'Dismiss', { duration: 3000 });
         this.load();
       },
     });
@@ -153,7 +153,7 @@ export class HqUsersListComponent implements OnInit {
   deactivate(user: User) {
     this.svc.deactivate(user.id).subscribe({
       next: () => {
-        this.snackBar.open(`${user.fullName || user.email} disabled.`, 'Dismiss', { duration: 3000 });
+        this.snackBar.open(`${user.fn || user.em} disabled.`, 'Dismiss', { duration: 3000 });
         this.load();
       },
     });

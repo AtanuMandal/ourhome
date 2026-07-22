@@ -161,15 +161,17 @@ public class CheckInStaffCommandHandlerTests
     public async Task Handle_WithActiveStaffAndNoOpenAttendance_ChecksIn()
     {
         var staff = Staff.Create("soc-001", "John Guard", "+91-9876543210", StaffCategory.Security, StaffEmploymentType.OnPayroll);
+        StaffAttendance? created = null;
         _staffRepoMock.Setup(r => r.GetByIdAsync(staff.Id, "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync(staff);
         _attendanceRepoMock.Setup(r => r.GetOpenAttendanceAsync("soc-001", staff.Id, It.IsAny<CancellationToken>())).ReturnsAsync((StaffAttendance?)null);
         _attendanceRepoMock.Setup(r => r.CreateAsync(It.IsAny<StaffAttendance>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((StaffAttendance a, CancellationToken _) => a);
+            .ReturnsAsync((StaffAttendance a, CancellationToken _) => { created = a; return a; });
 
         var result = await CreateHandler().Handle(new CheckInStaffCommand("soc-001", staff.Id), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        result.Value!.Status.Should().Be("CheckedIn");
+        result.Value!.StaffId.Should().Be(staff.Id);
+        created!.Status.Should().Be(StaffAttendanceStatus.CheckedIn);
     }
 
     [Fact]
@@ -229,7 +231,8 @@ public class CheckOutStaffCommandHandlerTests
         var result = await CreateHandler().Handle(new CheckOutStaffCommand("soc-001", "staff-001"), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        result.Value!.Status.Should().Be("CheckedOut");
+        result.Value!.StaffId.Should().Be("staff-001");
+        openAttendance.Status.Should().Be(StaffAttendanceStatus.CheckedOut);
     }
 
     [Fact]
@@ -262,7 +265,7 @@ public class GetOnDutyStaffQueryHandlerTests
         var result = await CreateHandler().Handle(new GetOnDutyStaffQuery("soc-001"), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        result.Value.Should().ContainSingle(a => a.StaffName == "Alice Guard");
+        result.Value.Should().ContainSingle(a => a.StaffId == "staff-001");
     }
 }
 

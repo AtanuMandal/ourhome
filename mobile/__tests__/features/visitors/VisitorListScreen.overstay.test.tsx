@@ -10,28 +10,28 @@ import type { Visitor } from '../../../src/api/types';
 // red warning banner at the top when any visitor has crossed the society's overstay threshold.
 const overstayingVisitor: Partial<Visitor> = {
   id: 'v1',
-  visitorName: 'Overstaying Guest',
-  hostResidentName: 'Host Resident',
-  hostBlockName: 'A',
-  hostFloorNumber: 1,
-  hostFlatNumber: '101',
-  hostApartmentId: 'apt-999',
-  purpose: 'Delivery',
-  status: 'CheckedIn',
-  isOverstay: true,
+  vn: 'Overstaying Guest',
+  hrn: 'Host Resident',
+  hbn: 'A',
+  hfn: 1,
+  hft: '101',
+  aid: 'apt-999',
+  pu: 'Delivery',
+  st: 'CheckedIn',
+  ov: true,
 };
 
 const normalVisitor: Partial<Visitor> = {
   id: 'v2',
-  visitorName: 'On-Time Guest',
-  hostResidentName: 'Host Resident',
-  hostBlockName: 'A',
-  hostFloorNumber: 1,
-  hostFlatNumber: '102',
-  hostApartmentId: 'apt-999',
-  purpose: 'Delivery',
-  status: 'CheckedIn',
-  isOverstay: false,
+  vn: 'On-Time Guest',
+  hrn: 'Host Resident',
+  hbn: 'A',
+  hfn: 1,
+  hft: '102',
+  aid: 'apt-999',
+  pu: 'Delivery',
+  st: 'CheckedIn',
+  ov: false,
 };
 
 let mockDefaultViewData: Partial<Visitor>[] = [];

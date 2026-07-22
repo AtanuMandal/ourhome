@@ -5,126 +5,111 @@ export type VendorPaymentFrequency = 'Weekly' | 'BiWeekly' | 'Monthly' | 'Quarte
 export type VendorChargeStatus = ChargeStatus;
 export type VendorChargeType = 'Recurring' | 'AdHoc';
 
+// Matches backend VendorContactDto — field names shortened to match its compressed JSON keys.
 export interface VendorContact {
-  firstName: string;
-  lastName: string;
-  phoneNumber: string;
-  email: string;
+  fn: string; // firstName
+  ln: string; // lastName
+  ph: string; // phoneNumber
+  em: string; // email
 }
 
+// Matches backend VendorDto — field names shortened to match its compressed JSON keys.
 export interface VendorPaymentVendor {
   id: string;
-  societyId: string;
-  name: string;
-  address: {
-    street: string;
-    city: string;
-    state: string;
-    postalCode: string;
-    country: string;
+  nm: string; // name
+  addr: {
+    str: string;
+    cty: string;
+    ste: string;
+    pc: string;
+    co: string;
   };
-  pictureUrl?: string | null;
-  pointOfContact: VendorContact;
-  overview: string;
-  validUptoDate: string;
-  paymentDueDays: number;
-  geographicServiceArea?: string | null;
-  businessType?: string | null;
-  contractUrl?: string | null;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  pic?: string | null; // pictureUrl
+  poc: VendorContact; // pointOfContact
+  ov: string; // overview
+  vud: string; // validUptoDate
+  pdd: number; // paymentDueDays
+  gsa?: string | null; // geographicServiceArea
+  bt?: string | null; // businessType
+  cu?: string | null; // contractUrl
+  ac: boolean; // isActive
 }
 
+// Matches backend VendorRecurringScheduleDto — field names shortened to match its compressed JSON keys.
 export interface VendorRecurringSchedule {
   id: string;
-  societyId: string;
-  vendorId: string;
-  vendorName: string;
-  frequency: VendorPaymentFrequency;
-  amount: number;
-  monthlyEquivalentAmount: number;
-  annualEquivalentAmount: number;
-  startDate: string;
-  endDate?: string | null;
-  inactiveFromDate?: string | null;
-  nextChargeDate: string;
-  label?: string | null;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  fq: VendorPaymentFrequency; // frequency
+  amt: number; // amount
+  sd: string; // startDate
+  ed?: string | null; // endDate
+  ifd?: string | null; // inactiveFromDate
+  lbl?: string | null; // label
+  ac: boolean; // isActive
 }
 
+// Matches backend VendorChargeDto — field names shortened to match its compressed JSON keys.
 export interface VendorCharge {
   id: string;
-  societyId: string;
-  vendorId: string;
-  vendorName: string;
-  scheduleId?: string | null;
-  chargeType: VendorChargeType;
-  description: string;
-  effectiveDate: string;
-  chargeYear: number;
-  chargeMonth: number;
-  amount: number;
-  dueDate: string;
-  status: VendorChargeStatus;
-  isActive: boolean;
-  isOverdue: boolean;
-  paidAt?: string | null;
-  paymentMethod?: string | null;
-  transactionReference?: string | null;
-  receiptUrl?: string | null;
-  notes?: string | null;
-  createdAt: string;
-  updatedAt: string;
+  vnm: string; // vendorName
+  ct: VendorChargeType; // chargeType
+  ds: string; // description
+  efd: string; // effectiveDate
+  cy: number; // chargeYear
+  cm: number; // chargeMonth
+  amt: number; // amount
+  dd: string; // dueDate
+  st: VendorChargeStatus; // status
+  ac: boolean; // isActive
+  ov: boolean; // isOverdue
+  tr?: string | null; // transactionReference
+  ru?: string | null; // receiptUrl
 }
 
+// Matches backend VendorChargeGridChargeDto — field names shortened to match its compressed JSON keys.
 export interface VendorGridCharge {
   id: string;
-  scheduleId?: string | null;
-  chargeType: VendorChargeType;
-  description: string;
-  amount: number;
-  status: VendorChargeStatus;
-  isActive: boolean;
-  effectiveDate: string;
-  dueDate: string;
-  isOverdue: boolean;
-  paidAt?: string | null;
-  receiptUrl?: string | null;
-  notes?: string | null;
+  ct: VendorChargeType; // chargeType
+  ds: string; // description
+  amt: number; // amount
+  st: VendorChargeStatus; // status
+  ac: boolean; // isActive
+  efd: string; // effectiveDate
+  dd: string; // dueDate
+  ov: boolean; // isOverdue
+  ru?: string | null; // receiptUrl
 }
 
+// Matches backend VendorChargeGridCellDto — field names shortened to match its compressed JSON keys.
 export interface VendorGridCell {
-  month: number;
-  totalAmount: number;
-  paidAmount: number;
-  dueAmount: number;
-  hasOverdue: boolean;
-  charges: VendorGridCharge[];
+  mo: number; // month
+  ta: number; // totalAmount
+  pda: number; // paidAmount
+  dua: number; // dueAmount
+  ho: boolean; // hasOverdue
+  chg: VendorGridCharge[]; // charges
 }
 
+// Matches backend VendorChargeGridRowDto — field names shortened to match its compressed JSON keys.
 export interface VendorGridRow {
-  vendorId: string;
-  vendorName: string;
-  businessType?: string | null;
-  months: VendorGridCell[];
+  vid: string; // vendorId
+  vnm: string; // vendorName
+  bt?: string | null; // businessType
+  mos: VendorGridCell[]; // months
 }
 
+// Matches backend VendorChargeGridMonthTotalDto — field names shortened to match its compressed JSON keys.
 export interface VendorGridMonthTotal {
-  month: number;
-  totalAmount: number;
-  paidAmount: number;
-  dueAmount: number;
+  mo: number; // month
+  ta: number; // totalAmount
+  pda: number; // paidAmount
+  dua: number; // dueAmount
 }
 
+// Matches backend VendorChargeGridDto — field names shortened to match its compressed JSON keys.
 export interface VendorChargeGrid {
-  societyId: string;
-  year: number;
-  months: number[];
+  mos: number[]; // months
   rows: VendorGridRow[];
-  totals: VendorGridMonthTotal[];
+  tot: VendorGridMonthTotal[]; // totals
 }
 
 export interface CreateVendorDto {
@@ -180,7 +165,12 @@ export interface MarkVendorChargePaidDto {
   notes?: string | null;
 }
 
-export type { ChargeDocumentUploadResponse as VendorDocumentUploadResponse } from './charge-status.model';
+// Matches backend VendorDocumentUploadResponse — distinct from the shared ChargeDocumentUploadResponse
+// (this one is compressed; other unmigrated document-upload responses may still use full names).
+export interface VendorDocumentUploadResponse {
+  fn: string; // fileName
+  fu: string; // fileUrl
+}
 
 export interface VendorChargeFilters {
   vendorId?: string;

@@ -12,20 +12,17 @@ describe('MaintenanceAdminComponent — Charge register (approve, deny, resubmis
   function makeCharge(overrides: Partial<MaintenanceCharge> = {}): MaintenanceCharge {
     return {
       id: 'charge-1',
-      societyId: 'soc-1',
-      apartmentId: 'apt-1',
-      apartmentNumber: 'A-101',
-      scheduleId: 'sched-1',
-      scheduleName: 'Monthly Maintenance',
-      chargeYear: 2026,
-      chargeMonth: 7,
-      amount: 5000,
-      status: 'ProofSubmitted',
-      dueDate: '2026-07-05T00:00:00Z',
-      isOverdue: false,
-      proofs: [],
-      createdAt: '2026-07-01T00:00:00Z',
-      updatedAt: '2026-07-01T00:00:00Z',
+      aid: 'apt-1',
+      anm: 'A-101',
+      sid: 'sched-1',
+      snm: 'Monthly Maintenance',
+      cy: 2026,
+      cm: 7,
+      amt: 5000,
+      st: 'ProofSubmitted',
+      dd: '2026-07-05T00:00:00Z',
+      ov: false,
+      pf: [],
       ...overrides,
     };
   }
@@ -45,7 +42,7 @@ describe('MaintenanceAdminComponent — Charge register (approve, deny, resubmis
     const apartmentServiceStub = {
       list: jasmine.createSpy().and.returnValue(of({ items: [], total: 0, page: 1, pageSize: 500 })),
     };
-    const authServiceStub = { societyId: () => 'soc-1', user: () => ({ role: 'SUAdmin', apartmentId: '' }) };
+    const authServiceStub = { societyId: () => 'soc-1', user: () => ({ rl: 'SUAdmin', aid: '' }) };
 
     TestBed.configureTestingModule({
       imports: [MaintenanceAdminComponent, NoopAnimationsModule],
@@ -67,7 +64,7 @@ describe('MaintenanceAdminComponent — Charge register (approve, deny, resubmis
     // status is ProofSubmitted must always expose both actions, regardless of whether it has a
     // RejectionReason left over in its history (the field is cleared server-side on resubmit,
     // but this proves the CLIENT never gates the buttons on anything but the current status).
-    const resubmitted = makeCharge({ id: 'charge-resubmitted', status: 'ProofSubmitted', rejectionReason: null });
+    const resubmitted = makeCharge({ id: 'charge-resubmitted', st: 'ProofSubmitted', rr: null });
     const { component } = setup([resubmitted]);
 
     expect(component.charges().map(c => c.id)).toContain('charge-resubmitted');
@@ -89,7 +86,7 @@ describe('MaintenanceAdminComponent — Charge register (approve, deny, resubmis
   it('opening the deny dialog and confirming calls denyProof with the reason', () => {
     const charge = makeCharge();
     const { component, maintenanceServiceStub } = setup([charge]);
-    maintenanceServiceStub.denyProof.and.returnValue(of({ id: charge.id, status: 'Rejected', rejectionReason: 'Blurry receipt.' }));
+    maintenanceServiceStub.denyProof.and.returnValue(of({ id: charge.id, st: 'Rejected', rr: 'Blurry receipt.' }));
 
     component.openDenyDialog(charge);
     expect(component.denyTargetCharge()).toEqual(charge);
@@ -125,21 +122,21 @@ describe('MaintenanceAdminComponent — Charge register (approve, deny, resubmis
   });
 
   it('a Rejected charge with a reason is still visible in the charge list (not hidden or blocked)', () => {
-    const denied = makeCharge({ id: 'charge-denied', status: 'Rejected', rejectionReason: 'Amount mismatch.' });
+    const denied = makeCharge({ id: 'charge-denied', st: 'Rejected', rr: 'Amount mismatch.' });
     const { component } = setup([denied]);
 
     expect(component.charges().map(c => c.id)).toContain('charge-denied');
-    expect(component.charges().find(c => c.id === 'charge-denied')?.rejectionReason).toBe('Amount mismatch.');
+    expect(component.charges().find(c => c.id === 'charge-denied')?.rr).toBe('Amount mismatch.');
   });
 });
 
 describe('MaintenanceAdminComponent — silent auto-refresh does not disturb in-progress work', () => {
   function makeCharge(overrides: Partial<MaintenanceCharge> = {}): MaintenanceCharge {
     return {
-      id: 'charge-1', societyId: 'soc-1', apartmentId: 'apt-1', apartmentNumber: 'A-101',
-      scheduleId: 'sched-1', scheduleName: 'Monthly Maintenance', chargeYear: 2026, chargeMonth: 7,
-      amount: 5000, status: 'Pending', dueDate: '2026-07-05T00:00:00Z', isOverdue: false,
-      proofs: [], createdAt: '2026-07-01T00:00:00Z', updatedAt: '2026-07-01T00:00:00Z', ...overrides,
+      id: 'charge-1', aid: 'apt-1', anm: 'A-101',
+      sid: 'sched-1', snm: 'Monthly Maintenance', cy: 2026, cm: 7,
+      amt: 5000, st: 'Pending', dd: '2026-07-05T00:00:00Z', ov: false,
+      pf: [], ...overrides,
     };
   }
 
@@ -157,7 +154,7 @@ describe('MaintenanceAdminComponent — silent auto-refresh does not disturb in-
         provideRouter([]),
         { provide: MaintenanceService, useValue: maintenanceServiceStub },
         { provide: ApartmentService, useValue: apartmentServiceStub },
-        { provide: AuthService, useValue: { societyId: () => 'soc-1', user: () => ({ role: 'SUAdmin', apartmentId: '' }) } },
+        { provide: AuthService, useValue: { societyId: () => 'soc-1', user: () => ({ rl: 'SUAdmin', aid: '' }) } },
       ],
     });
     const fixture = TestBed.createComponent(MaintenanceAdminComponent);
@@ -168,7 +165,7 @@ describe('MaintenanceAdminComponent — silent auto-refresh does not disturb in-
   it('a background refresh does not toggle the main loading flag', () => {
     const { component, maintenanceServiceStub } = setup([makeCharge()]);
     maintenanceServiceStub.listCharges.and.returnValue(of({
-      items: [makeCharge(), makeCharge({ id: 'charge-2', status: 'ProofSubmitted' })], total: 2, page: 1, pageSize: 20,
+      items: [makeCharge(), makeCharge({ id: 'charge-2', st: 'ProofSubmitted' })], total: 2, page: 1, pageSize: 20,
     }));
 
     component.refreshCharges(true);

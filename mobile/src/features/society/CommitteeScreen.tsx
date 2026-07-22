@@ -39,11 +39,11 @@ export function CommitteeScreen() {
     ])
       .then(([soc, residents]) => {
         setSociety(soc);
-        setCommittees(soc.committees.map((c: SocietyCommittee) => ({
-          name: c.name,
-          members: c.members.map((m) => ({ email: m.email, roleTitle: m.roleTitle })),
+        setCommittees(soc.cm.map((c: SocietyCommittee) => ({
+          name: c.nm,
+          members: c.mem.map((m) => ({ email: m.em, roleTitle: m.rt })),
         })));
-        setUsers(residents.items.map((u) => ({ email: u.email, fullName: u.fullName })));
+        setUsers(residents.items.map((u) => ({ email: u.em, fullName: u.fn })));
       })
       .catch((e) => Alert.alert('Error', normalizeError(e)))
       .finally(() => setLoading(false));
@@ -110,13 +110,13 @@ export function CommitteeScreen() {
     if (!societyId || !society) return;
     setSaving(true);
     societyApi.updateSociety(societyId, {
-      name: society.name,
-      contactEmail: society.contactEmail,
-      contactPhone: society.contactPhone,
-      totalBlocks: society.totalBlocks,
-      totalApartments: society.totalApartments,
-      maintenanceOverdueThresholdDays: society.maintenanceOverdueThresholdDays,
-      societyUsers: society.societyUsers.map((u) => ({ email: u.email, roleTitle: u.roleTitle })),
+      name: society.nm,
+      contactEmail: society.ce,
+      contactPhone: society.cp,
+      totalBlocks: society.tb,
+      totalApartments: society.ta,
+      maintenanceOverdueThresholdDays: society.mot,
+      societyUsers: society.su.map((u) => ({ email: u.em, roleTitle: u.rt })),
       committees: committees
         .filter((c) => c.name.trim())
         .map((c) => ({

@@ -10,10 +10,10 @@ import { Notice } from '../../core/models/notice.model';
 describe('NoticeFormComponent', () => {
   function makeNotice(): Notice {
     return {
-      id: 'n1', societyId: 'soc-1', title: 'Old Title', content: 'Old Content',
-      category: 'General', postedByUserId: 'admin-1', isArchived: false, isActive: true,
-      publishAt: '2026-01-01T00:00:00Z', expiresAt: '2026-02-01T00:00:00Z',
-      targetApartmentIds: [], createdAt: '2026-01-01T00:00:00Z', isReadByCurrentUser: true,
+      id: 'n1', tt: 'Old Title', ct: 'Old Content',
+      cat: 'General', pid: 'admin-1',
+      pa: '2026-01-01T00:00:00Z', ea: '2026-02-01T00:00:00Z',
+      rd: true,
     };
   }
 

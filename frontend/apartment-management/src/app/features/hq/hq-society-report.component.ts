@@ -18,18 +18,18 @@ import { SocietySummaryReport } from '../../core/models/society.model';
       } @else {
         @if (report(); as r) {
           <div class="card">
-            <div class="report-title">{{ r.societyName }}</div>
-            <app-status-chip [status]="r.status"></app-status-chip>
+            <div class="report-title">{{ r.sn }}</div>
+            <app-status-chip [status]="r.st"></app-status-chip>
           </div>
 
           <div class="grid">
-            <div class="card stat"><div class="stat-value">{{ r.totalApartments }}</div><div class="stat-label">Total Apartments</div></div>
-            <div class="card stat"><div class="stat-value">{{ r.occupiedApartments }}</div><div class="stat-label">Occupied</div></div>
-            <div class="card stat"><div class="stat-value">{{ r.vacantApartments }}</div><div class="stat-label">Vacant</div></div>
-            <div class="card stat"><div class="stat-value">{{ r.underMaintenanceApartments }}</div><div class="stat-label">Under Maintenance</div></div>
-            <div class="card stat"><div class="stat-value">{{ r.ownerCount }}</div><div class="stat-label">Owners</div></div>
-            <div class="card stat"><div class="stat-value">{{ r.tenantCount }}</div><div class="stat-label">Tenants</div></div>
-            <div class="card stat"><div class="stat-value">{{ r.totalResidents }}</div><div class="stat-label">Total Residents</div></div>
+            <div class="card stat"><div class="stat-value">{{ r.ta }}</div><div class="stat-label">Total Apartments</div></div>
+            <div class="card stat"><div class="stat-value">{{ r.oa }}</div><div class="stat-label">Occupied</div></div>
+            <div class="card stat"><div class="stat-value">{{ r.va }}</div><div class="stat-label">Vacant</div></div>
+            <div class="card stat"><div class="stat-value">{{ r.uma }}</div><div class="stat-label">Under Maintenance</div></div>
+            <div class="card stat"><div class="stat-value">{{ r.oc }}</div><div class="stat-label">Owners</div></div>
+            <div class="card stat"><div class="stat-value">{{ r.tc }}</div><div class="stat-label">Tenants</div></div>
+            <div class="card stat"><div class="stat-value">{{ r.tr }}</div><div class="stat-label">Total Residents</div></div>
           </div>
           <p class="disclaimer">This report contains occupancy data only — no financial information.</p>
         } @else {

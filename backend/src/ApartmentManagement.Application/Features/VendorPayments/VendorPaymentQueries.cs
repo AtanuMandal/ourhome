@@ -171,7 +171,7 @@ public sealed class GetVendorChargeGridQueryHandler(
                 })
                 .ToList();
 
-            return Result<VendorChargeGridDto>.Success(new VendorChargeGridDto(request.SocietyId, request.Year, monthNumbers, rows, totals));
+            return Result<VendorChargeGridDto>.Success(new VendorChargeGridDto(monthNumbers, rows, totals));
         }
         catch (ForbiddenException ex)
         {

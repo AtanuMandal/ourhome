@@ -14,14 +14,14 @@ const mockCheckInByPass = jest.fn();
 
 const pendingVisitor: Partial<Visitor> = {
   id: 'v1',
-  visitorName: 'Jane Visitor',
-  hostResidentName: 'Host Resident',
-  hostBlockName: 'A',
-  hostFloorNumber: 1,
-  hostFlatNumber: '101',
-  hostApartmentId: 'apt-999',
-  purpose: 'Delivery',
-  status: 'Pending',
+  vn: 'Jane Visitor',
+  hrn: 'Host Resident',
+  hbn: 'A',
+  hfn: 1,
+  hft: '101',
+  aid: 'apt-999',
+  pu: 'Delivery',
+  st: 'Pending',
 };
 
 jest.mock('../../../src/features/visitors/hooks/useVisitors', () => ({
@@ -55,9 +55,9 @@ jest.mock('../../../src/shared/hooks/useActiveApartment', () => ({
     const { useAuthStore: store } = require('../../../src/store/authStore');
     const user = store.getState().user;
     return {
-      apartments: user?.apartments ?? [],
-      activeApartmentId: user?.apartmentId ?? null,
-      activeResidentType: user?.residentType,
+      apartments: user?.apts ?? [],
+      activeApartmentId: user?.aid ?? null,
+      activeResidentType: user?.rt,
       setSelectedApartment: jest.fn(),
     };
   },
@@ -85,7 +85,7 @@ describe('VisitorListScreen — approve/deny visibility', () => {
 
   test('SUAdmin sees Deny but not Approve for a pending visitor not hosted by them', async () => {
     useAuthStore.setState({
-      user: { id: 'admin1', societyId: 'soc-1', fullName: 'Admin', email: 'a@a.com', phone: '1', role: 'SUAdmin', residentType: 'SocietyAdmin', apartmentId: undefined, isVerified: true, isActive: true },
+      user: { id: 'admin1', sid: 'soc-1', fn: 'Admin', em: 'a@a.com', ph: '1', rl: 'SUAdmin', rt: 'SocietyAdmin', aid: undefined, vf: true, ac: true },
       token: 'tok',
       isAuthenticated: true,
     });
@@ -99,7 +99,7 @@ describe('VisitorListScreen — approve/deny visibility', () => {
 
   test('SUSecurity sees Deny but not Approve for a pending visitor not hosted by them', async () => {
     useAuthStore.setState({
-      user: { id: 'sec1', societyId: 'soc-1', fullName: 'Guard', email: 'g@a.com', phone: '1', role: 'SUSecurity', residentType: 'SocietyAdmin', apartmentId: undefined, isVerified: true, isActive: true },
+      user: { id: 'sec1', sid: 'soc-1', fn: 'Guard', em: 'g@a.com', ph: '1', rl: 'SUSecurity', rt: 'SocietyAdmin', aid: undefined, vf: true, ac: true },
       token: 'tok',
       isAuthenticated: true,
     });
@@ -113,7 +113,7 @@ describe('VisitorListScreen — approve/deny visibility', () => {
 
   test('the host resident sees Approve for their own visitor', async () => {
     useAuthStore.setState({
-      user: { id: 'res1', societyId: 'soc-1', fullName: 'Resident', email: 'r@a.com', phone: '1', role: 'SUUser', residentType: 'Owner', apartmentId: 'apt-999', isVerified: true, isActive: true },
+      user: { id: 'res1', sid: 'soc-1', fn: 'Resident', em: 'r@a.com', ph: '1', rl: 'SUUser', rt: 'Owner', aid: 'apt-999', vf: true, ac: true },
       token: 'tok',
       isAuthenticated: true,
     });
@@ -132,7 +132,7 @@ describe('VisitorListScreen — gate pass verification checks the visitor in', (
 
   function loginAs(role: string, apartmentId?: string) {
     useAuthStore.setState({
-      user: { id: 'u1', societyId: 'soc-1', fullName: 'User', email: 'u@a.com', phone: '1', role, residentType: 'Owner', apartmentId, isVerified: true, isActive: true },
+      user: { id: 'u1', sid: 'soc-1', fn: 'User', em: 'u@a.com', ph: '1', rl: role, rt: 'Owner', aid: apartmentId, vf: true, ac: true },
       token: 'tok',
       isAuthenticated: true,
     });
@@ -159,7 +159,7 @@ describe('VisitorListScreen — gate pass verification checks the visitor in', (
 
   test('verifying a pass checks the visitor in and confirms with an alert', async () => {
     loginAs('SUSecurity');
-    mockCheckInByPass.mockResolvedValue({ id: 'v9', visitorName: 'Jane Visitor', status: 'CheckedIn' });
+    mockCheckInByPass.mockResolvedValue({ id: 'v9', vn: 'Jane Visitor', st: 'CheckedIn' });
     const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
 
     renderScreen();

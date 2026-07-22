@@ -24,7 +24,7 @@ export const useThemeStore = create<ThemeState & ThemeActions>((set) => ({
     set({ status: 'resolving' });
     try {
       const society = await societyApi.getSociety(societyId);
-      set({ themeId: resolveThemeId(society.themeId), status: 'resolved' });
+      set({ themeId: resolveThemeId(society.th), status: 'resolved' });
     } catch {
       set({ themeId: DEFAULT_THEME_ID, status: 'resolved' });
     }

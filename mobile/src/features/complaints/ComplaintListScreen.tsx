@@ -40,13 +40,13 @@ export function ComplaintListScreen() {
         onPress={() => navigation.navigate('ComplaintDetail', { id: item.id })}
       >
         <View style={styles.itemTop}>
-          <Text style={styles.category}>{item.category}</Text>
-          <StatusChip status={item.status} />
+          <Text style={styles.category}>{item.cat}</Text>
+          <StatusChip status={item.st} />
         </View>
-        <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
-        <Text style={styles.description} numberOfLines={2}>{item.description}</Text>
+        <Text style={styles.title} numberOfLines={1}>{item.tt}</Text>
+        <Text style={styles.description} numberOfLines={2}>{item.ds}</Text>
         <Text style={styles.meta}>
-          {item.priority} · {formatDate(item.createdAt)}
+          {item.pr} · {formatDate(item.ca)}
         </Text>
       </TouchableOpacity>
     );

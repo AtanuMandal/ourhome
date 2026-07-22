@@ -36,14 +36,14 @@ import { PollSummary } from '../../core/models/poll.model';
           @for (p of items(); track p.id) {
             <a [routerLink]="[p.id]" class="poll-card">
               <div class="poll-card__info">
-                <span class="poll-card__title">{{ p.title }}</span>
+                <span class="poll-card__title">{{ p.tt }}</span>
                 <span class="poll-card__meta">
-                  {{ p.type === 'MultipleChoice' ? 'Multiple choice' : 'Single choice' }}
-                  @if (p.isAgmResolution) { · AGM Resolution }
-                  · Closes {{ p.closesAt | date:'medium' }}
+                  {{ p.ty === 'MultipleChoice' ? 'Multiple choice' : 'Single choice' }}
+                  @if (p.agm) { · AGM Resolution }
+                  · Closes {{ p.ca | date:'medium' }}
                 </span>
               </div>
-              <span class="status-chip" [class]="'status-chip--' + p.status.toLowerCase()">{{ p.status }}</span>
+              <span class="status-chip" [class]="'status-chip--' + p.st.toLowerCase()">{{ p.st }}</span>
             </a>
           }
         </div>

@@ -8,10 +8,10 @@ import { ApartmentService, UserService } from '../../core/services/apartment.ser
 import { AuthService } from '../../core/services/auth.service';
 
 describe('ResidentFormComponent', () => {
-  function setup(user: { role: string; residentType: string }) {
+  function setup(user: { rl: string; rt: string }) {
     const apartmentServiceStub = { list: jasmine.createSpy().and.returnValue(of({ items: [] })) };
     const userServiceStub = { findByEmail: jasmine.createSpy(), register: jasmine.createSpy() };
-    const authServiceStub = { societyId: () => 'soc-1', user: () => user, isAdmin: () => user.role === 'SUAdmin' || user.role === 'HQAdmin' };
+    const authServiceStub = { societyId: () => 'soc-1', user: () => user, isAdmin: () => user.rl === 'SUAdmin' || user.rl === 'HQAdmin' };
     const snackBarStub = { open: jasmine.createSpy() };
 
     TestBed.configureTestingModule({
@@ -31,20 +31,20 @@ describe('ResidentFormComponent', () => {
   }
 
   it('shows only owner option for SUAdmin', () => {
-    const component = setup({ role: 'SUAdmin', residentType: 'SocietyAdmin' });
+    const component = setup({ rl: 'SUAdmin', rt: 'SocietyAdmin' });
 
     expect(component.residentTypes()).toEqual([{ value: 'Owner', label: 'Owner' }]);
     expect(component.form.controls.residentType.value).toBe('Owner');
   });
 
   it('shows tenant and family member options for owners', () => {
-    const component = setup({ role: 'SUUser', residentType: 'Owner' });
+    const component = setup({ rl: 'SUUser', rt: 'Owner' });
 
     expect(component.residentTypes().map(x => x.value)).toEqual(['Tenant', 'FamilyMember']);
   });
 
   it('validates phone as exactly 10 digits', () => {
-    const component = setup({ role: 'SUAdmin', residentType: 'SocietyAdmin' });
+    const component = setup({ rl: 'SUAdmin', rt: 'SocietyAdmin' });
 
     component.form.controls.phone.setValue('12345AB789');
     expect(component.form.controls.phone.hasError('pattern')).toBeTrue();

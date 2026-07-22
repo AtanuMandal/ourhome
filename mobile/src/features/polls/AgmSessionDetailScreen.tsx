@@ -27,8 +27,8 @@ function outcomeStyle(outcome: string) {
 }
 
 function targetAudienceLabel(poll: Poll): string {
-  if (poll.targetAudience === 'FullSociety') return 'Full Society';
-  return `${poll.targetAudience === 'PerBlock' ? 'Block' : 'Blocks'}: ${poll.targetBlockNames.join(', ')}`;
+  if (poll.ta === 'FullSociety') return 'Full Society';
+  return `${poll.ta === 'PerBlock' ? 'Block' : 'Blocks'}: ${poll.tbn.join(', ')}`;
 }
 
 function ResolutionCard({
@@ -45,19 +45,19 @@ function ResolutionCard({
   onPublish: () => void;
   actioning: boolean;
 }) {
-  const readOnlyVote = resolution.hasVoted && !resolution.allowVoteChange;
+  const readOnlyVote = resolution.hv && !resolution.avc;
 
   return (
     <View style={styles.card}>
-      <Text style={styles.resolutionTitle}>{resolution.title}</Text>
-      <Text style={styles.resolutionDesc}>{resolution.description}</Text>
-      <Text style={styles.meta}>Closes {new Date(resolution.closesAt).toLocaleString()} · {resolution.status}</Text>
+      <Text style={styles.resolutionTitle}>{resolution.tt}</Text>
+      <Text style={styles.resolutionDesc}>{resolution.ds}</Text>
+      <Text style={styles.meta}>Closes {new Date(resolution.ca).toLocaleString()} · {resolution.st}</Text>
       <Text style={styles.meta}>Target: {targetAudienceLabel(resolution)}</Text>
 
-      {resolution.outcome && (
-        <View style={[styles.outcomeBanner, { backgroundColor: outcomeStyle(resolution.outcome).backgroundColor }]}>
-          <Text style={{ color: outcomeStyle(resolution.outcome).color, fontWeight: typography.fontWeight.bold }}>
-            Outcome: {resolution.outcome === 'NoQuorum' ? 'No Quorum Reached' : resolution.outcome}
+      {resolution.oc && (
+        <View style={[styles.outcomeBanner, { backgroundColor: outcomeStyle(resolution.oc).backgroundColor }]}>
+          <Text style={{ color: outcomeStyle(resolution.oc).color, fontWeight: typography.fontWeight.bold }}>
+            Outcome: {resolution.oc === 'NoQuorum' ? 'No Quorum Reached' : resolution.oc}
           </Text>
         </View>
       )}
@@ -66,33 +66,33 @@ function ResolutionCard({
         <View style={styles.section}>
           {readOnlyVote ? (
             <Text>
-              You voted for: {resolution.options.filter((o) => resolution.mySelectedOptionIds?.includes(o.id)).map((o) => o.text).join(', ')}
+              You voted for: {resolution.op.filter((o) => resolution.mso?.includes(o.id)).map((o) => o.tx).join(', ')}
             </Text>
           ) : (
             <>
-              {resolution.options.map((o) => (
+              {resolution.op.map((o) => (
                 <TouchableOpacity key={o.id} style={styles.optionRow} onPress={() => onToggleOption(o.id)}>
                   <View style={[styles.optionMarker, selected.has(o.id) && styles.optionMarkerSelected]} />
-                  <Text style={styles.optionLabel}>{o.text}</Text>
+                  <Text style={styles.optionLabel}>{o.tx}</Text>
                 </TouchableOpacity>
               ))}
               <TouchableOpacity style={styles.voteButton} onPress={onSubmitVote} disabled={voting || selected.size === 0}>
-                <Text style={styles.voteButtonText}>{resolution.hasVoted ? 'Change Vote' : 'Submit Vote'}</Text>
+                <Text style={styles.voteButtonText}>{resolution.hv ? 'Change Vote' : 'Submit Vote'}</Text>
               </TouchableOpacity>
             </>
           )}
         </View>
       )}
 
-      {resolution.tally && (
+      {resolution.tl && (
         <View style={styles.section}>
-          {resolution.participantCount != null && resolution.eligibleCount != null && (
-            <Text style={styles.meta}>{resolution.participantCount} of {resolution.eligibleCount} eligible have voted</Text>
+          {resolution.pc != null && resolution.elc != null && (
+            <Text style={styles.meta}>{resolution.pc} of {resolution.elc} eligible have voted</Text>
           )}
-          {resolution.tally.map((t) => (
+          {resolution.tl.map((t) => (
             <View key={t.id} style={styles.tallyRow}>
-              <Text>{t.text}</Text>
-              <Text style={styles.tallyCount}>{t.voteCount}</Text>
+              <Text>{t.tx}</Text>
+              <Text style={styles.tallyCount}>{t.vc}</Text>
             </View>
           ))}
         </View>
@@ -100,12 +100,12 @@ function ResolutionCard({
 
       {isAdmin && (
         <View style={styles.adminActions}>
-          {resolution.status === 'Open' && (
+          {resolution.st === 'Open' && (
             <TouchableOpacity style={styles.adminButton} onPress={onClose} disabled={actioning}>
               <Text style={styles.adminButtonText}>Close Early</Text>
             </TouchableOpacity>
           )}
-          {resolution.status === 'Closed' && !resolution.resultsPublished && (
+          {resolution.st === 'Closed' && !resolution.rp && (
             <TouchableOpacity style={styles.adminButton} onPress={onPublish} disabled={actioning}>
               <Text style={styles.adminButtonText}>Publish Results</Text>
             </TouchableOpacity>
@@ -120,7 +120,7 @@ export function AgmSessionDetailScreen({ route }: AgmSessionDetailScreenProps) {
   const { id } = route.params;
   const navigation = useNavigation<any>(); // eslint-disable-line @typescript-eslint/no-explicit-any
   const societyId = useSocietyId();
-  const role = useAuthStore((s) => s.user?.role ?? '');
+  const role = useAuthStore((s) => s.user?.rl ?? '');
   const isAdmin = role === 'SUAdmin';
 
   const { data: session, isLoading } = useAgmSession(societyId, id);
@@ -144,9 +144,9 @@ export function AgmSessionDetailScreen({ route }: AgmSessionDetailScreenProps) {
       {session && (
         <ScrollView contentContainerStyle={styles.content}>
           <View style={styles.card}>
-            <Text style={styles.sessionTitle}>{session.title}</Text>
-            <Text style={styles.resolutionDesc}>{session.description}</Text>
-            <Text style={styles.meta}>{new Date(session.sessionDate).toLocaleString()} · {session.resolutions.length} resolution(s)</Text>
+            <Text style={styles.sessionTitle}>{session.tt}</Text>
+            <Text style={styles.resolutionDesc}>{session.ds}</Text>
+            <Text style={styles.meta}>{new Date(session.sd).toLocaleString()} · {session.r.length} resolution(s)</Text>
           </View>
 
           {isAdmin && (
@@ -158,7 +158,7 @@ export function AgmSessionDetailScreen({ route }: AgmSessionDetailScreenProps) {
             </TouchableOpacity>
           )}
 
-          {session.resolutions.map((resolution: Poll) => (
+          {session.r.map((resolution: Poll) => (
             <ResolutionCardContainer
               key={resolution.id}
               resolution={resolution}
@@ -194,7 +194,7 @@ function ResolutionCardContainer({
   publishResults: ReturnType<typeof usePublishPollResults>;
 }) {
   const castVote = useCastVote(societyId, resolution.id);
-  const canVote = role === 'SUUser' && resolution.status === 'Open';
+  const canVote = role === 'SUUser' && resolution.st === 'Open';
 
   async function handleSubmitVote(): Promise<void> {
     if (selected.size === 0) return;

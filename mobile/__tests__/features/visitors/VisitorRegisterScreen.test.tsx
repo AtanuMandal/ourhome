@@ -23,7 +23,7 @@ jest.mock('../../../src/features/visitors/hooks/useVisitors', () => ({
 }));
 
 jest.mock('../../../src/features/apartments/hooks/useApartments', () => ({
-  useApartmentList: () => ({ data: [{ id: 'apt-77', blockName: 'B', floorNumber: 2, apartmentNumber: '201' }] }),
+  useApartmentList: () => ({ data: [{ id: 'apt-77', blk: 'B', flr: 2, num: '201' }] }),
 }));
 
 jest.mock('../../../src/camera/useCamera', () => ({
@@ -39,9 +39,9 @@ jest.mock('../../../src/shared/hooks/useActiveApartment', () => ({
     const { useAuthStore: store } = require('../../../src/store/authStore');
     const user = store.getState().user;
     return {
-      apartments: user?.apartments ?? [],
-      activeApartmentId: user?.apartmentId ?? null,
-      activeResidentType: user?.residentType,
+      apartments: user?.apts ?? [],
+      activeApartmentId: user?.aid ?? null,
+      activeResidentType: user?.rt,
       setSelectedApartment: jest.fn(),
     };
   },
@@ -86,7 +86,7 @@ describe('VisitorRegisterScreen — pre-approval parity with web', () => {
 
   test('a resident (SUUser) registering for their own apartment pre-approves the pass', async () => {
     useAuthStore.setState({
-      user: { id: 'res-1', societyId: 'soc-1', fullName: 'Res', email: 'r@r.com', phone: '1', role: 'SUUser', residentType: 'Owner', apartmentId: 'apt-1', isVerified: true, isActive: true },
+      user: { id: 'res-1', sid: 'soc-1', fn: 'Res', em: 'r@r.com', ph: '1', rl: 'SUUser', rt: 'Owner', aid: 'apt-1', vf: true, ac: true },
       token: 'tok',
       isAuthenticated: true,
     });
@@ -105,7 +105,7 @@ describe('VisitorRegisterScreen — pre-approval parity with web', () => {
 
   test('SUSecurity registering a visitor does NOT pre-approve — resident approval stays required', async () => {
     useAuthStore.setState({
-      user: { id: 'sec-1', societyId: 'soc-1', fullName: 'Guard', email: 'g@g.com', phone: '1', role: 'SUSecurity', residentType: 'CoOccupant', apartmentId: undefined, isVerified: true, isActive: true },
+      user: { id: 'sec-1', sid: 'soc-1', fn: 'Guard', em: 'g@g.com', ph: '1', rl: 'SUSecurity', rt: 'CoOccupant', aid: undefined, vf: true, ac: true },
       token: 'tok',
       isAuthenticated: true,
     });

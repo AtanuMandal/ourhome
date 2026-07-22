@@ -68,7 +68,7 @@ export class RequestFormComponent {
     const v    = this.form.value;
     this.loading.set(true);
     this.svc.createRequest(sid, {
-      apartmentId:       user.apartmentId ?? '',
+      apartmentId:       user.aid ?? '',
       userId:            user.id,
       serviceType:       v.serviceType!,
       description:       v.description ?? '',

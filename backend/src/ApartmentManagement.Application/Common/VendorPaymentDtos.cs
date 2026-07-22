@@ -4,111 +4,87 @@ using System.Text.Json.Serialization;
 namespace ApartmentManagement.Application.DTOs;
 
 public sealed record VendorContactDto(
-    string FirstName,
-    string LastName,
-    string PhoneNumber,
-    string Email);
+    [property: JsonPropertyName("fn")] string FirstName,
+    [property: JsonPropertyName("ln")] string LastName,
+    [property: JsonPropertyName("ph")] string PhoneNumber,
+    [property: JsonPropertyName("em")] string Email);
 
 public sealed record VendorDto(
     string Id,
-    string SocietyId,
-    string Name,
-    AddressDto Address,
-    string? PictureUrl,
-    VendorContactDto PointOfContact,
-    string Overview,
-    DateTime ValidUptoDate,
-    int PaymentDueDays,
-    string? GeographicServiceArea,
-    string? BusinessType,
-    string? ContractUrl,
-    bool IsActive,
-    DateTime CreatedAt,
-    DateTime UpdatedAt);
+    [property: JsonPropertyName("nm")] string Name,
+    [property: JsonPropertyName("addr")] AddressDto Address,
+    [property: JsonPropertyName("pic")] string? PictureUrl,
+    [property: JsonPropertyName("poc")] VendorContactDto PointOfContact,
+    [property: JsonPropertyName("ov")] string Overview,
+    [property: JsonPropertyName("vud")] DateTime ValidUptoDate,
+    [property: JsonPropertyName("pdd")] int PaymentDueDays,
+    [property: JsonPropertyName("gsa")] string? GeographicServiceArea,
+    [property: JsonPropertyName("bt")] string? BusinessType,
+    [property: JsonPropertyName("cu")] string? ContractUrl,
+    [property: JsonPropertyName("ac")] bool IsActive);
 
 public sealed record VendorRecurringScheduleDto(
     string Id,
-    string SocietyId,
-    string VendorId,
-    string VendorName,
-    string Frequency,
-    decimal Amount,
-    decimal MonthlyEquivalentAmount,
-    decimal AnnualEquivalentAmount,
-    DateTime StartDate,
-    DateTime? EndDate,
-    DateTime? InactiveFromDate,
-    DateTime NextChargeDate,
-    string? Label,
-    bool IsActive,
-    DateTime CreatedAt,
-    DateTime UpdatedAt);
+    [property: JsonPropertyName("fq")] string Frequency,
+    [property: JsonPropertyName("amt")] decimal Amount,
+    [property: JsonPropertyName("sd")] DateTime StartDate,
+    [property: JsonPropertyName("ed")] DateTime? EndDate,
+    [property: JsonPropertyName("ifd")] DateTime? InactiveFromDate,
+    [property: JsonPropertyName("lbl")] string? Label,
+    [property: JsonPropertyName("ac")] bool IsActive);
 
 public sealed record VendorChargeDto(
     string Id,
-    string SocietyId,
-    string VendorId,
-    string VendorName,
-    string? ScheduleId,
-    string ChargeType,
-    string Description,
-    DateTime EffectiveDate,
-    int ChargeYear,
-    int ChargeMonth,
-    decimal Amount,
-    DateTime DueDate,
-    string Status,
-    bool IsActive,
-    bool IsOverdue,
-    DateTime? PaidAt,
-    string? PaymentMethod,
-    string? TransactionReference,
-    string? ReceiptUrl,
-    string? Notes,
-    DateTime CreatedAt,
-    DateTime UpdatedAt);
+    [property: JsonPropertyName("vnm")] string VendorName,
+    [property: JsonPropertyName("ct")] string ChargeType,
+    [property: JsonPropertyName("ds")] string Description,
+    [property: JsonPropertyName("efd")] DateTime EffectiveDate,
+    [property: JsonPropertyName("cy")] int ChargeYear,
+    [property: JsonPropertyName("cm")] int ChargeMonth,
+    [property: JsonPropertyName("amt")] decimal Amount,
+    [property: JsonPropertyName("dd")] DateTime DueDate,
+    [property: JsonPropertyName("st")] string Status,
+    [property: JsonPropertyName("ac")] bool IsActive,
+    [property: JsonPropertyName("ov")] bool IsOverdue,
+    [property: JsonPropertyName("tr")] string? TransactionReference,
+    [property: JsonPropertyName("ru")] string? ReceiptUrl);
 
 public sealed record VendorChargeGridChargeDto(
     string Id,
-    string? ScheduleId,
-    string ChargeType,
-    string Description,
-    decimal Amount,
-    string Status,
-    bool IsActive,
-    DateTime EffectiveDate,
-    DateTime DueDate,
-    bool IsOverdue,
-    DateTime? PaidAt,
-    string? ReceiptUrl,
-    string? Notes);
+    [property: JsonPropertyName("ct")] string ChargeType,
+    [property: JsonPropertyName("ds")] string Description,
+    [property: JsonPropertyName("amt")] decimal Amount,
+    [property: JsonPropertyName("st")] string Status,
+    [property: JsonPropertyName("ac")] bool IsActive,
+    [property: JsonPropertyName("efd")] DateTime EffectiveDate,
+    [property: JsonPropertyName("dd")] DateTime DueDate,
+    [property: JsonPropertyName("ov")] bool IsOverdue,
+    [property: JsonPropertyName("ru")] string? ReceiptUrl);
 
 public sealed record VendorChargeGridCellDto(
-    int Month,
-    decimal TotalAmount,
-    decimal PaidAmount,
-    decimal DueAmount,
-    bool HasOverdue,
-    IReadOnlyList<VendorChargeGridChargeDto> Charges);
+    [property: JsonPropertyName("mo")] int Month,
+    [property: JsonPropertyName("ta")] decimal TotalAmount,
+    [property: JsonPropertyName("pda")] decimal PaidAmount,
+    [property: JsonPropertyName("dua")] decimal DueAmount,
+    [property: JsonPropertyName("ho")] bool HasOverdue,
+    [property: JsonPropertyName("chg")] IReadOnlyList<VendorChargeGridChargeDto> Charges);
 
 public sealed record VendorChargeGridRowDto(
-    string VendorId,
-    string VendorName,
-    string? BusinessType,
-    IReadOnlyList<VendorChargeGridCellDto> Months);
+    [property: JsonPropertyName("vid")] string VendorId,
+    [property: JsonPropertyName("vnm")] string VendorName,
+    [property: JsonPropertyName("bt")] string? BusinessType,
+    [property: JsonPropertyName("mos")] IReadOnlyList<VendorChargeGridCellDto> Months);
 
 public sealed record VendorChargeGridMonthTotalDto(
-    int Month,
-    decimal TotalAmount,
-    decimal PaidAmount,
-    decimal DueAmount);
+    [property: JsonPropertyName("mo")] int Month,
+    [property: JsonPropertyName("ta")] decimal TotalAmount,
+    [property: JsonPropertyName("pda")] decimal PaidAmount,
+    [property: JsonPropertyName("dua")] decimal DueAmount);
 
 public sealed record VendorChargeGridDto(
-    string SocietyId,
-    int Year,
-    IReadOnlyList<int> Months,
-    IReadOnlyList<VendorChargeGridRowDto> Rows,
-    IReadOnlyList<VendorChargeGridMonthTotalDto> Totals);
+    [property: JsonPropertyName("mos")] IReadOnlyList<int> Months,
+    [property: JsonPropertyName("rows")] IReadOnlyList<VendorChargeGridRowDto> Rows,
+    [property: JsonPropertyName("tot")] IReadOnlyList<VendorChargeGridMonthTotalDto> Totals);
 
 public sealed record CreateVendorRequest(
     string Name,
@@ -175,5 +151,5 @@ public sealed record MarkVendorChargePaidRequest(
     string? Notes);
 
 public sealed record VendorDocumentUploadResponse(
-    string FileName,
-    string FileUrl);
+    [property: JsonPropertyName("fn")] string FileName,
+    [property: JsonPropertyName("fu")] string FileUrl);

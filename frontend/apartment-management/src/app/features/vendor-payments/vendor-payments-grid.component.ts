@@ -73,53 +73,53 @@ import { VENDOR_PAGE_STYLES, monthLabel } from './vendor-payments-shared';
               <thead>
                 <tr>
                   <th>Vendor</th>
-                  @for (month of grid()!.months; track month) {
+                  @for (month of grid()!.mos; track month) {
                     <th>{{ monthLabel(month) }}</th>
                   }
                 </tr>
               </thead>
               <tbody>
-                @for (row of grid()!.rows; track row.vendorId) {
+                @for (row of grid()!.rows; track row.vid) {
                   <tr>
                     <td class="row-header">
-                      <div class="vendor-card__title">{{ row.vendorName }}</div>
-                      <div class="section-copy">{{ row.businessType || 'Business type not set' }}</div>
+                      <div class="vendor-card__title">{{ row.vnm }}</div>
+                      <div class="section-copy">{{ row.bt || 'Business type not set' }}</div>
                     </td>
-                    @for (cell of row.months; track cell.month) {
+                    @for (cell of row.mos; track cell.mo) {
                       <td class="month-cell">
-                        @if (cell.charges.length) {
+                        @if (cell.chg.length) {
                           <div class="stack">
                             <div class="section-copy">
-                              Total {{ cell.totalAmount | currency:'INR':'symbol':'1.2-2' }}
-                              · Paid {{ cell.paidAmount | currency:'INR':'symbol':'1.2-2' }}
-                              · Due {{ cell.dueAmount | currency:'INR':'symbol':'1.2-2' }}
-                              @if (cell.hasOverdue) {
+                              Total {{ cell.ta | currency:'INR':'symbol':'1.2-2' }}
+                              · Paid {{ cell.pda | currency:'INR':'symbol':'1.2-2' }}
+                              · Due {{ cell.dua | currency:'INR':'symbol':'1.2-2' }}
+                              @if (cell.ho) {
                                 <span class="text-danger"> · Overdue present</span>
                               }
                             </div>
-                            @for (charge of cell.charges; track charge.id) {
-                              <div class="charge-card" [class.charge-card--overdue]="charge.isOverdue">
-                                <div class="charge-card__title">{{ charge.description }}</div>
+                            @for (charge of cell.chg; track charge.id) {
+                              <div class="charge-card" [class.charge-card--overdue]="charge.ov">
+                                <div class="charge-card__title">{{ charge.ds }}</div>
                                 <div class="charge-card__meta">
-                                  <span>{{ charge.amount | currency:'INR':'symbol':'1.2-2' }} · {{ charge.chargeType }}</span>
-                                  <span>Effective {{ charge.effectiveDate | date:'mediumDate' }} · Due {{ charge.dueDate | date:'mediumDate' }}</span>
+                                  <span>{{ charge.amt | currency:'INR':'symbol':'1.2-2' }} · {{ charge.ct }}</span>
+                                  <span>Effective {{ charge.efd | date:'mediumDate' }} · Due {{ charge.dd | date:'mediumDate' }}</span>
                                 </div>
                                 <div class="action-row">
-                                  <app-status-chip [status]="charge.status"></app-status-chip>
-                                  <app-status-chip [status]="charge.isActive ? 'Active' : 'Inactive'"></app-status-chip>
-                                  @if (charge.receiptUrl) {
-                                    <a class="inline-link" [href]="charge.receiptUrl" target="_blank" rel="noreferrer">Receipt</a>
+                                  <app-status-chip [status]="charge.st"></app-status-chip>
+                                  <app-status-chip [status]="charge.ac ? 'Active' : 'Inactive'"></app-status-chip>
+                                  @if (charge.ru) {
+                                    <a class="inline-link" [href]="charge.ru" target="_blank" rel="noreferrer">Receipt</a>
                                   }
                                 </div>
                                 <div class="action-row action-row--compact">
-                                  @if (charge.status !== 'Paid') {
+                                  @if (charge.st !== 'Paid') {
                                     <button mat-stroked-button color="primary" type="button"
-                                      [disabled]="processingChargeId() === charge.id || !charge.isActive"
+                                      [disabled]="processingChargeId() === charge.id || !charge.ac"
                                       (click)="openPaymentPopup(charge)">
                                       Pay
                                     </button>
                                   }
-                                  @if (charge.isActive) {
+                                  @if (charge.ac) {
                                     <button mat-stroked-button type="button" [disabled]="processingChargeId() === charge.id" (click)="inactivateCharge(charge)">Inactivate</button>
                                   } @else {
                                     <button mat-stroked-button color="primary" type="button" [disabled]="processingChargeId() === charge.id" (click)="activateCharge(charge)">Activate</button>
@@ -140,11 +140,11 @@ import { VENDOR_PAGE_STYLES, monthLabel } from './vendor-payments-shared';
               <tfoot>
                 <tr>
                   <th>Monthly totals</th>
-                  @for (total of grid()!.totals; track total.month) {
+                  @for (total of grid()!.tot; track total.mo) {
                     <th>
-                      <div class="section-copy">Total {{ total.totalAmount | currency:'INR':'symbol':'1.2-2' }}</div>
-                      <div class="section-copy">Paid {{ total.paidAmount | currency:'INR':'symbol':'1.2-2' }}</div>
-                      <div class="section-copy">Due {{ total.dueAmount | currency:'INR':'symbol':'1.2-2' }}</div>
+                      <div class="section-copy">Total {{ total.ta | currency:'INR':'symbol':'1.2-2' }}</div>
+                      <div class="section-copy">Paid {{ total.pda | currency:'INR':'symbol':'1.2-2' }}</div>
+                      <div class="section-copy">Due {{ total.dua | currency:'INR':'symbol':'1.2-2' }}</div>
                     </th>
                   }
                 </tr>
@@ -172,10 +172,10 @@ import { VENDOR_PAGE_STYLES, monthLabel } from './vendor-payments-shared';
             </div>
 
             <div class="charge-card">
-              <div class="charge-card__title">{{ charge.description }}</div>
+              <div class="charge-card__title">{{ charge.ds }}</div>
               <div class="charge-card__meta">
-                <span>{{ charge.amount | currency:'INR':'symbol':'1.2-2' }} · {{ charge.chargeType }}</span>
-                <span>Effective {{ charge.effectiveDate | date:'mediumDate' }} · Due {{ charge.dueDate | date:'mediumDate' }}</span>
+                <span>{{ charge.amt | currency:'INR':'symbol':'1.2-2' }} · {{ charge.ct }}</span>
+                <span>Effective {{ charge.efd | date:'mediumDate' }} · Due {{ charge.dd | date:'mediumDate' }}</span>
               </div>
             </div>
 
@@ -321,8 +321,8 @@ export class VendorPaymentsGridComponent {
     this.vendorPayments.uploadDocument(societyId, 'receipt', file).subscribe({
       next: response => {
         this.uploadingReceipt.set(false);
-        this.receiptUrl.set(response.fileUrl);
-        this.receiptFileName.set(response.fileName);
+        this.receiptUrl.set(response.fu);
+        this.receiptFileName.set(response.fn);
         if (input) input.value = '';
         this.snackBar.open('Receipt uploaded.', 'Dismiss', { duration: 4000 });
       },
@@ -397,7 +397,7 @@ export class VendorPaymentsGridComponent {
   }
 
   deleteCharge(charge: VendorGridCharge) {
-    if (!window.confirm(`Delete "${charge.description}"?`)) {
+    if (!window.confirm(`Delete "${charge.ds}"?`)) {
       return;
     }
 

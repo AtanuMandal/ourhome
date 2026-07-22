@@ -258,52 +258,52 @@ import {
 
                     @if (isSectionOpen(sectionKey('charge-period', section.key))) {
                       @for (charge of section.charges; track charge.id) {
-                        <div class="charge-card" [class.charge-card--overdue]="charge.isOverdue">
+                        <div class="charge-card" [class.charge-card--overdue]="charge.ov">
                           <div class="charge-card__header">
                             <div class="charge-card__meta">
-                              <div class="charge-card__title">{{ charge.scheduleName }}</div>
+                              <div class="charge-card__title">{{ charge.snm }}</div>
                               <div class="charge-card__sub">
-                                Apt {{ charge.apartmentNumber }} · Due {{ charge.dueDate | date:'mediumDate' }}
+                                Apt {{ charge.anm }} · Due {{ charge.dd | date:'mediumDate' }}
                               </div>
                             </div>
-                            <app-status-chip [status]="charge.status"></app-status-chip>
+                            <app-status-chip [status]="charge.st"></app-status-chip>
                           </div>
 
                           <div class="charge-card__details">
-                            <span>Amount: {{ charge.amount | currency:'INR':'symbol':'1.2-2' }}</span>
-                            @if (charge.isOverdue) {
+                            <span>Amount: {{ charge.amt | currency:'INR':'symbol':'1.2-2' }}</span>
+                            @if (charge.ov) {
                               <span class="text-danger">Overdue</span>
                             }
-                            @if (charge.transactionReference) {
-                              <span>Ref: {{ charge.transactionReference }}</span>
+                            @if (charge.tr) {
+                              <span>Ref: {{ charge.tr }}</span>
                             }
-                            @if (charge.paidAt) {
-                              <span>Paid: {{ charge.paidAt | date:'mediumDate' }}</span>
+                            @if (charge.pa) {
+                              <span>Paid: {{ charge.pa | date:'mediumDate' }}</span>
                             }
                           </div>
 
-                          @if (charge.proofs.length) {
+                          @if (charge.pf.length) {
                             <div class="proof-list">
                               <div class="section-copy proof-list__title">Submitted proofs</div>
-                              @for (proof of charge.proofs; track proof.proofUrl + proof.submittedAt) {
+                              @for (proof of charge.pf; track proof.pu + proof.sa) {
                                 <div class="proof-item">
-                                  <app-file-preview [src]="proof.proofUrl" alt="Payment proof" imgClass="proof-thumb"
-                                    [clickable]="true" (imageClick)="lightboxSrc.set(proof.proofUrl)"></app-file-preview>
-                                  <span>{{ proof.submittedAt | date:'medium' }}</span>
-                                  @if (proof.notes) {
-                                    <span>{{ proof.notes }}</span>
+                                  <app-file-preview [src]="proof.pu" alt="Payment proof" imgClass="proof-thumb"
+                                    [clickable]="true" (imageClick)="lightboxSrc.set(proof.pu)"></app-file-preview>
+                                  <span>{{ proof.sa | date:'medium' }}</span>
+                                  @if (proof.nt) {
+                                    <span>{{ proof.nt }}</span>
                                   }
                                 </div>
                               }
                             </div>
                           }
 
-                          @if (charge.status === 'Rejected' && charge.rejectionReason) {
-                            <div class="section-copy text-danger">Denied: {{ charge.rejectionReason }}</div>
+                          @if (charge.st === 'Rejected' && charge.rr) {
+                            <div class="section-copy text-danger">Denied: {{ charge.rr }}</div>
                           }
 
                           <div class="action-row action-row--compact">
-                            @if (charge.status === 'ProofSubmitted') {
+                            @if (charge.st === 'ProofSubmitted') {
                               <button
                                 mat-raised-button
                                 color="primary"
@@ -322,7 +322,7 @@ import {
                               </button>
                             }
 
-                            @if (charge.status !== 'Paid') {
+                            @if (charge.st !== 'Paid') {
                               <button
                                 mat-stroked-button
                                 color="primary"
@@ -367,11 +367,11 @@ import {
                   <div class="sub-card stack" [class.sub-card--active]="editingScheduleId() === schedule.id">
                     <div class="section-header section-header--compact">
                       <div>
-                        <div class="section-title">{{ schedule.name }}</div>
+                        <div class="section-title">{{ schedule.nm }}</div>
                         <div class="section-copy">
-                          {{ schedule.apartmentId ? apartmentLabel(schedule.apartmentId) : 'Entire society' }} ·
-                           {{ formatFrequency(schedule.frequency) }} ·
-                           Due on day {{ schedule.dueDay }}
+                          {{ schedule.aid ? apartmentLabel(schedule.aid) : 'Entire society' }} ·
+                           {{ formatFrequency(schedule.fq) }} ·
+                           Due on day {{ schedule.dd }}
                         </div>
                       </div>
                       <div class="section-header__actions">
@@ -384,31 +384,31 @@ import {
 
                     @if (isSectionOpen(sectionKey('schedule', schedule.id))) {
                       <div class="charge-card__details">
-                        <span>Rate: {{ schedule.rate | currency:'INR':'symbol':'1.2-2' }}</span>
-                        <span>{{ schedule.pricingType === 'PerSquareFoot' ? 'Per sq. ft.' : 'Fixed amount' }}</span>
-                        @if (schedule.areaBasis) {
-                          <span>{{ formatAreaBasis(schedule.areaBasis) }}</span>
+                        <span>Rate: {{ schedule.rt | currency:'INR':'symbol':'1.2-2' }}</span>
+                        <span>{{ schedule.pt === 'PerSquareFoot' ? 'Per sq. ft.' : 'Fixed amount' }}</span>
+                        @if (schedule.ab) {
+                          <span>{{ formatAreaBasis(schedule.ab) }}</span>
                         }
-                        <span>Active from: {{ schedule.activeFromDate | date:'MMM yyyy' }}</span>
-                        <span>Active until: {{ schedule.activeUntilDate | date:'MMM yyyy' }}</span>
-                        @if (schedule.inactiveFromDate) {
-                          <span>Inactive from: {{ schedule.inactiveFromDate | date:'MMM yyyy' }}</span>
+                        <span>Active from: {{ schedule.afd | date:'MMM yyyy' }}</span>
+                        <span>Active until: {{ schedule.aud | date:'MMM yyyy' }}</span>
+                        @if (schedule.ifd) {
+                          <span>Inactive from: {{ schedule.ifd | date:'MMM yyyy' }}</span>
                         }
-                        <span>Next due: {{ schedule.nextDueDate | date:'mediumDate' }}</span>
+                        <span>Next due: {{ schedule.ndd | date:'mediumDate' }}</span>
                       </div>
 
-                      @if (schedule.description) {
-                        <div class="section-copy">{{ schedule.description }}</div>
+                      @if (schedule.ds) {
+                        <div class="section-copy">{{ schedule.ds }}</div>
                       }
 
-                      @if (schedule.changeHistory.length) {
+                      @if (schedule.ch.length) {
                         <div class="proof-list">
                           <div class="section-copy proof-list__title">Change history</div>
-                          @for (change of schedule.changeHistory; track change.changedAt + change.reason) {
+                          @for (change of schedule.ch; track change.ca + change.rsn) {
                             <div class="proof-item">
-                              <span>{{ change.changedAt | date:'mediumDate' }} · {{ change.changedByUserName }}</span>
-                              <span>{{ change.reason }}</span>
-                              <span>{{ change.previousRate | currency:'INR':'symbol':'1.2-2' }} → {{ change.newRate | currency:'INR':'symbol':'1.2-2' }}</span>
+                              <span>{{ change.ca | date:'mediumDate' }} · {{ change.cbn }}</span>
+                              <span>{{ change.rsn }}</span>
+                              <span>{{ change.pr | currency:'INR':'symbol':'1.2-2' }} → {{ change.nr | currency:'INR':'symbol':'1.2-2' }}</span>
                             </div>
                           }
                         </div>
@@ -438,7 +438,7 @@ import {
             <div class="section-header section-header--compact">
               <div>
                 <h2 class="section-title">Deny payment proof</h2>
-                <p class="section-copy">{{ target.scheduleName }} · {{ target.amount | currency:'INR':'symbol':'1.2-2' }}</p>
+                <p class="section-copy">{{ target.snm }} · {{ target.amt | currency:'INR':'symbol':'1.2-2' }}</p>
               </div>
               <button mat-stroked-button type="button" (click)="closeDenyDialog()">Close</button>
             </div>
@@ -586,26 +586,26 @@ export class MaintenanceAdminComponent extends MaintenancePageBase {
   }
 
   editSchedule(schedule: MaintenanceSchedule) {
-    const effectiveDate = schedule.inactiveFromDate ? new Date(schedule.inactiveFromDate) : new Date(schedule.nextDueDate);
+    const effectiveDate = schedule.ifd ? new Date(schedule.ifd) : new Date(schedule.ndd);
     this.editingScheduleId.set(schedule.id);
     this.expandSection('schedule-form');
     this.expandSection(this.sectionKey('schedule', schedule.id));
     this.scheduleForm.patchValue({
       id: schedule.id,
-      name: schedule.name,
-      description: schedule.description ?? '',
-      scope: schedule.apartmentId ? 'Apartment' : 'Society',
-      apartmentId: schedule.apartmentId ?? '',
-      rate: schedule.rate,
-      pricingType: schedule.pricingType,
-      areaBasis: schedule.areaBasis ?? '',
-      frequency: schedule.frequency,
-      dueDay: schedule.dueDay,
-      startMonth: schedule.startMonth,
-      startYear: schedule.startYear,
-      endMonth: schedule.endMonth,
-      endYear: schedule.endYear,
-      isActive: schedule.isActive,
+      name: schedule.nm,
+      description: schedule.ds ?? '',
+      scope: schedule.aid ? 'Apartment' : 'Society',
+      apartmentId: schedule.aid ?? '',
+      rate: schedule.rt,
+      pricingType: schedule.pt,
+      areaBasis: schedule.ab ?? '',
+      frequency: schedule.fq,
+      dueDay: schedule.dd,
+      startMonth: schedule.sm,
+      startYear: schedule.sy,
+      endMonth: schedule.em,
+      endYear: schedule.ey,
+      isActive: schedule.ac,
       effectiveMonth: effectiveDate.getUTCMonth() + 1,
       effectiveYear: effectiveDate.getUTCFullYear(),
       changeReason: '',

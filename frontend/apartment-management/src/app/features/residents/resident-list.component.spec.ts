@@ -12,15 +12,15 @@ describe('ResidentListComponent', () => {
   function user(overrides: Partial<User>): User {
     return {
       id: overrides.id ?? 'u1',
-      societyId: 'soc-1',
-      fullName: overrides.fullName ?? 'Test User',
-      email: overrides.email ?? 'test@example.com',
-      phone: overrides.phone ?? '9876543210',
-      role: overrides.role ?? 'SUUser',
-      residentType: 'Owner',
-      apartments: overrides.apartments ?? [],
-      isActive: true,
-      isVerified: true,
+      sid: 'soc-1',
+      fn: overrides.fn ?? 'Test User',
+      em: overrides.em ?? 'test@example.com',
+      ph: overrides.ph ?? '9876543210',
+      rl: overrides.rl ?? 'SUUser',
+      rt: 'Owner',
+      apts: overrides.apts ?? [],
+      ac: true,
+      vf: true,
       ...overrides,
     } as User;
   }
@@ -56,9 +56,9 @@ describe('ResidentListComponent', () => {
 
   it('groups users by role, admins first', () => {
     const { component } = setup([
-      user({ id: '1', fullName: 'Resident One', role: 'SUUser' }),
-      user({ id: '2', fullName: 'Admin One', role: 'SUAdmin' }),
-      user({ id: '3', fullName: 'Guard One', role: 'SUSecurity' }),
+      user({ id: '1', fn: 'Resident One', rl: 'SUUser' }),
+      user({ id: '2', fn: 'Admin One', rl: 'SUAdmin' }),
+      user({ id: '3', fn: 'Guard One', rl: 'SUSecurity' }),
     ]);
 
     const groups = component.groupedByRole();
@@ -68,8 +68,8 @@ describe('ResidentListComponent', () => {
 
   it('filters users across name, email, phone and apartment by search term', () => {
     const { component } = setup([
-      user({ id: '1', fullName: 'Alice Smith', email: 'alice@example.com', phone: '1112223333' }),
-      user({ id: '2', fullName: 'Bob Jones', email: 'bob@example.com', phone: '4445556666', apartments: [{ apartmentId: 'a1', name: 'A-101', residentType: 'Owner' }] }),
+      user({ id: '1', fn: 'Alice Smith', em: 'alice@example.com', ph: '1112223333' }),
+      user({ id: '2', fn: 'Bob Jones', em: 'bob@example.com', ph: '4445556666', apts: [{ aid: 'a1', nm: 'A-101', rt: 'Owner' }] }),
     ]);
 
     component.search.set('a-101');
@@ -82,7 +82,7 @@ describe('ResidentListComponent', () => {
   it('removes the user from the list after a successful delete', () => {
     spyOn(window, 'confirm').and.returnValue(true);
     const { component, userServiceStub } = setup([
-      user({ id: '1', fullName: 'Alice Smith' }),
+      user({ id: '1', fn: 'Alice Smith' }),
     ]);
 
     component.deleteUser(component.items()[0]);
@@ -95,7 +95,7 @@ describe('ResidentListComponent', () => {
   it('resets the deleting flag without removing the user when delete fails', () => {
     spyOn(window, 'confirm').and.returnValue(true);
     const { component } = setup(
-      [user({ id: '1', fullName: 'Alice Smith' })],
+      [user({ id: '1', fn: 'Alice Smith' })],
       { delete: jasmine.createSpy().and.returnValue(throwError(() => ({ error: { error: 'This user is still mapped to an apartment.' } }))) }
     );
 
@@ -118,7 +118,7 @@ describe('ResidentListComponent', () => {
     // Contact masking is enforced server-side (see UserAndAccess.md); the component must not
     // additionally gate email/phone display by role, or a masked value would never reach the user.
     const { fixture } = setup([
-      user({ id: '1', fullName: 'Bob Jones', email: 'bo***@***.com', phone: '+91-98XXXXXX10' }),
+      user({ id: '1', fn: 'Bob Jones', em: 'bo***@***.com', ph: '+91-98XXXXXX10' }),
     ]);
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';

@@ -9,9 +9,9 @@ import { SocietySummaryReport } from '../../core/models/society.model';
 describe('HqSocietyReportComponent', () => {
   function makeReport(overrides: Partial<SocietySummaryReport> = {}): SocietySummaryReport {
     return {
-      societyId: 's1', societyName: 'Green Valley', status: 'Active',
-      totalApartments: 40, occupiedApartments: 30, vacantApartments: 8, underMaintenanceApartments: 2,
-      ownerCount: 25, tenantCount: 5, totalResidents: 30,
+      sn: 'Green Valley', st: 'Active',
+      ta: 40, oa: 30, va: 8, uma: 2,
+      oc: 25, tc: 5, tr: 30,
       ...overrides,
     };
   }
@@ -37,15 +37,15 @@ describe('HqSocietyReportComponent', () => {
   it('loads the summary report for the routed society id', () => {
     const { component, societyServiceStub } = setup(makeReport());
     expect(societyServiceStub.getSummaryReport).toHaveBeenCalledWith('s1');
-    expect(component.report()?.societyName).toBe('Green Valley');
+    expect(component.report()?.sn).toBe('Green Valley');
   });
 
   it('exposes apartment and resident counts with no financial fields', () => {
-    const { component } = setup(makeReport({ totalApartments: 40, ownerCount: 25, tenantCount: 5 }));
+    const { component } = setup(makeReport({ ta: 40, oc: 25, tc: 5 }));
     const report = component.report()!;
-    expect(report.totalApartments).toBe(40);
-    expect(report.ownerCount).toBe(25);
-    expect(report.tenantCount).toBe(5);
+    expect(report.ta).toBe(40);
+    expect(report.oc).toBe(25);
+    expect(report.tc).toBe(5);
     expect(Object.keys(report)).not.toContain('totalIncome');
     expect(Object.keys(report)).not.toContain('totalExpense');
   });

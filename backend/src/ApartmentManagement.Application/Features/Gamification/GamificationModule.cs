@@ -284,7 +284,7 @@ public sealed class GetUserPointsQueryHandler(IRewardPointsRepository rewardPoin
                 .ToList();
 
             return Result<UserPointsResponse>.Success(
-                new UserPointsResponse(request.UserId, request.SocietyId, total, history));
+                new UserPointsResponse(total, history));
         }
         catch (Exception ex)
         {

@@ -28,7 +28,7 @@ type Tab = 'providers' | 'requests';
 export function ServicesScreen() {
   const navigation = useNavigation<ServicesNav>();
   const societyId = useSocietyId();
-  const role = useAuthStore((s) => s.user?.role ?? '');
+  const role = useAuthStore((s) => s.user?.rl ?? '');
   const isAdmin = role === 'SUAdmin';
   const [tab, setTab] = useState<Tab>('providers');
 
@@ -48,14 +48,14 @@ export function ServicesScreen() {
     return (
       <View style={styles.item}>
         <View style={styles.itemTop}>
-          <Text style={styles.title}>{item.providerName}</Text>
-          <StatusChip status={item.status} />
+          <Text style={styles.title}>{item.pn}</Text>
+          <StatusChip status={item.st} />
         </View>
-        <Text style={styles.meta}>{item.serviceTypes.join(', ')}</Text>
-        <Text style={styles.meta}>{item.contactName} • {item.contactPhone}</Text>
-        {!!item.description && <Text style={styles.description} numberOfLines={2}>{item.description}</Text>}
-        {item.reviewCount > 0 && (
-          <Text style={styles.rating}>★ {item.rating.toFixed(1)} ({item.reviewCount} reviews)</Text>
+        <Text style={styles.meta}>{item.svt.join(', ')}</Text>
+        <Text style={styles.meta}>{item.cn} • {item.cp}</Text>
+        {!!item.ds && <Text style={styles.description} numberOfLines={2}>{item.ds}</Text>}
+        {item.rc > 0 && (
+          <Text style={styles.rating}>★ {item.rt.toFixed(1)} ({item.rc} reviews)</Text>
         )}
       </View>
     );
@@ -65,11 +65,11 @@ export function ServicesScreen() {
     return (
       <View style={styles.item}>
         <View style={styles.itemTop}>
-          <Text style={styles.title}>{item.serviceType}</Text>
-          <StatusChip status={item.status} />
+          <Text style={styles.title}>{item.svt}</Text>
+          <StatusChip status={item.st} />
         </View>
-        <Text style={styles.description} numberOfLines={2}>{item.description}</Text>
-        <Text style={styles.meta}>Preferred: {formatDateTime(item.preferredDateTime)}</Text>
+        <Text style={styles.description} numberOfLines={2}>{item.ds}</Text>
+        <Text style={styles.meta}>Preferred: {formatDateTime(item.pdt)}</Text>
       </View>
     );
   }

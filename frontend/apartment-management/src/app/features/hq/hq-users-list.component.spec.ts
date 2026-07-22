@@ -10,9 +10,9 @@ import { User } from '../../core/models/user.model';
 describe('HqUsersListComponent', () => {
   function makeUser(overrides: Partial<User> = {}): User {
     return {
-      id: 'u1', societyId: 'hq', email: 'admin@platform.com', role: 'HQAdmin',
-      residentType: 'SocietyAdmin', isActive: true, isVerified: true, permissions: [],
-      fullName: 'Platform Admin',
+      id: 'u1', sid: 'hq', em: 'admin@platform.com', rl: 'HQAdmin',
+      rt: 'SocietyAdmin', ac: true, vf: true,
+      fn: 'Platform Admin',
       ...overrides,
     };
   }
@@ -20,7 +20,7 @@ describe('HqUsersListComponent', () => {
   function setup(users: User[], isHqAdmin = true) {
     const hqUserServiceStub = {
       list: jasmine.createSpy().and.returnValue(of({ items: users, total: users.length, page: 1, pageSize: 100 })),
-      create: jasmine.createSpy().and.returnValue(of(makeUser({ id: 'u2', role: 'HQUser', isActive: true }))),
+      create: jasmine.createSpy().and.returnValue(of(makeUser({ id: 'u2', rl: 'HQUser', ac: true }))),
       activate: jasmine.createSpy().and.returnValue(of(true)),
       deactivate: jasmine.createSpy().and.returnValue(of(true)),
     };
@@ -67,7 +67,7 @@ describe('HqUsersListComponent', () => {
   });
 
   it('activates and deactivates a user', () => {
-    const { component, hqUserServiceStub } = setup([makeUser({ isActive: false })]);
+    const { component, hqUserServiceStub } = setup([makeUser({ ac: false })]);
     component.activate(component.users()[0]);
     expect(hqUserServiceStub.activate).toHaveBeenCalledWith('u1');
 

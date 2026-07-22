@@ -14,7 +14,7 @@ import { AuthService } from '../../core/services/auth.service';
   standalone: true,
   imports: [DatePipe, MatButtonModule, MatDividerModule, PageHeaderComponent, LoadingSpinnerComponent],
   template: `
-    <app-page-header [title]="history()?.apartmentNumber ? history()!.apartmentNumber + ' Resident History' : 'Resident History'" [showBack]="true"></app-page-header>
+    <app-page-header [title]="history()?.num ? history()!.num + ' Resident History' : 'Resident History'" [showBack]="true"></app-page-header>
     <div class="page-content">
       @if (loading()) {
         <app-loading-spinner></app-loading-spinner>
@@ -27,13 +27,13 @@ import { AuthService } from '../../core/services/auth.service';
 
         <div class="card">
           <h3>Owner history</h3>
-          @if (history()!.ownershipHistory.length === 0) {
+          @if (history()!.oh.length === 0) {
             <p class="empty-copy">No owner history is available for this apartment.</p>
           } @else {
-            @for (entry of history()!.ownershipHistory; track entry.userId + entry.fromUtc) {
+            @for (entry of history()!.oh; track entry.uid + entry.fu) {
               <div class="history-row">
-                <span>{{ entry.fullName }}</span>
-                <span>{{ entry.fromUtc | date:'mediumDate' }} - {{ entry.toUtc ? (entry.toUtc | date:'mediumDate') : 'Present' }}</span>
+                <span>{{ entry.fn }}</span>
+                <span>{{ entry.fu | date:'mediumDate' }} - {{ entry.tu ? (entry.tu | date:'mediumDate') : 'Present' }}</span>
               </div>
             }
           }
@@ -41,13 +41,13 @@ import { AuthService } from '../../core/services/auth.service';
 
         <div class="card">
           <h3>Tenant history</h3>
-          @if (history()!.tenantHistory.length === 0) {
+          @if (history()!.th.length === 0) {
             <p class="empty-copy">No tenant history is available for this apartment.</p>
           } @else {
-            @for (entry of history()!.tenantHistory; track entry.userId + entry.fromUtc) {
+            @for (entry of history()!.th; track entry.uid + entry.fu) {
               <div class="history-row">
-                <span>{{ entry.fullName }}</span>
-                <span>{{ entry.fromUtc | date:'mediumDate' }} - {{ entry.toUtc ? (entry.toUtc | date:'mediumDate') : 'Present' }}</span>
+                <span>{{ entry.fn }}</span>
+                <span>{{ entry.fu | date:'mediumDate' }} - {{ entry.tu ? (entry.tu | date:'mediumDate') : 'Present' }}</span>
               </div>
             }
           }
@@ -77,7 +77,7 @@ export class ApartmentResidentHistoryComponent implements OnInit {
   readonly history = signal<ApartmentResidentHistoryResponse | null>(null);
 
   currentResidentName(residentType: 'Owner' | 'Tenant') {
-    return this.history()?.residents.find(resident => resident.residentType === residentType)?.userName;
+    return this.history()?.res.find(resident => resident.rt === residentType)?.unm;
   }
 
   ngOnInit() {

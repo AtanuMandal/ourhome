@@ -10,14 +10,13 @@ import { Poll } from '../../core/models/poll.model';
 describe('PollDetailComponent', () => {
   function makePoll(overrides: Partial<Poll> = {}): Poll {
     return {
-      id: 'p1', societyId: 'soc-1', title: 'Repaint the gate?', description: 'desc',
-      type: 'SingleChoice', options: [{ id: 'o1', text: 'Yes' }, { id: 'o2', text: 'No' }],
-      opensAt: '2026-01-01T00:00:00Z', closesAt: '2026-01-10T00:00:00Z',
-      targetAudience: 'FullSociety', targetBlockNames: [],
-      eligibilityUnit: 'PerResident', anonymity: 'Anonymous', visibility: 'Immediately',
-      isAgmResolution: false, allowVoteChange: true, status: 'Open',
-      resultsPublished: false, createdByUserId: 'admin-1', createdAt: '2026-01-01T00:00:00Z',
-      hasVoted: false,
+      id: 'p1', tt: 'Repaint the gate?', ds: 'desc',
+      ty: 'SingleChoice', op: [{ id: 'o1', tx: 'Yes' }, { id: 'o2', tx: 'No' }],
+      oa: '2026-01-01T00:00:00Z', ca: '2026-01-10T00:00:00Z',
+      ta: 'FullSociety', tbn: [],
+      agm: false, avc: true, st: 'Open',
+      rp: false,
+      hv: false,
       ...overrides,
     };
   }
@@ -26,14 +25,14 @@ describe('PollDetailComponent', () => {
     const pollServiceStub = {
       get: jasmine.createSpy().and.returnValue(of(poll)),
       vote: jasmine.createSpy().and.returnValue(of({ pollId: poll.id, selectedOptionIds: ['o1'], votedAt: '2026-01-01T00:00:00Z' })),
-      close: jasmine.createSpy().and.returnValue(of({ ...poll, status: 'Closed' })),
-      publishResults: jasmine.createSpy().and.returnValue(of({ ...poll, resultsPublished: true })),
+      close: jasmine.createSpy().and.returnValue(of({ ...poll, st: 'Closed' })),
+      publishResults: jasmine.createSpy().and.returnValue(of({ ...poll, rp: true })),
       ...serviceOverrides,
     };
     const authServiceStub = {
       societyId: () => 'soc-1',
       isAdmin: () => role === 'SUAdmin',
-      user: () => ({ role }),
+      user: () => ({ rl: role }),
     };
 
     TestBed.configureTestingModule({
@@ -53,7 +52,7 @@ describe('PollDetailComponent', () => {
   it('loads the poll on init', () => {
     const { component, pollServiceStub } = setup(makePoll(), 'SUUser');
     expect(pollServiceStub.get).toHaveBeenCalledWith('soc-1', 'p1');
-    expect(component.poll()?.title).toBe('Repaint the gate?');
+    expect(component.poll()?.tt).toBe('Repaint the gate?');
   });
 
   it('allows a resident to vote on an open poll', () => {
@@ -62,7 +61,7 @@ describe('PollDetailComponent', () => {
   });
 
   it('does not allow voting once the poll is closed', () => {
-    const { component } = setup(makePoll({ status: 'Closed' }), 'SUUser');
+    const { component } = setup(makePoll({ st: 'Closed' }), 'SUUser');
     expect(component.canVote()).toBeFalse();
   });
 
@@ -76,7 +75,7 @@ describe('PollDetailComponent', () => {
   });
 
   it('submits a multiple-choice vote with all toggled options', () => {
-    const poll = makePoll({ type: 'MultipleChoice' });
+    const poll = makePoll({ ty: 'MultipleChoice' });
     const { component, pollServiceStub } = setup(poll, 'SUUser');
 
     component.toggleOption('o1');
@@ -87,7 +86,7 @@ describe('PollDetailComponent', () => {
   });
 
   it('shows the read-only vote label when the resident already voted and cannot change it', () => {
-    const poll = makePoll({ hasVoted: true, allowVoteChange: false, mySelectedOptionIds: ['o1'] });
+    const poll = makePoll({ hv: true, avc: false, mso: ['o1'] });
     const { component } = setup(poll, 'SUUser');
     expect(component.myVoteLabels()).toBe('Yes');
   });
@@ -98,16 +97,16 @@ describe('PollDetailComponent', () => {
     component.closePoll();
 
     expect(pollServiceStub.close).toHaveBeenCalledWith('soc-1', 'p1');
-    expect(component.poll()?.status).toBe('Closed');
+    expect(component.poll()?.st).toBe('Closed');
   });
 
   it('SUAdmin can publish results for a closed, unpublished poll', () => {
-    const { component, pollServiceStub } = setup(makePoll({ status: 'Closed', resultsPublished: false }), 'SUAdmin');
+    const { component, pollServiceStub } = setup(makePoll({ st: 'Closed', rp: false }), 'SUAdmin');
 
     component.publishResults();
 
     expect(pollServiceStub.publishResults).toHaveBeenCalledWith('soc-1', 'p1');
-    expect(component.poll()?.resultsPublished).toBeTrue();
+    expect(component.poll()?.rp).toBeTrue();
   });
 
   it('does not permit voting for SUSecurity', () => {
@@ -116,17 +115,17 @@ describe('PollDetailComponent', () => {
   });
 
   it('labels a FullSociety poll target audience', () => {
-    const { component } = setup(makePoll({ targetAudience: 'FullSociety', targetBlockNames: [] }), 'SUUser');
+    const { component } = setup(makePoll({ ta: 'FullSociety', tbn: [] }), 'SUUser');
     expect(component.targetAudienceLabel(component.poll()!)).toBe('Full Society');
   });
 
   it('labels a PerBlock poll target audience with the block name', () => {
-    const { component } = setup(makePoll({ targetAudience: 'PerBlock', targetBlockNames: ['BLOCK A'] }), 'SUUser');
+    const { component } = setup(makePoll({ ta: 'PerBlock', tbn: ['BLOCK A'] }), 'SUUser');
     expect(component.targetAudienceLabel(component.poll()!)).toBe('Block: BLOCK A');
   });
 
   it('labels a MultipleBlock poll target audience with all block names', () => {
-    const { component } = setup(makePoll({ targetAudience: 'MultipleBlock', targetBlockNames: ['BLOCK A', 'BLOCK B'] }), 'SUUser');
+    const { component } = setup(makePoll({ ta: 'MultipleBlock', tbn: ['BLOCK A', 'BLOCK B'] }), 'SUUser');
     expect(component.targetAudienceLabel(component.poll()!)).toBe('Blocks: BLOCK A, BLOCK B');
   });
 });

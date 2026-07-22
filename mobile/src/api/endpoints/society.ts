@@ -2,34 +2,35 @@ import api from '../client';
 import type { PaginatedResponse } from '../types';
 
 export interface SocietyUserAssignment {
-  userId: string;
-  fullName: string;
-  email: string;
-  roleTitle: string;
+  uid: string; // userId
+  fn: string; // fullName
+  em: string; // email
+  rt: string; // roleTitle
 }
 
 export interface SocietyCommittee {
-  name: string;
-  members: SocietyUserAssignment[];
+  nm: string; // name
+  mem: SocietyUserAssignment[]; // members
 }
 
+// Matches backend SocietyResponse — field names shortened to match its compressed JSON keys.
 export interface Society {
   id: string;
-  name: string;
-  address: { street: string; city: string; state: string; postalCode: string; country: string };
-  contactEmail: string;
-  contactPhone: string;
-  totalBlocks: number;
-  totalApartments: number;
-  maintenanceOverdueThresholdDays: number;
+  nm: string; // name
+  addr: { str: string; cty: string; ste: string; pc: string; co: string }; // address
+  ce: string; // contactEmail
+  cp: string; // contactPhone
+  tb: number; // totalBlocks
+  ta: number; // totalApartments
+  mot: number; // maintenanceOverdueThresholdDays
   /** Per-apartment user cap — shown on the society page; only HQAdmin can modify. */
-  maxUsersPerApartment: number;
+  mua: number; // maxUsersPerApartment
   /** Hours a checked-in visitor may stay before showing in red in the visitor list. */
-  visitorOverstayThresholdHours: number;
-  status: string;
-  societyUsers: SocietyUserAssignment[];
-  committees: SocietyCommittee[];
-  themeId: string;
+  voh: number; // visitorOverstayThresholdHours
+  st: string; // status
+  su: SocietyUserAssignment[]; // societyUsers
+  cm: SocietyCommittee[]; // committees
+  th: string; // themeId
 }
 
 export interface UpdateSocietyRequest {
@@ -56,16 +57,15 @@ export interface UpdateSocietyRequest {
 
 /** Platform-level occupancy snapshot for HQAdmin/HQUser — no financial data. */
 export interface SocietySummaryReport {
-  societyId: string;
-  societyName: string;
-  status: string;
-  totalApartments: number;
-  occupiedApartments: number;
-  vacantApartments: number;
-  underMaintenanceApartments: number;
-  ownerCount: number;
-  tenantCount: number;
-  totalResidents: number;
+  sn: string; // societyName
+  st: string; // status
+  ta: number; // totalApartments
+  oa: number; // occupiedApartments
+  va: number; // vacantApartments
+  uma: number; // underMaintenanceApartments
+  oc: number; // ownerCount
+  tc: number; // tenantCount
+  tr: number; // totalResidents
 }
 
 export interface CreateSocietyRequest {

@@ -34,7 +34,7 @@ const RESOLVE_STATUSES = [
 
 export function ComplaintDetailScreen({ route }: ComplaintDetailScreenProps) {
   const societyId = useSocietyId();
-  const role = useAuthStore((s) => s.user?.role ?? '');
+  const role = useAuthStore((s) => s.user?.rl ?? '');
   const isAdmin = role === 'SUAdmin' || role === 'HQAdmin';
 
   const { id } = route.params;
@@ -72,26 +72,26 @@ export function ComplaintDetailScreen({ route }: ComplaintDetailScreenProps) {
       {complaint != null && (
         <ScrollView contentContainerStyle={styles.content}>
           <View style={styles.headerRow}>
-            <Text style={styles.title}>{complaint.title}</Text>
-            <StatusChip status={complaint.status} />
+            <Text style={styles.title}>{complaint.tt}</Text>
+            <StatusChip status={complaint.st} />
           </View>
 
           <View style={styles.row}>
             <View style={styles.badge}>
-              <Text style={styles.badgeText}>{complaint.category}</Text>
+              <Text style={styles.badgeText}>{complaint.cat}</Text>
             </View>
             <View style={[styles.badge, styles.priorityBadge]}>
-              <Text style={styles.badgeText}>{complaint.priority}</Text>
+              <Text style={styles.badgeText}>{complaint.pr}</Text>
             </View>
           </View>
 
-          <Text style={styles.description}>{complaint.description}</Text>
+          <Text style={styles.description}>{complaint.ds}</Text>
 
           <Text style={styles.meta}>
-            Raised: {formatDate(complaint.createdAt)}
+            Raised: {formatDate(complaint.ca)}
           </Text>
-          {complaint.resolvedAt != null && (
-            <Text style={styles.meta}>Resolved: {formatDate(complaint.resolvedAt)}</Text>
+          {complaint.ra != null && (
+            <Text style={styles.meta}>Resolved: {formatDate(complaint.ra)}</Text>
           )}
 
           {isAdmin && (

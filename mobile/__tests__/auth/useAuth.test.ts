@@ -23,18 +23,17 @@ describe('useAuth.loginWithOtp', () => {
 
   test('stores the token and maps the returned user on success', async () => {
     (authApi.verifyOtpLogin as jest.Mock).mockResolvedValue({
-      accessToken: 'jwt-token',
-      user: {
+      tok: 'jwt-token',
+      usr: {
         id: 'u1',
-        societyId: 'soc-1',
-        name: 'Alice',
-        email: 'alice@example.com',
-        phone: '+91-9876543210',
-        role: 'SUUser',
-        residentType: 'Owner',
-        apartmentId: 'apt-1',
-        isVerified: true,
-        permissions: [],
+        sid: 'soc-1',
+        nm: 'Alice',
+        em: 'alice@example.com',
+        ph: '+91-9876543210',
+        rl: 'SUUser',
+        rt: 'Owner',
+        aid: 'apt-1',
+        vf: true,
       },
     });
 
@@ -46,7 +45,7 @@ describe('useAuth.loginWithOtp', () => {
 
     expect(authApi.verifyOtpLogin).toHaveBeenCalledWith('soc-1', 'u1', '123456');
     expect(useAuthStore.getState().isAuthenticated).toBe(true);
-    expect(useAuthStore.getState().user?.fullName).toBe('Alice');
+    expect(useAuthStore.getState().user?.fn).toBe('Alice');
     expect(useAuthStore.getState().token).toBe('jwt-token');
   });
 

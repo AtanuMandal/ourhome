@@ -48,8 +48,8 @@ interface RoleGroup { role: string; label: string; users: User[]; }
           @for (r of pendingRequests(); track r.id) {
             <div class="pending-card">
               <div class="pending-info">
-                <span class="rc-name">{{ r.fullName ?? r.name }}</span>
-                <span class="pending-detail">Wants to join: {{ r.pendingApartmentId }} as {{ r.pendingResidentType }}</span>
+                <span class="rc-name">{{ r.fn ?? r.nm }}</span>
+                <span class="pending-detail">Wants to join: {{ r.paid }} as {{ r.prt }}</span>
               </div>
               <div class="pending-actions">
                 <button mat-raised-button color="primary" type="button"
@@ -96,14 +96,14 @@ interface RoleGroup { role: string; label: string; users: User[]; }
                 <div class="resident-card">
                   <a [routerLink]="[r.id]" class="resident-card-link">
                     <app-user-avatar class="rc-avatar"
-                      [name]="r.fullName ?? r.name ?? '?'"
-                      [pictureUrl]="r.profilePictureUrl"
+                      [name]="r.fn ?? r.nm ?? '?'"
+                      [pictureUrl]="r.pic"
                       (click)="onAvatarClick($event, r)"></app-user-avatar>
                     <div class="rc-info">
-                      <span class="rc-name">{{ r.fullName ?? r.name }}</span>
+                      <span class="rc-name">{{ r.fn ?? r.nm }}</span>
                       <span class="rc-email">Apartments: {{ apartmentNamesFor(r) }}</span>
-                      @if (r.email) { <span class="rc-email">{{ r.email }}</span> }
-                      @if (r.phone) { <span class="rc-phone">{{ r.phone }}</span> }
+                      @if (r.em) { <span class="rc-email">{{ r.em }}</span> }
+                      @if (r.ph) { <span class="rc-phone">{{ r.ph }}</span> }
                     </div>
                   </a>
                   @if (isAdmin()) {
@@ -161,16 +161,16 @@ export class ResidentListComponent implements OnInit {
     const list = this.items();
     if (!term) return list;
     return list.filter(r =>
-      (r.fullName ?? r.name ?? '').toLowerCase().includes(term) ||
-      (r.email ?? '').toLowerCase().includes(term) ||
-      (r.phone ?? '').toLowerCase().includes(term) ||
+      (r.fn ?? r.nm ?? '').toLowerCase().includes(term) ||
+      (r.em ?? '').toLowerCase().includes(term) ||
+      (r.ph ?? '').toLowerCase().includes(term) ||
       this.apartmentNamesFor(r).toLowerCase().includes(term)
     );
   });
 
   /** Keep the avatar's zoom lightbox from also triggering the row's profile navigation. */
   onAvatarClick(event: Event, user: User) {
-    if (user.profilePictureUrl) {
+    if (user.pic) {
       event.stopPropagation();
       event.preventDefault();
     }
@@ -179,7 +179,7 @@ export class ResidentListComponent implements OnInit {
   readonly groupedByRole = computed<RoleGroup[]>(() => {
     const byRole = new Map<string, User[]>();
     for (const user of this.filtered()) {
-      const role = user.role ?? 'SUUser';
+      const role = user.rl ?? 'SUUser';
       if (!byRole.has(role)) byRole.set(role, []);
       byRole.get(role)!.push(user);
     }
@@ -212,14 +212,14 @@ export class ResidentListComponent implements OnInit {
   }
 
   apartmentNamesFor(resident: User) {
-    if (!resident.apartments?.length) return 'Not assigned';
-    return resident.apartments.map(apartment => `${apartment.name} (${apartment.residentType})`).join(', ');
+    if (!resident.apts?.length) return 'Not assigned';
+    return resident.apts.map(apartment => `${apartment.nm} (${apartment.rt})`).join(', ');
   }
 
   deleteUser(user: User) {
     const sid = this.auth.societyId();
     if (!sid) return;
-    if (!confirm(`Delete ${user.fullName ?? user.name}? This cannot be undone.`)) return;
+    if (!confirm(`Delete ${user.fn ?? user.nm}? This cannot be undone.`)) return;
 
     this.deleting.set(user.id);
     this.userSvc.delete(sid, user.id).subscribe({
@@ -257,7 +257,7 @@ export class ResidentListComponent implements OnInit {
       next: () => {
         this.pendingRequests.update(list => list.filter(u => u.id !== user.id));
         this.items.update(list => list.map(u => u.id === user.id
-          ? { ...u, pendingApartmentId: undefined, pendingResidentType: undefined }
+          ? { ...u, paid: undefined, prt: undefined }
           : u));
         this.actioning.set(false);
         this.snackBar.open('Request approved.', 'Dismiss', { duration: 3000 });

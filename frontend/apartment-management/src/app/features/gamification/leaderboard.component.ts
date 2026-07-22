@@ -67,7 +67,7 @@ export class LeaderboardComponent implements OnInit {
     // Load user points
     if (userId) {
       this.svc.getUserPoints(sid, userId).subscribe({
-        next: p => this.myPoints.set(p.totalPoints),
+        next: p => this.myPoints.set(p.tp),
       });
     }
 

@@ -146,19 +146,19 @@ export function buildChargeSections(charges: MaintenanceCharge[]): ChargeSection
   const groups = new Map<string, ChargeSection>();
 
   for (const charge of charges) {
-    const key = `${charge.chargeYear}-${String(charge.chargeMonth).padStart(2, '0')}`;
+    const key = `${charge.cy}-${String(charge.cm).padStart(2, '0')}`;
     const existing = groups.get(key);
     if (existing) {
       existing.charges.push(charge);
-      existing.totalAmount += charge.amount;
+      existing.totalAmount += charge.amt;
       continue;
     }
 
     groups.set(key, {
       key,
-      label: periodLabel(charge.chargeYear, charge.chargeMonth),
+      label: periodLabel(charge.cy, charge.cm),
       charges: [charge],
-      totalAmount: charge.amount,
+      totalAmount: charge.amt,
     });
   }
 
@@ -181,6 +181,6 @@ export function formatAreaBasisLabel(areaBasis: MaintenanceAreaBasis) {
 
 export function sortCharges(charges: MaintenanceCharge[]) {
   return charges.slice().sort((left, right) =>
-    (right.chargeYear * 100 + right.chargeMonth) - (left.chargeYear * 100 + left.chargeMonth)
+    (right.cy * 100 + right.cm) - (left.cy * 100 + left.cm)
   );
 }

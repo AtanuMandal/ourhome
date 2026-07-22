@@ -23,7 +23,7 @@ export function AppHeader({ title, showMenu, showBack }: AppHeaderProps) {
   const styles = getStyles(colors);
 
   const initials =
-    (user?.fullName ?? 'U')
+    (user?.fn ?? 'U')
       .split(' ')
       .filter(Boolean)
       .map((n: string) => n[0])

@@ -27,15 +27,15 @@ describe('ContactUsComponent', () => {
 
   it('renders society contact info and committees without any edit controls', () => {
     const { component, fixture } = setup({
-      name: 'Green Valley',
-      contactEmail: 'admin@gv.com',
-      contactPhone: '+91-9876543210',
-      committees: [
-        { name: 'Managing Committee', members: [{ userId: 'u1', fullName: 'Bob Jones', email: 'bob@example.com', roleTitle: 'Chairman' }] },
+      nm: 'Green Valley',
+      ce: 'admin@gv.com',
+      cp: '+91-9876543210',
+      cm: [
+        { nm: 'Managing Committee', mem: [{ uid: 'u1', fn: 'Bob Jones', em: 'bob@example.com', rt: 'Chairman' }] },
       ],
     });
 
-    expect(component.society()?.name).toBe('Green Valley');
+    expect(component.society()?.nm).toBe('Green Valley');
     const html: string = fixture.nativeElement.textContent;
     expect(html).toContain('admin@gv.com');
     expect(html).toContain('+91-9876543210');

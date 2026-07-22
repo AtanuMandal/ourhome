@@ -32,14 +32,14 @@ jest.mock('@expo/vector-icons', () => {
 function makeUser(overrides: Partial<User>): User {
   return {
     id: overrides.id ?? 'u1',
-    societyId: 'soc-1',
-    fullName: overrides.fullName ?? 'Bob Jones',
-    email: overrides.email ?? 'bob@example.com',
-    phone: overrides.phone ?? '9876543210',
-    role: overrides.role ?? 'SUUser',
-    residentType: 'Owner',
-    isVerified: true,
-    isActive: true,
+    sid: 'soc-1',
+    fn: overrides.fn ?? 'Bob Jones',
+    em: overrides.em ?? 'bob@example.com',
+    ph: overrides.ph ?? '9876543210',
+    rl: overrides.rl ?? 'SUUser',
+    rt: 'Owner',
+    vf: true,
+    ac: true,
     ...overrides,
   } as User;
 }
@@ -63,7 +63,7 @@ describe('ResidentListScreen — contact info display', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     useAuthStore.setState({
-      user: { id: 'viewer1', societyId: 'soc-1', fullName: 'Viewer', email: 'viewer@a.com', phone: '1', role: 'SUUser', residentType: 'Owner', apartmentId: undefined, isVerified: true, isActive: true },
+      user: { id: 'viewer1', sid: 'soc-1', fn: 'Viewer', em: 'viewer@a.com', ph: '1', rl: 'SUUser', rt: 'Owner', aid: undefined, vf: true, ac: true },
       token: 'tok',
       isAuthenticated: true,
     });
@@ -73,7 +73,7 @@ describe('ResidentListScreen — contact info display', () => {
   // must render whatever phone value the API returns rather than assuming it is always raw,
   // since a SUUser viewer will now receive an already-masked value from the backend.
   test('renders a masked phone value returned by the backend as-is, without further hiding it', async () => {
-    mockData = [makeUser({ id: '1', fullName: 'Bob Jones', phone: '+91-98XXXXXX10' })];
+    mockData = [makeUser({ id: '1', fn: 'Bob Jones', ph: '+91-98XXXXXX10' })];
 
     renderScreen();
 
@@ -82,7 +82,7 @@ describe('ResidentListScreen — contact info display', () => {
   });
 
   test('renders an unmasked phone value returned by the backend (e.g. for an admin viewer)', async () => {
-    mockData = [makeUser({ id: '1', fullName: 'Bob Jones', phone: '9876543210' })];
+    mockData = [makeUser({ id: '1', fn: 'Bob Jones', ph: '9876543210' })];
 
     renderScreen();
 

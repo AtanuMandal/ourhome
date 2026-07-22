@@ -21,24 +21,24 @@ export function useActiveApartment(): {
 
   // Same query key as features/profile/hooks/useProfile — shares the cache entry.
   const { data: profile } = useQuery({
-    queryKey: ['profile', user?.societyId ?? '', user?.id ?? ''],
-    queryFn: () => profileApi.getProfile(user?.societyId ?? '', user?.id ?? ''),
-    enabled: !!user?.societyId && !!user?.id,
+    queryKey: ['profile', user?.sid ?? '', user?.id ?? ''],
+    queryFn: () => profileApi.getProfile(user?.sid ?? '', user?.id ?? ''),
+    enabled: !!user?.sid && !!user?.id,
   });
 
-  const apartments = profile?.apartments ?? user?.apartments ?? [];
+  const apartments = profile?.apts ?? user?.apts ?? [];
 
   const activeApartmentId =
-    (selectedApartmentId && apartments.some((a) => a.apartmentId === selectedApartmentId)
+    (selectedApartmentId && apartments.some((a) => a.aid === selectedApartmentId)
       ? selectedApartmentId
       : null) ??
-    user?.apartmentId ??
-    apartments[0]?.apartmentId ??
+    user?.aid ??
+    apartments[0]?.aid ??
     null;
 
   const activeResidentType =
-    apartments.find((a) => a.apartmentId === activeApartmentId)?.residentType ??
-    user?.residentType;
+    apartments.find((a) => a.aid === activeApartmentId)?.rt ??
+    user?.rt;
 
   return { apartments, activeApartmentId, activeResidentType, setSelectedApartment };
 }

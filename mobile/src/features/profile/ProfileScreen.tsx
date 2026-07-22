@@ -26,7 +26,7 @@ export function ProfileScreen() {
   const storeUser = useAuthStore((s) => s.user);
   const { logout } = useAuth();
 
-  const societyId = storeUser?.societyId ?? '';
+  const societyId = storeUser?.sid ?? '';
   const userId = storeUser?.id ?? '';
 
   const { data: profile } = useProfile(societyId, userId);
@@ -40,8 +40,8 @@ export function ProfileScreen() {
 
   const displayUser = profile ?? storeUser;
 
-  const [fullName, setFullName] = useState(displayUser?.fullName ?? '');
-  const [phone, setPhone] = useState(storeUser?.phone ?? '');
+  const [fullName, setFullName] = useState(displayUser?.fn ?? '');
+  const [phone, setPhone] = useState(storeUser?.ph ?? '');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -113,8 +113,8 @@ export function ProfileScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.avatarWrap}>
           <UserAvatar
-            name={displayUser?.fullName ?? '?'}
-            pictureUrl={(displayUser as { profilePictureUrl?: string } | null)?.profilePictureUrl}
+            name={displayUser?.fn ?? '?'}
+            pictureUrl={(displayUser as { pic?: string } | null)?.pic}
             size={80}
           />
           <TouchableOpacity
@@ -125,9 +125,9 @@ export function ProfileScreen() {
             <Text style={styles.avatarEditBadgeText}>📷</Text>
           </TouchableOpacity>
         </View>
-        <Text style={styles.name}>{displayUser?.fullName}</Text>
-        <Text style={styles.email}>{displayUser?.email}</Text>
-        <Text style={styles.role}>{displayUser?.role}</Text>
+        <Text style={styles.name}>{displayUser?.fn}</Text>
+        <Text style={styles.email}>{displayUser?.em}</Text>
+        <Text style={styles.role}>{displayUser?.rl}</Text>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Personal Info</Text>
@@ -159,7 +159,7 @@ export function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
-        {displayUser?.isVerified !== false && (
+        {displayUser?.vf !== false && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Change Password</Text>
             <TextInput

@@ -417,7 +417,7 @@ public sealed class GetSocietySummaryReportQueryHandler(
             var totalResidents = residents.Count(u => u.Role == Domain.Enums.UserRole.SUUser);
 
             return Result<SocietySummaryReportResponse>.Success(new SocietySummaryReportResponse(
-                society.Id, society.Name, society.Status.ToString(),
+                society.Name, society.Status.ToString(),
                 apartments.Count, occupied, vacant, underMaintenance,
                 owners, tenants, totalResidents));
         }

@@ -22,55 +22,55 @@ import { Poll } from '../../core/models/poll.model';
     <div class="page-content">
       @if (poll(); as p) {
         <div class="card">
-          <h2 class="poll-title">{{ p.title }}</h2>
-          @if (p.isAgmResolution) { <span class="agm-badge">AGM Resolution</span> }
-          <p class="poll-desc">{{ p.description }}</p>
+          <h2 class="poll-title">{{ p.tt }}</h2>
+          @if (p.agm) { <span class="agm-badge">AGM Resolution</span> }
+          <p class="poll-desc">{{ p.ds }}</p>
           <p class="poll-meta">
-            Opens {{ p.opensAt | date:'medium' }} · Closes {{ p.closesAt | date:'medium' }}
-            · <span class="status-chip" [class]="'status-chip--' + p.status.toLowerCase()">{{ p.status }}</span>
+            Opens {{ p.oa | date:'medium' }} · Closes {{ p.ca | date:'medium' }}
+            · <span class="status-chip" [class]="'status-chip--' + p.st.toLowerCase()">{{ p.st }}</span>
           </p>
           <p class="poll-meta">Target: {{ targetAudienceLabel(p) }}</p>
 
-          @if (p.outcome) {
-            <p class="outcome-banner" [class]="'outcome-banner--' + p.outcome.toLowerCase()">
-              Outcome: {{ p.outcome === 'NoQuorum' ? 'No Quorum Reached' : p.outcome }}
+          @if (p.oc) {
+            <p class="outcome-banner" [class]="'outcome-banner--' + p.oc.toLowerCase()">
+              Outcome: {{ p.oc === 'NoQuorum' ? 'No Quorum Reached' : p.oc }}
             </p>
           }
 
           @if (canVote()) {
             <section class="vote-section">
               <h3>Cast Your Vote</h3>
-              @if (p.hasVoted && !p.allowVoteChange) {
+              @if (p.hv && !p.avc) {
                 <p>You voted for: {{ myVoteLabels() }}</p>
               } @else {
-                @if (p.type === 'SingleChoice') {
+                @if (p.ty === 'SingleChoice') {
                   <mat-radio-group [(ngModel)]="singleSelection">
-                    @for (o of p.options; track o.id) {
-                      <mat-radio-button [value]="o.id">{{ o.text }}</mat-radio-button>
+                    @for (o of p.op; track o.id) {
+                      <mat-radio-button [value]="o.id">{{ o.tx }}</mat-radio-button>
                     }
                   </mat-radio-group>
                 } @else {
-                  @for (o of p.options; track o.id) {
-                    <mat-checkbox [checked]="multiSelection().has(o.id)" (change)="toggleOption(o.id)">{{ o.text }}</mat-checkbox>
+                  @for (o of p.op; track o.id) {
+                    <mat-checkbox [checked]="multiSelection().has(o.id)" (change)="toggleOption(o.id)">{{ o.tx }}</mat-checkbox>
                   }
                 }
                 <button mat-raised-button color="primary" (click)="submitVote()" [disabled]="voting() || !hasSelection()" style="margin-top:12px">
-                  {{ p.hasVoted ? 'Change Vote' : 'Submit Vote' }}
+                  {{ p.hv ? 'Change Vote' : 'Submit Vote' }}
                 </button>
               }
             </section>
           }
 
-          @if (p.tally; as tally) {
+          @if (p.tl; as tally) {
             <section class="tally-section">
               <h3>Tally</h3>
-              @if (p.participantCount != null && p.eligibleCount != null) {
-                <p class="poll-meta">{{ p.participantCount }} of {{ p.eligibleCount }} eligible have voted</p>
+              @if (p.pc != null && p.elc != null) {
+                <p class="poll-meta">{{ p.pc }} of {{ p.elc }} eligible have voted</p>
               }
               @for (t of tally; track t.id) {
                 <div class="tally-row">
-                  <span>{{ t.text }}</span>
-                  <span class="tally-count">{{ t.voteCount }}</span>
+                  <span>{{ t.tx }}</span>
+                  <span class="tally-count">{{ t.vc }}</span>
                 </div>
               }
             </section>
@@ -78,10 +78,10 @@ import { Poll } from '../../core/models/poll.model';
 
           @if (isAdmin()) {
             <section class="admin-actions">
-              @if (p.status === 'Open') {
+              @if (p.st === 'Open') {
                 <button mat-stroked-button color="warn" (click)="closePoll()" [disabled]="actioning()">Close Poll Early</button>
               }
-              @if (p.status === 'Closed' && !p.resultsPublished) {
+              @if (p.st === 'Closed' && !p.rp) {
                 <button mat-stroked-button color="primary" (click)="publishResults()" [disabled]="actioning()">Publish Results</button>
               }
             </section>
@@ -128,18 +128,18 @@ export class PollDetailComponent implements OnInit {
 
   readonly canVote = computed(() => {
     const p = this.poll();
-    return !!p && this.auth.user()?.role === 'SUUser' && p.status === 'Open';
+    return !!p && this.auth.user()?.rl === 'SUUser' && p.st === 'Open';
   });
 
   readonly myVoteLabels = computed(() => {
     const p = this.poll();
-    if (!p?.mySelectedOptionIds) return '';
-    return p.options.filter(o => p.mySelectedOptionIds!.includes(o.id)).map(o => o.text).join(', ');
+    if (!p?.mso) return '';
+    return p.op.filter(o => p.mso!.includes(o.id)).map(o => o.tx).join(', ');
   });
 
   targetAudienceLabel(poll: Poll): string {
-    if (poll.targetAudience === 'FullSociety') return 'Full Society';
-    return `${poll.targetAudience === 'PerBlock' ? 'Block' : 'Blocks'}: ${poll.targetBlockNames.join(', ')}`;
+    if (poll.ta === 'FullSociety') return 'Full Society';
+    return `${poll.ta === 'PerBlock' ? 'Block' : 'Blocks'}: ${poll.tbn.join(', ')}`;
   }
 
   ngOnInit() {
@@ -155,8 +155,8 @@ export class PollDetailComponent implements OnInit {
     this.pollSvc.get(sid, id).subscribe({
       next: poll => {
         this.poll.set(poll);
-        this.singleSelection.set(poll.mySelectedOptionIds?.[0] ?? null);
-        this.multiSelection.set(new Set(poll.mySelectedOptionIds ?? []));
+        this.singleSelection.set(poll.mso?.[0] ?? null);
+        this.multiSelection.set(new Set(poll.mso ?? []));
         this.loading.set(false);
       },
       error: () => this.loading.set(false),
@@ -174,7 +174,7 @@ export class PollDetailComponent implements OnInit {
   hasSelection(): boolean {
     const p = this.poll();
     if (!p) return false;
-    return p.type === 'SingleChoice' ? this.singleSelection() !== null : this.multiSelection().size > 0;
+    return p.ty === 'SingleChoice' ? this.singleSelection() !== null : this.multiSelection().size > 0;
   }
 
   submitVote() {
@@ -182,7 +182,7 @@ export class PollDetailComponent implements OnInit {
     const p = this.poll();
     if (!sid || !p) return;
 
-    const selectedOptionIds = p.type === 'SingleChoice'
+    const selectedOptionIds = p.ty === 'SingleChoice'
       ? (this.singleSelection() ? [this.singleSelection()!] : [])
       : Array.from(this.multiSelection());
     if (selectedOptionIds.length === 0) return;

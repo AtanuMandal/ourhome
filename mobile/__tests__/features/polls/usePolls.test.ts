@@ -47,27 +47,24 @@ function createWrapper() {
 function makeSummary(overrides: Partial<PollSummary> = {}): PollSummary {
   return {
     id: overrides.id ?? 'p1',
-    title: overrides.title ?? 'Repaint the gate?',
-    type: 'SingleChoice',
-    opensAt: '2026-01-01T00:00:00Z',
-    closesAt: '2026-01-10T00:00:00Z',
-    status: 'Open',
-    isAgmResolution: false,
-    resultsPublished: false,
+    tt: 'Repaint the gate?',
+    ty: 'SingleChoice',
+    ca: '2026-01-10T00:00:00Z',
+    st: 'Open',
+    agm: false,
     ...overrides,
   };
 }
 
 function makePoll(): Poll {
   return {
-    id: 'p1', societyId: 'soc1', title: 'Repaint the gate?', description: 'desc',
-    type: 'SingleChoice', options: [{ id: 'o1', text: 'Yes' }, { id: 'o2', text: 'No' }],
-    opensAt: '2026-01-01T00:00:00Z', closesAt: '2026-01-10T00:00:00Z',
-    targetAudience: 'FullSociety', targetBlockNames: [],
-    eligibilityUnit: 'PerResident', anonymity: 'Anonymous', visibility: 'Immediately',
-    isAgmResolution: false, allowVoteChange: true, status: 'Open',
-    resultsPublished: false, createdByUserId: 'admin1', createdAt: '2026-01-01T00:00:00Z',
-    hasVoted: false,
+    id: 'p1', tt: 'Repaint the gate?', ds: 'desc',
+    ty: 'SingleChoice', op: [{ id: 'o1', tx: 'Yes' }, { id: 'o2', tx: 'No' }],
+    oa: '2026-01-01T00:00:00Z', ca: '2026-01-10T00:00:00Z',
+    ta: 'FullSociety', tbn: [],
+    agm: false, avc: true, st: 'Open',
+    rp: false,
+    hv: false,
   };
 }
 
@@ -102,7 +99,7 @@ describe('usePolls', () => {
   });
 
   test('useCastVote resolves on success', async () => {
-    mockVote.mockResolvedValue({ pollId: 'p1', selectedOptionIds: ['o1'], votedAt: '2026-01-01T00:00:00Z' });
+    mockVote.mockResolvedValue({ pid: 'p1', so: ['o1'], va: '2026-01-01T00:00:00Z' });
 
     const { result } = renderHook(() => useCastVote('soc1', 'p1'), { wrapper: createWrapper() });
     result.current.mutate({ selectedOptionIds: ['o1'] });
@@ -133,9 +130,9 @@ describe('usePolls', () => {
   test('useSocietyBlockNames returns distinct sorted block names', async () => {
     mockGetApartments.mockResolvedValue({
       items: [
-        { blockName: 'Block B' } as Apartment,
-        { blockName: 'Block A' } as Apartment,
-        { blockName: 'Block A' } as Apartment,
+        { blk: 'Block B' } as Apartment,
+        { blk: 'Block A' } as Apartment,
+        { blk: 'Block A' } as Apartment,
       ],
       total: 3, page: 1, pageSize: 500,
     });

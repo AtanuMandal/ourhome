@@ -12,15 +12,15 @@ describe('ResidentProfileComponent', () => {
   function baseUser(overrides: Partial<User>): User {
     return {
       id: overrides.id ?? 'u1',
-      societyId: 'soc-1',
-      fullName: overrides.fullName ?? 'Bob Jones',
-      email: overrides.email ?? 'bob@example.com',
-      phone: overrides.phone ?? '9876543210',
-      role: overrides.role ?? 'SUUser',
-      residentType: overrides.residentType ?? 'Owner',
-      apartments: overrides.apartments ?? [],
-      isActive: true,
-      isVerified: true,
+      sid: 'soc-1',
+      fn: overrides.fn ?? 'Bob Jones',
+      em: overrides.em ?? 'bob@example.com',
+      ph: overrides.ph ?? '9876543210',
+      rl: overrides.rl ?? 'SUUser',
+      rt: overrides.rt ?? 'Owner',
+      apts: overrides.apts ?? [],
+      ac: true,
+      vf: true,
       ...overrides,
     } as User;
   }
@@ -28,7 +28,7 @@ describe('ResidentProfileComponent', () => {
   function setup(user: User, isAdmin = false) {
     const userServiceStub = { get: jasmine.createSpy().and.returnValue(of(user)) };
     const apartmentServiceStub = { list: jasmine.createSpy().and.returnValue(of({ items: [] })) };
-    const authServiceStub = { societyId: () => 'soc-1', isAdmin: () => isAdmin, user: () => ({ role: isAdmin ? 'SUAdmin' : 'SUUser' }) };
+    const authServiceStub = { societyId: () => 'soc-1', isAdmin: () => isAdmin, user: () => ({ rl: isAdmin ? 'SUAdmin' : 'SUUser' }) };
     const snackBarStub = { open: jasmine.createSpy() };
     const activatedRouteStub = {
       snapshot: {
@@ -57,7 +57,7 @@ describe('ResidentProfileComponent', () => {
   it('renders the masked contact info the backend returns for a non-admin viewer', () => {
     // Masking is enforced server-side; the profile page must display whatever
     // the API returns rather than hiding contact fields by role client-side.
-    const { fixture } = setup(baseUser({ email: 'bo***@***.com', phone: '+91-98XXXXXX10' }), false);
+    const { fixture } = setup(baseUser({ em: 'bo***@***.com', ph: '+91-98XXXXXX10' }), false);
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('bo***@***.com');
@@ -65,7 +65,7 @@ describe('ResidentProfileComponent', () => {
   });
 
   it('renders unmasked contact info as returned for an admin viewer', () => {
-    const { fixture } = setup(baseUser({ email: 'bob@example.com', phone: '9876543210' }), true);
+    const { fixture } = setup(baseUser({ em: 'bob@example.com', ph: '9876543210' }), true);
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('bob@example.com');

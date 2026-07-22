@@ -31,48 +31,48 @@ import { StatusChipComponent } from '../../shared/components/status-chip/status-
       }
 
       @if (pass()) {
-        <div class="public-pass-card" [class.expired]="pass()!.isPassExpired">
-          @if (pass()!.isPassExpired) {
+        <div class="public-pass-card" [class.expired]="pass()!.ipe">
+          @if (pass()!.ipe) {
             <div class="expired-banner">
               <mat-icon>timer_off</mat-icon>
               This visitor pass has expired
             </div>
           }
 
-          @if (pass()!.visitorImageUrl) {
+          @if (pass()!.img) {
             <div class="visitor-image-wrap">
-              <img [src]="pass()!.visitorImageUrl" alt="Visitor photo" class="visitor-image">
+              <img [src]="pass()!.img" alt="Visitor photo" class="visitor-image">
             </div>
           }
 
           <div class="pass-info">
             <div class="pass-info__row">
               <span class="pass-info__label">Visitor</span>
-              <strong class="pass-info__value">{{ pass()!.visitorName }}</strong>
+              <strong class="pass-info__value">{{ pass()!.vn }}</strong>
             </div>
             <div class="pass-info__row">
               <span class="pass-info__label">Purpose</span>
-              <span class="pass-info__value">{{ pass()!.purpose }}</span>
+              <span class="pass-info__value">{{ pass()!.pu }}</span>
             </div>
             <div class="pass-info__row">
               <span class="pass-info__label">Flat</span>
-              <span class="pass-info__value">{{ pass()!.hostBlockName }}-{{ pass()!.hostFlatNumber }}</span>
+              <span class="pass-info__value">{{ pass()!.hbn }}-{{ pass()!.hft }}</span>
             </div>
             <div class="pass-info__row">
               <span class="pass-info__label">Status</span>
-              <app-status-chip [status]="pass()!.status"></app-status-chip>
+              <app-status-chip [status]="pass()!.st"></app-status-chip>
             </div>
-            @if (pass()!.validUntil) {
+            @if (pass()!.vu) {
               <div class="pass-info__row">
                 <span class="pass-info__label">Valid until</span>
-                <span class="pass-info__value" [class.expired-text]="pass()!.isPassExpired">
-                  {{ pass()!.validUntil | date:'medium' }}
+                <span class="pass-info__value" [class.expired-text]="pass()!.ipe">
+                  {{ pass()!.vu | date:'medium' }}
                 </span>
               </div>
             }
           </div>
 
-          @if (pass()!.qrCode && !pass()!.isPassExpired) {
+          @if (pass()!.qr && !pass()!.ipe) {
             <div class="pass-qr">
               <p class="pass-qr__label">Security can scan this QR to verify entry</p>
               <img [src]="qrDataUrl()" alt="QR code" class="pass-qr__img">
@@ -189,7 +189,7 @@ export class VisitorPassPublicComponent implements OnInit {
   }
 
   qrDataUrl() {
-    const qr = this.pass()?.qrCode;
+    const qr = this.pass()?.qr;
     if (!qr) return '';
     return qr.startsWith('data:') ? qr : `data:image/png;base64,${qr}`;
   }

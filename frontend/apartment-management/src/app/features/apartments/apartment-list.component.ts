@@ -93,11 +93,11 @@ import { Apartment, BulkImportResult, formatApartmentLabel } from '../../core/mo
             <a [routerLink]="[a.id]" class="apt-card">
               <div class="apt-unit">{{ formatApartmentLabel(a) }}</div>
               <div class="apt-info">
-                <span class="apt-type">{{ a.numberOfRooms }} Rooms &middot; Floor {{ a.floorNumber }}</span>
-                @if (a.blockName) { <span class="apt-block">{{ a.blockName }}</span> }
-                @if (a.primaryResidentName) { <span class="apt-block">Primary Resident: {{ a.primaryResidentName }}</span> }
+                <span class="apt-type">{{ a.rms }} Rooms &middot; Floor {{ a.flr }}</span>
+                @if (a.blk) { <span class="apt-block">{{ a.blk }}</span> }
+                @if (a.prn) { <span class="apt-block">Primary Resident: {{ a.prn }}</span> }
               </div>
-              <app-status-chip [status]="a.status"></app-status-chip>
+              <app-status-chip [status]="a.st"></app-status-chip>
             </a>
           }
         </div>
@@ -127,15 +127,15 @@ export class ApartmentListComponent implements OnInit {
     const q = this.search().toLowerCase();
     return this.items()
       .filter(a =>
-        !q || a.apartmentNumber.toLowerCase().includes(q) ||
+        !q || a.num.toLowerCase().includes(q) ||
         this.formatApartmentLabel(a).toLowerCase().includes(q) ||
-        (a.blockName ?? '').toLowerCase().includes(q) ||
-        String(a.floorNumber).includes(q)
+        (a.blk ?? '').toLowerCase().includes(q) ||
+        String(a.flr).includes(q)
       )
       .slice()
       .sort((a, b) =>
-        b.floorNumber - a.floorNumber ||
-        a.apartmentNumber.localeCompare(b.apartmentNumber)
+        b.flr - a.flr ||
+        a.num.localeCompare(b.num)
       );
   });
 

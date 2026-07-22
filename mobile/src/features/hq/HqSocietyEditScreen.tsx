@@ -38,17 +38,17 @@ export function HqSocietyEditScreen({ route }: HqSocietyEditScreenProps) {
 
   useEffect(() => {
     if (!society) return;
-    setName(society.name);
-    setStreet(society.address.street);
-    setCity(society.address.city);
-    setState(society.address.state);
-    setPostalCode(society.address.postalCode);
-    setCountry(society.address.country);
-    setContactEmail(society.contactEmail);
-    setContactPhone(society.contactPhone);
-    setThemeId(resolveThemeId(society.themeId));
-    setTotalApartments(String(society.totalApartments));
-    setMaxUsersPerApartment(String(society.maxUsersPerApartment ?? 10));
+    setName(society.nm);
+    setStreet(society.addr.str);
+    setCity(society.addr.cty);
+    setState(society.addr.ste);
+    setPostalCode(society.addr.pc);
+    setCountry(society.addr.co);
+    setContactEmail(society.ce);
+    setContactPhone(society.cp);
+    setThemeId(resolveThemeId(society.th));
+    setTotalApartments(String(society.ta));
+    setMaxUsersPerApartment(String(society.mua ?? 10));
   }, [society]);
 
   async function handleSave(): Promise<void> {
@@ -80,8 +80,8 @@ export function HqSocietyEditScreen({ route }: HqSocietyEditScreenProps) {
           contactEmail: contactEmail.trim(),
           contactPhone: contactPhone.trim(),
           // Fields this screen doesn't edit — pass through unchanged.
-          totalBlocks: society.totalBlocks,
-          maintenanceOverdueThresholdDays: society.maintenanceOverdueThresholdDays,
+          totalBlocks: society.tb,
+          maintenanceOverdueThresholdDays: society.mot,
           // HQAdmin-only capacity settings.
           totalApartments: apartmentsCount,
           maxUsersPerApartment: userCap,

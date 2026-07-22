@@ -40,44 +40,44 @@ import { Society, SocietyCommittee, SocietyUserAssignment } from '../../core/mod
         <div class="card">
           <div class="society-brand">
             <div class="soc-icon"><span class="material-icons">location_city</span></div>
-            <h2>{{ society()?.name }}</h2>
+            <h2>{{ society()?.nm }}</h2>
           </div>
           <mat-divider style="margin:16px 0"></mat-divider>
-          <div class="detail-row"><span class="label">Address</span><span>{{ society()?.address?.street }}</span></div>
-          <div class="detail-row"><span class="label">City</span><span>{{ society()?.address?.city }}, {{ society()?.address?.state }}</span></div>
-          <div class="detail-row"><span class="label">PIN</span><span>{{ society()?.address?.postalCode }}</span></div>
-          <div class="detail-row"><span class="label">Country</span><span>{{ society()?.address?.country }}</span></div>
-           <div class="detail-row"><span class="label">Apartments</span><span>{{ society()?.totalApartments }}</span></div>
-           <div class="detail-row"><span class="label">User cap per apartment</span><span>{{ society()?.maxUsersPerApartment }} user(s)</span></div>
-           <div class="detail-row"><span class="label">Overdue threshold</span><span>{{ society()?.maintenanceOverdueThresholdDays }} day(s)</span></div>
-           <div class="detail-row"><span class="label">Visitor overstay threshold</span><span>{{ society()?.visitorOverstayThresholdHours }} hour(s)</span></div>
-           @if (society()?.contactEmail) {
-             <div class="detail-row"><span class="label">Email</span><span>{{ society()?.contactEmail }}</span></div>
+          <div class="detail-row"><span class="label">Address</span><span>{{ society()?.addr?.str }}</span></div>
+          <div class="detail-row"><span class="label">City</span><span>{{ society()?.addr?.cty }}, {{ society()?.addr?.ste }}</span></div>
+          <div class="detail-row"><span class="label">PIN</span><span>{{ society()?.addr?.pc }}</span></div>
+          <div class="detail-row"><span class="label">Country</span><span>{{ society()?.addr?.co }}</span></div>
+           <div class="detail-row"><span class="label">Apartments</span><span>{{ society()?.ta }}</span></div>
+           <div class="detail-row"><span class="label">User cap per apartment</span><span>{{ society()?.mua }} user(s)</span></div>
+           <div class="detail-row"><span class="label">Overdue threshold</span><span>{{ society()?.mot }} day(s)</span></div>
+           <div class="detail-row"><span class="label">Visitor overstay threshold</span><span>{{ society()?.voh }} hour(s)</span></div>
+           @if (society()?.ce) {
+             <div class="detail-row"><span class="label">Email</span><span>{{ society()?.ce }}</span></div>
           }
-          @if (society()?.contactPhone) {
-            <div class="detail-row"><span class="label">Phone</span><span>{{ society()?.contactPhone }}</span></div>
+          @if (society()?.cp) {
+            <div class="detail-row"><span class="label">Phone</span><span>{{ society()?.cp }}</span></div>
           }
-          @if (society()?.societyUsers?.length) {
+          @if (society()?.su?.length) {
             <mat-divider style="margin:16px 0"></mat-divider>
             <div class="section-title">Society Users</div>
-            @for (user of society()!.societyUsers; track user.userId + user.roleTitle) {
+            @for (user of society()!.su; track user.uid + user.rt) {
               <div class="detail-card">
-                <div class="detail-card__title">{{ user.fullName }}</div>
-                <div class="detail-card__meta">{{ user.email }}</div>
-                <div class="detail-card__role">{{ user.roleTitle }}</div>
+                <div class="detail-card__title">{{ user.fn }}</div>
+                <div class="detail-card__meta">{{ user.em }}</div>
+                <div class="detail-card__role">{{ user.rt }}</div>
               </div>
             }
           }
-          @if (society()?.committees?.length) {
+          @if (society()?.cm?.length) {
             <mat-divider style="margin:16px 0"></mat-divider>
             <div class="section-title">Committees</div>
-            @for (committee of society()!.committees; track committee.name) {
+            @for (committee of society()!.cm; track committee.nm) {
               <div class="committee-card">
-                <div class="detail-card__title">{{ committee.name }}</div>
-                @for (member of committee.members; track member.userId + member.roleTitle) {
+                <div class="detail-card__title">{{ committee.nm }}</div>
+                @for (member of committee.mem; track member.uid + member.rt) {
                   <div class="committee-member">
-                    <span>{{ member.fullName }}</span>
-                    <span>{{ member.roleTitle }}</span>
+                    <span>{{ member.fn }}</span>
+                    <span>{{ member.rt }}</span>
                   </div>
                 }
               </div>
@@ -310,7 +310,7 @@ export class SocietyDetailComponent implements OnInit {
     });
 
     this.userSvc.list(sid, 1, 500).subscribe({
-      next: users => this.allUsers.set((users.items ?? []).map(u => ({ email: u.email, fullName: u.fullName ?? u.name ?? u.email }))),
+      next: users => this.allUsers.set((users.items ?? []).map(u => ({ email: u.em, fullName: u.fn ?? u.nm ?? u.em }))),
       error: () => {},
     });
   }
@@ -365,7 +365,7 @@ export class SocietyDetailComponent implements OnInit {
       contactPhone: this.form.controls.contactPhone.value ?? '',
       totalBlocks: this.form.controls.totalBlocks.value ?? 1,
       // Sent unchanged — the backend rejects a non-HQAdmin attempt to modify it.
-      totalApartments: this.society()?.totalApartments ?? 1,
+      totalApartments: this.society()?.ta ?? 1,
       maintenanceOverdueThresholdDays: this.form.controls.maintenanceOverdueThresholdDays.value ?? 7,
       visitorOverstayThresholdHours: this.form.controls.visitorOverstayThresholdHours.value ?? 5,
       societyUsers: this.societyUsers.controls
@@ -399,36 +399,36 @@ export class SocietyDetailComponent implements OnInit {
 
   private patchForm(society: Society | null) {
     this.form.patchValue({
-      name: society?.name ?? '',
-      contactEmail: society?.contactEmail ?? '',
-      contactPhone: society?.contactPhone ?? '',
-      totalBlocks: society?.totalBlocks ?? 1,
-      totalApartments: society?.totalApartments ?? 1,
-      maintenanceOverdueThresholdDays: this.normalizeMaintenanceThreshold(society?.maintenanceOverdueThresholdDays),
-      visitorOverstayThresholdHours: this.normalizeOverstayThreshold(society?.visitorOverstayThresholdHours),
+      name: society?.nm ?? '',
+      contactEmail: society?.ce ?? '',
+      contactPhone: society?.cp ?? '',
+      totalBlocks: society?.tb ?? 1,
+      totalApartments: society?.ta ?? 1,
+      maintenanceOverdueThresholdDays: this.normalizeMaintenanceThreshold(society?.mot),
+      visitorOverstayThresholdHours: this.normalizeOverstayThreshold(society?.voh),
     });
 
     this.societyUsers.clear();
     this.committees.clear();
 
-    for (const user of society?.societyUsers ?? [])
+    for (const user of society?.su ?? [])
       this.societyUsers.push(this.createUserGroup(user));
 
-    for (const committee of society?.committees ?? [])
+    for (const committee of society?.cm ?? [])
       this.committees.push(this.createCommitteeGroup(committee));
   }
 
   private createUserGroup(user?: SocietyUserAssignment) {
     return this.fb.group({
-      email: [user?.email ?? '', [Validators.required, Validators.email]],
-      roleTitle: [user?.roleTitle ?? '', Validators.required],
+      email: [user?.em ?? '', [Validators.required, Validators.email]],
+      roleTitle: [user?.rt ?? '', Validators.required],
     });
   }
 
   private createCommitteeGroup(committee?: SocietyCommittee) {
     return this.fb.group({
-      name: [committee?.name ?? '', Validators.required],
-      members: this.fb.array((committee?.members ?? []).map(member => this.createUserGroup(member))),
+      name: [committee?.nm ?? '', Validators.required],
+      members: this.fb.array((committee?.mem ?? []).map(member => this.createUserGroup(member))),
     });
   }
 

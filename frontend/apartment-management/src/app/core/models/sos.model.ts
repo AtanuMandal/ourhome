@@ -1,24 +1,18 @@
 export type SosCategory = 'Fire' | 'Medical' | 'SecurityIntrusion' | 'Other';
 export type SosAlertStatus = 'Triggered' | 'Acknowledged' | 'Resolved' | 'FalseAlarm';
 
+// Matches backend SosAlertResponse DTO — field names shortened to match its compressed JSON keys.
 export interface SosAlert {
   id: string;
-  societyId: string;
-  apartmentId: string;
-  apartmentLabel: string;
-  triggeredByUserId: string;
-  triggeredByUserName: string;
-  category: SosCategory;
-  note?: string;
-  status: SosAlertStatus;
-  triggeredAt: string;
-  acknowledgedAt?: string;
-  acknowledgedByUserId?: string;
-  acknowledgedByUserName?: string;
-  resolvedAt?: string;
-  resolvedByUserId?: string;
-  resolvedByUserName?: string;
-  escalationCount: number;
+  al: string; // apartmentLabel
+  un: string; // triggeredByUserName
+  cat: SosCategory; // category
+  nt?: string; // note
+  st: SosAlertStatus; // status
+  ta: string; // triggeredAt
+  aun?: string; // acknowledgedByUserName
+  run?: string; // resolvedByUserName
+  ec: number; // escalationCount
 }
 
 export interface TriggerSosAlertDto {
@@ -33,20 +27,19 @@ export interface SosAlertListFilters {
   toDate?: string;
 }
 
+// Matches backend SosCategoryBreakdown DTO — field names shortened to match its compressed JSON keys.
 export interface SosCategoryBreakdown {
-  category: SosCategory;
-  count: number;
+  cat: SosCategory; // category
+  ct: number; // count
 }
 
+// Matches backend SosAlertReportResponse DTO — field names shortened to match its compressed JSON keys.
 export interface SosAlertReport {
-  fromDate: string;
-  toDate: string;
-  totalAlerts: number;
-  falseAlarmCount: number;
-  falseAlarmRatePercent: number;
-  averageAcknowledgeSeconds?: number;
-  averageResolveSeconds?: number;
-  byCategory: SosCategoryBreakdown[];
+  ta: number; // totalAlerts
+  fr: number; // falseAlarmRatePercent
+  aa?: number; // averageAcknowledgeSeconds
+  ar?: number; // averageResolveSeconds
+  bc: SosCategoryBreakdown[]; // byCategory
 }
 
 export const SOS_CATEGORY_LABELS: Record<SosCategory, string> = {

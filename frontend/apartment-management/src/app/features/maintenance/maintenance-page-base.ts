@@ -55,7 +55,7 @@ export abstract class MaintenancePageBase {
       new Date().getFullYear() - 1,
       new Date().getFullYear(),
       new Date().getFullYear() + 1,
-      ...this.charges().map(charge => charge.chargeYear),
+      ...this.charges().map(charge => charge.cy),
     ]);
     return Array.from(years).sort((a, b) => b - a);
   });
@@ -137,7 +137,7 @@ export abstract class MaintenancePageBase {
   }
 
   isSelectableCharge(charge: MaintenanceCharge) {
-    return charge.status === 'Pending' || charge.status === 'Rejected' || charge.status === 'Overdue';
+    return charge.st === 'Pending' || charge.st === 'Rejected' || charge.st === 'Overdue';
   }
 
   apartmentLabel(apartmentId: string) {
@@ -154,8 +154,8 @@ export abstract class MaintenancePageBase {
 
   scheduleStatus(schedule: MaintenanceSchedule) {
     const today = new Date();
-    const activeFrom = new Date(schedule.activeFromDate);
-    const inactiveFrom = schedule.inactiveFromDate ? new Date(schedule.inactiveFromDate) : null;
+    const activeFrom = new Date(schedule.afd);
+    const inactiveFrom = schedule.ifd ? new Date(schedule.ifd) : null;
 
     if (activeFrom > today) {
       return 'Upcoming';
@@ -170,7 +170,7 @@ export abstract class MaintenancePageBase {
 
   protected currentApartmentId() {
     const user = this.auth.user();
-    return user?.apartmentId ?? user?.apartments?.[0]?.apartmentId ?? null;
+    return user?.aid ?? user?.apts?.[0]?.aid ?? null;
   }
 
   protected loadSchedules(societyId: string, done?: () => void) {

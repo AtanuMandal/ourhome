@@ -37,13 +37,11 @@ function createWrapper() {
 function makeStaff(overrides: Partial<Staff>): Staff {
   return {
     id: overrides.id ?? 's1',
-    societyId: 'soc1',
-    fullName: overrides.fullName ?? 'John Guard',
-    phone: overrides.phone ?? '9876543210',
-    category: overrides.category ?? 'Security',
-    employmentType: overrides.employmentType ?? 'OnPayroll',
-    isActive: overrides.isActive ?? true,
-    createdAt: '2026-01-01T00:00:00Z',
+    fn: 'John Guard',
+    ph: '9876543210',
+    cat: 'Security',
+    et: 'OnPayroll',
+    ac: true,
     ...overrides,
   } as Staff;
 }
@@ -55,7 +53,7 @@ describe('useStaff', () => {
 
   test('useStaffList returns the flat staff list', async () => {
     mockGetStaff.mockResolvedValue({
-      items: [makeStaff({ id: '1', category: 'Security' }), makeStaff({ id: '2', category: 'Gardener' })],
+      items: [makeStaff({ id: '1', cat: 'Security' }), makeStaff({ id: '2', cat: 'Gardener' })],
       total: 2,
       page: 1,
       pageSize: 50,
@@ -68,10 +66,7 @@ describe('useStaff', () => {
   });
 
   test('useCheckInStaff resolves on success', async () => {
-    mockCheckIn.mockResolvedValue({
-      id: 'a1', societyId: 'soc1', staffId: 's1', staffName: 'John Guard',
-      attendanceDate: '2026-01-01', isLate: false, status: 'CheckedIn',
-    });
+    mockCheckIn.mockResolvedValue({ sid: 's1' });
 
     const { result } = renderHook(() => useCheckInStaff('soc1'), { wrapper: createWrapper() });
 
@@ -82,10 +77,7 @@ describe('useStaff', () => {
   });
 
   test('useCheckOutStaff resolves on success', async () => {
-    mockCheckOut.mockResolvedValue({
-      id: 'a1', societyId: 'soc1', staffId: 's1', staffName: 'John Guard',
-      attendanceDate: '2026-01-01', isLate: false, status: 'CheckedOut',
-    });
+    mockCheckOut.mockResolvedValue({ sid: 's1' });
 
     const { result } = renderHook(() => useCheckOutStaff('soc1'), { wrapper: createWrapper() });
 

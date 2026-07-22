@@ -12,7 +12,7 @@ import { typography } from '../../theme/typography';
 import { spacing } from '../../theme/spacing';
 import type { PollSummary } from '../../api/types';
 
-function statusChipStyle(status: PollSummary['status']) {
+function statusChipStyle(status: PollSummary['st']) {
   switch (status) {
     case 'Scheduled': return { backgroundColor: '#FFF8E1' };
     case 'Open': return { backgroundColor: '#E3F2FD' };
@@ -23,7 +23,7 @@ function statusChipStyle(status: PollSummary['status']) {
 export function PollListScreen() {
   const navigation = useNavigation<any>(); // eslint-disable-line @typescript-eslint/no-explicit-any
   const societyId = useSocietyId();
-  const role = useAuthStore((s) => s.user?.role ?? '');
+  const role = useAuthStore((s) => s.user?.rl ?? '');
   const isAdmin = role === 'SUAdmin';
 
   const { data, isLoading, fetchNextPage, hasNextPage, refetch } = usePollList(societyId);
@@ -32,14 +32,14 @@ export function PollListScreen() {
     return (
       <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('PollDetail', { id: item.id })}>
         <View style={styles.cardInfo}>
-          <Text style={styles.cardTitle}>{item.title}</Text>
+          <Text style={styles.cardTitle}>{item.tt}</Text>
           <Text style={styles.cardMeta}>
-            {item.type === 'MultipleChoice' ? 'Multiple choice' : 'Single choice'}
-            {item.isAgmResolution ? ' · AGM Resolution' : ''} · Closes {new Date(item.closesAt).toLocaleString()}
+            {item.ty === 'MultipleChoice' ? 'Multiple choice' : 'Single choice'}
+            {item.agm ? ' · AGM Resolution' : ''} · Closes {new Date(item.ca).toLocaleString()}
           </Text>
         </View>
-        <View style={[styles.statusChip, statusChipStyle(item.status)]}>
-          <Text style={styles.statusChipText}>{item.status}</Text>
+        <View style={[styles.statusChip, statusChipStyle(item.st)]}>
+          <Text style={styles.statusChipText}>{item.st}</Text>
         </View>
       </TouchableOpacity>
     );

@@ -11,8 +11,8 @@ import { Staff } from '../../core/models/staff.model';
 describe('StaffFormComponent', () => {
   function setup(staffId: string | null, staffServiceOverrides: Partial<Record<string, unknown>> = {}) {
     const existingStaff: Staff = {
-      id: 's1', societyId: 'soc-1', fullName: 'John Guard', phone: '9876543210',
-      category: 'Security', employmentType: 'OnPayroll', shiftId: 'shift-1', isActive: true, createdAt: '2026-01-01T00:00:00Z',
+      id: 's1', fn: 'John Guard', ph: '9876543210',
+      cat: 'Security', et: 'OnPayroll', sid: 'shift-1', ac: true,
     };
     const staffServiceStub = {
       get: jasmine.createSpy().and.returnValue(of(existingStaff)),
@@ -21,7 +21,7 @@ describe('StaffFormComponent', () => {
       ...staffServiceOverrides,
     };
     const shiftServiceStub = {
-      list: jasmine.createSpy().and.returnValue(of([{ id: 'shift-1', societyId: 'soc-1', name: 'Morning Security', startTime: '08:00:00', endTime: '16:00:00', graceMinutes: 30 }])),
+      list: jasmine.createSpy().and.returnValue(of([{ id: 'shift-1', nm: 'Morning Security' }])),
     };
     const authServiceStub = { societyId: () => 'soc-1' };
     const snackBarStub = { open: jasmine.createSpy() };

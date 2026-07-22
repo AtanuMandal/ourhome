@@ -17,15 +17,12 @@ jest.mock('../../../src/features/sos/hooks/useSos', () => ({
 function makeAlert(overrides: Partial<SosAlert> = {}): SosAlert {
   return {
     id: 'alert-1',
-    societyId: 'soc-1',
-    apartmentId: 'apt-1',
-    apartmentLabel: 'A-101',
-    triggeredByUserId: 'user-1',
-    triggeredByUserName: 'Jane Resident',
-    category: 'Fire',
-    status: 'Triggered',
-    triggeredAt: '2026-01-01T00:00:00Z',
-    escalationCount: 0,
+    al: 'A-101',
+    un: 'Jane Resident',
+    cat: 'Fire',
+    st: 'Triggered',
+    ta: '2026-01-01T00:00:00Z',
+    ec: 0,
     ...overrides,
   };
 }
@@ -71,7 +68,7 @@ describe('SosTriggerCard', () => {
   });
 
   test('shows the active alert status once triggered', async () => {
-    mockActiveAlert = makeAlert({ status: 'Acknowledged', acknowledgedByUserName: 'Guard' });
+    mockActiveAlert = makeAlert({ st: 'Acknowledged', aun: 'Guard' });
 
     render(<SosTriggerCard />);
     fireEvent.press(screen.getByText('SOS'));
@@ -82,7 +79,7 @@ describe('SosTriggerCard', () => {
   });
 
   test('marking a false alarm calls the mutation', async () => {
-    mockActiveAlert = makeAlert({ status: 'Triggered' });
+    mockActiveAlert = makeAlert({ st: 'Triggered' });
     mockTriggerMutate.mockImplementation((_data, { onSuccess }) => onSuccess(makeAlert()));
 
     render(<SosTriggerCard />);

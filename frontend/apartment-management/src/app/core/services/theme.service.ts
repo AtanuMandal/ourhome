@@ -44,7 +44,7 @@ export class ThemeService {
       }
 
       this.societyService.get(societyId).subscribe({
-        next: society => this.applyTheme(society.themeId),
+        next: society => this.applyTheme(society.th),
         error: () => this.applyTheme(DEFAULT_THEME_ID),
       });
     });

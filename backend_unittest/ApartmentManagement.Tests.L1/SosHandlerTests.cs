@@ -117,7 +117,7 @@ public class AcknowledgeSosAlertCommandHandlerTests
 
         result.IsSuccess.Should().BeTrue();
         result.Value!.Status.Should().Be("Acknowledged");
-        result.Value.AcknowledgedByUserName.Should().Be("Security Guard");
+        alert.AcknowledgedByUserName.Should().Be("Security Guard");
     }
 
     [Fact]
@@ -358,7 +358,6 @@ public class GetSosAlertReportQueryHandlerTests
 
         result.IsSuccess.Should().BeTrue();
         result.Value!.TotalAlerts.Should().Be(2);
-        result.Value.FalseAlarmCount.Should().Be(1);
         result.Value.FalseAlarmRatePercent.Should().Be(50.0);
         result.Value.AverageAcknowledgeSeconds.Should().NotBeNull();
         result.Value.ByCategory.Should().ContainSingle(c => c.Category == "Fire" && c.Count == 2);

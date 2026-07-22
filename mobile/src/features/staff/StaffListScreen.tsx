@@ -29,7 +29,7 @@ const CATEGORY_ORDER: StaffCategory[] = ['Security', 'Housekeeping', 'Gardener',
 export function StaffListScreen() {
   const navigation = useNavigation<any>(); // eslint-disable-line @typescript-eslint/no-explicit-any
   const societyId = useSocietyId();
-  const role = useAuthStore((s) => s.user?.role ?? '');
+  const role = useAuthStore((s) => s.user?.rl ?? '');
   const isAdmin = role === 'SUAdmin';
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search);
@@ -41,14 +41,14 @@ export function StaffListScreen() {
   const checkOutStaff = useCheckOutStaff(societyId);
   const deactivateStaff = useDeactivateStaff(societyId);
 
-  const onDutyStaffIds = useMemo(() => new Set((onDuty ?? []).map((a: StaffAttendance) => a.staffId)), [onDuty]);
+  const onDutyStaffIds = useMemo(() => new Set((onDuty ?? []).map((a: StaffAttendance) => a.sid)), [onDuty]);
 
   const sections = useMemo(() => {
     const byCategory = new Map<string, Staff[]>();
     for (const staff of data) {
-      const list = byCategory.get(staff.category) ?? [];
+      const list = byCategory.get(staff.cat) ?? [];
       list.push(staff);
-      byCategory.set(staff.category, list);
+      byCategory.set(staff.cat, list);
     }
     return CATEGORY_ORDER
       .filter((category) => byCategory.has(category))
@@ -68,7 +68,7 @@ export function StaffListScreen() {
   }, [checkOutStaff]);
 
   const handleDeactivate = useCallback((staff: Staff): void => {
-    Alert.alert('Deactivate staff', `Deactivate ${staff.fullName}?`, [
+    Alert.alert('Deactivate staff', `Deactivate ${staff.fn}?`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Deactivate',
@@ -87,21 +87,21 @@ export function StaffListScreen() {
     return (
       <View style={styles.item}>
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{item.fullName.charAt(0)}</Text>
+          <Text style={styles.avatarText}>{item.fn.charAt(0)}</Text>
         </View>
         <View style={styles.itemInfo}>
-          <Text style={styles.name}>{item.fullName}</Text>
+          <Text style={styles.name}>{item.fn}</Text>
           <Text style={styles.meta}>
-            {item.phone}{item.shiftName ? ` · ${item.shiftName}` : ''}
+            {item.ph}{item.sn ? ` · ${item.sn}` : ''}
           </Text>
-          {!item.isActive && <StatusChip status="Inactive" />}
+          {!item.ac && <StatusChip status="Inactive" />}
         </View>
         {isOnDuty && (
           <View style={styles.onDutyChip}>
             <Text style={styles.onDutyText}>On Duty</Text>
           </View>
         )}
-        {item.isActive && (
+        {item.ac && (
           <TouchableOpacity
             style={[styles.actionButton, isOnDuty ? styles.checkOutButton : styles.checkInButton]}
             onPress={() => (isOnDuty ? handleCheckOut(item) : handleCheckIn(item))}
@@ -120,7 +120,7 @@ export function StaffListScreen() {
             <Text style={styles.deleteButtonText}>✎</Text>
           </TouchableOpacity>
         )}
-        {isAdmin && item.isActive && (
+        {isAdmin && item.ac && (
           <TouchableOpacity
             style={styles.deleteButton}
             onPress={() => handleDeactivate(item)}

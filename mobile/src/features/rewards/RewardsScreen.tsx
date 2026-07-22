@@ -27,12 +27,11 @@ export function RewardsScreen() {
     return (
       <View style={styles.item}>
         <View style={styles.itemLeft}>
-          <Text style={styles.action}>{item.action}</Text>
-          {!!item.description && <Text style={styles.description}>{item.description}</Text>}
-          <Text style={styles.date}>{formatDate(item.earnedAt)}</Text>
+          <Text style={styles.action}>{item.rsn}</Text>
+          <Text style={styles.date}>{formatDate(item.ca)}</Text>
         </View>
-        <Text style={[styles.points, item.points < 0 && styles.pointsNegative]}>
-          {item.points > 0 ? `+${item.points}` : item.points}
+        <Text style={[styles.points, item.pts < 0 && styles.pointsNegative]}>
+          {item.pts > 0 ? `+${item.pts}` : item.pts}
         </Text>
       </View>
     );
@@ -45,14 +44,14 @@ export function RewardsScreen() {
         <Text style={styles.bannerIcon}>🏆</Text>
         <View>
           <Text style={styles.bannerLabel}>Your Points</Text>
-          <Text style={styles.bannerValue}>{data?.totalPoints ?? 0}</Text>
+          <Text style={styles.bannerValue}>{data?.tp ?? 0}</Text>
         </View>
       </View>
       <FlatList
-        data={data?.history ?? []}
-        keyExtractor={(item) => item.id}
+        data={data?.h ?? []}
+        keyExtractor={(item, index) => `${item.ca}-${item.pts}-${index}`}
         renderItem={renderItem}
-        contentContainerStyle={(data?.history ?? []).length === 0 ? styles.emptyContainer : undefined}
+        contentContainerStyle={(data?.h ?? []).length === 0 ? styles.emptyContainer : undefined}
         refreshControl={
           <RefreshControl refreshing={isLoading} onRefresh={() => void refetch()} tintColor={colors.primary} />
         }

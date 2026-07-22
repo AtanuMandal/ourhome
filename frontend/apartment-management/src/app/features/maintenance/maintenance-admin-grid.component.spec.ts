@@ -11,39 +11,37 @@ describe('MaintenanceAdminGridComponent', () => {
   function makeGridCharge(overrides: Partial<MaintenanceGridCharge> = {}): MaintenanceGridCharge {
     return {
       id: 'charge-1',
-      scheduleId: 'sched-1',
-      scheduleName: 'Monthly Maintenance',
-      amount: 5000,
-      status: 'ProofSubmitted',
-      dueDate: '2026-07-05T00:00:00Z',
-      isOverdue: false,
-      paidAt: null,
-      paymentMethod: null,
-      transactionReference: null,
-      receiptUrl: null,
-      notes: null,
-      proofs: [],
+      sid: 'sched-1',
+      snm: 'Monthly Maintenance',
+      amt: 5000,
+      st: 'ProofSubmitted',
+      dd: '2026-07-05T00:00:00Z',
+      ov: false,
+      pa: null,
+      pm: null,
+      tr: null,
+      ru: null,
+      nt: null,
+      pf: [],
       ...overrides,
     };
   }
 
   function makeRow(apartmentId: string, apartmentNumber: string, charges: MaintenanceGridCharge[] = []): MaintenanceGridRow {
     return {
-      apartmentId,
-      apartmentNumber,
-      residentName: `Resident ${apartmentNumber}`,
-      months: [
-        { month: 7, totalAmount: charges.reduce((s, c) => s + c.amount, 0), hasOverdue: charges.some(c => c.isOverdue), charges },
+      aid: apartmentId,
+      anm: apartmentNumber,
+      rn: `Resident ${apartmentNumber}`,
+      mos: [
+        { mo: 7, ta: charges.reduce((s, c) => s + c.amt, 0), ho: charges.some(c => c.ov), chg: charges },
       ],
     };
   }
 
   function makeGrid(rows: MaintenanceGridRow[]): MaintenanceChargeGrid {
     return {
-      societyId: 'soc-1',
-      year: 2026,
-      months: [7],
-      summary: { pendingAmount: 0, submittedAmount: 0, paidAmount: 0, pendingCount: 0, submittedCount: 0, paidCount: 0 },
+      mos: [7],
+      sum: { pa: 0, sa: 0, pda: 0, pc: 0, sc: 0, pdc: 0 },
       rows,
     };
   }
@@ -116,7 +114,7 @@ describe('MaintenanceAdminGridComponent', () => {
   });
 
   it('approving a proof updates the charge in place instead of reloading the grid', () => {
-    const charge = makeGridCharge({ id: 'charge-1', status: 'ProofSubmitted' });
+    const charge = makeGridCharge({ id: 'charge-1', st: 'ProofSubmitted' });
     const { component, maintenanceServiceStub } = setup(makeGrid([makeRow('apt-1', 'A-1', [charge])]));
 
     component.settlementForm.setValue({
@@ -125,14 +123,14 @@ describe('MaintenanceAdminGridComponent', () => {
     component.approveProof(charge);
 
     expect(maintenanceServiceStub.getChargeGrid).toHaveBeenCalledTimes(1); // only the initial load
-    const updated = component.grid()!.rows[0].months[0].charges[0];
-    expect(updated.status).toBe('Paid');
-    expect(updated.transactionReference).toBe('TXN123');
-    expect(updated.isOverdue).toBeFalse();
+    const updated = component.grid()!.rows[0].mos[0].chg[0];
+    expect(updated.st).toBe('Paid');
+    expect(updated.tr).toBe('TXN123');
+    expect(updated.ov).toBeFalse();
   });
 
   it('marking a charge paid updates it in place instead of reloading the grid', () => {
-    const charge = makeGridCharge({ id: 'charge-2', status: 'Pending', isOverdue: true });
+    const charge = makeGridCharge({ id: 'charge-2', st: 'Pending', ov: true });
     const { component, maintenanceServiceStub } = setup(makeGrid([makeRow('apt-1', 'A-1', [charge])]));
 
     component.settlementForm.setValue({
@@ -141,18 +139,18 @@ describe('MaintenanceAdminGridComponent', () => {
     component.markPaid(charge);
 
     expect(maintenanceServiceStub.getChargeGrid).toHaveBeenCalledTimes(1);
-    const updated = component.grid()!.rows[0].months[0].charges[0];
-    expect(updated.status).toBe('Paid');
-    expect(updated.notes).toBe('Paid at office');
+    const updated = component.grid()!.rows[0].mos[0].chg[0];
+    expect(updated.st).toBe('Paid');
+    expect(updated.nt).toBe('Paid at office');
   });
 
   it('creating a penalty charge adds it to the grid without reloading', () => {
     const { component, maintenanceServiceStub } = setup(makeGrid([makeRow('apt-1', 'A-1', [])]));
     const createdCharge: MaintenanceCharge = {
-      id: 'penalty-1', societyId: 'soc-1', apartmentId: 'apt-1', apartmentNumber: 'A-1',
-      scheduleId: 'penalty', scheduleName: 'Late Fee', chargeYear: 2026, chargeMonth: 7,
-      amount: 250, status: 'Pending', dueDate: '2026-07-15T00:00:00Z', isOverdue: false,
-      proofs: [], createdAt: '2026-07-10T00:00:00Z', updatedAt: '2026-07-10T00:00:00Z',
+      id: 'penalty-1', aid: 'apt-1', anm: 'A-1',
+      sid: 'penalty', snm: 'Late Fee', cy: 2026, cm: 7,
+      amt: 250, st: 'Pending', dd: '2026-07-15T00:00:00Z', ov: false,
+      pf: [],
     };
     maintenanceServiceStub.createPenaltyCharge.and.returnValue(of(createdCharge));
 
@@ -162,8 +160,8 @@ describe('MaintenanceAdminGridComponent', () => {
     component.createPenalty();
 
     expect(maintenanceServiceStub.getChargeGrid).toHaveBeenCalledTimes(1);
-    const cellCharges = component.grid()!.rows[0].months[0].charges;
-    expect(cellCharges).toContain(jasmine.objectContaining({ id: 'penalty-1', amount: 250 }));
+    const cellCharges = component.grid()!.rows[0].mos[0].chg;
+    expect(cellCharges).toContain(jasmine.objectContaining({ id: 'penalty-1', amt: 250 }));
   });
 
   it('does not add a newly created penalty charge when it would not match the active status filter', () => {
@@ -171,10 +169,10 @@ describe('MaintenanceAdminGridComponent', () => {
     component.filterForm.controls.status.setValue('Paid');
 
     const createdCharge: MaintenanceCharge = {
-      id: 'penalty-2', societyId: 'soc-1', apartmentId: 'apt-1', apartmentNumber: 'A-1',
-      scheduleId: 'penalty', scheduleName: 'Late Fee', chargeYear: 2026, chargeMonth: 7,
-      amount: 250, status: 'Pending', dueDate: '2026-07-15T00:00:00Z', isOverdue: false,
-      proofs: [], createdAt: '2026-07-10T00:00:00Z', updatedAt: '2026-07-10T00:00:00Z',
+      id: 'penalty-2', aid: 'apt-1', anm: 'A-1',
+      sid: 'penalty', snm: 'Late Fee', cy: 2026, cm: 7,
+      amt: 250, st: 'Pending', dd: '2026-07-15T00:00:00Z', ov: false,
+      pf: [],
     };
     maintenanceServiceStub.createPenaltyCharge.and.returnValue(of(createdCharge));
 
@@ -183,7 +181,7 @@ describe('MaintenanceAdminGridComponent', () => {
     });
     component.createPenalty();
 
-    const cellCharges = component.grid()!.rows[0].months[0].charges;
+    const cellCharges = component.grid()!.rows[0].mos[0].chg;
     expect(cellCharges.length).toBe(0);
   });
 });
@@ -192,43 +190,41 @@ describe('MaintenanceAdminGridComponent — clubbed submissions (grouping, appro
   function makeGridCharge(overrides: Partial<MaintenanceGridCharge> = {}): MaintenanceGridCharge {
     return {
       id: 'charge-1',
-      scheduleId: 'sched-1',
-      scheduleName: 'Monthly Maintenance',
-      amount: 5000,
-      status: 'ProofSubmitted',
-      dueDate: '2026-04-05T00:00:00Z',
-      isOverdue: false,
-      paidAt: null,
-      paymentMethod: null,
-      transactionReference: null,
-      receiptUrl: null,
-      notes: null,
-      proofs: [],
-      submissionGroupId: 'group-1',
+      sid: 'sched-1',
+      snm: 'Monthly Maintenance',
+      amt: 5000,
+      st: 'ProofSubmitted',
+      dd: '2026-04-05T00:00:00Z',
+      ov: false,
+      pa: null,
+      pm: null,
+      tr: null,
+      ru: null,
+      nt: null,
+      pf: [],
+      sgi: 'group-1',
       ...overrides,
     };
   }
 
   function makeRow(apartmentId: string, apartmentNumber: string, chargesByMonth: { month: number; charges: MaintenanceGridCharge[] }[]): MaintenanceGridRow {
     return {
-      apartmentId,
-      apartmentNumber,
-      residentName: `Resident ${apartmentNumber}`,
-      months: chargesByMonth.map(({ month, charges }) => ({
-        month,
-        totalAmount: charges.reduce((s, c) => s + c.amount, 0),
-        hasOverdue: charges.some(c => c.isOverdue),
-        charges,
+      aid: apartmentId,
+      anm: apartmentNumber,
+      rn: `Resident ${apartmentNumber}`,
+      mos: chargesByMonth.map(({ month, charges }) => ({
+        mo: month,
+        ta: charges.reduce((s, c) => s + c.amt, 0),
+        ho: charges.some(c => c.ov),
+        chg: charges,
       })),
     };
   }
 
   function makeGrid(rows: MaintenanceGridRow[]): MaintenanceChargeGrid {
     return {
-      societyId: 'soc-1',
-      year: 2026,
-      months: [4, 5, 6],
-      summary: { pendingAmount: 0, submittedAmount: 0, paidAmount: 0, pendingCount: 0, submittedCount: 0, paidCount: 0 },
+      mos: [4, 5, 6],
+      sum: { pa: 0, sa: 0, pda: 0, pc: 0, sc: 0, pdc: 0 },
       rows,
     };
   }
@@ -263,9 +259,9 @@ describe('MaintenanceAdminGridComponent — clubbed submissions (grouping, appro
   // A resident clubbing Apr+May+Jun dues into one proof submission — three charges, same
   // apartment, same submissionGroupId, spread across three different month cells.
   function makeClubbedGrid() {
-    const apr = makeGridCharge({ id: 'charge-apr', dueDate: '2026-04-05T00:00:00Z' });
-    const may = makeGridCharge({ id: 'charge-may', dueDate: '2026-05-05T00:00:00Z' });
-    const jun = makeGridCharge({ id: 'charge-jun', dueDate: '2026-06-05T00:00:00Z' });
+    const apr = makeGridCharge({ id: 'charge-apr', dd: '2026-04-05T00:00:00Z' });
+    const may = makeGridCharge({ id: 'charge-may', dd: '2026-05-05T00:00:00Z' });
+    const jun = makeGridCharge({ id: 'charge-jun', dd: '2026-06-05T00:00:00Z' });
     const row = makeRow('apt-1', 'A-1', [
       { month: 4, charges: [apr] },
       { month: 5, charges: [may] },
@@ -296,8 +292,8 @@ describe('MaintenanceAdminGridComponent — clubbed submissions (grouping, appro
   });
 
   it('does not group charges with no submissionGroupId', () => {
-    const chargeA = makeGridCharge({ id: 'a', submissionGroupId: undefined });
-    const chargeB = makeGridCharge({ id: 'b', submissionGroupId: undefined, dueDate: '2026-05-05T00:00:00Z' });
+    const chargeA = makeGridCharge({ id: 'a', sgi: undefined });
+    const chargeB = makeGridCharge({ id: 'b', sgi: undefined, dd: '2026-05-05T00:00:00Z' });
     const { component } = setup(makeGrid([makeRow('apt-1', 'A-1', [
       { month: 4, charges: [chargeA] },
       { month: 5, charges: [chargeB] },
@@ -337,10 +333,10 @@ describe('MaintenanceAdminGridComponent — clubbed submissions (grouping, appro
   it('a Paid clubbed charge still shows View proofs in its grid cell', () => {
     const { grid } = makeClubbedGrid();
     for (const row of grid.rows) {
-      for (const cell of row.months) {
-        for (const charge of cell.charges) {
-          charge.status = 'Paid';
-          charge.proofs = [{ proofUrl: 'https://proofs.example.com/receipt.jpg', submittedByUserId: 'u1', submittedAt: '2026-07-02T00:00:00Z' }];
+      for (const cell of row.mos) {
+        for (const charge of cell.chg) {
+          charge.st = 'Paid';
+          charge.pf = [{ pu: 'https://proofs.example.com/receipt.jpg', sa: '2026-07-02T00:00:00Z' }];
         }
       }
     }
@@ -354,8 +350,8 @@ describe('MaintenanceAdminGridComponent — clubbed submissions (grouping, appro
 
   it('a Paid ungrouped charge with proofs still shows View proofs in its grid cell', () => {
     const paid = makeGridCharge({
-      id: 'charge-paid', status: 'Paid', submissionGroupId: undefined,
-      proofs: [{ proofUrl: 'https://proofs.example.com/receipt.jpg', submittedByUserId: 'u1', submittedAt: '2026-07-02T00:00:00Z' }],
+      id: 'charge-paid', st: 'Paid', sgi: undefined,
+      pf: [{ pu: 'https://proofs.example.com/receipt.jpg', sa: '2026-07-02T00:00:00Z' }],
     });
     const { fixture } = setup(makeGrid([makeRow('apt-1', 'A-1', [{ month: 4, charges: [paid] }])]));
 
@@ -367,8 +363,8 @@ describe('MaintenanceAdminGridComponent — clubbed submissions (grouping, appro
   it('a group where every charge is Paid is still reported as a group with status Paid', () => {
     const { grid } = makeClubbedGrid();
     for (const row of grid.rows) {
-      for (const cell of row.months) {
-        for (const charge of cell.charges) charge.status = 'Paid';
+      for (const cell of row.mos) {
+        for (const charge of cell.chg) charge.st = 'Paid';
       }
     }
     const { component } = setup(grid);
@@ -382,9 +378,9 @@ describe('MaintenanceAdminGridComponent — clubbed submissions (grouping, appro
     const { grid } = makeClubbedGrid();
     const { component, maintenanceServiceStub } = setup(grid);
     maintenanceServiceStub.approveProofGroup.and.returnValue(of([
-      { id: 'charge-apr', status: 'Paid', paidAt: '2026-07-01T00:00:00Z' },
-      { id: 'charge-may', status: 'Paid', paidAt: '2026-07-01T00:00:00Z' },
-      { id: 'charge-jun', status: 'Paid', paidAt: '2026-07-01T00:00:00Z' },
+      { id: 'charge-apr', st: 'Paid', pa: '2026-07-01T00:00:00Z' },
+      { id: 'charge-may', st: 'Paid', pa: '2026-07-01T00:00:00Z' },
+      { id: 'charge-jun', st: 'Paid', pa: '2026-07-01T00:00:00Z' },
     ]));
     component.settlementForm.setValue({ paymentMethod: 'UPI', transactionReference: 'TXN1', receiptUrl: '', notes: '' });
 
@@ -395,7 +391,7 @@ describe('MaintenanceAdminGridComponent — clubbed submissions (grouping, appro
       paymentMethod: 'UPI',
       transactionReference: 'TXN1',
     }));
-    const statuses = component.grid()!.rows[0].months.flatMap(m => m.charges).map(c => c.status);
+    const statuses = component.grid()!.rows[0].mos.flatMap(m => m.chg).map(c => c.st);
     expect(statuses).toEqual(['Paid', 'Paid', 'Paid']);
     // Approved-together charges stay clustered — still reported as a (now Paid) group.
     expect(component.groupedSubmissions().length).toBe(1);
@@ -403,18 +399,18 @@ describe('MaintenanceAdminGridComponent — clubbed submissions (grouping, appro
   });
 
   it('denying a single ungrouped charge calls denyProof and falls back to Rejected', () => {
-    const charge = makeGridCharge({ id: 'charge-solo', submissionGroupId: undefined });
+    const charge = makeGridCharge({ id: 'charge-solo', sgi: undefined });
     const { component, maintenanceServiceStub } = setup(makeGrid([makeRow('apt-1', 'A-1', [{ month: 4, charges: [charge] }])]));
-    maintenanceServiceStub.denyProof.and.returnValue(of({ id: 'charge-solo', status: 'Rejected', rejectionReason: 'Blurry screenshot.' }));
+    maintenanceServiceStub.denyProof.and.returnValue(of({ id: 'charge-solo', st: 'Rejected', rr: 'Blurry screenshot.' }));
 
     component.openDenyDialog({ type: 'single', charge });
     component.denyForm.setValue({ reason: 'Blurry screenshot.' });
     component.confirmDeny();
 
     expect(maintenanceServiceStub.denyProof).toHaveBeenCalledWith('soc-1', 'charge-solo', { reason: 'Blurry screenshot.' });
-    const updated = component.grid()!.rows[0].months[0].charges[0];
-    expect(updated.status).toBe('Rejected');
-    expect(updated.rejectionReason).toBe('Blurry screenshot.');
+    const updated = component.grid()!.rows[0].mos[0].chg[0];
+    expect(updated.st).toBe('Rejected');
+    expect(updated.rr).toBe('Blurry screenshot.');
     expect(component.denyTarget()).toBeNull();
   });
 
@@ -422,9 +418,9 @@ describe('MaintenanceAdminGridComponent — clubbed submissions (grouping, appro
     const { grid } = makeClubbedGrid();
     const { component, maintenanceServiceStub } = setup(grid);
     maintenanceServiceStub.denyProofGroup.and.returnValue(of([
-      { id: 'charge-apr', status: 'Rejected', rejectionReason: 'Total mismatch.' },
-      { id: 'charge-may', status: 'Rejected', rejectionReason: 'Total mismatch.' },
-      { id: 'charge-jun', status: 'Rejected', rejectionReason: 'Total mismatch.' },
+      { id: 'charge-apr', st: 'Rejected', rr: 'Total mismatch.' },
+      { id: 'charge-may', st: 'Rejected', rr: 'Total mismatch.' },
+      { id: 'charge-jun', st: 'Rejected', rr: 'Total mismatch.' },
     ]));
     const group = component.groupedSubmissions()[0];
 
@@ -436,7 +432,7 @@ describe('MaintenanceAdminGridComponent — clubbed submissions (grouping, appro
       chargeIds: ['charge-apr', 'charge-may', 'charge-jun'],
       reason: 'Total mismatch.',
     });
-    const statuses = component.grid()!.rows[0].months.flatMap(m => m.charges).map(c => c.status);
+    const statuses = component.grid()!.rows[0].mos.flatMap(m => m.chg).map(c => c.st);
     expect(statuses).toEqual(['Rejected', 'Rejected', 'Rejected']);
     // The group is gone — each charge now shows individually (default view) since Rejected
     // charges are excluded from the grouping predicate.
@@ -444,7 +440,7 @@ describe('MaintenanceAdminGridComponent — clubbed submissions (grouping, appro
   });
 
   it('the deny dialog requires a non-empty reason', () => {
-    const charge = makeGridCharge({ id: 'charge-solo', submissionGroupId: undefined });
+    const charge = makeGridCharge({ id: 'charge-solo', sgi: undefined });
     const { component, maintenanceServiceStub } = setup(makeGrid([makeRow('apt-1', 'A-1', [{ month: 4, charges: [charge] }])]));
 
     component.openDenyDialog({ type: 'single', charge });
@@ -461,9 +457,9 @@ describe('MaintenanceAdminGridComponent — clubbed submissions (grouping, appro
   it('a charge resubmitted after denial is NOT grouped and shows the normal Approve/Deny buttons', () => {
     const resubmitted = makeGridCharge({
       id: 'charge-resubmitted',
-      status: 'ProofSubmitted',
-      submissionGroupId: 'brand-new-group-from-resubmission',
-      rejectionReason: null,
+      st: 'ProofSubmitted',
+      sgi: 'brand-new-group-from-resubmission',
+      rr: null,
     });
     const { component } = setup(makeGrid([makeRow('apt-1', 'A-1', [{ month: 4, charges: [resubmitted] }])]));
 
@@ -472,7 +468,7 @@ describe('MaintenanceAdminGridComponent — clubbed submissions (grouping, appro
   });
 
   it('a Rejected charge (awaiting resubmission) shows its denial reason and no Approve/Deny buttons', () => {
-    const denied = makeGridCharge({ id: 'charge-denied', status: 'Rejected', rejectionReason: 'Amount mismatch.' });
+    const denied = makeGridCharge({ id: 'charge-denied', st: 'Rejected', rr: 'Amount mismatch.' });
     const { component } = setup(makeGrid([makeRow('apt-1', 'A-1', [{ month: 4, charges: [denied] }])]));
 
     // Not grouped (Rejected is excluded from the grouping predicate) — falls back to normal view.
@@ -483,22 +479,22 @@ describe('MaintenanceAdminGridComponent — clubbed submissions (grouping, appro
 describe('MaintenanceAdminGridComponent — silent auto-refresh', () => {
   function makeGridCharge(overrides: Partial<MaintenanceGridCharge> = {}): MaintenanceGridCharge {
     return {
-      id: 'charge-1', scheduleId: 'sched-1', scheduleName: 'Monthly Maintenance', amount: 5000,
-      status: 'ProofSubmitted', dueDate: '2026-07-05T00:00:00Z', isOverdue: false,
-      paidAt: null, paymentMethod: null, transactionReference: null, receiptUrl: null, notes: null,
-      proofs: [], ...overrides,
+      id: 'charge-1', sid: 'sched-1', snm: 'Monthly Maintenance', amt: 5000,
+      st: 'ProofSubmitted', dd: '2026-07-05T00:00:00Z', ov: false,
+      pa: null, pm: null, tr: null, ru: null, nt: null,
+      pf: [], ...overrides,
     };
   }
 
   function makeRow(apartmentId: string, apartmentNumber: string, charges: MaintenanceGridCharge[]): MaintenanceGridRow {
     return {
-      apartmentId, apartmentNumber, residentName: `Resident ${apartmentNumber}`,
-      months: [{ month: 7, totalAmount: charges.reduce((s, c) => s + c.amount, 0), hasOverdue: false, charges }],
+      aid: apartmentId, anm: apartmentNumber, rn: `Resident ${apartmentNumber}`,
+      mos: [{ mo: 7, ta: charges.reduce((s, c) => s + c.amt, 0), ho: false, chg: charges }],
     };
   }
 
   function makeGrid(rows: MaintenanceGridRow[]): MaintenanceChargeGrid {
-    return { societyId: 'soc-1', year: 2026, months: [7], summary: { pendingAmount: 0, submittedAmount: 0, paidAmount: 0, pendingCount: 0, submittedCount: 0, paidCount: 0 }, rows };
+    return { mos: [7], sum: { pa: 0, sa: 0, pda: 0, pc: 0, sc: 0, pdc: 0 }, rows };
   }
 
   function setup(initialGrid: MaintenanceChargeGrid) {
@@ -533,14 +529,14 @@ describe('MaintenanceAdminGridComponent — silent auto-refresh', () => {
     component.onGridScroll({ target: { scrollHeight: 1000, scrollTop: 750, clientHeight: 200 } } as unknown as Event);
     const expandedRowCount = component.visibleRowCount();
 
-    const resubmitted = makeGridCharge({ id: 'charge-2', status: 'ProofSubmitted' });
+    const resubmitted = makeGridCharge({ id: 'charge-2', st: 'ProofSubmitted' });
     maintenanceServiceStub.getChargeGrid.and.returnValue(of(makeGrid([makeRow('apt-1', 'A-1', [charge, resubmitted])])));
 
     component.loadGrid(true);
 
     expect(component.loading()).toBeFalse();
     // A resident's newly (re)submitted proof is now visible without a manual reload.
-    expect(component.grid()!.rows[0].months[0].charges.map(c => c.id)).toContain('charge-2');
+    expect(component.grid()!.rows[0].mos[0].chg.map(c => c.id)).toContain('charge-2');
     expect(component.visibleRowCount()).toBe(expandedRowCount);
   });
 

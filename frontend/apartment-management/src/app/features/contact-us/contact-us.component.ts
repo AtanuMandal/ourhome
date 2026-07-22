@@ -23,34 +23,34 @@ import { Society } from '../../core/models/society.model';
         <div class="card">
           <div class="soc-brand">
             <div class="soc-icon"><span class="material-icons">location_city</span></div>
-            <h2>{{ society()!.name }}</h2>
+            <h2>{{ society()!.nm }}</h2>
           </div>
 
-          @if (society()!.contactEmail || society()!.contactPhone) {
+          @if (society()!.ce || society()!.cp) {
             <mat-divider style="margin:16px 0"></mat-divider>
             <div class="section-title">Society Office</div>
-            @if (society()!.contactEmail) {
-              <a class="contact-row" [href]="'mailto:' + society()!.contactEmail">
-                <mat-icon>email</mat-icon><span>{{ society()!.contactEmail }}</span>
+            @if (society()!.ce) {
+              <a class="contact-row" [href]="'mailto:' + society()!.ce">
+                <mat-icon>email</mat-icon><span>{{ society()!.ce }}</span>
               </a>
             }
-            @if (society()!.contactPhone) {
-              <a class="contact-row" [href]="'tel:' + society()!.contactPhone">
-                <mat-icon>phone</mat-icon><span>{{ society()!.contactPhone }}</span>
+            @if (society()!.cp) {
+              <a class="contact-row" [href]="'tel:' + society()!.cp">
+                <mat-icon>phone</mat-icon><span>{{ society()!.cp }}</span>
               </a>
             }
           }
 
-          @if (society()!.committees.length) {
+          @if (society()!.cm.length) {
             <mat-divider style="margin:16px 0"></mat-divider>
             <div class="section-title">Committees</div>
-            @for (committee of society()!.committees; track committee.name) {
+            @for (committee of society()!.cm; track committee.nm) {
               <div class="committee-card">
-                <div class="committee-card__title">{{ committee.name }}</div>
-                @for (member of committee.members; track member.userId + member.roleTitle) {
+                <div class="committee-card__title">{{ committee.nm }}</div>
+                @for (member of committee.mem; track member.uid + member.rt) {
                   <div class="committee-member">
-                    <span class="committee-member__name">{{ member.fullName }}</span>
-                    <span class="committee-member__role">{{ member.roleTitle }}</span>
+                    <span class="committee-member__name">{{ member.fn }}</span>
+                    <span class="committee-member__role">{{ member.rt }}</span>
                   </div>
                 }
               </div>

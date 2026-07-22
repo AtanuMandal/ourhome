@@ -5,9 +5,10 @@ import type { MaintenanceCharge, PaginatedResponse } from '../types';
 
 const BASE_URL = process.env['API_BASE_URL'] ?? 'http://192.168.1.2:7071/api';
 
+// Matches backend MaintenanceProofUploadResponse — field names shortened to match its compressed JSON keys.
 export interface MaintenanceProofUploadResult {
-  fileName: string;
-  fileUrl: string;
+  fn: string; // fileName
+  fu: string; // fileUrl
 }
 
 export const maintenanceApi = {

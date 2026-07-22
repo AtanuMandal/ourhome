@@ -11,13 +11,11 @@ describe('PollListComponent', () => {
   function summary(overrides: Partial<PollSummary>): PollSummary {
     return {
       id: overrides.id ?? 'p1',
-      title: overrides.title ?? 'Repaint the gate?',
-      type: overrides.type ?? 'SingleChoice',
-      opensAt: '2026-01-01T00:00:00Z',
-      closesAt: '2026-01-10T00:00:00Z',
-      status: overrides.status ?? 'Open',
-      isAgmResolution: overrides.isAgmResolution ?? false,
-      resultsPublished: overrides.resultsPublished ?? false,
+      tt: 'Repaint the gate?',
+      ty: 'SingleChoice',
+      ca: '2026-01-10T00:00:00Z',
+      st: 'Open',
+      agm: false,
       ...overrides,
     };
   }
@@ -43,7 +41,7 @@ describe('PollListComponent', () => {
   }
 
   it('loads polls on init', () => {
-    const { component, pollServiceStub } = setup([summary({ id: '1' }), summary({ id: '2', status: 'Closed' })]);
+    const { component, pollServiceStub } = setup([summary({ id: '1' }), summary({ id: '2', st: 'Closed' })]);
 
     expect(pollServiceStub.list).toHaveBeenCalledWith('soc-1', 1, 50);
     expect(component.items().length).toBe(2);

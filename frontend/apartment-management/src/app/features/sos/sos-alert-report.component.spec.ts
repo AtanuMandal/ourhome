@@ -9,14 +9,11 @@ import { SosAlertReport } from '../../core/models/sos.model';
 describe('SosAlertReportComponent', () => {
   function report(overrides: Partial<SosAlertReport> = {}): SosAlertReport {
     return {
-      fromDate: '2026-01-01T00:00:00Z',
-      toDate: '2026-01-31T00:00:00Z',
-      totalAlerts: 4,
-      falseAlarmCount: 1,
-      falseAlarmRatePercent: 25,
-      averageAcknowledgeSeconds: 45,
-      averageResolveSeconds: 300,
-      byCategory: [{ category: 'Fire', count: 3 }, { category: 'Medical', count: 1 }],
+      ta: 4,
+      fr: 25,
+      aa: 45,
+      ar: 300,
+      bc: [{ cat: 'Fire', ct: 3 }, { cat: 'Medical', ct: 1 }],
       ...overrides,
     };
   }
@@ -45,7 +42,7 @@ describe('SosAlertReportComponent', () => {
     const { component, sosServiceStub } = setup();
 
     expect(sosServiceStub.report).toHaveBeenCalledWith('soc-1', component.fromDate(), component.toDate());
-    expect(component.report()?.totalAlerts).toBe(4);
+    expect(component.report()?.ta).toBe(4);
   });
 
   it('reruns the report with the selected date range', () => {

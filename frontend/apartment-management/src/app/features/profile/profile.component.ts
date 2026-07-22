@@ -31,17 +31,17 @@ const PHONE_PATTERN = /^\d{10}$/;
     <div class="page-content">
       <div class="profile-header">
         <div class="avatar-upload">
-          <app-user-avatar [name]="auth.user()?.fullName ?? auth.user()?.name ?? ''"
-            [pictureUrl]="auth.user()?.profilePictureUrl" class="avatar-xl-host"></app-user-avatar>
+          <app-user-avatar [name]="auth.user()?.fn ?? auth.user()?.nm ?? ''"
+            [pictureUrl]="auth.user()?.pic" class="avatar-xl-host"></app-user-avatar>
           <button mat-mini-fab color="primary" class="avatar-upload__btn" type="button"
                   aria-label="Change profile picture" (click)="pictureInput.click()">
             <mat-icon>photo_camera</mat-icon>
           </button>
           <input #pictureInput type="file" accept="image/*" hidden (change)="onPictureSelected($event)">
         </div>
-        <h2>{{ auth.user()?.name }}</h2>
-        <span class="role-chip">{{ auth.user()?.role }}</span>
-        <p class="email">{{ auth.user()?.email }}</p>
+        <h2>{{ auth.user()?.nm }}</h2>
+        <span class="role-chip">{{ auth.user()?.rl }}</span>
+        <p class="email">{{ auth.user()?.em }}</p>
       </div>
 
       <div class="card">
@@ -72,7 +72,7 @@ const PHONE_PATTERN = /^\d{10}$/;
 
       <div class="card" style="margin-top:16px">
         <div class="section-title">Change Password</div>
-        @if (!auth.user()?.isVerified) {
+        @if (!auth.user()?.vf) {
           <p style="color:var(--text-secondary);font-size:13px;">
             Set your password using the OTP you received via SMS during registration.
             Use Forgot Password on the login screen.
@@ -157,7 +157,7 @@ export class ProfileComponent implements OnInit {
   );
 
   initials() {
-    return (this.auth.user()?.name ?? '')
+    return (this.auth.user()?.nm ?? '')
       .split(' ')
       .map(n => n[0])
       .join('')
@@ -168,7 +168,7 @@ export class ProfileComponent implements OnInit {
   ngOnInit() {
     const u = this.auth.user();
     if (u) {
-      this.infoForm.patchValue({ fullName: u.name, phone: u.phone ?? '' });
+      this.infoForm.patchValue({ fullName: u.nm, phone: u.ph ?? '' });
     }
   }
 
@@ -189,7 +189,7 @@ export class ProfileComponent implements OnInit {
         this.userSvc.uploadProfilePicture(sid, uid, blob).subscribe({
           next: res => {
             this.saving.set(false);
-            this.auth.updateUser({ profilePictureUrl: res.profilePictureUrl });
+            this.auth.updateUser({ pic: res.pic });
             this.snackBar.open('Profile picture updated.', 'Dismiss', { duration: 3000 });
           },
           error: () => {

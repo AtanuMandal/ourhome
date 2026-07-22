@@ -96,7 +96,7 @@ export class SosTriggerComponent implements OnDestroy {
       this.sos.get(societyId, alertId).subscribe({
         next: (alert) => {
           this.activeAlert.set(alert);
-          if (!ACTIVE_STATUSES.has(alert.status)) this.stopPolling();
+          if (!ACTIVE_STATUSES.has(alert.st)) this.stopPolling();
         },
       });
     });

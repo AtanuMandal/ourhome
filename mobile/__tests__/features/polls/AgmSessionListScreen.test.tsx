@@ -41,7 +41,7 @@ function renderScreen() {
 describe('AgmSessionListScreen', () => {
   function setUser(role: 'SUAdmin' | 'SUUser') {
     useAuthStore.setState({
-      user: { id: 'viewer1', societyId: 'soc-1', fullName: 'Viewer', email: 'v@a.com', phone: '1', role, residentType: 'SocietyAdmin', apartmentId: undefined, isVerified: true, isActive: true },
+      user: { id: 'viewer1', sid: 'soc-1', fn: 'Viewer', em: 'v@a.com', ph: '1', rl: role, rt: 'SocietyAdmin', aid: undefined, vf: true, ac: true },
       token: 'tok',
       isAuthenticated: true,
     });
@@ -53,7 +53,7 @@ describe('AgmSessionListScreen', () => {
 
   test('renders session titles from the list', async () => {
     setUser('SUUser');
-    mockSessionData = [{ id: '1', title: 'AGM 2026', sessionDate: '2026-04-01T00:00:00Z', resolutionCount: 3 }];
+    mockSessionData = [{ id: '1', tt: 'AGM 2026', sd: '2026-04-01T00:00:00Z', rc: 3 }];
 
     renderScreen();
 
@@ -62,7 +62,7 @@ describe('AgmSessionListScreen', () => {
 
   test('shows the add-session FAB for SUAdmin', async () => {
     setUser('SUAdmin');
-    mockSessionData = [{ id: '1', title: 'AGM 2026', sessionDate: '2026-04-01T00:00:00Z', resolutionCount: 3 }];
+    mockSessionData = [{ id: '1', tt: 'AGM 2026', sd: '2026-04-01T00:00:00Z', rc: 3 }];
 
     renderScreen();
 
@@ -72,7 +72,7 @@ describe('AgmSessionListScreen', () => {
 
   test('does not show the add-session FAB for SUUser', async () => {
     setUser('SUUser');
-    mockSessionData = [{ id: '1', title: 'AGM 2026', sessionDate: '2026-04-01T00:00:00Z', resolutionCount: 3 }];
+    mockSessionData = [{ id: '1', tt: 'AGM 2026', sd: '2026-04-01T00:00:00Z', rc: 3 }];
 
     renderScreen();
 

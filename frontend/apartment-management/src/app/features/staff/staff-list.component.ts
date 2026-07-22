@@ -51,16 +51,16 @@ interface CategoryGroup { category: StaffCategory; staff: Staff[]; }
             <div class="staff-list">
               @for (s of group.staff; track s.id) {
                 <div class="staff-card">
-                  <div class="avatar">{{ s.fullName[0] }}</div>
+                  <div class="avatar">{{ s.fn[0] }}</div>
                   <div class="sc-info">
-                    <span class="sc-name">{{ s.fullName }}</span>
-                    <span class="sc-meta">{{ s.phone }} @if (s.shiftName) { · {{ s.shiftName }} }</span>
-                    @if (!s.isActive) { <span class="sc-inactive">Deactivated</span> }
+                    <span class="sc-name">{{ s.fn }}</span>
+                    <span class="sc-meta">{{ s.ph }} @if (s.sn) { · {{ s.sn }} }</span>
+                    @if (!s.ac) { <span class="sc-inactive">Deactivated</span> }
                   </div>
                   @if (isOnDuty(s.id)) {
                     <span class="on-duty-chip">On Duty</span>
                   }
-                  @if (s.isActive) {
+                  @if (s.ac) {
                     @if (isOnDuty(s.id)) {
                       <button mat-stroked-button color="warn" type="button" [disabled]="actioning() === s.id" (click)="checkOut(s)">
                         Check Out
@@ -73,7 +73,7 @@ interface CategoryGroup { category: StaffCategory; staff: Staff[]; }
                   }
                   @if (isAdmin()) {
                     <a [routerLink]="[s.id, 'edit']" mat-icon-button aria-label="Edit staff"><mat-icon>edit</mat-icon></a>
-                    @if (s.isActive) {
+                    @if (s.ac) {
                       <button mat-icon-button type="button" aria-label="Deactivate staff"
                               [disabled]="actioning() === s.id" (click)="deactivate(s)">
                         <mat-icon>person_off</mat-icon>
@@ -122,16 +122,16 @@ export class StaffListComponent implements OnInit {
     const list = this.items();
     if (!term) return list;
     return list.filter(s =>
-      s.fullName.toLowerCase().includes(term) ||
-      s.phone.toLowerCase().includes(term)
+      s.fn.toLowerCase().includes(term) ||
+      s.ph.toLowerCase().includes(term)
     );
   });
 
   readonly groupedByCategory = computed<CategoryGroup[]>(() => {
     const byCategory = new Map<StaffCategory, Staff[]>();
     for (const s of this.filtered()) {
-      if (!byCategory.has(s.category)) byCategory.set(s.category, []);
-      byCategory.get(s.category)!.push(s);
+      if (!byCategory.has(s.cat)) byCategory.set(s.cat, []);
+      byCategory.get(s.cat)!.push(s);
     }
     return CATEGORY_ORDER
       .filter(category => byCategory.has(category))
@@ -151,7 +151,7 @@ export class StaffListComponent implements OnInit {
     });
 
     this.staffSvc.onDuty(sid).subscribe({
-      next: onDuty => this.onDutyStaffIds.set(new Set(onDuty.map(a => a.staffId))),
+      next: onDuty => this.onDutyStaffIds.set(new Set(onDuty.map(a => a.sid))),
       error: () => {},
     });
   }
@@ -168,7 +168,7 @@ export class StaffListComponent implements OnInit {
       next: () => {
         this.onDutyStaffIds.update(set => new Set(set).add(staff.id));
         this.actioning.set(null);
-        this.snackBar.open(`${staff.fullName} checked in.`, 'Dismiss', { duration: 3000 });
+        this.snackBar.open(`${staff.fn} checked in.`, 'Dismiss', { duration: 3000 });
       },
       error: () => this.actioning.set(null),
     });
@@ -186,7 +186,7 @@ export class StaffListComponent implements OnInit {
           return next;
         });
         this.actioning.set(null);
-        this.snackBar.open(`${staff.fullName} checked out.`, 'Dismiss', { duration: 3000 });
+        this.snackBar.open(`${staff.fn} checked out.`, 'Dismiss', { duration: 3000 });
       },
       error: () => this.actioning.set(null),
     });
@@ -195,12 +195,12 @@ export class StaffListComponent implements OnInit {
   deactivate(staff: Staff) {
     const sid = this.auth.societyId();
     if (!sid) return;
-    if (!confirm(`Deactivate ${staff.fullName}?`)) return;
+    if (!confirm(`Deactivate ${staff.fn}?`)) return;
 
     this.actioning.set(staff.id);
     this.staffSvc.deactivate(sid, staff.id).subscribe({
       next: () => {
-        this.items.update(list => list.map(s => s.id === staff.id ? { ...s, isActive: false } : s));
+        this.items.update(list => list.map(s => s.id === staff.id ? { ...s, ac: false } : s));
         this.actioning.set(null);
         this.snackBar.open('Staff member deactivated.', 'Dismiss', { duration: 3000 });
       },

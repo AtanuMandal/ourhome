@@ -33,19 +33,19 @@ export function ContactUsScreen() {
         <ScrollView contentContainerStyle={styles.content}>
           {society && (
             <>
-              <Text style={styles.societyName}>{society.name}</Text>
+              <Text style={styles.societyName}>{society.nm}</Text>
 
-              {(society.contactEmail || society.contactPhone) && (
+              {(society.ce || society.cp) && (
                 <View style={styles.card}>
                   <Text style={styles.sectionTitle}>Society Office</Text>
-                  {society.contactEmail && (
-                    <TouchableOpacity style={styles.contactRow} onPress={() => Linking.openURL(`mailto:${society.contactEmail}`)}>
-                      <Text style={styles.contactText}>✉️ {society.contactEmail}</Text>
+                  {society.ce && (
+                    <TouchableOpacity style={styles.contactRow} onPress={() => Linking.openURL(`mailto:${society.ce}`)}>
+                      <Text style={styles.contactText}>✉️ {society.ce}</Text>
                     </TouchableOpacity>
                   )}
-                  {society.contactPhone && (
-                    <TouchableOpacity style={styles.contactRow} onPress={() => Linking.openURL(`tel:${society.contactPhone}`)}>
-                      <Text style={styles.contactText}>📞 {society.contactPhone}</Text>
+                  {society.cp && (
+                    <TouchableOpacity style={styles.contactRow} onPress={() => Linking.openURL(`tel:${society.cp}`)}>
+                      <Text style={styles.contactText}>📞 {society.cp}</Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -53,16 +53,16 @@ export function ContactUsScreen() {
 
               <View style={styles.card}>
                 <Text style={styles.sectionTitle}>Committees</Text>
-                {society.committees.length === 0 ? (
+                {society.cm.length === 0 ? (
                   <Text style={styles.emptyCopy}>No committees have been published yet.</Text>
                 ) : (
-                  society.committees.map((committee) => (
-                    <View key={committee.name} style={styles.committeeCard}>
-                      <Text style={styles.committeeTitle}>{committee.name}</Text>
-                      {committee.members.map((member) => (
-                        <View key={member.userId + member.roleTitle} style={styles.memberRow}>
-                          <Text style={styles.memberName}>{member.fullName}</Text>
-                          <Text style={styles.memberRole}>{member.roleTitle}</Text>
+                  society.cm.map((committee) => (
+                    <View key={committee.nm} style={styles.committeeCard}>
+                      <Text style={styles.committeeTitle}>{committee.nm}</Text>
+                      {committee.mem.map((member) => (
+                        <View key={member.uid + member.rt} style={styles.memberRow}>
+                          <Text style={styles.memberName}>{member.fn}</Text>
+                          <Text style={styles.memberRole}>{member.rt}</Text>
                         </View>
                       ))}
                     </View>

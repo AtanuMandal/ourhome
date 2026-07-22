@@ -16,7 +16,7 @@ import type { Society } from '../../api/endpoints/society';
 
 export function HqSocietyListScreen() {
   const navigation = useNavigation<any>(); // eslint-disable-line @typescript-eslint/no-explicit-any
-  const role = useAuthStore((s) => s.user?.role ?? '');
+  const role = useAuthStore((s) => s.user?.rl ?? '');
   const isHqAdmin = role === 'HQAdmin';
 
   const { data, isLoading, refetch, isRefetching } = useHqSocieties();
@@ -49,29 +49,29 @@ export function HqSocietyListScreen() {
         renderItem={({ item }) => (
           <View style={styles.card}>
             <View style={styles.rowBetween}>
-              <Text style={styles.name}>{item.name}</Text>
-              <StatusChip status={item.status} />
+              <Text style={styles.name}>{item.nm}</Text>
+              <StatusChip status={item.st} />
             </View>
             <Text style={styles.meta}>
-              {item.address?.city ? `${item.address.city}, ${item.address.state} · ` : ''}{item.totalApartments} apartments
+              {item.addr?.cty ? `${item.addr.cty}, ${item.addr.ste} · ` : ''}{item.ta} apartments
             </Text>
             <View style={styles.actionsRow}>
               <TouchableOpacity
                 style={styles.reportBtn}
-                onPress={() => navigation.navigate('HqSocietyReport', { id: item.id, name: item.name })}
+                onPress={() => navigation.navigate('HqSocietyReport', { id: item.id, name: item.nm })}
               >
                 <Text style={styles.reportBtnText}>Report</Text>
               </TouchableOpacity>
               {isHqAdmin && (
                 <TouchableOpacity
                   style={styles.editBtn}
-                  onPress={() => navigation.navigate('HqSocietyEdit', { id: item.id, name: item.name })}
+                  onPress={() => navigation.navigate('HqSocietyEdit', { id: item.id, name: item.nm })}
                 >
                   <Text style={styles.editBtnText}>Edit</Text>
                 </TouchableOpacity>
               )}
               {isHqAdmin && (
-                item.status === 'Active' ? (
+                item.st === 'Active' ? (
                   <TouchableOpacity style={styles.disableBtn} onPress={() => handleDeactivate(item)}>
                     <Text style={styles.disableBtnText}>Disable</Text>
                   </TouchableOpacity>

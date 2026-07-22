@@ -77,9 +77,10 @@ public class CreatePollCommandHandlerTests
     public async Task Handle_WithValidAgmSessionId_LinksPollToSession()
     {
         var session = AgmSession.Create("soc-001", "admin-001", "AGM 2026", "desc", DateTime.UtcNow.AddDays(30));
+        Poll? created = null;
         _agmSessionRepoMock.Setup(r => r.GetByIdAsync(session.Id, "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync(session);
         _pollRepoMock.Setup(r => r.CreateAsync(It.IsAny<Poll>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Poll p, CancellationToken _) => p);
+            .ReturnsAsync((Poll p, CancellationToken _) => { created = p; return p; });
         _userRepoMock.Setup(r => r.GetByRoleAsync("soc-001", UserRole.SUUser, 1, 500, It.IsAny<CancellationToken>()))
             .ReturnsAsync((IReadOnlyList<User>)[]);
 
@@ -89,7 +90,7 @@ public class CreatePollCommandHandlerTests
             PollAnonymity.Identified, PollVisibility.AfterClose, null, 50, true, true, session.Id), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        result.Value!.AgmSessionId.Should().Be(session.Id);
+        created!.AgmSessionId.Should().Be(session.Id);
     }
 
     [Fact]

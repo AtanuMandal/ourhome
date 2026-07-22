@@ -32,17 +32,17 @@ import { Society } from '../../core/models/society.model';
         @for (society of societies(); track society.id) {
           <div class="card society-row">
             <div class="society-info">
-              <div class="society-name">{{ society.name }}</div>
+              <div class="society-name">{{ society.nm }}</div>
               <div class="society-meta">
-                {{ society.address.city }}, {{ society.address.state }} &middot; {{ society.totalApartments }} apartments
+                {{ society.addr.cty }}, {{ society.addr.ste }} &middot; {{ society.ta }} apartments
               </div>
             </div>
-            <app-status-chip [status]="society.status"></app-status-chip>
+            <app-status-chip [status]="society.st"></app-status-chip>
             <div class="society-actions">
               <a mat-stroked-button [routerLink]="['/hq/societies', society.id, 'report']">Report</a>
               @if (isHqAdmin()) {
                 <a mat-stroked-button [routerLink]="['/hq/societies', society.id, 'edit']">Edit</a>
-                @if (society.status === 'Active') {
+                @if (society.st === 'Active') {
                   <button mat-stroked-button color="warn" (click)="deactivate(society)">Disable</button>
                 } @else {
                   <button mat-stroked-button color="primary" (click)="activate(society)">Enable</button>
@@ -91,7 +91,7 @@ export class HqSocietiesListComponent implements OnInit {
   activate(society: Society) {
     this.svc.activate(society.id).subscribe({
       next: () => {
-        this.snackBar.open(`${society.name} enabled.`, 'Dismiss', { duration: 3000 });
+        this.snackBar.open(`${society.nm} enabled.`, 'Dismiss', { duration: 3000 });
         this.load();
       },
     });
@@ -100,7 +100,7 @@ export class HqSocietiesListComponent implements OnInit {
   deactivate(society: Society) {
     this.svc.deactivate(society.id).subscribe({
       next: () => {
-        this.snackBar.open(`${society.name} disabled.`, 'Dismiss', { duration: 3000 });
+        this.snackBar.open(`${society.nm} disabled.`, 'Dismiss', { duration: 3000 });
         this.load();
       },
     });

@@ -58,7 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const themeStatus = useThemeStore((s) => s.status);
   const resolveTheme = useThemeStore((s) => s.resolveTheme);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const societyId = useAuthStore((s) => s.user?.societyId);
+  const societyId = useAuthStore((s) => s.user?.sid);
 
   useEffect(() => {
     async function restoreSession(): Promise<void> {
@@ -78,14 +78,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 'SUUser';
               const user: User = {
                 id: payload.sub ?? payload.userId ?? '',
-                societyId: payload.societyId ?? '',
-                fullName: payload.email ?? '',  // fullName not in JWT; use email as fallback
-                email: payload.email ?? '',
-                phone: '',
-                role,
-                residentType: 'Owner',
-                isVerified: true,
-                isActive: true,
+                sid: payload.societyId ?? '',
+                fn: payload.email ?? '',  // fullName not in JWT; use email as fallback
+                em: payload.email ?? '',
+                ph: '',
+                rl: role,
+                rt: 'Owner',
+                vf: true,
+                ac: true,
               };
               setUser(user, storedToken);
             } else {

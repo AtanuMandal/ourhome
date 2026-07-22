@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { profileApi } from '../../../api/endpoints/profile';
 import { uploadProfilePicture } from '../../../camera/imageUpload';
-import type { User } from '../../../api/types';
 
 export function useProfile(societyId: string, userId: string) {
   return useQuery({
@@ -14,7 +13,7 @@ export function useProfile(societyId: string, userId: string) {
 export function useUpdateProfile(societyId: string, userId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: Partial<User>) =>
+    mutationFn: (data: { fullName?: string; phone?: string }) =>
       profileApi.updateProfile(societyId, userId, data),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['profile', societyId, userId] });

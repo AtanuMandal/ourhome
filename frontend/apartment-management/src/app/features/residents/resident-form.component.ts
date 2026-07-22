@@ -87,7 +87,7 @@ const PHONE_PATTERN = /^\d{10}$/;
             <div class="card mt-16" style="background:#fff8e1;border:1px solid #ffe082;">
               <div style="font-weight:600;margin-bottom:8px;">Resident already exists</div>
               <div style="margin-bottom:12px;">
-                {{ duplicateResident()!.fullName ?? duplicateResident()!.name }} already uses this email.
+                {{ duplicateResident()!.fn ?? duplicateResident()!.nm }} already uses this email.
                 Open the resident details page and add another apartment there.
               </div>
               <a mat-stroked-button color="primary"
@@ -236,14 +236,14 @@ export class ResidentFormComponent implements OnInit {
 
   private configureResidentTypes() {
     const user = this.auth.user();
-    const options = user?.role === 'SUAdmin'
+    const options = user?.rl === 'SUAdmin'
       ? [{ value: 'Owner' as ResidentType, label: 'Owner' }]
-      : user?.residentType === 'Owner'
+      : user?.rt === 'Owner'
         ? [
             { value: 'Tenant' as ResidentType, label: 'Tenant' },
             { value: 'FamilyMember' as ResidentType, label: 'Family Member' },
           ]
-        : user?.residentType === 'Tenant'
+        : user?.rt === 'Tenant'
           ? [{ value: 'CoOccupant' as ResidentType, label: 'Co-Occupant' }]
           : [];
 

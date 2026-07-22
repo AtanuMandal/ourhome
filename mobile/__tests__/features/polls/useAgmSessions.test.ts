@@ -33,8 +33,8 @@ describe('useAgmSessions', () => {
   test('useAgmSessionList returns the flat session list', async () => {
     mockGetSessions.mockResolvedValue({
       items: [
-        { id: '1', title: 'AGM 2025', sessionDate: '2025-04-01T00:00:00Z', resolutionCount: 2 },
-        { id: '2', title: 'AGM 2026', sessionDate: '2026-04-01T00:00:00Z', resolutionCount: 3 },
+        { id: '1', tt: 'AGM 2025', sd: '2025-04-01T00:00:00Z', rc: 2 },
+        { id: '2', tt: 'AGM 2026', sd: '2026-04-01T00:00:00Z', rc: 3 },
       ],
       total: 2, page: 1, pageSize: 50,
     });
@@ -47,18 +47,18 @@ describe('useAgmSessions', () => {
 
   test('useAgmSession returns the session detail with resolutions', async () => {
     mockGetSession.mockResolvedValue({
-      id: 's1', societyId: 'soc1', title: 'AGM 2026', description: 'desc', sessionDate: '2026-04-01T00:00:00Z',
-      createdByUserId: 'admin1', createdAt: '2026-01-01T00:00:00Z', resolutions: [],
+      id: 's1', tt: 'AGM 2026', ds: 'desc', sd: '2026-04-01T00:00:00Z',
+      r: [],
     });
 
     const { result } = renderHook(() => useAgmSession('soc1', 's1'), { wrapper: createWrapper() });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data?.title).toBe('AGM 2026');
+    expect(result.current.data?.tt).toBe('AGM 2026');
   });
 
   test('useCreateAgmSession resolves on success', async () => {
-    mockCreate.mockResolvedValue({ id: 's1', title: 'AGM 2026', sessionDate: '2026-04-01T00:00:00Z', resolutionCount: 0 });
+    mockCreate.mockResolvedValue({ id: 's1', tt: 'AGM 2026', sd: '2026-04-01T00:00:00Z', rc: 0 });
 
     const { result } = renderHook(() => useCreateAgmSession('soc1'), { wrapper: createWrapper() });
     result.current.mutate({ title: 'AGM 2026', description: 'desc', sessionDate: '2026-04-01T00:00:00Z' });
