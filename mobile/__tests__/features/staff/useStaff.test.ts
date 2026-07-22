@@ -1,13 +1,21 @@
 import React from 'react';
 import { renderHook, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useStaffList, useCheckInStaff, useCheckOutStaff, useDeactivateStaff } from '../../../src/features/staff/hooks/useStaff';
-import type { PaginatedResponse, Staff, StaffAttendance } from '../../../src/api/types';
+import {
+  useStaffList, useCheckInStaff, useCheckOutStaff, useDeactivateStaff, useReactivateStaff, useDeleteStaff,
+  useOnDutyStaff, useUpdateShift, useDeleteShift,
+} from '../../../src/features/staff/hooks/useStaff';
+import type { PaginatedResponse, Shift, Staff, StaffAttendance } from '../../../src/api/types';
 
 const mockGetStaff = jest.fn<Promise<PaginatedResponse<Staff>>, [string, (Record<string, string | number> | undefined)?]>();
 const mockCheckIn = jest.fn<Promise<StaffAttendance>, [string, string]>();
 const mockCheckOut = jest.fn<Promise<StaffAttendance>, [string, string]>();
 const mockDeactivateStaff = jest.fn<Promise<boolean>, [string, string]>();
+const mockReactivateStaff = jest.fn<Promise<boolean>, [string, string]>();
+const mockDeleteStaff = jest.fn<Promise<boolean>, [string, string]>();
+const mockGetOnDuty = jest.fn<Promise<StaffAttendance[]>, [string]>();
+const mockUpdateShift = jest.fn<Promise<Shift>, [string, string, unknown]>();
+const mockDeleteShift = jest.fn<Promise<boolean>, [string, string]>();
 
 jest.mock('../../../src/api/endpoints/staff', () => ({
   staffApi: {
@@ -16,11 +24,15 @@ jest.mock('../../../src/api/endpoints/staff', () => ({
     createStaff: jest.fn(),
     updateStaff: jest.fn(),
     deactivateStaff: (...args: [string, string]) => mockDeactivateStaff(...args),
+    reactivateStaff: (...args: [string, string]) => mockReactivateStaff(...args),
+    deleteStaff: (...args: [string, string]) => mockDeleteStaff(...args),
     checkIn: (...args: [string, string]) => mockCheckIn(...args),
     checkOut: (...args: [string, string]) => mockCheckOut(...args),
-    getOnDuty: jest.fn(),
+    getOnDuty: (...args: [string]) => mockGetOnDuty(...args),
     getShifts: jest.fn(),
     createShift: jest.fn(),
+    updateShift: (...args: [string, string, unknown]) => mockUpdateShift(...args),
+    deleteShift: (...args: [string, string]) => mockDeleteShift(...args),
     getAttendanceReport: jest.fn(),
   },
 }));
@@ -103,5 +115,66 @@ describe('useStaff', () => {
     result.current.mutate('s1');
 
     await waitFor(() => expect(result.current.isError).toBe(true));
+  });
+
+  test('useOnDutyStaff fetches on-duty status by default', async () => {
+    mockGetOnDuty.mockResolvedValue([]);
+
+    const { result } = renderHook(() => useOnDutyStaff('soc1'), { wrapper: createWrapper() });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(mockGetOnDuty).toHaveBeenCalledWith('soc1');
+  });
+
+  test('useOnDutyStaff never fetches when enabled is false (read-only SUUser viewer)', async () => {
+    const { result } = renderHook(() => useOnDutyStaff('soc1', false), { wrapper: createWrapper() });
+
+    expect(result.current.isPending).toBe(true);
+    expect(mockGetOnDuty).not.toHaveBeenCalled();
+  });
+
+  test('useReactivateStaff resolves on success', async () => {
+    mockReactivateStaff.mockResolvedValue(true);
+
+    const { result } = renderHook(() => useReactivateStaff('soc1'), { wrapper: createWrapper() });
+
+    result.current.mutate('s1');
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(mockReactivateStaff).toHaveBeenCalledWith('soc1', 's1');
+  });
+
+  test('useDeleteStaff resolves on success', async () => {
+    mockDeleteStaff.mockResolvedValue(true);
+
+    const { result } = renderHook(() => useDeleteStaff('soc1'), { wrapper: createWrapper() });
+
+    result.current.mutate('s1');
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(mockDeleteStaff).toHaveBeenCalledWith('soc1', 's1');
+  });
+
+  test('useUpdateShift resolves on success', async () => {
+    const updated = { id: 'sh1', societyId: 'soc1', name: 'Morning', startTime: '08:00:00', endTime: '16:00:00', graceMinutes: 15 };
+    mockUpdateShift.mockResolvedValue(updated);
+
+    const { result } = renderHook(() => useUpdateShift('soc1'), { wrapper: createWrapper() });
+
+    result.current.mutate({ id: 'sh1', data: { name: 'Morning', startTime: '08:00:00', endTime: '16:00:00', graceMinutes: 15 } });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(mockUpdateShift).toHaveBeenCalledWith('soc1', 'sh1', { name: 'Morning', startTime: '08:00:00', endTime: '16:00:00', graceMinutes: 15 });
+  });
+
+  test('useDeleteShift surfaces the backend error on failure', async () => {
+    mockDeleteShift.mockRejectedValue({ response: { data: { errorCode: 'SHIFT_IN_USE' } } });
+
+    const { result } = renderHook(() => useDeleteShift('soc1'), { wrapper: createWrapper() });
+
+    result.current.mutate('sh1');
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(mockDeleteShift).toHaveBeenCalledWith('soc1', 'sh1');
   });
 });

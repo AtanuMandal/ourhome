@@ -25,6 +25,10 @@ export interface Society {
   committees: SocietyCommittee[];
   themeId: string;
   createdAt: string;
+  /** App-relative file path shown at the top of the sidenav. Undefined/null means "no logo uploaded — show the default branding". */
+  logoUrl?: string | null;
+  /** App-relative file path for the sidenav content-area background, rendered at 70% opacity. Undefined/null means "no image uploaded — show the default background". */
+  sidenavBackgroundUrl?: string | null;
 }
 
 export interface SocietyUserAssignment {

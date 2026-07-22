@@ -157,8 +157,7 @@ public class MaintenanceFunctions(ISender mediator)
                 floor > 0 ? floor : null,
                 status,
                 fromDate,
-                toDate,
-                req.ParseUpdatedSince()),
+                toDate),
             ct);
         return result.ToActionResult();
     }

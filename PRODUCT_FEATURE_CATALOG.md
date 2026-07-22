@@ -118,6 +118,7 @@ OurHome is a cloud-hosted, always-on platform that helps housing societies and a
 - The first society administrator is verified with a one-time code before they can log in
 - Society administrator can set an "overdue threshold" policy (1–90 days) that determines when unpaid maintenance is flagged as late
 - Society administrator can define committees and assign named office-bearers, and set custom role titles for society members
+- Society administrator can **brand the app** with two independently uploaded images — a logo shown at the top of the sidenav (web) / drawer (mobile), and a background image behind the main content area (the page/screen area, not the navigation panel), automatically rendered at 70% opacity so page content stays readable. Societies that haven't uploaded either see the platform's default branding, on both web and mobile. Each image can also be **removed independently**, reverting to the default branding without needing to upload a replacement
 - Platform admin/viewer can browse and inspect all onboarded societies at any time
 
 **Business Rules**
@@ -128,6 +129,7 @@ OurHome is a cloud-hosted, always-on platform that helps housing societies and a
 - A formal **draft → review → publish** lifecycle so a society can be fully configured and reviewed before it goes live to residents
 - A guided, step-by-step onboarding wizard that bundles maintenance fee setup, amenities, and security staff into one session instead of several separate steps
 - Support for naming **multiple initial administrators** at creation, rather than a single admin
+- A "remove branding" action to explicitly revert to the default logo/background without needing to upload a replacement
 
 ---
 
@@ -448,13 +450,15 @@ OurHome is a cloud-hosted, always-on platform that helps housing societies and a
 
 | Role | Access |
 |---|---|
-| SUAdmin | Manages the staff roster and shifts, marks or corrects attendance, views attendance reports |
+| SUAdmin | Manages the staff roster (add/edit/deactivate/reactivate/permanently delete) and shifts (create/update/delete), marks or corrects attendance, views attendance reports |
 | SUSecurity | Marks staff check-in/check-out at the gate, views today's roster and who is currently on duty |
-| SUUser | No access |
+| SUUser | Read-only — sees each staff member's name and phone number in the roster; no actions (add/edit/deactivate, check-in/out, on-duty status, reports) |
 
 **Business Capabilities**
 - Admin maintains a staff roster with name, phone, photo, category (Security, Housekeeping, Gardener, Plumber, Electrician, Other), assigned shift, and employment type (on-payroll or contractor)
-- Admin defines named shifts with start/end times (e.g., "Morning Security", "Night Security")
+- Any resident (SUUser) can browse the same staff roster from their own menu, read-only — just name and phone per staff member — so they know who's employed by the society without exposing shift/attendance operations
+- Admin defines named shifts with start/end times (e.g., "Morning Security", "Night Security"), and can update or delete a shift afterward — a shift still assigned to an active staff member cannot be deleted, preventing dangling assignments
+- Admin can reactivate a deactivated staff member, or permanently delete a staff record (distinct from deactivate, which only hides them) — deletion doesn't retroactively remove already-recorded attendance history
 - Security or admin marks check-in and check-out with a timestamp; a staff member cannot be checked in twice without an intervening check-out
 - A day with no check-in by the end of a staff member's shift is automatically recorded as Absent
 - Security sees a live "who's currently on duty" view, mirroring the same visibility already available for visitors

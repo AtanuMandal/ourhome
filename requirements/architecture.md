@@ -28,9 +28,10 @@ OurHome is a multi-tenant SaaS platform for apartment society management. The ar
 - ✅ **Implemented:** Separate grid/view containers for data that requires expensive cross-partition reads (e.g., maintenance fee grid is mirrored to a dedicated container).
 
 ### 4. File Storage — Azure Blob Storage
-- Binary files (visitor photos, payment proofs, contract documents, notice attachments) are stored in **Azure Blob Storage**.
+- Binary files (visitor photos, payment proofs, contract documents, notice attachments, society branding) are stored in **Azure Blob Storage**.
 - Locally, **Azurite** (`azurite --silent --location C:\azurite`) emulates Blob Storage.
 - The `IFileStorageService` interface abstracts all blob operations; the implementation is in the Infrastructure layer.
+- Containers are either authenticated-only (maintenance proofs, vendor documents) or publicly readable (`visitor-images`, `profile-pictures`, `society-logos`, `society-backgrounds` — see `FileContainers.PubliclyReadable`), the latter for content a plain `<img>`/CSS `background-image` or native mobile `Image` view needs to render without attaching a JWT header. All use unguessable GUID blob names.
 
 ### 5. Multi-Tenancy
 - Every API route that operates on society data includes `societyId` as a path segment: `/api/societies/{societyId}/...`

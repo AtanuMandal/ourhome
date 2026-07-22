@@ -50,24 +50,6 @@ export const visitorGuard: CanActivateFn = () => {
   return false;
 };
 
-/** Staff attendance / SOS alert management is not resident-facing — only SUAdmin and SUSecurity may access it. */
-export const staffGuard: CanActivateFn = () => {
-  const auth   = inject(AuthService);
-  const router = inject(Router);
-
-  if (!auth.isLoggedIn()) {
-    router.navigate(['/dashboard']);
-    return false;
-  }
-
-  const role = auth.user()?.role;
-  const allowed = role === 'SUAdmin' || role === 'SUSecurity';
-  if (allowed) return true;
-
-  router.navigate(['/dashboard']);
-  return false;
-};
-
 /** Platform-level HQ area (society directory, HQ user management) — HQAdmin and HQUser only. */
 export const hqGuard: CanActivateFn = () => {
   const auth   = inject(AuthService);

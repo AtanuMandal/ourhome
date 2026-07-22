@@ -620,3 +620,8 @@ AZURE_RESOURCE_GROUP     Target resource group (rg-aptmgmt-dev or rg-aptmgmt-pro
 | `Deployment failed: KeyVault secret reference not resolved` | RBAC propagation lag | Wait 60–90 seconds after first deploy and restart the Function App |
 | `az login` fails in GitHub Actions | OIDC federated credential not matching | Check the Organization, Repository, and Branch match exactly in the Azure app registration |
 | Functions returning 500 after deploy | App settings referencing Key Vault but managed identity has no access | Verify the `kvFunctionAppRoleAssignment` in `main.bicep` ran successfully; check in Azure Portal → Key Vault → Access control (IAM) |
+
+
+## in case container count is required more than 25 
+-  .\CosmosDB.Emulator.exe /PartitionCount=50
+- for data Seeding curl -X POST http://localhost:7071/api/seed -H "x-seed-key: dev-seed-2024"

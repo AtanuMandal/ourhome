@@ -51,6 +51,11 @@ export class AppComponent {
   readonly user       = this.auth.user;
   readonly isAuthRoute = signal(false);
 
+  // Society branding (see requirements/account_fee_management.md) — null means "no image
+  // uploaded", in which case the template falls back to the default logo/plain background.
+  readonly logoUrl = this.theme.logoUrl;
+  readonly sidenavBackgroundUrl = this.theme.sidenavBackgroundUrl;
+
   // Multi-apartment users pick their active apartment here; menus and apartment-scoped
   // features follow the role held on the selected apartment.
   readonly apartments = this.auth.apartments;
@@ -93,6 +98,7 @@ export class AppComponent {
     { path: '/complaints',                       icon: 'report_problem',  label: 'Complaints' },
     { path: '/notices',                          icon: 'notifications',   label: 'Notices' },
     { path: '/visitors',                         icon: 'badge',           label: 'Visitors' },
+    { path: '/staff',                            icon: 'work',            label: 'Staff' },
     { path: '/polls',                            icon: 'how_to_vote',     label: 'Polls' },
     { path: '/maintenance',                      icon: 'receipt_long',    label: 'Maintenance' },
     { path: '/financial-report/my-statement',    icon: 'bar_chart',       label: 'My Statement' },

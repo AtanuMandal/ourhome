@@ -2,15 +2,10 @@ import { Apartment, formatApartmentLabel } from '../../core/models/apartment.mod
 import {
   MaintenanceAreaBasis,
   MaintenanceCharge,
-  MaintenanceChargeGrid,
-  MaintenanceChargeGridSummary,
   MaintenanceChargeStatus,
   MaintenanceFrequency,
-  MaintenanceGridCharge,
-  MaintenanceGridRow,
   MaintenancePricingType,
 } from '../../core/models/maintenance.model';
-import { mergeById } from '../../shared/utils/merge-by-id.util';
 import { MONTH_OPTIONS, periodLabel } from '../../shared/utils/period.util';
 
 export { MONTH_OPTIONS, periodLabel };
@@ -188,68 +183,4 @@ export function sortCharges(charges: MaintenanceCharge[]) {
   return charges.slice().sort((left, right) =>
     (right.chargeYear * 100 + right.chargeMonth) - (left.chargeYear * 100 + left.chargeMonth)
   );
-}
-
-/** Recomputes the grid summary from its own rows — never taken from a delta response, whose
- * summary reflects only the (small) changed subset, not the whole grid. */
-export function computeGridSummary(rows: MaintenanceGridRow[]): MaintenanceChargeGridSummary {
-  const charges = rows.flatMap(row => row.months).flatMap(cell => cell.charges);
-  const byStatus = (status: MaintenanceChargeStatus) => charges.filter(charge => charge.status === status);
-
-  return {
-    pendingAmount: byStatus('Pending').reduce((sum, charge) => sum + charge.amount, 0),
-    submittedAmount: byStatus('ProofSubmitted').reduce((sum, charge) => sum + charge.amount, 0),
-    paidAmount: byStatus('Paid').reduce((sum, charge) => sum + charge.amount, 0),
-    pendingCount: byStatus('Pending').length,
-    submittedCount: byStatus('ProofSubmitted').length,
-    paidCount: byStatus('Paid').length,
-  };
-}
-
-/**
- * Merges a sparse delta grid (see requirements/auto_refresh.md) into the existing grid instead
- * of replacing it: matching rows/cells are updated in place, genuinely new rows/cells are
- * appended, and the summary is always recomputed from the merged result via
- * {@link computeGridSummary} — the delta response's own summary is ignored.
- */
-export function mergeGridDelta(
-  existing: MaintenanceChargeGrid,
-  delta: MaintenanceChargeGrid,
-  stillVisible?: (charge: MaintenanceGridCharge) => boolean
-): MaintenanceChargeGrid {
-  if (delta.rows.length === 0) return existing;
-
-  const rowsByApartmentId = new Map(existing.rows.map(row => [row.apartmentId, row]));
-
-  for (const deltaRow of delta.rows) {
-    const existingRow = rowsByApartmentId.get(deltaRow.apartmentId);
-    if (!existingRow) {
-      rowsByApartmentId.set(deltaRow.apartmentId, deltaRow);
-      continue;
-    }
-
-    const cellsByMonth = new Map(existingRow.months.map(cell => [cell.month, cell]));
-    for (const deltaCell of deltaRow.months) {
-      const mergedCharges = mergeById(cellsByMonth.get(deltaCell.month)?.charges ?? [], deltaCell.charges, { stillVisible });
-      cellsByMonth.set(deltaCell.month, {
-        month: deltaCell.month,
-        totalAmount: mergedCharges.reduce((sum, charge) => sum + charge.amount, 0),
-        hasOverdue: mergedCharges.some(charge => charge.isOverdue),
-        charges: mergedCharges,
-      });
-    }
-
-    const monthOrder = [
-      ...existingRow.months.map(cell => cell.month),
-      ...deltaRow.months.map(cell => cell.month).filter(month => !existingRow.months.some(cell => cell.month === month)),
-    ];
-
-    rowsByApartmentId.set(deltaRow.apartmentId, {
-      ...existingRow,
-      months: monthOrder.map(month => cellsByMonth.get(month)!),
-    });
-  }
-
-  const rows = Array.from(rowsByApartmentId.values());
-  return { ...existing, rows, summary: computeGridSummary(rows) };
 }

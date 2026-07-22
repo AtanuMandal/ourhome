@@ -1,10 +1,11 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, Image, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import type { DrawerContentComponentProps } from '@react-navigation/drawer';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../store/authStore';
 import { useAuth } from '../auth/useAuth';
+import { useThemeStore } from '../store/themeStore';
 import { useThemeColors } from '../shared/hooks/useThemeColors';
 import { useActiveApartment } from '../shared/hooks/useActiveApartment';
 import { UserAvatar } from '../shared/components/UserAvatar';
@@ -47,6 +48,7 @@ const MENU_SUUSER: MenuItem[] = [
   { name: 'Apartments',      icon: 'domain',          label: 'Apartments' },
   { name: 'Residents',       icon: 'people',          label: 'Residents' },
   { name: 'Visitors',        icon: 'badge',           label: 'Visitors' },
+  { name: 'Staff',           icon: 'work',            label: 'Staff' },
   { name: 'Polls',           icon: 'how-to-vote',     label: 'Polls' },
   { name: 'Notices',         icon: 'notifications',   label: 'Notices' },
   { name: 'Complaints',      icon: 'report-problem',  label: 'Complaints' },
@@ -113,6 +115,10 @@ export function CustomDrawer({ navigation, state }: DrawerContentComponentProps)
   const colors = useThemeColors();
   const styles = getStyles(colors);
   const { apartments, activeApartmentId, setSelectedApartment } = useActiveApartment();
+  // Society logo (see requirements/account_fee_management.md) — null means "no image uploaded",
+  // in which case we fall back to the default "OurHome" wordmark. The society background image
+  // renders behind the main content area (AppDrawer.tsx), not the drawer itself.
+  const logoUrl = useThemeStore((s) => s.logoUrl);
 
   const menuItems = getMenuItems(user?.role);
   const activeRoute = state.routeNames[state.index];
@@ -121,7 +127,11 @@ export function CustomDrawer({ navigation, state }: DrawerContentComponentProps)
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Brand */}
       <View style={styles.brand}>
-        <Text style={styles.brandName}>OurHome</Text>
+        {logoUrl ? (
+          <Image source={{ uri: logoUrl }} style={styles.brandLogo} resizeMode="contain" accessibilityLabel="Society logo" />
+        ) : (
+          <Text style={styles.brandName}>OurHome</Text>
+        )}
       </View>
 
       {/* User info */}
@@ -166,29 +176,31 @@ export function CustomDrawer({ navigation, state }: DrawerContentComponentProps)
       <View style={styles.divider} />
 
       {/* Nav items */}
-      <ScrollView style={styles.menu} showsVerticalScrollIndicator={false}>
-        {menuItems.map((item) => {
-          const isActive = activeRoute === item.name;
-          return (
-            <TouchableOpacity
-              key={item.name}
-              style={[styles.menuItem, isActive && styles.menuItemActive]}
-              onPress={() => navigation.navigate(item.name)}
-              accessibilityLabel={item.label}
-            >
-              <MaterialIcons
-                name={item.icon}
-                size={22}
-                color={isActive ? colors.primaryLight : colors.text.secondary}
-                style={styles.menuIcon}
-              />
-              <Text style={[styles.menuLabel, isActive && styles.menuLabelActive]}>
-                {item.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+      <View style={styles.menuWrapper}>
+        <ScrollView style={styles.menu} showsVerticalScrollIndicator={false}>
+          {menuItems.map((item) => {
+            const isActive = activeRoute === item.name;
+            return (
+              <TouchableOpacity
+                key={item.name}
+                style={[styles.menuItem, isActive && styles.menuItemActive]}
+                onPress={() => navigation.navigate(item.name)}
+                accessibilityLabel={item.label}
+              >
+                <MaterialIcons
+                  name={item.icon}
+                  size={22}
+                  color={isActive ? colors.primaryLight : colors.text.secondary}
+                  style={styles.menuIcon}
+                />
+                <Text style={[styles.menuLabel, isActive && styles.menuLabelActive]}>
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
 
       {/* Footer */}
       <View style={[styles.footer, { paddingBottom: insets.bottom + 8 }]}>
@@ -219,6 +231,10 @@ function getStyles(colors: ColorTokens) {
       fontWeight: '700',
       color: colors.primary,
       letterSpacing: 0.5,
+    },
+    brandLogo: {
+      width: 140,
+      height: 48,
     },
     userInfo: {
       flexDirection: 'row',
@@ -263,6 +279,7 @@ function getStyles(colors: ColorTokens) {
       marginTop: 2,
     },
     divider: { height: 1, backgroundColor: colors.border, marginHorizontal: 8 },
+    menuWrapper: { flex: 1 },
     menu: { flex: 1, paddingVertical: 8, paddingHorizontal: 8 },
     menuItem: {
       flexDirection: 'row',

@@ -1,6 +1,5 @@
 import { CurrencyPipe, DatePipe } from '@angular/common';
-import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -8,7 +7,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { SearchableSelectComponent } from '../../shared/components/searchable-select/searchable-select.component';
 import { RouterLink } from '@angular/router';
-import { Observable, interval } from 'rxjs';
+import { Observable } from 'rxjs';
 import { MaintenanceCharge, MaintenanceChargeGrid, MaintenanceChargeStatus, MaintenanceGridCharge } from '../../core/models/maintenance.model';
 import { AuthService } from '../../core/services/auth.service';
 import { MaintenanceService } from '../../core/services/maintenance.service';
@@ -18,7 +17,7 @@ import { PageHeaderComponent } from '../../shared/components/page-header/page-he
 import { StatusChipComponent } from '../../shared/components/status-chip/status-chip.component';
 import { FilePreviewComponent } from '../../shared/components/file-preview/file-preview.component';
 import { ImageLightboxComponent } from '../../shared/components/image-lightbox/image-lightbox.component';
-import { CHARGE_STATUS_OPTIONS, MAINTENANCE_PAGE_STYLES, MONTH_OPTIONS, mergeGridDelta, periodLabel } from './maintenance-shared';
+import { CHARGE_STATUS_OPTIONS, MAINTENANCE_PAGE_STYLES, MONTH_OPTIONS, periodLabel } from './maintenance-shared';
 
 @Component({
   selector: 'app-maintenance-admin-grid',
@@ -429,11 +428,6 @@ export class MaintenanceAdminGridComponent {
   readonly proofCharge = signal<MaintenanceGridCharge | null>(null);
   readonly lightboxSrc = signal<string | null>(null);
   readonly denyTarget = signal<DenyTarget | null>(null);
-  // Set only by the 10s auto-refresh timer when the grid already has data — keeps whatever the
-  // admin is looking at on screen (no spinner, no blanking) while the background fetch is in
-  // flight. Without this, a resident's resubmitted proof would only ever appear once the admin
-  // manually reloads or changes a filter, which looked like "admin can't see/act on it".
-  readonly backgroundRefreshing = signal(false);
   readonly chargeStatusSelectOptions = [
     { value: null as MaintenanceChargeStatus | null, label: 'All statuses' },
     ...CHARGE_STATUS_OPTIONS.map(s => ({ value: s as MaintenanceChargeStatus | null, label: s })),
@@ -669,59 +663,18 @@ export class MaintenanceAdminGridComponent {
     return byId;
   });
 
-  private readonly destroyRef = inject(DestroyRef);
-
-  // Delta/auto-refresh window (see requirements/auto_refresh.md) — a background tick asks the
-  // backend for only rows/cells/charges created/updated in the last 10 minutes instead of the
-  // whole grid.
-  private static readonly AUTO_REFRESH_WINDOW_MS = 10 * 60 * 1000;
-
   constructor() {
     this.loadGrid();
-
-    // Auto-refresh every 10s so a resident's newly submitted or resubmitted proof shows up (and
-    // becomes actionable) without the admin having to manually reload or touch a filter.
-    interval(10_000)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(() => {
-        if (!this.loading() && !this.backgroundRefreshing()) {
-          this.loadGrid(true);
-        }
-      });
   }
 
-  /**
-   * A charge's Status is the only filterable field that changes from the charge's own updates
-   * (year/month/apartment/block/floor are fixed at creation). "Overdue" is never a persisted
-   * status (see backend MappingExtensions.IsOverdue) — matched against the computed isOverdue
-   * flag, mirroring the backend's own convention. Undefined when no status filter is active, so
-   * a delta merge never evicts anything.
-   */
-  private buildStillVisiblePredicate(): ((charge: MaintenanceGridCharge) => boolean) | undefined {
-    const status = this.filterForm.controls.status.value;
-    if (!status) return undefined;
-    return status === 'Overdue'
-      ? (charge: MaintenanceGridCharge) => charge.isOverdue
-      : (charge: MaintenanceGridCharge) => charge.status === status;
-  }
-
-  loadGrid(isBackgroundRefresh = false) {
+  loadGrid() {
     const societyId = this.auth.societyId();
     if (!societyId) {
       this.loading.set(false);
       return;
     }
 
-    // A background (auto-refresh) tick with data already on screen never blanks the grid —
-    // only a manual/initial load or filter change shows the full loading spinner. A background
-    // tick also switches to a small delta fetch instead of re-fetching the whole grid.
-    const useBackgroundFlag = isBackgroundRefresh && !!this.grid();
-    if (useBackgroundFlag) this.backgroundRefreshing.set(true);
-    else this.loading.set(true);
-
-    const updatedSince = useBackgroundFlag
-      ? new Date(Date.now() - MaintenanceAdminGridComponent.AUTO_REFRESH_WINDOW_MS).toISOString()
-      : undefined;
+    this.loading.set(true);
 
     this.maintenance.getChargeGrid(societyId, {
       financialYearStart: this.filterForm.controls.financialYearStart.value ?? this.currentFinancialYearStart(),
@@ -731,19 +684,14 @@ export class MaintenanceAdminGridComponent {
       status: this.filterForm.controls.status.value ?? undefined,
       fromDate: this.filterForm.controls.fromDate.value || undefined,
       toDate: this.filterForm.controls.toDate.value || undefined,
-    }, updatedSince).subscribe({
+    }).subscribe({
       next: grid => {
-        const existing = this.grid();
-        this.grid.set(
-          useBackgroundFlag && existing ? mergeGridDelta(existing, grid, this.buildStillVisiblePredicate()) : grid
-        );
-        if (!useBackgroundFlag) this.visibleRowCount.set(20);
+        this.grid.set(grid);
+        this.visibleRowCount.set(20);
         this.loading.set(false);
-        this.backgroundRefreshing.set(false);
       },
       error: () => {
         this.loading.set(false);
-        this.backgroundRefreshing.set(false);
       },
     });
   }

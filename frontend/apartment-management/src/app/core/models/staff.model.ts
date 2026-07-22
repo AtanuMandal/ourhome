@@ -19,6 +19,13 @@ export interface CreateShiftDto {
   graceMinutes: number;
 }
 
+export interface UpdateShiftDto {
+  name: string;
+  startTime: string;
+  endTime: string;
+  graceMinutes: number;
+}
+
 export interface Staff {
   id: string;
   societyId: string;

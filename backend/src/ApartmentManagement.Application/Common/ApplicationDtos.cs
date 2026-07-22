@@ -42,7 +42,15 @@ public record SocietyResponse(
     string ThemeId,
     DateTime CreatedAt,
     int MaxUsersPerApartment = Domain.Entities.Society.DefaultMaxUsersPerApartment,
-    int VisitorOverstayThresholdHours = Domain.Entities.Society.DefaultVisitorOverstayThresholdHours);
+    int VisitorOverstayThresholdHours = Domain.Entities.Society.DefaultVisitorOverstayThresholdHours,
+    /// <summary>Null when no logo has been uploaded — clients show their default branding.</summary>
+    string? LogoUrl = null,
+    /// <summary>Null when no background has been uploaded — clients show their default sidenav/drawer background.</summary>
+    string? SidenavBackgroundUrl = null);
+
+public record SocietyLogoUploadResponse(string LogoUrl);
+
+public record SocietyBackgroundImageUploadResponse(string SidenavBackgroundUrl);
 
 /// <summary>
 /// Platform-level occupancy snapshot for HQAdmin/HQUser — deliberately excludes any financial data
@@ -574,6 +582,8 @@ public record AddReviewRequest(int Rating, string Comment);
 // ─── Staff Attendance ─────────────────────────────────────────────────────────
 
 public sealed record CreateShiftRequest(string Name, TimeSpan StartTime, TimeSpan EndTime, int GraceMinutes = 30);
+
+public sealed record UpdateShiftRequest(string Name, TimeSpan StartTime, TimeSpan EndTime, int GraceMinutes);
 
 public record ShiftResponse(string Id, string SocietyId, string Name, TimeSpan StartTime, TimeSpan EndTime, int GraceMinutes);
 

@@ -43,7 +43,9 @@ public static class MappingExtensions
             society.ThemeId,
             society.CreatedAt,
             society.MaxUsersPerApartment,
-            society.VisitorOverstayThresholdHours);
+            society.VisitorOverstayThresholdHours,
+            society.LogoUrl,
+            society.SidenavBackgroundUrl);
 
     public static ApartmentResponse ToResponse(this Apartment apartment) =>
         new(

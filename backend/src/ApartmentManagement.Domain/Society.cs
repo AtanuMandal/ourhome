@@ -46,6 +46,15 @@ public sealed class Society : BaseEntity
     public const int DefaultMaxUsersPerApartment = 10;
     public const int DefaultVisitorOverstayThresholdHours = 5;
     public string ThemeId { get; private set; } = DefaultThemeId;
+
+    /// <summary>App-relative file path (e.g. "files/society-logos/{societyId}/{blob}"), shown at
+    /// the top of the sidenav/drawer. Null means "no logo uploaded — show the default branding".</summary>
+    public string? LogoUrl { get; private set; }
+
+    /// <summary>App-relative file path for the sidenav/drawer content-area background image,
+    /// rendered at 70% opacity by clients. Null means "no image uploaded — show the default background".</summary>
+    public string? SidenavBackgroundUrl { get; private set; }
+
     public SocietyStatus Status { get; private set; }
     public List<string> AdminUserIds { get; private set; } = [];
     public List<string> AmenityIds { get; private set; } = [];
@@ -193,6 +202,20 @@ public sealed class Society : BaseEntity
             throw new ArgumentOutOfRangeException(nameof(thresholdDays), "Threshold must be between 1 and 90 days.");
 
         MaintenanceOverdueThresholdDays = thresholdDays;
+        TouchUpdatedAt();
+    }
+
+    /// <summary>Sets or clears the sidenav/drawer logo. Pass null/blank to revert to the default branding.</summary>
+    public void SetLogoUrl(string? logoUrl)
+    {
+        LogoUrl = string.IsNullOrWhiteSpace(logoUrl) ? null : logoUrl.Trim();
+        TouchUpdatedAt();
+    }
+
+    /// <summary>Sets or clears the sidenav/drawer content-area background image. Pass null/blank to revert to the default background.</summary>
+    public void SetSidenavBackgroundUrl(string? backgroundUrl)
+    {
+        SidenavBackgroundUrl = string.IsNullOrWhiteSpace(backgroundUrl) ? null : backgroundUrl.Trim();
         TouchUpdatedAt();
     }
 

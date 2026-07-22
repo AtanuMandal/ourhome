@@ -39,6 +39,32 @@ public class StaffFunctions(ISender mediator, ICurrentUserService currentUser)
         return result.ToActionResult();
     }
 
+    [Function("UpdateShift")]
+    public async Task<IActionResult> UpdateShift(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "put", Route = "societies/{societyId}/shifts/{id}")] HttpRequest req,
+        string societyId, string id, CancellationToken ct)
+    {
+        if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
+        if (!currentUser.IsInRoles("SUAdmin")) return new ForbidResult();
+        var request = await req.DeserializeAsync<UpdateShiftRequest>(ct);
+        if (request is null) return HttpHelpers.MissingBody();
+
+        var result = await mediator.Send(
+            new UpdateShiftCommand(societyId, id, request.Name, request.StartTime, request.EndTime, request.GraceMinutes), ct);
+        return result.ToActionResult();
+    }
+
+    [Function("DeleteShift")]
+    public async Task<IActionResult> DeleteShift(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "delete", Route = "societies/{societyId}/shifts/{id}")] HttpRequest req,
+        string societyId, string id, CancellationToken ct)
+    {
+        if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
+        if (!currentUser.IsInRoles("SUAdmin")) return new ForbidResult();
+        var result = await mediator.Send(new DeleteShiftCommand(societyId, id), ct);
+        return result.ToActionResult();
+    }
+
     [Function("CreateStaff")]
     public async Task<IActionResult> CreateStaff(
         [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "societies/{societyId}/staff")] HttpRequest req,
@@ -81,13 +107,37 @@ public class StaffFunctions(ISender mediator, ICurrentUserService currentUser)
         return result.ToActionResult();
     }
 
+    [Function("ReactivateStaff")]
+    public async Task<IActionResult> ReactivateStaff(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "societies/{societyId}/staff/{id}/reactivate")] HttpRequest req,
+        string societyId, string id, CancellationToken ct)
+    {
+        if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
+        if (!currentUser.IsInRoles("SUAdmin")) return new ForbidResult();
+        var result = await mediator.Send(new ReactivateStaffCommand(societyId, id), ct);
+        return result.ToActionResult();
+    }
+
+    [Function("DeleteStaff")]
+    public async Task<IActionResult> DeleteStaff(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "delete", Route = "societies/{societyId}/staff/{id:guid}")] HttpRequest req,
+        string societyId, string id, CancellationToken ct)
+    {
+        if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
+        if (!currentUser.IsInRoles("SUAdmin")) return new ForbidResult();
+        var result = await mediator.Send(new DeleteStaffCommand(societyId, id), ct);
+        return result.ToActionResult();
+    }
+
     [Function("ListStaff")]
     public async Task<IActionResult> ListStaff(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "societies/{societyId}/staff")] HttpRequest req,
         string societyId, CancellationToken ct)
     {
         if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
-        if (!currentUser.IsInRoles("SUAdmin", "SUSecurity")) return new ForbidResult();
+        // SUUser sees the roster read-only (name/phone) — every action endpoint below stays
+        // SUAdmin/SUSecurity-only.
+        if (!currentUser.IsInRoles("SUAdmin", "SUSecurity", "SUUser")) return new ForbidResult();
 
         int.TryParse(req.Query["page"], out var page);
         int.TryParse(req.Query["pageSize"], out var pageSize);
