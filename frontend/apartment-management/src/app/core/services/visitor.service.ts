@@ -9,13 +9,22 @@ export class VisitorService {
   private readonly api = inject(ApiService);
   private readonly http = inject(HttpClient);
 
-  list(societyId: string, page = 1, pageSize = 20, filters: VisitorListFilters = {}) {
-    return this.api.getPaged<Visitor>(`societies/${societyId}/visitors`, page, pageSize, filters as Record<string, string | number>);
+  list(societyId: string, page = 1, pageSize = 20, filters: VisitorListFilters = {}, updatedSince?: string) {
+    const extra: Record<string, string | number> = { ...filters as Record<string, string | number> };
+    if (updatedSince) extra['updatedSince'] = updatedSince;
+    return this.api.getPaged<Visitor>(`societies/${societyId}/visitors`, page, pageSize, extra);
   }
 
-  /** Unfiltered landing view in one call: all Pending + CheckedIn plus the N most recent concluded entries. */
-  defaultView(societyId: string, recentCount: number) {
-    return this.api.get<Visitor[]>(`societies/${societyId}/visitors/default-view`, { recentCount });
+  /**
+   * Unfiltered landing view in one call: all Pending + CheckedIn plus the N most recent
+   * concluded entries. Pass `updatedSince` (ISO-8601 UTC) for auto-refresh/delta mode — see
+   * requirements/auto_refresh.md — which returns only records changed since then (server-side
+   * capped to 10 minutes) instead of the full landing view.
+   */
+  defaultView(societyId: string, recentCount: number, updatedSince?: string) {
+    const params: Record<string, string | number> = { recentCount };
+    if (updatedSince) params['updatedSince'] = updatedSince;
+    return this.api.get<Visitor[]>(`societies/${societyId}/visitors/default-view`, params);
   }
 
   get(societyId: string, id: string) {

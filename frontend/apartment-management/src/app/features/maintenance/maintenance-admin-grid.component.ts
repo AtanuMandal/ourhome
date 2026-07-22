@@ -18,7 +18,7 @@ import { PageHeaderComponent } from '../../shared/components/page-header/page-he
 import { StatusChipComponent } from '../../shared/components/status-chip/status-chip.component';
 import { FilePreviewComponent } from '../../shared/components/file-preview/file-preview.component';
 import { ImageLightboxComponent } from '../../shared/components/image-lightbox/image-lightbox.component';
-import { CHARGE_STATUS_OPTIONS, MAINTENANCE_PAGE_STYLES, MONTH_OPTIONS, periodLabel } from './maintenance-shared';
+import { CHARGE_STATUS_OPTIONS, MAINTENANCE_PAGE_STYLES, MONTH_OPTIONS, mergeGridDelta, periodLabel } from './maintenance-shared';
 
 @Component({
   selector: 'app-maintenance-admin-grid',
@@ -671,6 +671,11 @@ export class MaintenanceAdminGridComponent {
 
   private readonly destroyRef = inject(DestroyRef);
 
+  // Delta/auto-refresh window (see requirements/auto_refresh.md) — a background tick asks the
+  // backend for only rows/cells/charges created/updated in the last 10 minutes instead of the
+  // whole grid.
+  private static readonly AUTO_REFRESH_WINDOW_MS = 10 * 60 * 1000;
+
   constructor() {
     this.loadGrid();
 
@@ -685,6 +690,21 @@ export class MaintenanceAdminGridComponent {
       });
   }
 
+  /**
+   * A charge's Status is the only filterable field that changes from the charge's own updates
+   * (year/month/apartment/block/floor are fixed at creation). "Overdue" is never a persisted
+   * status (see backend MappingExtensions.IsOverdue) — matched against the computed isOverdue
+   * flag, mirroring the backend's own convention. Undefined when no status filter is active, so
+   * a delta merge never evicts anything.
+   */
+  private buildStillVisiblePredicate(): ((charge: MaintenanceGridCharge) => boolean) | undefined {
+    const status = this.filterForm.controls.status.value;
+    if (!status) return undefined;
+    return status === 'Overdue'
+      ? (charge: MaintenanceGridCharge) => charge.isOverdue
+      : (charge: MaintenanceGridCharge) => charge.status === status;
+  }
+
   loadGrid(isBackgroundRefresh = false) {
     const societyId = this.auth.societyId();
     if (!societyId) {
@@ -693,10 +713,15 @@ export class MaintenanceAdminGridComponent {
     }
 
     // A background (auto-refresh) tick with data already on screen never blanks the grid —
-    // only a manual/initial load or filter change shows the full loading spinner.
+    // only a manual/initial load or filter change shows the full loading spinner. A background
+    // tick also switches to a small delta fetch instead of re-fetching the whole grid.
     const useBackgroundFlag = isBackgroundRefresh && !!this.grid();
     if (useBackgroundFlag) this.backgroundRefreshing.set(true);
     else this.loading.set(true);
+
+    const updatedSince = useBackgroundFlag
+      ? new Date(Date.now() - MaintenanceAdminGridComponent.AUTO_REFRESH_WINDOW_MS).toISOString()
+      : undefined;
 
     this.maintenance.getChargeGrid(societyId, {
       financialYearStart: this.filterForm.controls.financialYearStart.value ?? this.currentFinancialYearStart(),
@@ -706,9 +731,12 @@ export class MaintenanceAdminGridComponent {
       status: this.filterForm.controls.status.value ?? undefined,
       fromDate: this.filterForm.controls.fromDate.value || undefined,
       toDate: this.filterForm.controls.toDate.value || undefined,
-    }).subscribe({
+    }, updatedSince).subscribe({
       next: grid => {
-        this.grid.set(grid);
+        const existing = this.grid();
+        this.grid.set(
+          useBackgroundFlag && existing ? mergeGridDelta(existing, grid, this.buildStillVisiblePredicate()) : grid
+        );
         if (!useBackgroundFlag) this.visibleRowCount.set(20);
         this.loading.set(false);
         this.backgroundRefreshing.set(false);

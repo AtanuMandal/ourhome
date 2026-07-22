@@ -100,7 +100,8 @@ public class MaintenanceFunctions(ISender mediator)
                 apartmentId,
                 year > 0 ? year : null,
                 month > 0 ? month : null,
-                new PaginationParams { Page = page < 1 ? 1 : page, PageSize = pageSize < 1 ? 20 : pageSize }),
+                new PaginationParams { Page = page < 1 ? 1 : page, PageSize = pageSize < 1 ? 20 : pageSize },
+                req.ParseUpdatedSince()),
             ct);
         return result.ToActionResult();
     }
@@ -124,7 +125,8 @@ public class MaintenanceFunctions(ISender mediator)
                 year > 0 ? year : null,
                 month > 0 ? month : null,
                 status,
-                new PaginationParams { Page = page < 1 ? 1 : page, PageSize = pageSize < 1 ? 20 : pageSize }),
+                new PaginationParams { Page = page < 1 ? 1 : page, PageSize = pageSize < 1 ? 20 : pageSize },
+                req.ParseUpdatedSince()),
             ct);
         return result.ToActionResult();
     }
@@ -155,7 +157,8 @@ public class MaintenanceFunctions(ISender mediator)
                 floor > 0 ? floor : null,
                 status,
                 fromDate,
-                toDate),
+                toDate,
+                req.ParseUpdatedSince()),
             ct);
         return result.ToActionResult();
     }

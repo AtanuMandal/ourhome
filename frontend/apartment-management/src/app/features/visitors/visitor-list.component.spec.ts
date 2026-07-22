@@ -181,7 +181,7 @@ describe('VisitorListComponent — default pending + recent approved/denied view
 
     expect(component.isDefaultFilterState()).toBeTrue();
     expect(visitorServiceStub.defaultView).toHaveBeenCalledTimes(1);
-    expect(visitorServiceStub.defaultView).toHaveBeenCalledWith('soc-1', component.recordCount());
+    expect(visitorServiceStub.defaultView).toHaveBeenCalledWith('soc-1', component.recordCount(), undefined);
     expect(visitorServiceStub.list).not.toHaveBeenCalled();
     expect(component.items().map(v => v.id).sort()).toEqual(['a1', 'c1', 'd1', 'p1', 'p2'].sort());
   });
@@ -192,7 +192,7 @@ describe('VisitorListComponent — default pending + recent approved/denied view
 
     component.onRecordCountChange(50);
 
-    expect(visitorServiceStub.defaultView).toHaveBeenCalledWith('soc-1', 50);
+    expect(visitorServiceStub.defaultView).toHaveBeenCalledWith('soc-1', 50, undefined);
     localStorage.removeItem('ourhome-visitor-list-record-count');
   });
 
@@ -294,22 +294,26 @@ describe('VisitorListComponent — silent background auto-refresh', () => {
     expect(component.backgroundRefreshing()).toBeFalse();
   });
 
-  it('a background refresh returning identical data leaves the rendered list untouched (no flicker)', () => {
-    const { component } = setup();
+  it('a background refresh with an empty delta leaves the rendered list untouched (no flicker)', () => {
+    const { component, visitorServiceStub } = setup();
     const itemsBefore = component.items();
 
+    // An empty delta means nothing was created/updated in the last 10 minutes (see
+    // requirements/auto_refresh.md) — the signal must not be written, so Angular re-renders
+    // nothing.
+    visitorServiceStub.defaultView.and.returnValue(of([]));
     component.loadVisitors(true);
 
-    // Same payload — the signal is never written, so Angular re-renders nothing.
     expect(component.items()).toBe(itemsBefore);
     expect(component.recentlyUpdatedIds().size).toBe(0);
   });
 
-  it('a background refresh highlights only the rows that changed, not the unchanged ones', () => {
+  it('a background refresh highlights only the rows present in the delta, not existing unchanged rows', () => {
     const { component, visitorServiceStub } = setup();
 
-    // v1 is unchanged; v2 is a new arrival.
-    visitorServiceStub.defaultView.and.returnValue(of([makeVisitor('v1', 'Pending'), makeVisitor('v2', 'Pending')]));
+    // v1 already exists from the initial load; a real delta response never re-sends unchanged
+    // records, so the background refresh here only returns v2, the new arrival.
+    visitorServiceStub.defaultView.and.returnValue(of([makeVisitor('v2', 'Pending')]));
     component.loadVisitors(true);
 
     expect(component.items().length).toBe(2);

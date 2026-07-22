@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
+using System.Globalization;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -49,6 +50,26 @@ public static class HttpHelpers
     }
 
     public static IActionResult MissingBody() => new BadRequestObjectResult("Invalid request body");
+
+    /// <summary>
+    /// Parses the `updatedSince` query parameter (ISO-8601) for delta/auto-refresh list
+    /// endpoints — see requirements/auto_refresh.md. Returns null when absent or unparsable, in
+    /// which case callers fall back to their normal (non-delta) query path. The 10-minute cap
+    /// itself is enforced downstream by <see cref="AutoRefreshWindow.Clamp"/>, not here.
+    /// </summary>
+    public static DateTime? ParseUpdatedSince(this HttpRequest req)
+    {
+        var raw = req.Query["updatedSince"].FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+
+        return DateTime.TryParse(
+            raw,
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal,
+            out var parsed)
+            ? parsed
+            : null;
+    }
 
     public static IActionResult ToActionResult<T>(this Result<T> result, int successStatus = 200)
     {

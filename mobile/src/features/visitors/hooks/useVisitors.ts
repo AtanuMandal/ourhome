@@ -1,7 +1,13 @@
+import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useInfiniteList } from '../../../shared/hooks/useInfiniteList';
+import { mergeById } from '../../../shared/utils/mergeById';
 import { visitorsApi, type RegisterVisitorRequest } from '../../../api/endpoints/visitors';
 import type { Visitor } from '../../../api/types';
+
+// Delta/auto-refresh window (see requirements/auto_refresh.md) — an interval tick asks the
+// backend for only visitors created/updated in the last 10 minutes instead of the whole view.
+const AUTO_REFRESH_WINDOW_MS = 10 * 60 * 1000;
 
 export function useVisitorList(
   societyId: string,
@@ -23,15 +29,35 @@ export function useVisitorList(
  * The backend computes the whole view in a single call.
  */
 export function useVisitorDefaultView(societyId: string, enabled = true) {
-  return useQuery({
-    queryKey: ['visitors-default', societyId],
+  const queryClient = useQueryClient();
+  const queryKey = ['visitors-default', societyId];
+
+  const query = useQuery({
+    queryKey,
     queryFn: () => visitorsApi.getDefaultView(societyId, 10),
     enabled: !!societyId && enabled,
-    // Near-realtime gate view: silently refresh every 10s (matches the web app). TanStack
-    // keeps showing the previous data during the background fetch, so nothing flickers.
-    // Disabled under Jest — the interval would hold the worker process open after tests end.
-    refetchInterval: process.env.NODE_ENV === 'test' ? false : 10_000,
   });
+
+  // Near-realtime gate view: silently refresh every 10s (matches the web app), but as a small
+  // delta merged into the cached list (see requirements/auto_refresh.md) instead of TanStack's
+  // native refetchInterval re-fetching the whole view. Disabled under Jest — the interval would
+  // hold the worker process open after tests end.
+  useEffect(() => {
+    if (!enabled || !societyId || process.env.NODE_ENV === 'test') return undefined;
+
+    const id = setInterval(() => {
+      const updatedSince = new Date(Date.now() - AUTO_REFRESH_WINDOW_MS).toISOString();
+      void visitorsApi.getDefaultView(societyId, 10, updatedSince).then((delta) => {
+        if (delta.length === 0) return;
+        queryClient.setQueryData<Visitor[]>(queryKey, (old) => mergeById(old ?? [], delta));
+      });
+    }, 10_000);
+
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, societyId, queryClient]);
+
+  return query;
 }
 
 export function useVisitor(societyId: string, id: string) {

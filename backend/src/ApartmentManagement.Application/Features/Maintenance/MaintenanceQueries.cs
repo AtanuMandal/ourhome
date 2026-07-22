@@ -40,7 +40,11 @@ public record GetMaintenanceChargesQuery(
     int? Year,
     int? Month,
     PaymentStatus? Status,
-    PaginationParams Pagination)
+    PaginationParams Pagination,
+    /// <summary>Delta/auto-refresh mode (see requirements/auto_refresh.md) — when set, returns
+    /// only charges created/updated at or after this timestamp (clamped server-side to at most
+    /// 10 minutes ago), unpaginated, instead of the normal paged result.</summary>
+    DateTime? UpdatedSince = null)
     : IRequest<Result<PagedResult<MaintenanceChargeDto>>>;
 
 public sealed class GetMaintenanceChargesQueryHandler(
@@ -62,7 +66,25 @@ public sealed class GetMaintenanceChargesQueryHandler(
                 ?? throw new NotFoundException("Society", request.SocietyId);
 
             IReadOnlyList<MaintenanceCharge> charges;
-            if (request.Status == PaymentStatus.Overdue)
+            if (request.UpdatedSince.HasValue)
+            {
+                // Delta path: only Year/Month/ApartmentId scoping is re-applied here — Status is
+                // deliberately NOT re-applied. If it were, a charge that changed status away from
+                // an active Status filter (e.g. Pending -> ProofSubmitted while viewing "Pending
+                // only") would be excluded from the delta before the UpdatedAt check ever ran, so
+                // the change would never reach the client and the stale row would never be
+                // evicted. Instead every changed charge in scope comes back and the client
+                // re-applies its own active Status filter locally when merging (see
+                // requirements/auto_refresh.md, "stillVisible"). Fetched unpaged and floored by
+                // UpdatedAt instead of Skip/Take — a 10-minute window is always small.
+                var since = AutoRefreshWindow.Clamp(request.UpdatedSince.Value, DateTime.UtcNow);
+                var candidates = await chargeRepository.GetBySocietyAsync(
+                    request.SocietyId, 1, 10_000, effectiveApartmentId, null, request.Year, request.Month, ct);
+                charges = candidates
+                    .Where(c => c.UpdatedAt >= since)
+                    .ToList();
+            }
+            else if (request.Status == PaymentStatus.Overdue)
             {
                 // "Overdue" is never a persisted charge status (see MappingExtensions.IsOverdue) —
                 // pushing it down as a literal Status match to the repository would always return
@@ -115,8 +137,12 @@ public sealed class GetMaintenanceChargesQueryHandler(
                 items.Add(charge.ToResponse(apartment?.ToDisplayLabel() ?? charge.ApartmentId, society.MaintenanceOverdueThresholdDays));
             }
 
+            var (resultPage, resultPageSize) = request.UpdatedSince.HasValue
+                ? (1, items.Count)
+                : (request.Pagination.Page, request.Pagination.PageSize);
+
             return Result<PagedResult<MaintenanceChargeDto>>.Success(
-                new PagedResult<MaintenanceChargeDto>(items, items.Count, request.Pagination.Page, request.Pagination.PageSize));
+                new PagedResult<MaintenanceChargeDto>(items, items.Count, resultPage, resultPageSize));
         }
         catch (ForbiddenException ex)
         {
@@ -133,7 +159,16 @@ public sealed class GetMaintenanceChargesQueryHandler(
     }
 }
 
-public record GetApartmentMaintenanceHistoryQuery(string SocietyId, string ApartmentId, int? Year, int? Month, PaginationParams Pagination)
+public record GetApartmentMaintenanceHistoryQuery(
+    string SocietyId,
+    string ApartmentId,
+    int? Year,
+    int? Month,
+    PaginationParams Pagination,
+    /// <summary>Delta/auto-refresh mode (see requirements/auto_refresh.md) — when set, returns
+    /// only charges created/updated at or after this timestamp (clamped server-side to at most
+    /// 10 minutes ago), unpaginated, instead of the normal paged result.</summary>
+    DateTime? UpdatedSince = null)
     : IRequest<Result<PagedResult<MaintenanceChargeDto>>>;
 
 public sealed class GetApartmentMaintenanceHistoryQueryHandler(
@@ -146,14 +181,32 @@ public sealed class GetApartmentMaintenanceHistoryQueryHandler(
     {
         try
         {
-            var charges = await chargeRepository.GetByApartmentAsync(
-                request.SocietyId,
-                request.ApartmentId,
-                request.Pagination.Page,
-                request.Pagination.PageSize,
-                request.Year,
-                request.Month,
-                ct);
+            IReadOnlyList<MaintenanceCharge> charges;
+            int resultPage;
+            int resultPageSize;
+
+            if (request.UpdatedSince.HasValue)
+            {
+                var since = AutoRefreshWindow.Clamp(request.UpdatedSince.Value, DateTime.UtcNow);
+                var candidates = await chargeRepository.GetByApartmentAsync(
+                    request.SocietyId, request.ApartmentId, 1, 10_000, request.Year, request.Month, ct);
+                charges = candidates.Where(c => c.UpdatedAt >= since).ToList();
+                resultPage = 1;
+                resultPageSize = charges.Count;
+            }
+            else
+            {
+                charges = await chargeRepository.GetByApartmentAsync(
+                    request.SocietyId,
+                    request.ApartmentId,
+                    request.Pagination.Page,
+                    request.Pagination.PageSize,
+                    request.Year,
+                    request.Month,
+                    ct);
+                resultPage = request.Pagination.Page;
+                resultPageSize = request.Pagination.PageSize;
+            }
 
             var apartment = await apartmentRepository.GetByIdAsync(request.ApartmentId, request.SocietyId, ct);
             var society = await societyRepository.GetByIdAsync(request.SocietyId, request.SocietyId, ct)
@@ -164,7 +217,7 @@ public sealed class GetApartmentMaintenanceHistoryQueryHandler(
                 .ToList();
 
             return Result<PagedResult<MaintenanceChargeDto>>.Success(
-                new PagedResult<MaintenanceChargeDto>(items, items.Count, request.Pagination.Page, request.Pagination.PageSize));
+                new PagedResult<MaintenanceChargeDto>(items, items.Count, resultPage, resultPageSize));
         }
         catch (NotFoundException ex)
         {
@@ -185,7 +238,12 @@ public record GetMaintenanceChargeGridQuery(
     int? Floor,
     PaymentStatus? Status,
     DateTime? FromDate,
-    DateTime? ToDate)
+    DateTime? ToDate,
+    /// <summary>Delta/auto-refresh mode (see requirements/auto_refresh.md) — when set, returns
+    /// only the rows/cells/charges changed at or after this timestamp (clamped server-side to at
+    /// most 10 minutes ago) instead of the full grid. Rows/cells with no surviving charges are
+    /// dropped, so the result is a sparse subset of the same shape the client already has.</summary>
+    DateTime? UpdatedSince = null)
     : IRequest<Result<MaintenanceChargeGridDto>>;
 
 public sealed class GetMaintenanceChargeGridQueryHandler(
@@ -214,9 +272,14 @@ public sealed class GetMaintenanceChargeGridQueryHandler(
                     new MaintenanceChargeGridSummaryDto(0, 0, 0, 0, 0, 0),
                     []));
 
+            var isDelta = request.UpdatedSince.HasValue;
+            var since = isDelta ? AutoRefreshWindow.Clamp(request.UpdatedSince!.Value, DateTime.UtcNow) : (DateTime?)null;
+
             var apartments = await apartmentRepository.GetAllAsync(request.SocietyId, ct);
             var apartmentLookup = apartments.ToDictionary(apartment => apartment.Id, StringComparer.OrdinalIgnoreCase);
             var filteredRows = gridView.Rows
+                // ApartmentId/Block/Floor are stable scoping — a charge's own apartment never
+                // changes — so they're always re-applied, delta or not.
                 .Where(row => string.IsNullOrWhiteSpace(request.ApartmentId) || string.Equals(row.ApartmentId, request.ApartmentId, StringComparison.OrdinalIgnoreCase))
                 .Where(row => string.IsNullOrWhiteSpace(request.Block) || string.Equals(row.BlockName, request.Block, StringComparison.OrdinalIgnoreCase))
                 .Where(row => !request.Floor.HasValue || row.FloorNumber == request.Floor.Value)
@@ -227,16 +290,22 @@ public sealed class GetMaintenanceChargeGridQueryHandler(
                         .Select(cell =>
                         {
                             var charges = cell.Charges
-                                .Select(charge => ToGridChargeDto(charge, society.MaintenanceOverdueThresholdDays))
-                                // "Overdue" is never a persisted status (see MappingExtensions.IsOverdue)
-                                // — a literal string match against it would always exclude everything,
-                                // so that filter option is matched against the computed IsOverdue flag instead.
-                                .Where(charge => !request.Status.HasValue
+                                // Delta path: Status/FromDate/ToDate are cosmetic view filters,
+                                // deliberately NOT re-applied here — same reasoning as the flat
+                                // charges list (see GetMaintenanceChargesQueryHandler above). If
+                                // they were, a charge that changed status away from an active
+                                // filter would be excluded before the UpdatedAt check ever ran,
+                                // so the change would never reach the client and the stale cell
+                                // would never be corrected. The client re-applies its own active
+                                // filter locally when merging (see requirements/auto_refresh.md).
+                                .Where(charge => isDelta || !request.Status.HasValue
                                     || (request.Status.Value == PaymentStatus.Overdue
-                                        ? charge.IsOverdue
+                                        ? IsOverdueCharge(charge, society.MaintenanceOverdueThresholdDays)
                                         : string.Equals(charge.Status, request.Status.Value.ToString(), StringComparison.OrdinalIgnoreCase)))
-                                .Where(charge => !request.FromDate.HasValue || charge.DueDate.Date >= request.FromDate.Value.Date)
-                                .Where(charge => !request.ToDate.HasValue || charge.DueDate.Date <= request.ToDate.Value.Date)
+                                .Where(charge => isDelta || !request.FromDate.HasValue || charge.DueDate.Date >= request.FromDate.Value.Date)
+                                .Where(charge => isDelta || !request.ToDate.HasValue || charge.DueDate.Date <= request.ToDate.Value.Date)
+                                .Where(charge => !isDelta || charge.UpdatedAt >= since!.Value)
+                                .Select(charge => ToGridChargeDto(charge, society.MaintenanceOverdueThresholdDays))
                                 .ToList();
 
                             return new MaintenanceChargeGridCellDto(
@@ -253,8 +322,11 @@ public sealed class GetMaintenanceChargeGridQueryHandler(
                         row.ResidentName,
                         filteredCells);
                 })
+                // Delta mode always drops rows/cells with nothing changed — a sparse result is
+                // the point. Non-delta mode keeps the "show every apartment" behavior when no
+                // view filter is active, unchanged from before.
                 .Where(row => row.Months.Any(month => month.Charges.Count > 0)
-                    || (!request.Status.HasValue && !request.FromDate.HasValue && !request.ToDate.HasValue))
+                    || (!isDelta && !request.Status.HasValue && !request.FromDate.HasValue && !request.ToDate.HasValue))
                 .ToList();
 
             var allCharges = filteredRows.SelectMany(row => row.Months).SelectMany(month => month.Charges).ToList();
@@ -287,6 +359,13 @@ public sealed class GetMaintenanceChargeGridQueryHandler(
         }
     }
 
+    /// <summary>"Overdue" is never a persisted status (see MappingExtensions.IsOverdue) — it's
+    /// always computed from the due date, both for the response DTO and for matching a
+    /// Status=Overdue filter against the domain GridCharge before it's mapped to a DTO.</summary>
+    private static bool IsOverdueCharge(MaintenanceChargeGridView.GridCharge charge, int overdueThresholdDays) =>
+        !string.Equals(charge.Status, PaymentStatus.Paid.ToString(), StringComparison.OrdinalIgnoreCase) &&
+        charge.DueDate.Date.AddDays(overdueThresholdDays) < DateTime.UtcNow.Date;
+
     private static MaintenanceChargeGridChargeDto ToGridChargeDto(MaintenanceChargeGridView.GridCharge charge, int overdueThresholdDays) =>
         new(
             charge.ChargeId,
@@ -295,8 +374,7 @@ public sealed class GetMaintenanceChargeGridQueryHandler(
             charge.Amount,
             charge.Status,
             charge.DueDate,
-            !string.Equals(charge.Status, PaymentStatus.Paid.ToString(), StringComparison.OrdinalIgnoreCase) &&
-            charge.DueDate.Date.AddDays(overdueThresholdDays) < DateTime.UtcNow.Date,
+            IsOverdueCharge(charge, overdueThresholdDays),
             charge.PaidAt,
             charge.PaymentMethod,
             charge.TransactionReference,

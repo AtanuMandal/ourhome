@@ -398,7 +398,12 @@ public sealed class MaintenanceChargeGridView : BaseEntity
         string? Notes,
         IReadOnlyList<GridProof> Proofs,
         string? RejectionReason = null,
-        DateTime? RejectedAt = null);
+        DateTime? RejectedAt = null,
+        /// <summary>Carried over from the source MaintenanceCharge.UpdatedAt on every mirror
+        /// rebuild — not exposed in the API response, used only to serve delta/auto-refresh
+        /// requests (see requirements/auto_refresh.md) against the grid without needing a
+        /// per-charge query.</summary>
+        DateTime UpdatedAt = default);
     public sealed record GridCell(int Month, int Year, IReadOnlyList<GridCharge> Charges);
     public sealed record GridRow(
         string ApartmentId,
