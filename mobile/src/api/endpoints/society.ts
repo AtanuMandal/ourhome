@@ -30,6 +30,10 @@ export interface Society {
   societyUsers: SocietyUserAssignment[];
   committees: SocietyCommittee[];
   themeId: string;
+  /** App-relative file path shown at the top of the drawer. Undefined/null means "no logo uploaded — show the default branding". */
+  logoUrl?: string | null;
+  /** App-relative file path for the drawer content-area background, rendered at 70% opacity. Undefined/null means "no image uploaded — show the default background". */
+  sidenavBackgroundUrl?: string | null;
 }
 
 export interface UpdateSocietyRequest {
@@ -111,4 +115,10 @@ export const societyApi = {
 
   getSummaryReport: (societyId: string) =>
     api.get<SocietySummaryReport>(`/societies/${societyId}/report`).then((r) => r.data),
+
+  removeLogo: (societyId: string) =>
+    api.delete<Society>(`/societies/${societyId}/logo`).then((r) => r.data),
+
+  removeBackgroundImage: (societyId: string) =>
+    api.delete<Society>(`/societies/${societyId}/background-image`).then((r) => r.data),
 };

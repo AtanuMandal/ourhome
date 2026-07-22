@@ -64,4 +64,55 @@ public class SocietyCapAndThresholdTests
 
         act.Should().Throw<ArgumentOutOfRangeException>();
     }
+
+    [Fact]
+    public void Create_DefaultsLogoAndSidenavBackgroundToNull()
+    {
+        var society = CreateSociety();
+
+        society.LogoUrl.Should().BeNull();
+        society.SidenavBackgroundUrl.Should().BeNull();
+    }
+
+    [Fact]
+    public void SetLogoUrl_WithValue_SetsLogoUrl()
+    {
+        var society = CreateSociety();
+
+        society.SetLogoUrl("files/society-logos/soc-1/abc.jpg");
+
+        society.LogoUrl.Should().Be("files/society-logos/soc-1/abc.jpg");
+    }
+
+    [Fact]
+    public void SetLogoUrl_WithNullOrBlank_ClearsLogoUrl()
+    {
+        var society = CreateSociety();
+        society.SetLogoUrl("files/society-logos/soc-1/abc.jpg");
+
+        society.SetLogoUrl("   ");
+
+        society.LogoUrl.Should().BeNull();
+    }
+
+    [Fact]
+    public void SetSidenavBackgroundUrl_WithValue_SetsSidenavBackgroundUrl()
+    {
+        var society = CreateSociety();
+
+        society.SetSidenavBackgroundUrl("files/society-backgrounds/soc-1/abc.jpg");
+
+        society.SidenavBackgroundUrl.Should().Be("files/society-backgrounds/soc-1/abc.jpg");
+    }
+
+    [Fact]
+    public void SetSidenavBackgroundUrl_WithNullOrBlank_ClearsSidenavBackgroundUrl()
+    {
+        var society = CreateSociety();
+        society.SetSidenavBackgroundUrl("files/society-backgrounds/soc-1/abc.jpg");
+
+        society.SetSidenavBackgroundUrl(null);
+
+        society.SidenavBackgroundUrl.Should().BeNull();
+    }
 }

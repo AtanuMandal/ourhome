@@ -41,6 +41,69 @@ public sealed class CreateShiftCommandHandler(IShiftRepository shiftRepository, 
     }
 }
 
+public record UpdateShiftCommand(string SocietyId, string ShiftId, string Name, TimeSpan StartTime, TimeSpan EndTime, int GraceMinutes)
+    : IRequest<Result<ShiftResponse>>;
+
+public sealed class UpdateShiftCommandHandler(IShiftRepository shiftRepository, ILogger<UpdateShiftCommandHandler> logger)
+    : IRequestHandler<UpdateShiftCommand, Result<ShiftResponse>>
+{
+    public async Task<Result<ShiftResponse>> Handle(UpdateShiftCommand request, CancellationToken ct)
+    {
+        try
+        {
+            var shift = await shiftRepository.GetByIdAsync(request.ShiftId, request.SocietyId, ct)
+                ?? throw new NotFoundException("Shift", request.ShiftId);
+
+            shift.Update(request.Name, request.StartTime, request.EndTime, request.GraceMinutes);
+            var updated = await shiftRepository.UpdateAsync(shift, ct);
+            return Result<ShiftResponse>.Success(updated.ToResponse());
+        }
+        catch (NotFoundException ex)
+        {
+            return Result<ShiftResponse>.Failure(ErrorCodes.ShiftNotFound, ex.Message);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to update shift {ShiftId}", request.ShiftId);
+            return Result<ShiftResponse>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
+public record DeleteShiftCommand(string SocietyId, string ShiftId) : IRequest<Result<bool>>;
+
+public sealed class DeleteShiftCommandHandler(
+    IShiftRepository shiftRepository,
+    IStaffRepository staffRepository,
+    ILogger<DeleteShiftCommandHandler> logger)
+    : IRequestHandler<DeleteShiftCommand, Result<bool>>
+{
+    public async Task<Result<bool>> Handle(DeleteShiftCommand request, CancellationToken ct)
+    {
+        try
+        {
+            var shift = await shiftRepository.GetByIdAsync(request.ShiftId, request.SocietyId, ct)
+                ?? throw new NotFoundException("Shift", request.ShiftId);
+
+            var staff = await staffRepository.GetAllAsync(request.SocietyId, ct);
+            if (staff.Any(s => s.IsActive && string.Equals(s.ShiftId, request.ShiftId, StringComparison.OrdinalIgnoreCase)))
+                return Result<bool>.Failure(ErrorCodes.ShiftInUse, "This shift is still assigned to one or more active staff members.");
+
+            await shiftRepository.DeleteAsync(shift.Id, request.SocietyId, ct);
+            return Result<bool>.Success(true);
+        }
+        catch (NotFoundException ex)
+        {
+            return Result<bool>.Failure(ErrorCodes.ShiftNotFound, ex.Message);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to delete shift {ShiftId}", request.ShiftId);
+            return Result<bool>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
 // ─── Staff ────────────────────────────────────────────────────────────────────
 
 public record CreateStaffCommand(
@@ -146,6 +209,61 @@ public sealed class DeactivateStaffCommandHandler(IStaffRepository staffReposito
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to deactivate staff member {StaffId}", request.StaffId);
+            return Result<bool>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
+public record ReactivateStaffCommand(string SocietyId, string StaffId) : IRequest<Result<bool>>;
+
+public sealed class ReactivateStaffCommandHandler(IStaffRepository staffRepository, ILogger<ReactivateStaffCommandHandler> logger)
+    : IRequestHandler<ReactivateStaffCommand, Result<bool>>
+{
+    public async Task<Result<bool>> Handle(ReactivateStaffCommand request, CancellationToken ct)
+    {
+        try
+        {
+            var staff = await staffRepository.GetByIdAsync(request.StaffId, request.SocietyId, ct)
+                ?? throw new NotFoundException("Staff", request.StaffId);
+
+            staff.Reactivate();
+            await staffRepository.UpdateAsync(staff, ct);
+            return Result<bool>.Success(true);
+        }
+        catch (NotFoundException ex)
+        {
+            return Result<bool>.Failure(ErrorCodes.StaffNotFound, ex.Message);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to reactivate staff member {StaffId}", request.StaffId);
+            return Result<bool>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
+public record DeleteStaffCommand(string SocietyId, string StaffId) : IRequest<Result<bool>>;
+
+public sealed class DeleteStaffCommandHandler(IStaffRepository staffRepository, ILogger<DeleteStaffCommandHandler> logger)
+    : IRequestHandler<DeleteStaffCommand, Result<bool>>
+{
+    public async Task<Result<bool>> Handle(DeleteStaffCommand request, CancellationToken ct)
+    {
+        try
+        {
+            var staff = await staffRepository.GetByIdAsync(request.StaffId, request.SocietyId, ct)
+                ?? throw new NotFoundException("Staff", request.StaffId);
+
+            await staffRepository.DeleteAsync(staff.Id, request.SocietyId, ct);
+            return Result<bool>.Success(true);
+        }
+        catch (NotFoundException ex)
+        {
+            return Result<bool>.Failure(ErrorCodes.StaffNotFound, ex.Message);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to delete staff member {StaffId}", request.StaffId);
             return Result<bool>.Failure(ErrorCodes.InternalError, ex.Message);
         }
     }

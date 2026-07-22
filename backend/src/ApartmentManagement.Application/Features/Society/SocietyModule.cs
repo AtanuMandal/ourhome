@@ -232,6 +232,204 @@ public sealed class UpdateSocietyCommandHandler(
     }
 }
 
+// ─── Society Branding (logo / sidenav background) ─────────────────────────────
+
+public record UploadSocietyLogoCommand(
+    string SocietyId, string FileName, string ContentType, byte[] Content)
+    : IRequest<Result<SocietyLogoUploadResponse>>;
+
+public sealed class UploadSocietyLogoCommandHandler(
+    ISocietyRepository societyRepository,
+    IUserRepository userRepository,
+    IFileStorageService fileStorageService,
+    ICurrentUserService currentUserService,
+    ILogger<UploadSocietyLogoCommandHandler> logger)
+    : IRequestHandler<UploadSocietyLogoCommand, Result<SocietyLogoUploadResponse>>
+{
+    private const string ContainerName = "society-logos";
+
+    public async Task<Result<SocietyLogoUploadResponse>> Handle(UploadSocietyLogoCommand request, CancellationToken ct)
+    {
+        try
+        {
+            var authError = await SocietyBrandingAuthorization.AuthorizeSocietyBrandingChangeAsync(
+                request.SocietyId, currentUserService, userRepository, ct);
+            if (authError is not null)
+                return Result<SocietyLogoUploadResponse>.Failure(ErrorCodes.Forbidden, authError);
+
+            var society = await societyRepository.GetByIdAsync(request.SocietyId, request.SocietyId, ct)
+                ?? throw new NotFoundException("Society", request.SocietyId);
+
+            var extension = System.IO.Path.GetExtension(request.FileName);
+            var blobName = $"{request.SocietyId}/{Guid.NewGuid():N}{extension}";
+
+            await using var stream = new System.IO.MemoryStream(request.Content, writable: false);
+            await fileStorageService.UploadAsync(stream, blobName, request.ContentType, ContainerName, ct);
+
+            // Store an app-relative path (served via GetFileQuery) instead of a raw blob/SAS URL.
+            var appUrl = $"files/{ContainerName}/{blobName}";
+            society.SetLogoUrl(appUrl);
+            await societyRepository.UpdateAsync(society, ct);
+
+            return Result<SocietyLogoUploadResponse>.Success(new SocietyLogoUploadResponse(appUrl));
+        }
+        catch (NotFoundException ex)
+        {
+            return Result<SocietyLogoUploadResponse>.Failure(ErrorCodes.SocietyNotFound, ex.Message);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to upload logo for society {SocietyId}", request.SocietyId);
+            return Result<SocietyLogoUploadResponse>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
+public record UploadSocietyBackgroundImageCommand(
+    string SocietyId, string FileName, string ContentType, byte[] Content)
+    : IRequest<Result<SocietyBackgroundImageUploadResponse>>;
+
+public sealed class UploadSocietyBackgroundImageCommandHandler(
+    ISocietyRepository societyRepository,
+    IUserRepository userRepository,
+    IFileStorageService fileStorageService,
+    ICurrentUserService currentUserService,
+    ILogger<UploadSocietyBackgroundImageCommandHandler> logger)
+    : IRequestHandler<UploadSocietyBackgroundImageCommand, Result<SocietyBackgroundImageUploadResponse>>
+{
+    private const string ContainerName = "society-backgrounds";
+
+    public async Task<Result<SocietyBackgroundImageUploadResponse>> Handle(UploadSocietyBackgroundImageCommand request, CancellationToken ct)
+    {
+        try
+        {
+            var authError = await SocietyBrandingAuthorization.AuthorizeSocietyBrandingChangeAsync(
+                request.SocietyId, currentUserService, userRepository, ct);
+            if (authError is not null)
+                return Result<SocietyBackgroundImageUploadResponse>.Failure(ErrorCodes.Forbidden, authError);
+
+            var society = await societyRepository.GetByIdAsync(request.SocietyId, request.SocietyId, ct)
+                ?? throw new NotFoundException("Society", request.SocietyId);
+
+            var extension = System.IO.Path.GetExtension(request.FileName);
+            var blobName = $"{request.SocietyId}/{Guid.NewGuid():N}{extension}";
+
+            await using var stream = new System.IO.MemoryStream(request.Content, writable: false);
+            await fileStorageService.UploadAsync(stream, blobName, request.ContentType, ContainerName, ct);
+
+            // Store an app-relative path (served via GetFileQuery) instead of a raw blob/SAS URL.
+            var appUrl = $"files/{ContainerName}/{blobName}";
+            society.SetSidenavBackgroundUrl(appUrl);
+            await societyRepository.UpdateAsync(society, ct);
+
+            return Result<SocietyBackgroundImageUploadResponse>.Success(new SocietyBackgroundImageUploadResponse(appUrl));
+        }
+        catch (NotFoundException ex)
+        {
+            return Result<SocietyBackgroundImageUploadResponse>.Failure(ErrorCodes.SocietyNotFound, ex.Message);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to upload sidenav background image for society {SocietyId}", request.SocietyId);
+            return Result<SocietyBackgroundImageUploadResponse>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
+public record RemoveSocietyLogoCommand(string SocietyId) : IRequest<Result<SocietyResponse>>;
+
+public sealed class RemoveSocietyLogoCommandHandler(
+    ISocietyRepository societyRepository,
+    IUserRepository userRepository,
+    ICurrentUserService currentUserService,
+    ILogger<RemoveSocietyLogoCommandHandler> logger)
+    : IRequestHandler<RemoveSocietyLogoCommand, Result<SocietyResponse>>
+{
+    public async Task<Result<SocietyResponse>> Handle(RemoveSocietyLogoCommand request, CancellationToken ct)
+    {
+        try
+        {
+            var authError = await SocietyBrandingAuthorization.AuthorizeSocietyBrandingChangeAsync(
+                request.SocietyId, currentUserService, userRepository, ct);
+            if (authError is not null)
+                return Result<SocietyResponse>.Failure(ErrorCodes.Forbidden, authError);
+
+            var society = await societyRepository.GetByIdAsync(request.SocietyId, request.SocietyId, ct)
+                ?? throw new NotFoundException("Society", request.SocietyId);
+
+            society.SetLogoUrl(null);
+            var updated = await societyRepository.UpdateAsync(society, ct);
+            return Result<SocietyResponse>.Success(updated.ToResponse());
+        }
+        catch (NotFoundException ex)
+        {
+            return Result<SocietyResponse>.Failure(ErrorCodes.SocietyNotFound, ex.Message);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to remove logo for society {SocietyId}", request.SocietyId);
+            return Result<SocietyResponse>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
+public record RemoveSocietyBackgroundImageCommand(string SocietyId) : IRequest<Result<SocietyResponse>>;
+
+public sealed class RemoveSocietyBackgroundImageCommandHandler(
+    ISocietyRepository societyRepository,
+    IUserRepository userRepository,
+    ICurrentUserService currentUserService,
+    ILogger<RemoveSocietyBackgroundImageCommandHandler> logger)
+    : IRequestHandler<RemoveSocietyBackgroundImageCommand, Result<SocietyResponse>>
+{
+    public async Task<Result<SocietyResponse>> Handle(RemoveSocietyBackgroundImageCommand request, CancellationToken ct)
+    {
+        try
+        {
+            var authError = await SocietyBrandingAuthorization.AuthorizeSocietyBrandingChangeAsync(
+                request.SocietyId, currentUserService, userRepository, ct);
+            if (authError is not null)
+                return Result<SocietyResponse>.Failure(ErrorCodes.Forbidden, authError);
+
+            var society = await societyRepository.GetByIdAsync(request.SocietyId, request.SocietyId, ct)
+                ?? throw new NotFoundException("Society", request.SocietyId);
+
+            society.SetSidenavBackgroundUrl(null);
+            var updated = await societyRepository.UpdateAsync(society, ct);
+            return Result<SocietyResponse>.Success(updated.ToResponse());
+        }
+        catch (NotFoundException ex)
+        {
+            return Result<SocietyResponse>.Failure(ErrorCodes.SocietyNotFound, ex.Message);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to remove background image for society {SocietyId}", request.SocietyId);
+            return Result<SocietyResponse>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
+/// <summary>Shared by both branding upload handlers: HQAdmin manages any society; a society's
+/// own SUAdmin manages their own society. Returns null when authorized, or an error message.</summary>
+file static class SocietyBrandingAuthorization
+{
+    public static async Task<string?> AuthorizeSocietyBrandingChangeAsync(
+        string societyId,
+        ICurrentUserService currentUserService,
+        IUserRepository userRepository,
+        CancellationToken ct)
+    {
+        if (string.Equals(currentUserService.Role, "HQAdmin", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        var actor = await userRepository.GetByIdAsync(currentUserService.UserId, societyId, ct);
+        return actor is null || actor.Role != UserRole.SUAdmin
+            ? "Only society admins can update society branding."
+            : null;
+    }
+}
+
 // ─── Publish Society ──────────────────────────────────────────────────────────
 
 public record PublishSocietyCommand(string SocietyId) : IRequest<Result<bool>>;

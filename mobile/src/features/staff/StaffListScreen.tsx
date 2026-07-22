@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useSocietyId } from '../../shared/hooks/useSocietyId';
 import { useAuthStore } from '../../store/authStore';
-import { useStaffList, useOnDutyStaff, useCheckInStaff, useCheckOutStaff, useDeactivateStaff } from './hooks/useStaff';
+import { useStaffList, useOnDutyStaff, useCheckInStaff, useCheckOutStaff, useDeactivateStaff, useReactivateStaff, useDeleteStaff } from './hooks/useStaff';
 import { useDebounce } from '../../shared/hooks/useDebounce';
 import { AppHeader } from '../../shared/components/AppHeader';
 import { StatusChip } from '../../shared/components/StatusChip';
@@ -31,15 +31,20 @@ export function StaffListScreen() {
   const societyId = useSocietyId();
   const role = useAuthStore((s) => s.user?.role ?? '');
   const isAdmin = role === 'SUAdmin';
+  // SUUser sees a read-only roster (name/phone) — check-in/out is SUAdmin/SUSecurity-only
+  // server-side (GetOnDutyStaff/CheckIn/CheckOut).
+  const canManageAttendance = role === 'SUAdmin' || role === 'SUSecurity';
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search);
 
   const { data, isLoading, fetchNextPage, hasNextPage, refetch } =
     useStaffList(societyId, debouncedSearch ? { search: debouncedSearch } : undefined);
-  const { data: onDuty } = useOnDutyStaff(societyId);
+  const { data: onDuty } = useOnDutyStaff(societyId, canManageAttendance);
   const checkInStaff = useCheckInStaff(societyId);
   const checkOutStaff = useCheckOutStaff(societyId);
   const deactivateStaff = useDeactivateStaff(societyId);
+  const reactivateStaff = useReactivateStaff(societyId);
+  const deleteStaff = useDeleteStaff(societyId);
 
   const onDutyStaffIds = useMemo(() => new Set((onDuty ?? []).map((a: StaffAttendance) => a.staffId)), [onDuty]);
 
@@ -82,6 +87,27 @@ export function StaffListScreen() {
     ]);
   }, [deactivateStaff]);
 
+  const handleReactivate = useCallback((staff: Staff): void => {
+    reactivateStaff.mutate(staff.id, {
+      onError: (e) => Alert.alert('Could not reactivate staff', normalizeError(e)),
+    });
+  }, [reactivateStaff]);
+
+  const handleDelete = useCallback((staff: Staff): void => {
+    Alert.alert('Delete staff', `Permanently delete ${staff.fullName}? This cannot be undone.`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          deleteStaff.mutate(staff.id, {
+            onError: (e) => Alert.alert('Could not delete staff', normalizeError(e)),
+          });
+        },
+      },
+    ]);
+  }, [deleteStaff]);
+
   const renderItem = useCallback(({ item }: { item: Staff }) => {
     const isOnDuty = onDutyStaffIds.has(item.id);
     return (
@@ -101,7 +127,7 @@ export function StaffListScreen() {
             <Text style={styles.onDutyText}>On Duty</Text>
           </View>
         )}
-        {item.isActive && (
+        {canManageAttendance && item.isActive && (
           <TouchableOpacity
             style={[styles.actionButton, isOnDuty ? styles.checkOutButton : styles.checkInButton]}
             onPress={() => (isOnDuty ? handleCheckOut(item) : handleCheckIn(item))}
@@ -129,9 +155,29 @@ export function StaffListScreen() {
             <Text style={styles.deleteButtonText}>🚫</Text>
           </TouchableOpacity>
         )}
+        {isAdmin && !item.isActive && (
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={() => handleReactivate(item)}
+            disabled={reactivateStaff.isPending}
+            accessibilityLabel="Reactivate staff"
+          >
+            <Text style={styles.deleteButtonText}>✓</Text>
+          </TouchableOpacity>
+        )}
+        {isAdmin && (
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={() => handleDelete(item)}
+            disabled={deleteStaff.isPending}
+            accessibilityLabel="Delete staff"
+          >
+            <Text style={styles.deleteButtonText}>🗑</Text>
+          </TouchableOpacity>
+        )}
       </View>
     );
-  }, [onDutyStaffIds, isAdmin, navigation, handleCheckIn, handleCheckOut, handleDeactivate, checkInStaff.isPending, checkOutStaff.isPending, deactivateStaff.isPending]);
+  }, [onDutyStaffIds, isAdmin, canManageAttendance, navigation, handleCheckIn, handleCheckOut, handleDeactivate, handleReactivate, handleDelete, checkInStaff.isPending, checkOutStaff.isPending, deactivateStaff.isPending, reactivateStaff.isPending, deleteStaff.isPending]);
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -146,9 +192,14 @@ export function StaffListScreen() {
         />
       </View>
       {isAdmin && (
-        <TouchableOpacity style={styles.reportLink} onPress={() => navigation.navigate('StaffAttendanceReport')}>
-          <Text style={styles.reportLinkText}>View Attendance Report →</Text>
-        </TouchableOpacity>
+        <View style={styles.linkRow}>
+          <TouchableOpacity style={styles.reportLink} onPress={() => navigation.navigate('ShiftList')}>
+            <Text style={styles.reportLinkText}>Manage Shifts →</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.reportLink} onPress={() => navigation.navigate('StaffAttendanceReport')}>
+            <Text style={styles.reportLinkText}>View Attendance Report →</Text>
+          </TouchableOpacity>
+        </View>
       )}
       <SectionList
         sections={sections}
@@ -249,6 +300,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   fabText: { color: '#FFF', fontSize: 28, lineHeight: 30 },
+  linkRow: { flexDirection: 'row', justifyContent: 'space-between' },
   reportLink: { paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
   reportLinkText: { color: colors.primary, fontSize: typography.fontSize.sm, fontWeight: typography.fontWeight.semibold },
 });

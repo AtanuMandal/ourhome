@@ -41,6 +41,18 @@ export async function uploadProfilePicture(uri: string, societyId: string, userI
   return (JSON.parse(body) as { profilePictureUrl: string }).profilePictureUrl;
 }
 
+/** SUAdmin only — uploads the society's sidenav/drawer logo; returns the app-relative file URL. */
+export async function uploadSocietyLogo(uri: string, societyId: string): Promise<string> {
+  const body = await compressAndUploadTo(uri, `/societies/${societyId}/logo`);
+  return (JSON.parse(body) as { logoUrl: string }).logoUrl;
+}
+
+/** SUAdmin only — uploads the drawer content-area background image; returns the app-relative file URL. */
+export async function uploadSocietyBackgroundImage(uri: string, societyId: string): Promise<string> {
+  const body = await compressAndUploadTo(uri, `/societies/${societyId}/background-image`);
+  return (JSON.parse(body) as { sidenavBackgroundUrl: string }).sidenavBackgroundUrl;
+}
+
 /** Resolves an app-relative file path (as stored on visitor/maintenance/vendor records) to an absolute URL. */
 export function resolveFileUrl(relativePath: string): string {
   return `${BASE_URL}/${relativePath}`;

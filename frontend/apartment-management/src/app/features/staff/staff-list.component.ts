@@ -25,6 +25,7 @@ interface CategoryGroup { category: StaffCategory; staff: Staff[]; }
   template: `
     <app-page-header title="Staff">
       @if (isAdmin()) {
+        <a actions routerLink="shifts" mat-button>Manage Shifts</a>
         <a actions routerLink="attendance-report" mat-button>Attendance Report</a>
       }
     </app-page-header>
@@ -60,7 +61,7 @@ interface CategoryGroup { category: StaffCategory; staff: Staff[]; }
                   @if (isOnDuty(s.id)) {
                     <span class="on-duty-chip">On Duty</span>
                   }
-                  @if (s.isActive) {
+                  @if (canManageAttendance() && s.isActive) {
                     @if (isOnDuty(s.id)) {
                       <button mat-stroked-button color="warn" type="button" [disabled]="actioning() === s.id" (click)="checkOut(s)">
                         Check Out
@@ -78,7 +79,16 @@ interface CategoryGroup { category: StaffCategory; staff: Staff[]; }
                               [disabled]="actioning() === s.id" (click)="deactivate(s)">
                         <mat-icon>person_off</mat-icon>
                       </button>
+                    } @else {
+                      <button mat-icon-button type="button" aria-label="Reactivate staff"
+                              [disabled]="actioning() === s.id" (click)="reactivate(s)">
+                        <mat-icon>person</mat-icon>
+                      </button>
                     }
+                    <button mat-icon-button type="button" aria-label="Delete staff"
+                            [disabled]="actioning() === s.id" (click)="deleteStaff(s)">
+                      <mat-icon>delete</mat-icon>
+                    </button>
                   }
                 </div>
               }
@@ -115,6 +125,9 @@ export class StaffListComponent implements OnInit {
   readonly items     = signal<Staff[]>([]);
   readonly onDutyStaffIds = signal<Set<string>>(new Set());
   readonly isAdmin   = this.auth.isAdmin;
+  // Check In/Out is SUAdmin/SUSecurity-only server-side (GetOnDutyStaff/CheckIn/CheckOut) —
+  // SUUser gets a read-only roster (name/phone), so the button never renders for them.
+  readonly canManageAttendance = computed(() => this.auth.isAdmin() || this.auth.isSecurity());
   readonly search    = signal('');
 
   readonly filtered = computed<Staff[]>(() => {
@@ -150,10 +163,12 @@ export class StaffListComponent implements OnInit {
       error: () => this.loading.set(false),
     });
 
-    this.staffSvc.onDuty(sid).subscribe({
-      next: onDuty => this.onDutyStaffIds.set(new Set(onDuty.map(a => a.staffId))),
-      error: () => {},
-    });
+    if (this.canManageAttendance()) {
+      this.staffSvc.onDuty(sid).subscribe({
+        next: onDuty => this.onDutyStaffIds.set(new Set(onDuty.map(a => a.staffId))),
+        error: () => {},
+      });
+    }
   }
 
   isOnDuty(staffId: string) {
@@ -203,6 +218,37 @@ export class StaffListComponent implements OnInit {
         this.items.update(list => list.map(s => s.id === staff.id ? { ...s, isActive: false } : s));
         this.actioning.set(null);
         this.snackBar.open('Staff member deactivated.', 'Dismiss', { duration: 3000 });
+      },
+      error: () => this.actioning.set(null),
+    });
+  }
+
+  reactivate(staff: Staff) {
+    const sid = this.auth.societyId();
+    if (!sid) return;
+
+    this.actioning.set(staff.id);
+    this.staffSvc.reactivate(sid, staff.id).subscribe({
+      next: () => {
+        this.items.update(list => list.map(s => s.id === staff.id ? { ...s, isActive: true } : s));
+        this.actioning.set(null);
+        this.snackBar.open('Staff member reactivated.', 'Dismiss', { duration: 3000 });
+      },
+      error: () => this.actioning.set(null),
+    });
+  }
+
+  deleteStaff(staff: Staff) {
+    const sid = this.auth.societyId();
+    if (!sid) return;
+    if (!confirm(`Permanently delete ${staff.fullName}? This cannot be undone.`)) return;
+
+    this.actioning.set(staff.id);
+    this.staffSvc.delete(sid, staff.id).subscribe({
+      next: () => {
+        this.items.update(list => list.filter(s => s.id !== staff.id));
+        this.actioning.set(null);
+        this.snackBar.open('Staff member deleted.', 'Dismiss', { duration: 3000 });
       },
       error: () => this.actioning.set(null),
     });

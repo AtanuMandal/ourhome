@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Image, ScrollView, Alert, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSocietyId } from '../../shared/hooks/useSocietyId';
 import { AppHeader } from '../../shared/components/AppHeader';
@@ -8,6 +8,9 @@ import { SearchableSelect } from '../../shared/components/SearchableSelect';
 import { societyApi, type Society } from '../../api/endpoints/society';
 import { residentsApi } from '../../api/endpoints/residents';
 import { normalizeError } from '../../shared/utils/errors';
+import { useImagePicker } from '../../camera/useImagePicker';
+import { uploadSocietyLogo, uploadSocietyBackgroundImage, resolveFileUrl } from '../../camera/imageUpload';
+import { useThemeStore } from '../../store/themeStore';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing } from '../../theme/spacing';
@@ -24,8 +27,11 @@ interface SocietyUserDraft {
  */
 export function SocietySettingsScreen() {
   const societyId = useSocietyId();
+  const { pickFromGallery, pickFromCamera } = useImagePicker();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingBackground, setUploadingBackground] = useState(false);
   const [society, setSociety] = useState<Society | null>(null);
   const [users, setUsers] = useState<{ email: string; fullName: string }[]>([]);
 
@@ -105,11 +111,140 @@ export function SocietySettingsScreen() {
       .finally(() => setSaving(false));
   }
 
+  function pickAndUpload(
+    kind: 'logo' | 'background',
+    setUploading: (value: boolean) => void
+  ): void {
+    if (!societyId) return;
+    Alert.alert(kind === 'logo' ? 'Update Logo' : 'Update Background Image', 'Choose source', [
+      { text: 'Camera', onPress: () => void runUpload(pickFromCamera) },
+      { text: 'Gallery', onPress: () => void runUpload(pickFromGallery) },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+
+    async function runUpload(pick: () => Promise<string | null>): Promise<void> {
+      const uri = await pick();
+      if (!uri || !societyId) return;
+
+      setUploading(true);
+      try {
+        if (kind === 'logo') {
+          const logoUrl = await uploadSocietyLogo(uri, societyId);
+          setSociety((prev) => (prev ? { ...prev, logoUrl } : prev));
+          useThemeStore.setState({ logoUrl: resolveFileUrl(logoUrl) });
+        } else {
+          const sidenavBackgroundUrl = await uploadSocietyBackgroundImage(uri, societyId);
+          setSociety((prev) => (prev ? { ...prev, sidenavBackgroundUrl } : prev));
+          useThemeStore.setState({ sidenavBackgroundUrl: resolveFileUrl(sidenavBackgroundUrl) });
+        }
+      } catch (e) {
+        Alert.alert('Upload failed', normalizeError(e));
+      } finally {
+        setUploading(false);
+      }
+    }
+  }
+
+  function removeImage(kind: 'logo' | 'background', setUploading: (value: boolean) => void): void {
+    if (!societyId) return;
+    Alert.alert(
+      kind === 'logo' ? 'Remove Logo' : 'Remove Background Image',
+      'This reverts to the default branding.',
+      [
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: () => void runRemove(),
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+
+    async function runRemove(): Promise<void> {
+      if (!societyId) return;
+      setUploading(true);
+      try {
+        if (kind === 'logo') {
+          const updated = await societyApi.removeLogo(societyId);
+          setSociety((prev) => (prev ? { ...prev, logoUrl: updated.logoUrl } : prev));
+          useThemeStore.setState({ logoUrl: null });
+        } else {
+          const updated = await societyApi.removeBackgroundImage(societyId);
+          setSociety((prev) => (prev ? { ...prev, sidenavBackgroundUrl: updated.sidenavBackgroundUrl } : prev));
+          useThemeStore.setState({ sidenavBackgroundUrl: null });
+        }
+      } catch (e) {
+        Alert.alert('Remove failed', normalizeError(e));
+      } finally {
+        setUploading(false);
+      }
+    }
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <AppHeader title="Society Settings" showMenu />
       <LoadingOverlay visible={loading || saving} />
       <ScrollView contentContainerStyle={styles.content}>
+        <Text style={styles.section}>Branding</Text>
+        <Text style={styles.hint}>Shown at the top of every user's drawer, and as the drawer's background (70% opacity). Leave unset to use the default.</Text>
+        <View style={styles.brandingRow}>
+          <View style={styles.brandingItem}>
+            {society?.logoUrl ? (
+              <Image source={{ uri: resolveFileUrl(society.logoUrl) }} style={styles.brandingThumb} resizeMode="contain" />
+            ) : (
+              <View style={[styles.brandingThumb, styles.brandingThumbEmpty]}>
+                <Text style={styles.brandingThumbEmptyText}>No logo</Text>
+              </View>
+            )}
+            <Text style={styles.label}>Drawer logo</Text>
+            <TouchableOpacity
+              style={styles.brandingBtn}
+              disabled={uploadingLogo}
+              onPress={() => pickAndUpload('logo', setUploadingLogo)}
+            >
+              <Text style={styles.brandingBtnText}>{uploadingLogo ? 'Uploading…' : society?.logoUrl ? 'Change' : 'Upload'}</Text>
+            </TouchableOpacity>
+            {society?.logoUrl && (
+              <TouchableOpacity
+                style={styles.brandingRemoveBtn}
+                disabled={uploadingLogo}
+                onPress={() => removeImage('logo', setUploadingLogo)}
+                accessibilityLabel="Remove logo"
+              >
+                <Text style={styles.brandingRemoveBtnText}>Remove</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          <View style={styles.brandingItem}>
+            {society?.sidenavBackgroundUrl ? (
+              <Image source={{ uri: resolveFileUrl(society.sidenavBackgroundUrl) }} style={styles.brandingThumb} resizeMode="cover" />
+            ) : (
+              <View style={[styles.brandingThumb, styles.brandingThumbEmpty]}>
+                <Text style={styles.brandingThumbEmptyText}>No background</Text>
+              </View>
+            )}
+            <Text style={styles.label}>Drawer background</Text>
+            <TouchableOpacity
+              style={styles.brandingBtn}
+              disabled={uploadingBackground}
+              onPress={() => pickAndUpload('background', setUploadingBackground)}
+            >
+              <Text style={styles.brandingBtnText}>{uploadingBackground ? 'Uploading…' : society?.sidenavBackgroundUrl ? 'Change' : 'Upload'}</Text>
+            </TouchableOpacity>
+            {society?.sidenavBackgroundUrl && (
+              <TouchableOpacity
+                style={styles.brandingRemoveBtn}
+                disabled={uploadingBackground}
+                onPress={() => removeImage('background', setUploadingBackground)}
+                accessibilityLabel="Remove background image"
+              >
+                <Text style={styles.brandingRemoveBtnText}>Remove</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
         <Text style={styles.section}>Profile</Text>
         <Text style={styles.label}>Society name</Text>
         <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Society name" />
@@ -193,6 +328,23 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   label: { fontSize: typography.fontSize.sm, color: colors.text.secondary, marginTop: spacing.md, marginBottom: spacing.xs },
+  hint: { fontSize: typography.fontSize.xs, color: colors.text.disabled, marginTop: spacing.xs },
+  brandingRow: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.sm },
+  brandingItem: { flex: 1, alignItems: 'center' },
+  brandingThumb: {
+    width: 88,
+    height: 88,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  brandingThumbEmpty: { alignItems: 'center', justifyContent: 'center' },
+  brandingThumbEmptyText: { fontSize: typography.fontSize.xs, color: colors.text.disabled, textAlign: 'center', paddingHorizontal: spacing.xs },
+  brandingBtn: { marginTop: spacing.xs, paddingVertical: spacing.xs, paddingHorizontal: spacing.md, borderRadius: 8, borderWidth: 1, borderColor: colors.primary },
+  brandingBtnText: { fontSize: typography.fontSize.sm, color: colors.primary, fontWeight: typography.fontWeight.semibold },
+  brandingRemoveBtn: { marginTop: spacing.xs, paddingVertical: spacing.xs, paddingHorizontal: spacing.md, borderRadius: 8, borderWidth: 1, borderColor: colors.error },
+  brandingRemoveBtnText: { fontSize: typography.fontSize.sm, color: colors.error, fontWeight: typography.fontWeight.semibold },
   input: {
     backgroundColor: colors.surface,
     borderRadius: 8,

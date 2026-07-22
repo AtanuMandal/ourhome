@@ -36,4 +36,24 @@ export class SocietyService {
   getSummaryReport(id: string) {
     return this.api.get<SocietySummaryReport>(`societies/${id}/report`);
   }
+
+  uploadLogo(societyId: string, file: Blob, fileName = 'logo.png') {
+    const form = new FormData();
+    form.append('file', file, fileName);
+    return this.api.post<{ logoUrl: string }>(`societies/${societyId}/logo`, form);
+  }
+
+  uploadBackgroundImage(societyId: string, file: Blob, fileName = 'background.jpg') {
+    const form = new FormData();
+    form.append('file', file, fileName);
+    return this.api.post<{ sidenavBackgroundUrl: string }>(`societies/${societyId}/background-image`, form);
+  }
+
+  removeLogo(societyId: string) {
+    return this.api.delete<Society>(`societies/${societyId}/logo`);
+  }
+
+  removeBackgroundImage(societyId: string) {
+    return this.api.delete<Society>(`societies/${societyId}/background-image`);
+  }
 }

@@ -451,3 +451,323 @@ public class GetSocietySummaryReportQueryHandlerTests
         result.ErrorCode.Should().Be(ErrorCodes.SocietyNotFound);
     }
 }
+
+public class UploadSocietyLogoCommandHandlerTests
+{
+    private readonly Mock<ISocietyRepository> _societyRepoMock = new();
+    private readonly Mock<IUserRepository> _userRepoMock = new();
+    private readonly Mock<IFileStorageService> _fileStorageMock = new();
+    private readonly Mock<ICurrentUserService> _currentUserServiceMock = new();
+    private readonly Mock<ILogger<UploadSocietyLogoCommandHandler>> _loggerMock = new();
+
+    private const string SocietyId = "soc-1";
+
+    private UploadSocietyLogoCommandHandler CreateHandler() =>
+        new(_societyRepoMock.Object, _userRepoMock.Object, _fileStorageMock.Object, _currentUserServiceMock.Object, _loggerMock.Object);
+
+    private Society SeedSociety()
+    {
+        var society = Society.Create("GV", new Address("123 Main St", "Mumbai", "Maharashtra", "400001", "India"),
+            "admin@gv.com", "+91-9876543210", 2, 40);
+        _societyRepoMock.Setup(r => r.GetByIdAsync(SocietyId, SocietyId, It.IsAny<CancellationToken>())).ReturnsAsync(society);
+        _societyRepoMock.Setup(r => r.UpdateAsync(It.IsAny<Society>(), It.IsAny<CancellationToken>())).ReturnsAsync((Society s, CancellationToken _) => s);
+        return society;
+    }
+
+    private void SeedSuAdmin()
+    {
+        _currentUserServiceMock.Setup(s => s.Role).Returns("SUAdmin");
+        _currentUserServiceMock.Setup(s => s.UserId).Returns("admin-1");
+        var admin = User.Create(SocietyId, "Admin", "admin@gv.com", "+91-9000000000", UserRole.SUAdmin, ResidentType.SocietyAdmin);
+        _userRepoMock.Setup(r => r.GetByIdAsync("admin-1", SocietyId, It.IsAny<CancellationToken>())).ReturnsAsync(admin);
+    }
+
+    [Fact]
+    public async Task Handle_AsSuAdmin_UploadsAndPersistsLogoUrl()
+    {
+        SeedSociety();
+        SeedSuAdmin();
+        _fileStorageMock
+            .Setup(s => s.UploadAsync(It.IsAny<Stream>(), It.IsAny<string>(), "image/png", "society-logos", It.IsAny<CancellationToken>()))
+            .ReturnsAsync("ignored-return-value");
+
+        var handler = CreateHandler();
+
+        var result = await handler.Handle(
+            new UploadSocietyLogoCommand(SocietyId, "logo.png", "image/png", [1, 2, 3]), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.LogoUrl.Should().StartWith("files/society-logos/soc-1/").And.EndWith(".png");
+        _societyRepoMock.Verify(r => r.UpdateAsync(
+            It.Is<Society>(s => s.LogoUrl == result.Value.LogoUrl), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_AsHqAdmin_IsAuthorized()
+    {
+        SeedSociety();
+        _currentUserServiceMock.Setup(s => s.Role).Returns("HQAdmin");
+
+        var handler = CreateHandler();
+
+        var result = await handler.Handle(
+            new UploadSocietyLogoCommand(SocietyId, "logo.png", "image/png", [1, 2, 3]), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Handle_AsSuUser_ReturnsForbidden()
+    {
+        SeedSociety();
+        _currentUserServiceMock.Setup(s => s.Role).Returns("SUUser");
+        _currentUserServiceMock.Setup(s => s.UserId).Returns("res-1");
+        var resident = User.Create(SocietyId, "Resident", "res@gv.com", "+91-9000000001", UserRole.SUUser, ResidentType.Owner);
+        _userRepoMock.Setup(r => r.GetByIdAsync("res-1", SocietyId, It.IsAny<CancellationToken>())).ReturnsAsync(resident);
+
+        var handler = CreateHandler();
+
+        var result = await handler.Handle(
+            new UploadSocietyLogoCommand(SocietyId, "logo.png", "image/png", [1, 2, 3]), CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.Forbidden);
+        _fileStorageMock.Verify(s => s.UploadAsync(It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+}
+
+public class UploadSocietyBackgroundImageCommandHandlerTests
+{
+    private readonly Mock<ISocietyRepository> _societyRepoMock = new();
+    private readonly Mock<IUserRepository> _userRepoMock = new();
+    private readonly Mock<IFileStorageService> _fileStorageMock = new();
+    private readonly Mock<ICurrentUserService> _currentUserServiceMock = new();
+    private readonly Mock<ILogger<UploadSocietyBackgroundImageCommandHandler>> _loggerMock = new();
+
+    private const string SocietyId = "soc-1";
+
+    private UploadSocietyBackgroundImageCommandHandler CreateHandler() =>
+        new(_societyRepoMock.Object, _userRepoMock.Object, _fileStorageMock.Object, _currentUserServiceMock.Object, _loggerMock.Object);
+
+    private void SeedSociety()
+    {
+        var society = Society.Create("GV", new Address("123 Main St", "Mumbai", "Maharashtra", "400001", "India"),
+            "admin@gv.com", "+91-9876543210", 2, 40);
+        _societyRepoMock.Setup(r => r.GetByIdAsync(SocietyId, SocietyId, It.IsAny<CancellationToken>())).ReturnsAsync(society);
+        _societyRepoMock.Setup(r => r.UpdateAsync(It.IsAny<Society>(), It.IsAny<CancellationToken>())).ReturnsAsync((Society s, CancellationToken _) => s);
+    }
+
+    [Fact]
+    public async Task Handle_AsSuAdmin_UploadsAndPersistsBackgroundUrl()
+    {
+        SeedSociety();
+        _currentUserServiceMock.Setup(s => s.Role).Returns("SUAdmin");
+        _currentUserServiceMock.Setup(s => s.UserId).Returns("admin-1");
+        var admin = User.Create(SocietyId, "Admin", "admin@gv.com", "+91-9000000000", UserRole.SUAdmin, ResidentType.SocietyAdmin);
+        _userRepoMock.Setup(r => r.GetByIdAsync("admin-1", SocietyId, It.IsAny<CancellationToken>())).ReturnsAsync(admin);
+
+        var handler = CreateHandler();
+
+        var result = await handler.Handle(
+            new UploadSocietyBackgroundImageCommand(SocietyId, "bg.jpg", "image/jpeg", [1, 2, 3]), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.SidenavBackgroundUrl.Should().StartWith("files/society-backgrounds/soc-1/").And.EndWith(".jpg");
+        _societyRepoMock.Verify(r => r.UpdateAsync(
+            It.Is<Society>(s => s.SidenavBackgroundUrl == result.Value.SidenavBackgroundUrl), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_AsSuSecurity_ReturnsForbidden()
+    {
+        SeedSociety();
+        _currentUserServiceMock.Setup(s => s.Role).Returns("SUSecurity");
+        _currentUserServiceMock.Setup(s => s.UserId).Returns("sec-1");
+        var guard = User.Create(SocietyId, "Guard", "guard@gv.com", "+91-9000000002", UserRole.SUSecurity, ResidentType.CoOccupant);
+        _userRepoMock.Setup(r => r.GetByIdAsync("sec-1", SocietyId, It.IsAny<CancellationToken>())).ReturnsAsync(guard);
+
+        var handler = CreateHandler();
+
+        var result = await handler.Handle(
+            new UploadSocietyBackgroundImageCommand(SocietyId, "bg.jpg", "image/jpeg", [1, 2, 3]), CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.Forbidden);
+    }
+
+    [Fact]
+    public async Task Handle_WhenSocietyNotFound_ReturnsFailure()
+    {
+        _currentUserServiceMock.Setup(s => s.Role).Returns("HQAdmin");
+        _societyRepoMock.Setup(r => r.GetByIdAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync((Society?)null);
+
+        var handler = CreateHandler();
+
+        var result = await handler.Handle(
+            new UploadSocietyBackgroundImageCommand("missing", "bg.jpg", "image/jpeg", [1, 2, 3]), CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.SocietyNotFound);
+    }
+}
+
+public class RemoveSocietyLogoCommandHandlerTests
+{
+    private readonly Mock<ISocietyRepository> _societyRepoMock = new();
+    private readonly Mock<IUserRepository> _userRepoMock = new();
+    private readonly Mock<ICurrentUserService> _currentUserServiceMock = new();
+    private readonly Mock<ILogger<RemoveSocietyLogoCommandHandler>> _loggerMock = new();
+
+    private const string SocietyId = "soc-1";
+
+    private RemoveSocietyLogoCommandHandler CreateHandler() =>
+        new(_societyRepoMock.Object, _userRepoMock.Object, _currentUserServiceMock.Object, _loggerMock.Object);
+
+    private Society SeedSociety()
+    {
+        var society = Society.Create("GV", new Address("123 Main St", "Mumbai", "Maharashtra", "400001", "India"),
+            "admin@gv.com", "+91-9876543210", 2, 40);
+        society.SetLogoUrl("files/society-logos/soc-1/abc.png");
+        _societyRepoMock.Setup(r => r.GetByIdAsync(SocietyId, SocietyId, It.IsAny<CancellationToken>())).ReturnsAsync(society);
+        _societyRepoMock.Setup(r => r.UpdateAsync(It.IsAny<Society>(), It.IsAny<CancellationToken>())).ReturnsAsync((Society s, CancellationToken _) => s);
+        return society;
+    }
+
+    [Fact]
+    public async Task Handle_AsSuAdmin_ClearsLogoUrl()
+    {
+        SeedSociety();
+        _currentUserServiceMock.Setup(s => s.Role).Returns("SUAdmin");
+        _currentUserServiceMock.Setup(s => s.UserId).Returns("admin-1");
+        var admin = User.Create(SocietyId, "Admin", "admin@gv.com", "+91-9000000000", UserRole.SUAdmin, ResidentType.SocietyAdmin);
+        _userRepoMock.Setup(r => r.GetByIdAsync("admin-1", SocietyId, It.IsAny<CancellationToken>())).ReturnsAsync(admin);
+
+        var handler = CreateHandler();
+
+        var result = await handler.Handle(new RemoveSocietyLogoCommand(SocietyId), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.LogoUrl.Should().BeNull();
+        _societyRepoMock.Verify(r => r.UpdateAsync(
+            It.Is<Society>(s => s.LogoUrl == null), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_AsHqAdmin_IsAuthorized()
+    {
+        SeedSociety();
+        _currentUserServiceMock.Setup(s => s.Role).Returns("HQAdmin");
+
+        var handler = CreateHandler();
+
+        var result = await handler.Handle(new RemoveSocietyLogoCommand(SocietyId), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.LogoUrl.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Handle_AsSuUser_ReturnsForbidden()
+    {
+        SeedSociety();
+        _currentUserServiceMock.Setup(s => s.Role).Returns("SUUser");
+        _currentUserServiceMock.Setup(s => s.UserId).Returns("res-1");
+        var resident = User.Create(SocietyId, "Resident", "res@gv.com", "+91-9000000001", UserRole.SUUser, ResidentType.Owner);
+        _userRepoMock.Setup(r => r.GetByIdAsync("res-1", SocietyId, It.IsAny<CancellationToken>())).ReturnsAsync(resident);
+
+        var handler = CreateHandler();
+
+        var result = await handler.Handle(new RemoveSocietyLogoCommand(SocietyId), CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.Forbidden);
+        _societyRepoMock.Verify(r => r.UpdateAsync(It.IsAny<Society>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_WhenSocietyNotFound_ReturnsFailure()
+    {
+        _currentUserServiceMock.Setup(s => s.Role).Returns("HQAdmin");
+        _societyRepoMock.Setup(r => r.GetByIdAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync((Society?)null);
+
+        var handler = CreateHandler();
+
+        var result = await handler.Handle(new RemoveSocietyLogoCommand("missing"), CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.SocietyNotFound);
+    }
+}
+
+public class RemoveSocietyBackgroundImageCommandHandlerTests
+{
+    private readonly Mock<ISocietyRepository> _societyRepoMock = new();
+    private readonly Mock<IUserRepository> _userRepoMock = new();
+    private readonly Mock<ICurrentUserService> _currentUserServiceMock = new();
+    private readonly Mock<ILogger<RemoveSocietyBackgroundImageCommandHandler>> _loggerMock = new();
+
+    private const string SocietyId = "soc-1";
+
+    private RemoveSocietyBackgroundImageCommandHandler CreateHandler() =>
+        new(_societyRepoMock.Object, _userRepoMock.Object, _currentUserServiceMock.Object, _loggerMock.Object);
+
+    private Society SeedSociety()
+    {
+        var society = Society.Create("GV", new Address("123 Main St", "Mumbai", "Maharashtra", "400001", "India"),
+            "admin@gv.com", "+91-9876543210", 2, 40);
+        society.SetSidenavBackgroundUrl("files/society-backgrounds/soc-1/def.jpg");
+        _societyRepoMock.Setup(r => r.GetByIdAsync(SocietyId, SocietyId, It.IsAny<CancellationToken>())).ReturnsAsync(society);
+        _societyRepoMock.Setup(r => r.UpdateAsync(It.IsAny<Society>(), It.IsAny<CancellationToken>())).ReturnsAsync((Society s, CancellationToken _) => s);
+        return society;
+    }
+
+    [Fact]
+    public async Task Handle_AsSuAdmin_ClearsBackgroundUrl()
+    {
+        SeedSociety();
+        _currentUserServiceMock.Setup(s => s.Role).Returns("SUAdmin");
+        _currentUserServiceMock.Setup(s => s.UserId).Returns("admin-1");
+        var admin = User.Create(SocietyId, "Admin", "admin@gv.com", "+91-9000000000", UserRole.SUAdmin, ResidentType.SocietyAdmin);
+        _userRepoMock.Setup(r => r.GetByIdAsync("admin-1", SocietyId, It.IsAny<CancellationToken>())).ReturnsAsync(admin);
+
+        var handler = CreateHandler();
+
+        var result = await handler.Handle(new RemoveSocietyBackgroundImageCommand(SocietyId), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.SidenavBackgroundUrl.Should().BeNull();
+        _societyRepoMock.Verify(r => r.UpdateAsync(
+            It.Is<Society>(s => s.SidenavBackgroundUrl == null), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_AsSuSecurity_ReturnsForbidden()
+    {
+        SeedSociety();
+        _currentUserServiceMock.Setup(s => s.Role).Returns("SUSecurity");
+        _currentUserServiceMock.Setup(s => s.UserId).Returns("sec-1");
+        var guard = User.Create(SocietyId, "Guard", "guard@gv.com", "+91-9000000002", UserRole.SUSecurity, ResidentType.CoOccupant);
+        _userRepoMock.Setup(r => r.GetByIdAsync("sec-1", SocietyId, It.IsAny<CancellationToken>())).ReturnsAsync(guard);
+
+        var handler = CreateHandler();
+
+        var result = await handler.Handle(new RemoveSocietyBackgroundImageCommand(SocietyId), CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.Forbidden);
+    }
+
+    [Fact]
+    public async Task Handle_WhenSocietyNotFound_ReturnsFailure()
+    {
+        _currentUserServiceMock.Setup(s => s.Role).Returns("HQAdmin");
+        _societyRepoMock.Setup(r => r.GetByIdAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync((Society?)null);
+
+        var handler = CreateHandler();
+
+        var result = await handler.Handle(new RemoveSocietyBackgroundImageCommand("missing"), CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.SocietyNotFound);
+    }
+}

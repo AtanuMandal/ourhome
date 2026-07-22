@@ -115,4 +115,72 @@ public class SocietyFunctions(ISender mediator, ICurrentUserService currentUser)
         var result = await mediator.Send(new GetSocietySummaryReportQuery(id), ct);
         return result.ToActionResult();
     }
+
+    [Function("UploadSocietyLogo")]
+    public async Task<IActionResult> UploadSocietyLogo(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "societies/{id:guid}/logo")] HttpRequest req,
+        string id, CancellationToken ct)
+    {
+        if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
+        if (!req.HasFormContentType)
+            return new BadRequestObjectResult("Request must be multipart/form-data");
+
+        var form = await req.ReadFormAsync(ct);
+        var file = form.Files["file"];
+        if (file is null || file.Length == 0)
+            return new BadRequestObjectResult("A logo image file is required.");
+
+        await using var stream = file.OpenReadStream();
+        using var memory = new MemoryStream();
+        await stream.CopyToAsync(memory, ct);
+
+        var result = await mediator.Send(
+            new UploadSocietyLogoCommand(id, file.FileName, file.ContentType, memory.ToArray()), ct);
+        return result.ToActionResult(201);
+    }
+
+    [Function("UploadSocietyBackgroundImage")]
+    public async Task<IActionResult> UploadSocietyBackgroundImage(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "societies/{id:guid}/background-image")] HttpRequest req,
+        string id, CancellationToken ct)
+    {
+        if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
+        if (!req.HasFormContentType)
+            return new BadRequestObjectResult("Request must be multipart/form-data");
+
+        var form = await req.ReadFormAsync(ct);
+        var file = form.Files["file"];
+        if (file is null || file.Length == 0)
+            return new BadRequestObjectResult("A background image file is required.");
+
+        await using var stream = file.OpenReadStream();
+        using var memory = new MemoryStream();
+        await stream.CopyToAsync(memory, ct);
+
+        var result = await mediator.Send(
+            new UploadSocietyBackgroundImageCommand(id, file.FileName, file.ContentType, memory.ToArray()), ct);
+        return result.ToActionResult(201);
+    }
+
+    [Function("RemoveSocietyLogo")]
+    public async Task<IActionResult> RemoveSocietyLogo(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "delete", Route = "societies/{id:guid}/logo")] HttpRequest req,
+        string id, CancellationToken ct)
+    {
+        if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
+
+        var result = await mediator.Send(new RemoveSocietyLogoCommand(id), ct);
+        return result.ToActionResult();
+    }
+
+    [Function("RemoveSocietyBackgroundImage")]
+    public async Task<IActionResult> RemoveSocietyBackgroundImage(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "delete", Route = "societies/{id:guid}/background-image")] HttpRequest req,
+        string id, CancellationToken ct)
+    {
+        if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
+
+        var result = await mediator.Send(new RemoveSocietyBackgroundImageCommand(id), ct);
+        return result.ToActionResult();
+    }
 }

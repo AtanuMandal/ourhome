@@ -68,4 +68,41 @@ describe('ThemeService', () => {
 
     expect(document.documentElement.getAttribute('data-theme')).toBe('ocean');
   }));
+
+  it('exposes null logoUrl/sidenavBackgroundUrl when the society has not uploaded either', fakeAsync(() => {
+    setup('s1');
+    const service = TestBed.inject(ThemeService);
+    tick();
+
+    expect(service.logoUrl()).toBeNull();
+    expect(service.sidenavBackgroundUrl()).toBeNull();
+  }));
+
+  it('exposes absolute URLs (API origin + app-relative path) when the society has uploaded branding images', fakeAsync(() => {
+    const society = { ...makeSociety('ocean'), logoUrl: 'files/society-logos/s1/abc.png', sidenavBackgroundUrl: 'files/society-backgrounds/s1/def.jpg' };
+    setup('s1', { get: jasmine.createSpy().and.returnValue(of(society)) });
+    const service = TestBed.inject(ThemeService);
+    tick();
+
+    expect(service.logoUrl()).toBe('http://localhost:7071/api/files/society-logos/s1/abc.png');
+    expect(service.sidenavBackgroundUrl()).toBe('http://localhost:7071/api/files/society-backgrounds/s1/def.jpg');
+  }));
+
+  it('clears logoUrl/sidenavBackgroundUrl to null when no society is known', fakeAsync(() => {
+    setup(null);
+    const service = TestBed.inject(ThemeService);
+    tick();
+
+    expect(service.logoUrl()).toBeNull();
+    expect(service.sidenavBackgroundUrl()).toBeNull();
+  }));
+
+  it('clears logoUrl/sidenavBackgroundUrl to null when the society fetch fails', fakeAsync(() => {
+    setup('s1', { get: jasmine.createSpy().and.returnValue(throwError(() => new Error('network error'))) });
+    const service = TestBed.inject(ThemeService);
+    tick();
+
+    expect(service.logoUrl()).toBeNull();
+    expect(service.sidenavBackgroundUrl()).toBeNull();
+  }));
 });

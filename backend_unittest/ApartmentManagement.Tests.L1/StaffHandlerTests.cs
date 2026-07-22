@@ -143,6 +143,188 @@ public class DeactivateStaffCommandHandlerTests
         result.IsSuccess.Should().BeTrue();
         staff.IsActive.Should().BeFalse();
     }
+
+    [Fact]
+    public async Task Handle_WithMissingStaff_ReturnsStaffNotFound()
+    {
+        _staffRepoMock.Setup(r => r.GetByIdAsync("missing", "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync((Staff?)null);
+
+        var result = await CreateHandler().Handle(new DeactivateStaffCommand("soc-001", "missing"), CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.StaffNotFound);
+    }
+}
+
+public class ReactivateStaffCommandHandlerTests
+{
+    private readonly Mock<IStaffRepository> _staffRepoMock = new();
+    private readonly Mock<ILogger<ReactivateStaffCommandHandler>> _loggerMock = new();
+
+    private ReactivateStaffCommandHandler CreateHandler() => new(_staffRepoMock.Object, _loggerMock.Object);
+
+    [Fact]
+    public async Task Handle_WithDeactivatedStaff_ReactivatesAndReturnsTrue()
+    {
+        var staff = Staff.Create("soc-001", "John Guard", "+91-9876543210", StaffCategory.Security, StaffEmploymentType.OnPayroll);
+        staff.Deactivate();
+        _staffRepoMock.Setup(r => r.GetByIdAsync(staff.Id, "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync(staff);
+
+        var result = await CreateHandler().Handle(new ReactivateStaffCommand("soc-001", staff.Id), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        staff.IsActive.Should().BeTrue();
+        _staffRepoMock.Verify(r => r.UpdateAsync(It.IsAny<Staff>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_WithMissingStaff_ReturnsStaffNotFound()
+    {
+        _staffRepoMock.Setup(r => r.GetByIdAsync("missing", "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync((Staff?)null);
+
+        var result = await CreateHandler().Handle(new ReactivateStaffCommand("soc-001", "missing"), CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.StaffNotFound);
+    }
+}
+
+public class DeleteStaffCommandHandlerTests
+{
+    private readonly Mock<IStaffRepository> _staffRepoMock = new();
+    private readonly Mock<ILogger<DeleteStaffCommandHandler>> _loggerMock = new();
+
+    private DeleteStaffCommandHandler CreateHandler() => new(_staffRepoMock.Object, _loggerMock.Object);
+
+    [Fact]
+    public async Task Handle_WithExistingStaff_DeletesAndReturnsTrue()
+    {
+        var staff = Staff.Create("soc-001", "John Guard", "+91-9876543210", StaffCategory.Security, StaffEmploymentType.OnPayroll);
+        _staffRepoMock.Setup(r => r.GetByIdAsync(staff.Id, "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync(staff);
+
+        var result = await CreateHandler().Handle(new DeleteStaffCommand("soc-001", staff.Id), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        _staffRepoMock.Verify(r => r.DeleteAsync(staff.Id, "soc-001", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_WithMissingStaff_ReturnsStaffNotFound()
+    {
+        _staffRepoMock.Setup(r => r.GetByIdAsync("missing", "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync((Staff?)null);
+
+        var result = await CreateHandler().Handle(new DeleteStaffCommand("soc-001", "missing"), CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.StaffNotFound);
+        _staffRepoMock.Verify(r => r.DeleteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+}
+
+// ─── UpdateShiftCommandHandler / DeleteShiftCommandHandler Tests ──────────────
+
+public class UpdateShiftCommandHandlerTests
+{
+    private readonly Mock<IShiftRepository> _shiftRepoMock = new();
+    private readonly Mock<ILogger<UpdateShiftCommandHandler>> _loggerMock = new();
+
+    private UpdateShiftCommandHandler CreateHandler() => new(_shiftRepoMock.Object, _loggerMock.Object);
+
+    [Fact]
+    public async Task Handle_WithExistingShift_UpdatesAndReturnsResponse()
+    {
+        var shift = Shift.Create("soc-001", "Morning Security", TimeSpan.FromHours(8), TimeSpan.FromHours(16));
+        _shiftRepoMock.Setup(r => r.GetByIdAsync(shift.Id, "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync(shift);
+        _shiftRepoMock.Setup(r => r.UpdateAsync(It.IsAny<Shift>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Shift s, CancellationToken _) => s);
+
+        var result = await CreateHandler().Handle(
+            new UpdateShiftCommand("soc-001", shift.Id, "Morning Security (Updated)", TimeSpan.FromHours(9), TimeSpan.FromHours(17), 15),
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Name.Should().Be("Morning Security (Updated)");
+        result.Value!.StartTime.Should().Be(TimeSpan.FromHours(9));
+        result.Value!.GraceMinutes.Should().Be(15);
+    }
+
+    [Fact]
+    public async Task Handle_WithMissingShift_ReturnsShiftNotFound()
+    {
+        _shiftRepoMock.Setup(r => r.GetByIdAsync("missing", "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync((Shift?)null);
+
+        var result = await CreateHandler().Handle(
+            new UpdateShiftCommand("soc-001", "missing", "Name", TimeSpan.Zero, TimeSpan.FromHours(8), 30),
+            CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.ShiftNotFound);
+    }
+}
+
+public class DeleteShiftCommandHandlerTests
+{
+    private readonly Mock<IShiftRepository> _shiftRepoMock = new();
+    private readonly Mock<IStaffRepository> _staffRepoMock = new();
+    private readonly Mock<ILogger<DeleteShiftCommandHandler>> _loggerMock = new();
+
+    private DeleteShiftCommandHandler CreateHandler() => new(_shiftRepoMock.Object, _staffRepoMock.Object, _loggerMock.Object);
+
+    [Fact]
+    public async Task Handle_WithNoStaffAssigned_DeletesAndReturnsTrue()
+    {
+        var shift = Shift.Create("soc-001", "Morning Security", TimeSpan.FromHours(8), TimeSpan.FromHours(16));
+        _shiftRepoMock.Setup(r => r.GetByIdAsync(shift.Id, "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync(shift);
+        _staffRepoMock.Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>())).ReturnsAsync((IReadOnlyList<Staff>)[]);
+
+        var result = await CreateHandler().Handle(new DeleteShiftCommand("soc-001", shift.Id), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        _shiftRepoMock.Verify(r => r.DeleteAsync(shift.Id, "soc-001", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_WithActiveStaffAssigned_ReturnsShiftInUse()
+    {
+        var shift = Shift.Create("soc-001", "Morning Security", TimeSpan.FromHours(8), TimeSpan.FromHours(16));
+        var staff = Staff.Create("soc-001", "John Guard", "+91-9876543210", StaffCategory.Security, StaffEmploymentType.OnPayroll,
+            shiftId: shift.Id, shiftName: shift.Name);
+        _shiftRepoMock.Setup(r => r.GetByIdAsync(shift.Id, "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync(shift);
+        _staffRepoMock.Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>())).ReturnsAsync((IReadOnlyList<Staff>)[staff]);
+
+        var result = await CreateHandler().Handle(new DeleteShiftCommand("soc-001", shift.Id), CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.ShiftInUse);
+        _shiftRepoMock.Verify(r => r.DeleteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_WithOnlyDeactivatedStaffAssigned_StillDeletes()
+    {
+        var shift = Shift.Create("soc-001", "Morning Security", TimeSpan.FromHours(8), TimeSpan.FromHours(16));
+        var staff = Staff.Create("soc-001", "John Guard", "+91-9876543210", StaffCategory.Security, StaffEmploymentType.OnPayroll,
+            shiftId: shift.Id, shiftName: shift.Name);
+        staff.Deactivate();
+        _shiftRepoMock.Setup(r => r.GetByIdAsync(shift.Id, "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync(shift);
+        _staffRepoMock.Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>())).ReturnsAsync((IReadOnlyList<Staff>)[staff]);
+
+        var result = await CreateHandler().Handle(new DeleteShiftCommand("soc-001", shift.Id), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        _shiftRepoMock.Verify(r => r.DeleteAsync(shift.Id, "soc-001", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_WithMissingShift_ReturnsShiftNotFound()
+    {
+        _shiftRepoMock.Setup(r => r.GetByIdAsync("missing", "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync((Shift?)null);
+
+        var result = await CreateHandler().Handle(new DeleteShiftCommand("soc-001", "missing"), CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.ShiftNotFound);
+    }
 }
 
 // ─── CheckInStaffCommandHandler / CheckOutStaffCommandHandler Tests ───────────

@@ -5,9 +5,11 @@ import { provideHttpClient } from '@angular/common/http';
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
+import { signal } from '@angular/core';
 import { AppComponent } from './app.component';
 import { AuthService } from './core/services/auth.service';
 import { PushNotificationService } from './core/services/push-notification.service';
+import { ThemeService } from './core/services/theme.service';
 
 function configureAppComponentTestBed(matches: boolean, role: string = 'SUUser') {
   const authServiceStub = {
@@ -144,9 +146,9 @@ describe('AppComponent — role-based side nav visibility', () => {
     expect(component.visibleNav().some(item => item.path === '/staff')).toBeTrue();
   });
 
-  it('hides Staff from SUUser', () => {
+  it('shows Staff to SUUser (read-only roster)', () => {
     const component = setupWithRole('SUUser');
-    expect(component.visibleNav().some(item => item.path === '/staff')).toBeFalse();
+    expect(component.visibleNav().some(item => item.path === '/staff')).toBeTrue();
   });
 
   it('hides Staff from HQ roles', () => {
@@ -219,5 +221,45 @@ describe('AppComponent — role-based side nav visibility', () => {
 
     expect(component.visibleNav().some(item => item.path === '/financial-report/society-summary')).toBeFalse();
     expect(component.visibleNav().some(item => item.path === '/financial-report/my-statement')).toBeTrue();
+  });
+});
+
+describe('AppComponent — society branding', () => {
+  function setup(logoUrl: string | null, sidenavBackgroundUrl: string | null) {
+    configureAppComponentTestBed(false);
+    TestBed.overrideProvider(ThemeService, {
+      useValue: { logoUrl: signal(logoUrl), sidenavBackgroundUrl: signal(sidenavBackgroundUrl) },
+    });
+    const fixture = TestBed.createComponent(AppComponent);
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  it('falls back to the default logo asset when the society has not uploaded one', () => {
+    const fixture = setup(null, null);
+    const img: HTMLImageElement = fixture.nativeElement.querySelector('.brand-logo');
+
+    expect(img.getAttribute('src')).toBe('assets/branding/logo.png');
+  });
+
+  it("uses the society's uploaded logo when set", () => {
+    const fixture = setup('http://localhost:7071/api/files/society-logos/s1/abc.png', null);
+    const img: HTMLImageElement = fixture.nativeElement.querySelector('.brand-logo');
+
+    expect(img.getAttribute('src')).toBe('http://localhost:7071/api/files/society-logos/s1/abc.png');
+  });
+
+  it('renders no main-content background layer when the society has not uploaded one', () => {
+    const fixture = setup(null, null);
+
+    expect(fixture.nativeElement.querySelector('.main-content__bg')).toBeNull();
+  });
+
+  it("renders the main-content background layer with the society's uploaded image when set", () => {
+    const fixture = setup(null, 'http://localhost:7071/api/files/society-backgrounds/s1/def.jpg');
+    const bg: HTMLElement = fixture.nativeElement.querySelector('.main-content__bg');
+
+    expect(bg).not.toBeNull();
+    expect(bg.style.backgroundImage).toContain('http://localhost:7071/api/files/society-backgrounds/s1/def.jpg');
   });
 });
