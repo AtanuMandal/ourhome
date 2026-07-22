@@ -238,12 +238,7 @@ public record GetMaintenanceChargeGridQuery(
     int? Floor,
     PaymentStatus? Status,
     DateTime? FromDate,
-    DateTime? ToDate,
-    /// <summary>Delta/auto-refresh mode (see requirements/auto_refresh.md) — when set, returns
-    /// only the rows/cells/charges changed at or after this timestamp (clamped server-side to at
-    /// most 10 minutes ago) instead of the full grid. Rows/cells with no surviving charges are
-    /// dropped, so the result is a sparse subset of the same shape the client already has.</summary>
-    DateTime? UpdatedSince = null)
+    DateTime? ToDate)
     : IRequest<Result<MaintenanceChargeGridDto>>;
 
 public sealed class GetMaintenanceChargeGridQueryHandler(
@@ -272,14 +267,9 @@ public sealed class GetMaintenanceChargeGridQueryHandler(
                     new MaintenanceChargeGridSummaryDto(0, 0, 0, 0, 0, 0),
                     []));
 
-            var isDelta = request.UpdatedSince.HasValue;
-            var since = isDelta ? AutoRefreshWindow.Clamp(request.UpdatedSince!.Value, DateTime.UtcNow) : (DateTime?)null;
-
             var apartments = await apartmentRepository.GetAllAsync(request.SocietyId, ct);
             var apartmentLookup = apartments.ToDictionary(apartment => apartment.Id, StringComparer.OrdinalIgnoreCase);
             var filteredRows = gridView.Rows
-                // ApartmentId/Block/Floor are stable scoping — a charge's own apartment never
-                // changes — so they're always re-applied, delta or not.
                 .Where(row => string.IsNullOrWhiteSpace(request.ApartmentId) || string.Equals(row.ApartmentId, request.ApartmentId, StringComparison.OrdinalIgnoreCase))
                 .Where(row => string.IsNullOrWhiteSpace(request.Block) || string.Equals(row.BlockName, request.Block, StringComparison.OrdinalIgnoreCase))
                 .Where(row => !request.Floor.HasValue || row.FloorNumber == request.Floor.Value)
@@ -290,21 +280,12 @@ public sealed class GetMaintenanceChargeGridQueryHandler(
                         .Select(cell =>
                         {
                             var charges = cell.Charges
-                                // Delta path: Status/FromDate/ToDate are cosmetic view filters,
-                                // deliberately NOT re-applied here — same reasoning as the flat
-                                // charges list (see GetMaintenanceChargesQueryHandler above). If
-                                // they were, a charge that changed status away from an active
-                                // filter would be excluded before the UpdatedAt check ever ran,
-                                // so the change would never reach the client and the stale cell
-                                // would never be corrected. The client re-applies its own active
-                                // filter locally when merging (see requirements/auto_refresh.md).
-                                .Where(charge => isDelta || !request.Status.HasValue
+                                .Where(charge => !request.Status.HasValue
                                     || (request.Status.Value == PaymentStatus.Overdue
                                         ? IsOverdueCharge(charge, society.MaintenanceOverdueThresholdDays)
                                         : string.Equals(charge.Status, request.Status.Value.ToString(), StringComparison.OrdinalIgnoreCase)))
-                                .Where(charge => isDelta || !request.FromDate.HasValue || charge.DueDate.Date >= request.FromDate.Value.Date)
-                                .Where(charge => isDelta || !request.ToDate.HasValue || charge.DueDate.Date <= request.ToDate.Value.Date)
-                                .Where(charge => !isDelta || charge.UpdatedAt >= since!.Value)
+                                .Where(charge => !request.FromDate.HasValue || charge.DueDate.Date >= request.FromDate.Value.Date)
+                                .Where(charge => !request.ToDate.HasValue || charge.DueDate.Date <= request.ToDate.Value.Date)
                                 .Select(charge => ToGridChargeDto(charge, society.MaintenanceOverdueThresholdDays))
                                 .ToList();
 
@@ -322,11 +303,8 @@ public sealed class GetMaintenanceChargeGridQueryHandler(
                         row.ResidentName,
                         filteredCells);
                 })
-                // Delta mode always drops rows/cells with nothing changed — a sparse result is
-                // the point. Non-delta mode keeps the "show every apartment" behavior when no
-                // view filter is active, unchanged from before.
                 .Where(row => row.Months.Any(month => month.Charges.Count > 0)
-                    || (!isDelta && !request.Status.HasValue && !request.FromDate.HasValue && !request.ToDate.HasValue))
+                    || (!request.Status.HasValue && !request.FromDate.HasValue && !request.ToDate.HasValue))
                 .ToList();
 
             var allCharges = filteredRows.SelectMany(row => row.Months).SelectMany(month => month.Charges).ToList();

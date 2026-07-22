@@ -98,14 +98,8 @@ export class MaintenanceService {
     return this.api.post<MaintenanceCharge[]>(`societies/${societyId}/maintenance/charges/group/deny`, dto);
   }
 
-  /**
-   * Pass `updatedSince` (ISO-8601 UTC) for auto-refresh/delta mode — see
-   * requirements/auto_refresh.md — which returns only the rows/cells/charges changed since then
-   * (server-side capped to 10 minutes) instead of the full grid.
-   */
-  getChargeGrid(societyId: string, filters: MaintenanceGridFilters, updatedSince?: string) {
+  getChargeGrid(societyId: string, filters: MaintenanceGridFilters) {
     const query = this.toGridQuery(filters);
-    if (updatedSince) query['updatedSince'] = updatedSince;
     return this.api.get<MaintenanceChargeGrid>(`societies/${societyId}/maintenance/grid`, query);
   }
 
