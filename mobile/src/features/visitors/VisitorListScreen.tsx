@@ -52,7 +52,10 @@ export function VisitorListScreen() {
   const { activeApartmentId } = useActiveApartment();
   const myApartmentId = activeApartmentId ?? '';
 
-  const canModerate = role === 'SUAdmin' || role === 'SUSecurity';
+  // SUAdmin/SUSecurity manage every visitor; a resident (SUUser) additionally manages visitors
+  // hosted by their own apartment — matches the web app's canModerate(visitor) (see
+  // visitor-list.component.ts). Check-out stays role-only (canManageVisitors), never host-only.
+  const canManageVisitors = role === 'SUAdmin' || role === 'SUSecurity';
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -130,9 +133,16 @@ export function VisitorListScreen() {
     return item.hostApartmentId === myApartmentId;
   }, [myApartmentId]);
 
+  const canDeny = useCallback((item: Visitor): boolean => {
+    if (item.status !== 'Pending') return false;
+    // SUAdmin/SUSecurity may deny any visitor; a resident may deny one hosted by their own
+    // apartment even though they can't deny anyone else's.
+    return canManageVisitors || item.hostApartmentId === myApartmentId;
+  }, [canManageVisitors, myApartmentId]);
+
   const canCheckOut = useCallback((item: Visitor): boolean => {
-    return canModerate && item.status === 'CheckedIn';
-  }, [canModerate]);
+    return canManageVisitors && item.status === 'CheckedIn';
+  }, [canManageVisitors]);
 
   const renderItem = useCallback(({ item }: { item: Visitor }) => {
     return (
@@ -173,7 +183,7 @@ export function VisitorListScreen() {
           <StatusChip status={item.status} />
         </View>
 
-        {(canApprove(item) || canCheckOut(item) || (canModerate && item.status === 'Pending')) && (
+        {(canApprove(item) || canDeny(item) || canCheckOut(item)) && (
           <View style={styles.actions}>
             {canApprove(item) && (
               <TouchableOpacity
@@ -183,7 +193,7 @@ export function VisitorListScreen() {
                 <Text style={styles.actionBtnText}>Approve</Text>
               </TouchableOpacity>
             )}
-            {(canModerate && item.status === 'Pending') && (
+            {canDeny(item) && (
               <TouchableOpacity
                 style={[styles.actionBtn, styles.denyBtn]}
                 onPress={(e) => { e.stopPropagation(); deny(item.id); }}
@@ -203,7 +213,7 @@ export function VisitorListScreen() {
         )}
       </TouchableOpacity>
     );
-  }, [navigation, canApprove, canCheckOut, canModerate, approve, deny, checkOut]);
+  }, [navigation, canApprove, canDeny, canCheckOut, approve, deny, checkOut]);
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -228,7 +238,7 @@ export function VisitorListScreen() {
           <TouchableOpacity onPress={() => setShowMoreFilters((v) => !v)}>
             <Text style={styles.filterActionText}>{showMoreFilters ? 'Hide filters' : 'More filters'}</Text>
           </TouchableOpacity>
-          {canModerate && (
+          {canManageVisitors && (
             <TouchableOpacity onPress={() => void handleExportCsv()} disabled={exporting}>
               <Text style={styles.filterActionText}>{exporting ? 'Exporting…' : 'Export CSV'}</Text>
             </TouchableOpacity>
@@ -236,7 +246,7 @@ export function VisitorListScreen() {
         </View>
         {showMoreFilters && (
           <View style={styles.moreFilters}>
-            {canModerate && (
+            {canManageVisitors && (
               <TextInput
                 style={styles.searchInput}
                 placeholder="Resident name"
@@ -266,7 +276,7 @@ export function VisitorListScreen() {
           </View>
         )}
       </View>
-      {canModerate && (
+      {canManageVisitors && (
         <View style={styles.gateRow}>
           <TextInput
             style={[styles.searchInput, styles.gateInput]}

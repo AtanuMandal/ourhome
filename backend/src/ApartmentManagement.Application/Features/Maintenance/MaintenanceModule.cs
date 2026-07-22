@@ -1063,7 +1063,8 @@ internal static class MaintenanceGridProjectionHelper
                                         proof.SubmittedAt,
                                         proof.SubmissionGroupId)).ToList(),
                                     charge.RejectionReason,
-                                    charge.RejectedAt))
+                                    charge.RejectedAt,
+                                    charge.UpdatedAt))
                                 .ToList();
 
                             return new MaintenanceChargeGridView.GridCell(periodMonth.Month, periodMonth.Year, periodCharges);

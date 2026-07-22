@@ -138,7 +138,8 @@ public class VisitorFunctions(ISender mediator, ICurrentUserService currentUser,
             {
                 Page = page < 1 ? 1 : page,
                 PageSize = pageSize < 1 ? 20 : pageSize
-            }), ct);
+            },
+            req.ParseUpdatedSince()), ct);
 
         return result.ToActionResult();
     }
@@ -155,7 +156,7 @@ public class VisitorFunctions(ISender mediator, ICurrentUserService currentUser,
         // Residents may only see their own apartment's visitors
         var apartmentId = currentUser.IsInRole("SUUser") ? currentUser.ApartmentId : null;
 
-        var result = await mediator.Send(new GetVisitorDefaultViewQuery(societyId, apartmentId, recentCount), ct);
+        var result = await mediator.Send(new GetVisitorDefaultViewQuery(societyId, apartmentId, recentCount, req.ParseUpdatedSince()), ct);
         return result.ToActionResult();
     }
 

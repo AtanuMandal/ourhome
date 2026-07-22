@@ -17,9 +17,11 @@ jest.mock('@react-navigation/native', () => {
   };
 });
 
+const mockUseVisitorLookups = jest.fn().mockReturnValue({ data: { companies: [], purposes: [] } });
+
 jest.mock('../../../src/features/visitors/hooks/useVisitors', () => ({
   useRegisterVisitor: () => ({ mutateAsync: mockRegisterVisitor, isPending: false }),
-  useVisitorLookups: () => ({ data: { companies: [], purposes: [] } }),
+  useVisitorLookups: () => mockUseVisitorLookups(),
 }));
 
 jest.mock('../../../src/features/apartments/hooks/useApartments', () => ({
@@ -82,6 +84,7 @@ function pressSubmit() {
 describe('VisitorRegisterScreen — pre-approval parity with web', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseVisitorLookups.mockReturnValue({ data: { companies: [], purposes: [] } });
   });
 
   test('a resident (SUUser) registering for their own apartment pre-approves the pass', async () => {
@@ -121,5 +124,45 @@ describe('VisitorRegisterScreen — pre-approval parity with web', () => {
     expect(mockRegisterVisitor).toHaveBeenCalledWith(
       expect.objectContaining({ isPreApproved: false, apartmentId: 'apt-77' })
     );
+  });
+});
+
+describe('VisitorRegisterScreen — company/purpose autocomplete suggestions', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    useAuthStore.setState({
+      user: { id: 'res-1', societyId: 'soc-1', fullName: 'Res', email: 'r@r.com', phone: '1', role: 'SUUser', residentType: 'Owner', apartmentId: 'apt-1', isVerified: true, isActive: true },
+      token: 'tok',
+      isAuthenticated: true,
+    });
+  });
+
+  test('shows a company suggestion from prior visitors once the field is focused', async () => {
+    mockUseVisitorLookups.mockReturnValue({ data: { companies: ['Swiggy', 'Amazon'], purposes: ['Delivery'] } });
+
+    renderScreen();
+    fireEvent(screen.getByPlaceholderText('Company name (optional)'), 'focus');
+
+    expect(await screen.findByText('Swiggy')).toBeTruthy();
+    expect(screen.getByText('Amazon')).toBeTruthy();
+  });
+
+  test('shows a purpose suggestion from prior visitors once the field is focused', async () => {
+    mockUseVisitorLookups.mockReturnValue({ data: { companies: [], purposes: ['Delivery', 'Guest visit'] } });
+
+    renderScreen();
+    fireEvent(screen.getByPlaceholderText('e.g. Delivery, Guest, Plumber...'), 'focus');
+
+    expect(await screen.findByText('Delivery')).toBeTruthy();
+    expect(screen.getByText('Guest visit')).toBeTruthy();
+  });
+
+  test('shows no suggestions when the lookups query has not resolved yet (data undefined)', async () => {
+    mockUseVisitorLookups.mockReturnValue({ data: undefined });
+
+    renderScreen();
+    fireEvent(screen.getByPlaceholderText('Company name (optional)'), 'focus');
+
+    expect(screen.queryByText('Swiggy')).toBeNull();
   });
 });

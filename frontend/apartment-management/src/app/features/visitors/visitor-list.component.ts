@@ -20,6 +20,7 @@ import { PageHeaderComponent } from '../../shared/components/page-header/page-he
 import { StatusChipComponent } from '../../shared/components/status-chip/status-chip.component';
 import { SecureImageComponent } from '../../shared/components/secure-image/secure-image.component';
 import { ImageLightboxComponent } from '../../shared/components/image-lightbox/image-lightbox.component';
+import { mergeById } from '../../shared/utils/merge-by-id.util';
 
 @Component({
   selector: 'app-visitor-list',
@@ -385,6 +386,15 @@ export class VisitorListComponent implements OnInit, OnDestroy {
     });
   }
 
+  // Delta/auto-refresh window (see requirements/auto_refresh.md) — a background tick asks the
+  // backend for only records created/updated in the last 10 minutes instead of the whole list.
+  private static readonly AUTO_REFRESH_WINDOW_MS = 10 * 60 * 1000;
+
+  private static visitorSortCompare(a: Visitor, b: Visitor): number {
+    if (!!a.isOverstay !== !!b.isOverstay) return a.isOverstay ? -1 : 1;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  }
+
   loadVisitors(isBackgroundRefresh = false) {
     const societyId = this.auth.societyId();
     if (!societyId) {
@@ -393,20 +403,25 @@ export class VisitorListComponent implements OnInit, OnDestroy {
     }
 
     // A background (auto-refresh) tick with data already on screen never blanks the list —
-    // only a manual/initial load shows the full loading spinner.
+    // only a manual/initial load shows the full loading spinner. A background tick also
+    // switches to a small delta fetch (last 10 minutes) instead of re-fetching everything.
     const useBackgroundFlag = isBackgroundRefresh && this.items().length > 0;
     if (useBackgroundFlag) this.backgroundRefreshing.set(true);
     else this.loading.set(true);
     this.errorMessage.set('');
 
+    const updatedSince = useBackgroundFlag
+      ? new Date(Date.now() - VisitorListComponent.AUTO_REFRESH_WINDOW_MS).toISOString()
+      : undefined;
+
     if (this.isDefaultFilterState()) {
-      this.loadDefaultView(societyId, useBackgroundFlag);
+      this.loadDefaultView(societyId, useBackgroundFlag, updatedSince);
       return;
     }
 
-    this.visitorService.list(societyId, 1, 100, this.buildFilters()).subscribe({
+    this.visitorService.list(societyId, 1, 100, this.buildFilters(), updatedSince).subscribe({
       next: response => {
-        this.applyItems(response.items ?? [], useBackgroundFlag);
+        this.applyItems(response.items ?? [], useBackgroundFlag, this.buildStillVisiblePredicate());
         this.finishLoad();
       },
       error: error => {
@@ -422,11 +437,22 @@ export class VisitorListComponent implements OnInit, OnDestroy {
     return !f.search && !f.residentName && !f.status && !f.fromDate && !f.toDate;
   }
 
-  private loadDefaultView(societyId: string, useBackgroundFlag: boolean) {
+  /**
+   * A visitor's status is the only field on which a background delta record can fall out of the
+   * current view (search/residentName/date filters don't change from a record's own updates).
+   * Undefined when no status filter is active, so a delta merge never evicts anything.
+   */
+  private buildStillVisiblePredicate(): ((visitor: Visitor) => boolean) | undefined {
+    const status = this.filtersForm.getRawValue().status as VisitorStatus | '' | null;
+    if (!status) return undefined;
+    return (visitor: Visitor) => visitor.status === status;
+  }
+
+  private loadDefaultView(societyId: string, useBackgroundFlag: boolean, updatedSince?: string) {
     // A single backend call returns the whole landing view: every Pending and CheckedIn
     // visitor (they never age out — security must always see who is on the premises) plus
     // the N most recent concluded entries.
-    this.visitorService.defaultView(societyId, this.recordCount()).subscribe({
+    this.visitorService.defaultView(societyId, this.recordCount(), updatedSince).subscribe({
       next: visitors => {
         this.applyItems(visitors ?? [], useBackgroundFlag);
         this.finishLoad();
@@ -439,25 +465,24 @@ export class VisitorListComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Applies freshly fetched rows without flicker. A background refresh that returns identical
-   * data leaves the signal (and the DOM) untouched; when rows did change, only those cards get
-   * a brief highlight so the update eases in instead of the whole list repainting.
+   * A manual/initial load replaces the list outright. A background refresh instead receives
+   * only the delta (records changed in the last 10 minutes) and merges it into what's already
+   * on screen — every id in the delta is by definition a change, so it also drives the
+   * highlight set directly, with no need to diff against the previous state.
    */
-  private applyItems(next: Visitor[], wasBackgroundRefresh: boolean) {
+  private applyItems(next: Visitor[], wasBackgroundRefresh: boolean, stillVisible?: (visitor: Visitor) => boolean) {
     if (!wasBackgroundRefresh) {
       this.items.set(next);
       return;
     }
 
-    const prev = new Map(this.items().map(v => [v.id, JSON.stringify(v)]));
-    const changedIds = next
-      .filter(v => prev.get(v.id) !== JSON.stringify(v))
-      .map(v => v.id);
-    if (changedIds.length === 0 && next.length === prev.size) return;
+    if (next.length === 0) return;
 
-    this.items.set(next);
+    const merged = mergeById(this.items(), next, { stillVisible, compare: VisitorListComponent.visitorSortCompare });
+    this.items.set(merged);
+
     if (this._highlightTimer) clearTimeout(this._highlightTimer);
-    this.recentlyUpdatedIds.set(new Set(changedIds));
+    this.recentlyUpdatedIds.set(new Set(next.map(v => v.id)));
     this._highlightTimer = setTimeout(() => this.recentlyUpdatedIds.set(new Set()), 1500);
   }
 
