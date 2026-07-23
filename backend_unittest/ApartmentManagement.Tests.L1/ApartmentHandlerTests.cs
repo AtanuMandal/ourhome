@@ -267,6 +267,88 @@ public class UpdateApartmentCommandHandlerTests
     }
 }
 
+public class UpdateApartmentParkingCommandHandlerTests
+{
+    private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
+    private readonly Mock<ICurrentUserService> _currentUserServiceMock = new();
+    private readonly Mock<ILogger<UpdateApartmentParkingCommandHandler>> _loggerMock = new();
+
+    private const string SocietyId = "society-001";
+
+    private UpdateApartmentParkingCommandHandler CreateHandler() =>
+        new(_apartmentRepoMock.Object, _currentUserServiceMock.Object, _loggerMock.Object);
+
+    private Apartment SeedApartment(IReadOnlyList<string> slots = null!)
+    {
+        var apartment = Apartment.Create(SocietyId, "A101", "A", 1, 3, slots ?? ["P1", "P2"], 500, 600, 700);
+        _apartmentRepoMock.Setup(r => r.GetByIdAsync(apartment.Id, SocietyId, It.IsAny<CancellationToken>())).ReturnsAsync(apartment);
+        _apartmentRepoMock.Setup(r => r.UpdateAsync(It.IsAny<Apartment>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Apartment a, CancellationToken _) => a);
+        return apartment;
+    }
+
+    [Fact]
+    public async Task Handle_AsResidentOfTheApartment_SetsCarNumbers()
+    {
+        var apartment = SeedApartment();
+        apartment.AddResident("user-001", "Alice Owner", ResidentType.Owner);
+        _currentUserServiceMock.Setup(s => s.IsInRoles(It.IsAny<string[]>())).Returns(false);
+        _currentUserServiceMock.SetupGet(s => s.UserId).Returns("user-001");
+
+        var result = await CreateHandler().Handle(
+            new UpdateApartmentParkingCommand(SocietyId, apartment.Id, new Dictionary<string, string> { ["P1"] = "KA-01-AB-1234" }),
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.ParkingCarNumbers.Should().ContainSingle(p => p.SlotId == "P1" && p.CarNumber == "KA-01-AB-1234");
+    }
+
+    [Fact]
+    public async Task Handle_AsSuAdmin_SetsCarNumbersEvenWithoutBeingAResident()
+    {
+        var apartment = SeedApartment();
+        _currentUserServiceMock.Setup(s => s.IsInRoles(It.IsAny<string[]>())).Returns(true);
+        _currentUserServiceMock.SetupGet(s => s.UserId).Returns("admin-001");
+
+        var result = await CreateHandler().Handle(
+            new UpdateApartmentParkingCommand(SocietyId, apartment.Id, new Dictionary<string, string> { ["P2"] = "KA-02-CD-5678" }),
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.ParkingCarNumbers.Should().ContainSingle(p => p.SlotId == "P2");
+    }
+
+    [Fact]
+    public async Task Handle_AsUnrelatedResident_ReturnsForbidden()
+    {
+        var apartment = SeedApartment();
+        apartment.AddResident("user-001", "Alice Owner", ResidentType.Owner);
+        _currentUserServiceMock.Setup(s => s.IsInRoles(It.IsAny<string[]>())).Returns(false);
+        _currentUserServiceMock.SetupGet(s => s.UserId).Returns("some-other-user");
+
+        var result = await CreateHandler().Handle(
+            new UpdateApartmentParkingCommand(SocietyId, apartment.Id, new Dictionary<string, string> { ["P1"] = "KA-01-AB-1234" }),
+            CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.Forbidden);
+        _apartmentRepoMock.Verify(r => r.UpdateAsync(It.IsAny<Apartment>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_WhenApartmentNotFound_ReturnsFailure()
+    {
+        _apartmentRepoMock.Setup(r => r.GetByIdAsync("missing", SocietyId, It.IsAny<CancellationToken>())).ReturnsAsync((Apartment?)null);
+
+        var result = await CreateHandler().Handle(
+            new UpdateApartmentParkingCommand(SocietyId, "missing", new Dictionary<string, string>()),
+            CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.ApartmentNotFound);
+    }
+}
+
 public class DeleteApartmentCommandHandlerTests
 {
     private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
@@ -484,5 +566,64 @@ public class GetApartmentsBySocietyQueryHandlerTests
 
         result.IsSuccess.Should().BeTrue();
         result.Value!.Items.Select(a => a.ApartmentNumber).Should().ContainInOrder("A301", "A305", "A202", "A101");
+    }
+}
+
+public class GetApartmentDirectoryReportQueryHandlerTests
+{
+    private readonly Mock<IApartmentRepository> _apartmentRepoMock = new();
+    private readonly Mock<IUserRepository> _userRepoMock = new();
+    private readonly Mock<IMaintenanceChargeRepository> _maintenanceChargeRepoMock = new();
+    private readonly Mock<ICurrentUserService> _currentUserServiceMock = new();
+
+    private const string SocietyId = "society-001";
+
+    private GetApartmentDirectoryReportQueryHandler CreateHandler() =>
+        new(_apartmentRepoMock.Object, _userRepoMock.Object, _maintenanceChargeRepoMock.Object, _currentUserServiceMock.Object);
+
+    private static string CsvText(Result<ApartmentDirectoryExportResponse> result) =>
+        System.Text.Encoding.UTF8.GetString(result.Value!.Content);
+
+    [Fact]
+    public async Task Handle_AsSuAdmin_IncludesOwnerTenantAndParkingInTheCsv()
+    {
+        _currentUserServiceMock.Setup(s => s.IsInRoles(It.IsAny<string[]>())).Returns(true);
+
+        var owner = User.Create(SocietyId, "Alice Owner", "alice@test.com", "+91-9000000001", UserRole.SUUser, ResidentType.Owner);
+        var tenant = User.Create(SocietyId, "Tim Tenant", "tim@test.com", "+91-9000000002", UserRole.SUUser, ResidentType.Tenant);
+
+        var apartment = Apartment.Create(SocietyId, "A101", "A", 1, 3, ["P1", "P2"], 500, 600, 700);
+        apartment.AssignOwner(owner.Id, owner.FullName);
+        apartment.AssignTenant(tenant.Id, tenant.FullName);
+        apartment.SetParkingCarNumbers(new Dictionary<string, string> { ["P1"] = "KA-01-AB-1234" });
+
+        _apartmentRepoMock.Setup(r => r.GetAllAsync(SocietyId, It.IsAny<CancellationToken>())).ReturnsAsync([apartment]);
+        _userRepoMock.Setup(r => r.GetAllAsync(SocietyId, It.IsAny<CancellationToken>())).ReturnsAsync([owner, tenant]);
+
+        var paidCharge = MaintenanceCharge.Create(SocietyId, apartment.Id, "sched-1", "Monthly Maintenance", 5000m, DateTime.UtcNow.AddDays(-40));
+        paidCharge.MarkPaid("Cash", null, null);
+        var pendingCharge = MaintenanceCharge.Create(SocietyId, apartment.Id, "sched-1", "Monthly Maintenance", 3000m, DateTime.UtcNow.AddDays(-10));
+        _maintenanceChargeRepoMock.Setup(r => r.GetAllAsync(SocietyId, It.IsAny<CancellationToken>())).ReturnsAsync([paidCharge, pendingCharge]);
+
+        var result = await CreateHandler().Handle(new GetApartmentDirectoryReportQuery(SocietyId), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        var csv = CsvText(result);
+        csv.Should().Contain("Alice Owner").And.Contain("alice@test.com").And.Contain("+91-9000000001");
+        csv.Should().Contain("Tim Tenant").And.Contain("tim@test.com");
+        csv.Should().Contain("P1: KA-01-AB-1234").And.Contain("P2");
+        csv.Should().Contain("3000");
+    }
+
+    [Fact]
+    public async Task Handle_AsSuUser_ReturnsForbidden()
+    {
+        _currentUserServiceMock.Setup(s => s.IsInRoles(It.IsAny<string[]>())).Returns(false);
+
+        var result = await CreateHandler().Handle(new GetApartmentDirectoryReportQuery(SocietyId), CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.Forbidden);
+        _apartmentRepoMock.Verify(r => r.GetAllAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 }

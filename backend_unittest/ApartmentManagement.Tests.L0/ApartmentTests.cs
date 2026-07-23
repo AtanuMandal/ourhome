@@ -167,4 +167,59 @@ public class ApartmentTests
         apartment.ApartmentNumber.Should().Be("A101");
         apartment.BlockName.Should().Be("A");
     }
+
+    [Fact]
+    public void SetParkingCarNumbers_WithMatchingSlot_AssignsCarNumber()
+    {
+        // Arrange
+        var apartment = Apartment.Create(SocietyId, "A101", "A", 1, 3, ["P1", "P2"], 500, 600, 700);
+
+        // Act
+        apartment.SetParkingCarNumbers(new Dictionary<string, string> { ["P1"] = "ka-01-ab-1234" });
+
+        // Assert
+        apartment.ParkingCarNumbers.Should().ContainSingle(p => p.SlotId == "P1" && p.CarNumber == "KA-01-AB-1234");
+    }
+
+    [Fact]
+    public void SetParkingCarNumbers_IgnoresSlotIdsNotOnTheApartment()
+    {
+        // Arrange
+        var apartment = Apartment.Create(SocietyId, "A101", "A", 1, 3, ["P1"], 500, 600, 700);
+
+        // Act
+        apartment.SetParkingCarNumbers(new Dictionary<string, string> { ["P1"] = "KA-01-AB-1234", ["P9"] = "KA-02-CD-5678" });
+
+        // Assert
+        apartment.ParkingCarNumbers.Should().ContainSingle();
+        apartment.ParkingCarNumbers[0].SlotId.Should().Be("P1");
+    }
+
+    [Fact]
+    public void SetParkingCarNumbers_WithBlankValue_ClearsThatSlotsEntry()
+    {
+        // Arrange
+        var apartment = Apartment.Create(SocietyId, "A101", "A", 1, 3, ["P1", "P2"], 500, 600, 700);
+        apartment.SetParkingCarNumbers(new Dictionary<string, string> { ["P1"] = "KA-01-AB-1234", ["P2"] = "KA-02-CD-5678" });
+
+        // Act
+        apartment.SetParkingCarNumbers(new Dictionary<string, string> { ["P1"] = "KA-01-AB-1234", ["P2"] = "" });
+
+        // Assert
+        apartment.ParkingCarNumbers.Should().ContainSingle(p => p.SlotId == "P1");
+    }
+
+    [Fact]
+    public void Update_RemovingAParkingSlot_PrunesItsCarNumber()
+    {
+        // Arrange
+        var apartment = Apartment.Create(SocietyId, "A101", "A", 1, 3, ["P1", "P2"], 500, 600, 700);
+        apartment.SetParkingCarNumbers(new Dictionary<string, string> { ["P1"] = "KA-01-AB-1234", ["P2"] = "KA-02-CD-5678" });
+
+        // Act — the apartment is re-edited to have only P1
+        apartment.Update("A", 1, 3, ["P1"], 500, 600, 700);
+
+        // Assert
+        apartment.ParkingCarNumbers.Should().ContainSingle(p => p.SlotId == "P1");
+    }
 }

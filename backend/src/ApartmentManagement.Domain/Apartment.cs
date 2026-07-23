@@ -10,11 +10,15 @@ public sealed class Apartment : BaseEntity
     public sealed record ResidentHistoryEntry(string UserId, string? FullName, DateTime FromUtc, DateTime? ToUtc);
     public sealed record ResidentSummary(string UserId, string UserName, ResidentType ResidentType);
 
+    /// <summary>A resident-settable car number for one of the apartment's <see cref="ParkingSlots"/>.</summary>
+    public sealed record ParkingCarNumber(string SlotId, string CarNumber);
+
     public string ApartmentNumber { get; private set; } = string.Empty;
     public string BlockName { get; private set; } = string.Empty;
     public int FloorNumber { get; private set; }
     public int NumberOfRooms { get; private set; }
     public IReadOnlyList<string> ParkingSlots { get; private set; } = [];
+    public IReadOnlyList<ParkingCarNumber> ParkingCarNumbers { get; private set; } = [];
     public double CarpetArea { get; private set; }
     public double BuildUpArea { get; private set; }
     public double SuperBuildArea { get; private set; }
@@ -161,9 +165,28 @@ public sealed class Apartment : BaseEntity
         FloorNumber = floorNumber;
         if (numberOfRooms > 0) NumberOfRooms = numberOfRooms;
         ParkingSlots = NormalizeParkingSlots(parkingSlots);
+        // A slot removed by this edit can no longer carry a car number — drop any entry that no
+        // longer has a matching slot so ParkingCarNumbers never references a nonexistent slot.
+        ParkingCarNumbers = ParkingCarNumbers.Where(p => ParkingSlots.Contains(p.SlotId)).ToList();
         if (carpetArea > 0) CarpetArea = carpetArea;
         if (buildUpArea > 0) BuildUpArea = buildUpArea;
         if (superBuildArea > 0) SuperBuildArea = superBuildArea;
+        TouchUpdatedAt();
+    }
+
+    /// <summary>Resident-settable (or SUAdmin-settable): assigns/replaces the car number for each
+    /// parking slot. Slot ids not present in <see cref="ParkingSlots"/> are ignored; a blank or
+    /// omitted car number for a slot clears that slot's entry.</summary>
+    public void SetParkingCarNumbers(IReadOnlyDictionary<string, string> carNumbersBySlot)
+    {
+        var next = new List<ParkingCarNumber>();
+        foreach (var slot in ParkingSlots)
+        {
+            if (carNumbersBySlot.TryGetValue(slot, out var carNumber) && !string.IsNullOrWhiteSpace(carNumber))
+                next.Add(new ParkingCarNumber(slot, carNumber.Trim().ToUpperInvariant()));
+        }
+
+        ParkingCarNumbers = next;
         TouchUpdatedAt();
     }
 

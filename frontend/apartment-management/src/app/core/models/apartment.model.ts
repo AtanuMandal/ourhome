@@ -18,6 +18,12 @@ export interface Apartment {
   ownershipHistory?: ApartmentResidentHistory[];
   tenantHistory?: ApartmentResidentHistory[];
   createdAt: string;
+  parkingCarNumbers?: ParkingCarNumber[];
+}
+
+export interface ParkingCarNumber {
+  slotId: string;
+  carNumber: string;
 }
 
 export interface ApartmentLabelSource {

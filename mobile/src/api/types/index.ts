@@ -178,6 +178,11 @@ export interface ApartmentResident {
   residentType: ResidentType;
 }
 
+export interface ParkingCarNumber {
+  slotId: string;
+  carNumber: string;
+}
+
 export interface Apartment {
   id: string;
   societyId: string;
@@ -186,6 +191,8 @@ export interface Apartment {
   floorNumber: number;
   status: string;
   residents: ApartmentResident[];
+  parkingSlots?: string[];
+  parkingCarNumbers?: ParkingCarNumber[];
 }
 
 export interface Amenity {
