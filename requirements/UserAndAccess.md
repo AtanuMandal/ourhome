@@ -32,7 +32,7 @@ This module defines the role hierarchy, user lifecycle management, apartment ass
 
 - `SUAdmin` can create `SUUser` and `SUSecurity` users directly.
 - Required fields: full name, email, phone, role, resident type, apartment (for residents).
-- On creation, the user receives an OTP via SMS/email to verify their account before first login.
+- On creation, the user receives an OTP via SMS to verify their account before first login. If no SMS provider is configured, the OTP is sent to the user's email instead — every OTP-sending path (initial creation, resend, email-based OTP login, phone-based OTP login) falls back to email the same way.
 - `SUAdmin` can update user name and phone.
 - `SUAdmin` can activate or deactivate a user account (`POST /societies/{id}/users/{id}/activate` / `deactivate`).
 - Each user has a profile section where they can update their own name, phone, and change their password.

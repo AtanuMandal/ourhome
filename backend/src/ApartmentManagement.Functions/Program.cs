@@ -1,6 +1,8 @@
 using ApartmentManagement.Application;
+using ApartmentManagement.Application.Interfaces;
 using ApartmentManagement.Functions;
 using ApartmentManagement.Infrastructure;
+using ApartmentManagement.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.Functions.Worker;
@@ -46,6 +48,11 @@ var host = new HostBuilder()
         services.ConfigureFunctionsApplicationInsights();
         services.AddApplication();
         services.AddInfrastructure(context.Configuration);
+
+        // Brevo transactional email API (Infrastructure:BrevoApiKey in local.settings.json),
+        // registered here explicitly as a typed HttpClient so it's independently swappable —
+        // NotificationService (SMS/push) only depends on the IEmailSender abstraction.
+        services.AddHttpClient<IEmailSender, BrevoEmailSender>();
 
         // ── OpenTelemetry (see requirements/telemetry_observability.md) ────────────────────
         // Additive to the Application Insights Worker Service SDK above — that keeps shipping

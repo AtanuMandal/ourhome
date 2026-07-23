@@ -31,6 +31,7 @@ public class CreateUserCommandHandlerTests
     public async Task Handle_WithNewUser_CreatesUserAndSendsOtp()
     {
         // Arrange
+        _notificationMock.Setup(n => n.IsSmsConfigured).Returns(true);
         var admin = User.Create("soc-001", "Admin", "admin@soc.com", "+91-9000000000", UserRole.SUAdmin, ResidentType.SocietyAdmin);
         _currentUserServiceMock.Setup(s => s.UserId).Returns(admin.Id);
         _userRepoMock
@@ -63,6 +64,43 @@ public class CreateUserCommandHandlerTests
         result.Value.Should().NotBeNull();
         _userRepoMock.Verify(r => r.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()), Times.Once);
         _notificationMock.Verify(n => n.SendSmsAsync("+91-9876543210", It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_WhenNoSmsProviderConfigured_SendsOtpToEmailInstead()
+    {
+        // Arrange — IsSmsConfigured defaults to false on the mock.
+        var admin = User.Create("soc-001", "Admin", "admin@soc.com", "+91-9000000000", UserRole.SUAdmin, ResidentType.SocietyAdmin);
+        _currentUserServiceMock.Setup(s => s.UserId).Returns(admin.Id);
+        _userRepoMock
+            .Setup(r => r.GetByIdAsync(admin.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(admin);
+        _userRepoMock
+            .Setup(r => r.GetByEmailAsync("soc-001", "alice@example.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
+        _userRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User u, CancellationToken _) => u);
+        _userRepoMock
+            .Setup(r => r.UpdateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User u, CancellationToken _) => u);
+        _apartmentRepoMock
+            .Setup(r => r.GetByIdAsync("apt-001", "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Apartment.Create("soc-001", "101", "A", 1, 2, ["P1"], 500, 600, 700));
+        _apartmentRepoMock
+            .Setup(r => r.UpdateAsync(It.IsAny<Apartment>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Apartment a, CancellationToken _) => a);
+
+        var handler = CreateHandler();
+        var command = new CreateUserCommand("soc-001", "Alice Smith", "alice@example.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner, "apt-001");
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        _notificationMock.Verify(n => n.SendSmsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _notificationMock.Verify(n => n.SendEmailAsync("alice@example.com", It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -597,6 +635,7 @@ public class SendOtpCommandHandlerTests
     public async Task Handle_WhenUserExists_GeneratesOtpAndSendsSms()
     {
         // Arrange
+        _notificationMock.Setup(n => n.IsSmsConfigured).Returns(true);
         var user = User.Create("soc-001", "Alice", "alice@example.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
 
         _userRepoMock
@@ -618,6 +657,31 @@ public class SendOtpCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_WhenNoSmsProviderConfigured_SendsOtpToEmailInstead()
+    {
+        // Arrange — IsSmsConfigured defaults to false on the mock.
+        var user = User.Create("soc-001", "Alice", "alice@example.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
+
+        _userRepoMock
+            .Setup(r => r.GetByIdAsync(user.Id, "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _userRepoMock
+            .Setup(r => r.UpdateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User u, CancellationToken _) => u);
+
+        var handler = CreateHandler();
+        var command = new SendOtpCommand("soc-001", user.Id);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        _notificationMock.Verify(n => n.SendSmsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _notificationMock.Verify(n => n.SendEmailAsync("alice@example.com", It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task Handle_WhenUserNotFound_ReturnsFailure()
     {
         // Arrange
@@ -632,6 +696,71 @@ public class SendOtpCommandHandlerTests
         var result = await handler.Handle(command, CancellationToken.None);
 
         // Assert
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.UserNotFound);
+    }
+}
+
+// ─── RequestOtpByEmailCommandHandler Tests ────────────────────────────────────
+
+public class RequestOtpByEmailCommandHandlerTests
+{
+    private readonly Mock<IUserRepository> _userRepoMock = new();
+    private readonly Mock<INotificationService> _notificationMock = new();
+    private readonly Mock<ILogger<RequestOtpByEmailCommandHandler>> _loggerMock = new();
+
+    private RequestOtpByEmailCommandHandler CreateHandler() =>
+        new(_userRepoMock.Object, _notificationMock.Object, _loggerMock.Object);
+
+    [Fact]
+    public async Task Handle_WhenSmsConfigured_SendsOtpBySms()
+    {
+        _notificationMock.Setup(n => n.IsSmsConfigured).Returns(true);
+        var user = User.Create("soc-001", "Alice", "alice@example.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
+        _userRepoMock
+            .Setup(r => r.GetByEmailAsync("soc-001", "alice@example.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _userRepoMock
+            .Setup(r => r.UpdateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User u, CancellationToken _) => u);
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(new RequestOtpByEmailCommand("soc-001", "alice@example.com"), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        _notificationMock.Verify(n => n.SendSmsAsync("+91-9876543210", It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_WhenNoSmsProviderConfigured_SendsOtpToEmailInstead()
+    {
+        // Arrange — IsSmsConfigured defaults to false on the mock.
+        var user = User.Create("soc-001", "Alice", "alice@example.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
+        _userRepoMock
+            .Setup(r => r.GetByEmailAsync("soc-001", "alice@example.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _userRepoMock
+            .Setup(r => r.UpdateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User u, CancellationToken _) => u);
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(new RequestOtpByEmailCommand("soc-001", "alice@example.com"), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        _notificationMock.Verify(n => n.SendSmsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _notificationMock.Verify(n => n.SendEmailAsync("alice@example.com", It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_WhenUserNotFound_ReturnsFailure()
+    {
+        _userRepoMock
+            .Setup(r => r.GetByEmailAsync("soc-001", "missing@example.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(new RequestOtpByEmailCommand("soc-001", "missing@example.com"), CancellationToken.None);
+
         result.IsFailure.Should().BeTrue();
         result.ErrorCode.Should().Be(ErrorCodes.UserNotFound);
     }
@@ -1096,6 +1225,7 @@ public class RequestPhoneLoginOtpCommandHandlerTests
     [Fact]
     public async Task Handle_WithSingleActiveAccount_SendsOtpAndReturnsUserId()
     {
+        _notificationMock.Setup(n => n.IsSmsConfigured).Returns(true);
         var user = User.Create("soc-001", "Alice", "alice@example.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
         _userRepoMock
             .Setup(r => r.GetByPhoneAcrossSocietiesAsync("+91-9876543210", It.IsAny<CancellationToken>()))
@@ -1115,6 +1245,29 @@ public class RequestPhoneLoginOtpCommandHandlerTests
         result.Value!.UserId.Should().Be(user.Id);
         result.Value!.Options.Should().HaveCount(1);
         _notificationMock.Verify(n => n.SendSmsAsync("+91-9876543210", It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_WhenNoSmsProviderConfigured_SendsOtpToEmailInstead()
+    {
+        // Arrange — IsSmsConfigured defaults to false on the mock.
+        var user = User.Create("soc-001", "Alice", "alice@example.com", "+91-9876543210", UserRole.SUUser, ResidentType.Owner);
+        _userRepoMock
+            .Setup(r => r.GetByPhoneAcrossSocietiesAsync("+91-9876543210", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<User>)[user]);
+        _userRepoMock
+            .Setup(r => r.UpdateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User u, CancellationToken _) => u);
+        _societyRepoMock
+            .Setup(r => r.GetByIdAsync("soc-001", "soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Domain.Entities.Society?)null);
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(new RequestPhoneLoginOtpCommand("+91-9876543210"), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        _notificationMock.Verify(n => n.SendSmsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _notificationMock.Verify(n => n.SendEmailAsync("alice@example.com", It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

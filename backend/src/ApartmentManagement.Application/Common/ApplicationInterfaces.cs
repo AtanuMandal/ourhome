@@ -19,6 +19,10 @@ public interface INotificationService
 {
     Task SendEmailAsync(string to, string subject, string body, CancellationToken ct = default);
     Task SendSmsAsync(string phone, string message, CancellationToken ct = default);
+    /// <summary>True when an SMS provider is configured. Callers that need to reach a user
+    /// (e.g. OTP delivery) should fall back to email when this is false — see
+    /// requirements/UserAndAccess.md.</summary>
+    bool IsSmsConfigured { get; }
     Task SendPushNotificationAsync(string userId, string title, string body, CancellationToken ct = default,
         IReadOnlyDictionary<string, string>? data = null);
     Task SendBulkEmailAsync(IEnumerable<string> recipients, string subject, string body, CancellationToken ct = default);
@@ -32,6 +36,15 @@ public interface INotificationService
     Task SaveMobilePushTokenAsync(string userId, string societyId, string platform, string token, string? appVersion, CancellationToken ct = default);
     Task DeleteMobilePushTokenAsync(string userId, string societyId, string token, CancellationToken ct = default);
     Task SendMobilePushNotificationAsync(string userId, string societyId, string title, string body, CancellationToken ct = default, IReadOnlyDictionary<string, string>? data = null);
+}
+
+/// <summary>Transactional email transport (the Brevo API by default — see
+/// Infrastructure:BrevoApiKey). Kept separate from <see cref="INotificationService"/> so the
+/// email transport is independently dependency-injectable (registered in Program.cs) without
+/// touching the SMS/push logic that also lives on that interface.</summary>
+public interface IEmailSender
+{
+    Task SendEmailAsync(string to, string subject, string body, CancellationToken ct = default);
 }
 
 public interface IEventPublisher

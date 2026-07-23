@@ -1,5 +1,4 @@
 using ApartmentManagement.Application.Interfaces;
-using Azure.Communication.Email;
 using Azure.Communication.Sms;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -11,59 +10,46 @@ namespace ApartmentManagement.Infrastructure.Services;
 public class NotificationService : INotificationService
 {
     private readonly InfrastructureSettings _settings;
+    private readonly IEmailSender _emailSender;
     private readonly IPushSubscriptionStore _pushSubscriptionStore;
     private readonly IMobilePushTokenStore _mobilePushTokenStore;
     private readonly ILogger<NotificationService> _logger;
-    // Clients are expensive to construct (they wrap HttpClient); create once per service instance.
-    private readonly EmailClient? _emailClient;
+    // Client is expensive to construct (wraps HttpClient); create once per service instance.
     private readonly SmsClient? _smsClient;
     private readonly WebPushClient _webPushClient = new();
 
     public NotificationService(
         IOptions<InfrastructureSettings> settings,
+        IEmailSender emailSender,
         IPushSubscriptionStore pushSubscriptionStore,
         IMobilePushTokenStore mobilePushTokenStore,
         ILogger<NotificationService> logger)
     {
         _settings = settings.Value;
+        _emailSender = emailSender;
         _pushSubscriptionStore = pushSubscriptionStore;
         _mobilePushTokenStore = mobilePushTokenStore;
         _logger = logger;
 
         if (!string.IsNullOrWhiteSpace(_settings.AzureCommunicationConnectionString))
         {
-            _emailClient = new EmailClient(_settings.AzureCommunicationConnectionString);
-            _smsClient   = new SmsClient(_settings.AzureCommunicationConnectionString);
+            _smsClient = new SmsClient(_settings.AzureCommunicationConnectionString);
         }
     }
 
     // ── Email ────────────────────────────────────────────────────────────────
+    // Delegates to the injected IEmailSender (BrevoEmailSender by default — see Program.cs)
+    // rather than talking to a mail provider directly, so the transport stays swappable.
 
-    public async Task SendEmailAsync(string to, string subject, string body, CancellationToken ct = default)
-    {
-        try
-        {
-            if (_emailClient is null)
-            {
-                _logger.LogWarning("Email not configured. Skipping email to {To}", to);
-                return;
-            }
-            var message = new EmailMessage(
-                senderAddress: _settings.EmailSenderAddress,
-                recipients: new EmailRecipients([new EmailAddress(to)]),
-                content: new EmailContent(subject) { PlainText = body, Html = $"<p>{body}</p>" });
-            await _emailClient.SendAsync(Azure.WaitUntil.Started, message, ct);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to send email to {To}", to);
-        }
-    }
+    public Task SendEmailAsync(string to, string subject, string body, CancellationToken ct = default)
+        => _emailSender.SendEmailAsync(to, subject, body, ct);
 
     public Task SendBulkEmailAsync(IEnumerable<string> recipients, string subject, string body, CancellationToken ct = default)
         => Task.WhenAll(recipients.Select(r => SendEmailAsync(r, subject, body, ct)));
 
     // ── SMS ─────────────────────────────────────────────────────────────────
+
+    public bool IsSmsConfigured => _smsClient is not null && !string.IsNullOrWhiteSpace(_settings.SmsSenderNumber);
 
     public async Task SendSmsAsync(string phone, string message, CancellationToken ct = default)
     {

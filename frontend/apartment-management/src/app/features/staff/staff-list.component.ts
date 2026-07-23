@@ -25,8 +25,10 @@ interface CategoryGroup { category: StaffCategory; staff: Staff[]; }
   template: `
     <app-page-header title="Staff">
       @if (isAdmin()) {
-        <a actions routerLink="shifts" mat-button>Manage Shifts</a>
-        <a actions routerLink="attendance-report" mat-button>Attendance Report</a>
+        <ng-container actions>
+          <a routerLink="shifts" mat-button>Manage Shifts</a>
+          <a routerLink="attendance-report" mat-button>Attendance Report</a>
+        </ng-container>
       }
     </app-page-header>
     <div class="page-content">
