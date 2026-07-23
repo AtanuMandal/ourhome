@@ -50,8 +50,8 @@ export const authApi = {
   verifyOtpLogin: (societyId: string, userId: string, otpCode: string) =>
     api.post<VerifyOtpLoginResponse>(`/societies/${societyId}/users/${userId}/verify-otp`, { otpCode }).then((r) => r.data),
 
-  requestPasswordReset: (email: string) =>
-    api.post<PasswordResetRequestResponse>('/auth/password-reset/request', { email }).then((r) => r.data),
+  requestPasswordReset: (email: string, selectedUserId?: string) =>
+    api.post<PasswordResetRequestResponse>('/auth/password-reset/request', { email, selectedUserId }).then((r) => r.data),
 
   confirmPasswordReset: (data: ConfirmPasswordResetRequest) =>
     api.post('/auth/password-reset/confirm', data).then((r) => r.data),

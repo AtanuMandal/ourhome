@@ -24,6 +24,7 @@ import { typography } from '../theme/typography';
 import { spacing } from '../theme/spacing';
 import { normalizeError } from '../shared/utils/errors';
 import { LoadingOverlay } from '../shared/components/LoadingOverlay';
+import { useResendTimer } from '../shared/hooks/useResendTimer';
 
 export type AuthStackParamList = {
   Login: undefined;
@@ -172,6 +173,7 @@ function PhoneOtpLoginScreen({ navigation, onSwitchToEmail }: { navigation: Auth
   const [resolvedUserId, setResolvedUserId] = useState<string | null>(null);
   const [resolvedSocietyId, setResolvedSocietyId] = useState<string | null>(null);
   const { loginWithOtp } = useAuth();
+  const { remaining: resendRemaining, start: startResendTimer } = useResendTimer(30);
 
   async function handleRequestOtp(selectedUserId?: string): Promise<void> {
     if (!phone.trim()) { Alert.alert('Validation', 'Mobile number is required.'); return; }
@@ -187,6 +189,7 @@ function PhoneOtpLoginScreen({ navigation, onSwitchToEmail }: { navigation: Auth
       setResolvedUserId(res.userId ?? opt?.userId ?? null);
       setResolvedSocietyId(opt?.societyId ?? null);
       setStep('enter-otp');
+      startResendTimer();
     } catch (e) {
       Alert.alert('Error', normalizeError(e));
     } finally {
@@ -197,6 +200,11 @@ function PhoneOtpLoginScreen({ navigation, onSwitchToEmail }: { navigation: Auth
   function handleSelectOption(opt: PasswordResetOption): void {
     setOptions(null);
     void handleRequestOtp(opt.userId);
+  }
+
+  async function handleResendOtp(): Promise<void> {
+    if (resendRemaining > 0) return;
+    await handleRequestOtp(resolvedUserId ?? undefined);
   }
 
   async function handleVerifyOtp(): Promise<void> {
@@ -251,6 +259,15 @@ function PhoneOtpLoginScreen({ navigation, onSwitchToEmail }: { navigation: Auth
           />
           <TouchableOpacity style={styles.button} onPress={() => void handleVerifyOtp()}>
             <Text style={styles.buttonText}>Verify &amp; Sign In</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.forgotLink}
+            disabled={resendRemaining > 0}
+            onPress={() => void handleResendOtp()}
+          >
+            <Text style={[styles.forgotLinkText, resendRemaining > 0 && styles.forgotLinkTextDisabled]}>
+              {resendRemaining > 0 ? `Resend OTP in ${resendRemaining}s` : 'Resend OTP'}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.forgotLink} onPress={() => setStep('enter-phone')}>
             <Text style={styles.forgotLinkText}>← Back</Text>
@@ -309,19 +326,21 @@ function ForgotPasswordScreen() {
   const [otpCode, setOtpCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const { remaining: resendRemaining, start: startResendTimer } = useResendTimer(30);
 
-  async function handleRequestOtp(): Promise<void> {
+  async function handleRequestOtp(selectedUserId?: string): Promise<void> {
     if (!email.trim()) { Alert.alert('Validation', 'Email is required.'); return; }
     setLoading(true);
     try {
-      const res = await authApi.requestPasswordReset(email.trim());
-      if (res.requiresSelection && res.options.length > 1) {
+      const res = await authApi.requestPasswordReset(email.trim(), selectedUserId);
+      if (res.requiresSelection && res.options.length > 1 && !selectedUserId) {
         setOptions(res.options);
       } else {
-        // Single account — OTP sent automatically
-        const opt = res.options[0] ?? null;
+        // Single account, or a specific account already chosen — OTP sent automatically
+        const opt = res.options.find(o => o.userId === selectedUserId) ?? res.options[0] ?? null;
         setSelectedOption(opt);
         setStep('confirm');
+        startResendTimer();
       }
     } catch (e) {
       Alert.alert('Error', normalizeError(e));
@@ -331,9 +350,13 @@ function ForgotPasswordScreen() {
   }
 
   function handleSelectOption(opt: PasswordResetOption): void {
-    setSelectedOption(opt);
     setOptions(null);
-    setStep('confirm');
+    void handleRequestOtp(opt.userId);
+  }
+
+  async function handleResendOtp(): Promise<void> {
+    if (resendRemaining > 0 || !selectedOption) return;
+    await handleRequestOtp(selectedOption.userId);
   }
 
   async function handleConfirm(): Promise<void> {
@@ -425,6 +448,15 @@ function ForgotPasswordScreen() {
           autoCapitalize="none"
           keyboardType="default"
         />
+        <TouchableOpacity
+          style={styles.forgotLink}
+          disabled={resendRemaining > 0}
+          onPress={() => void handleResendOtp()}
+        >
+          <Text style={[styles.forgotLinkText, resendRemaining > 0 && styles.forgotLinkTextDisabled]}>
+            {resendRemaining > 0 ? `Resend OTP in ${resendRemaining}s` : 'Resend OTP'}
+          </Text>
+        </TouchableOpacity>
         <TextInput
           style={styles.input}
           placeholder="New password (min 8 chars)"
@@ -631,6 +663,7 @@ const styles = StyleSheet.create({
   },
   forgotLink: { alignItems: 'center', marginTop: spacing.md },
   forgotLinkText: { fontSize: typography.fontSize.sm, color: colors.primary },
+  forgotLinkTextDisabled: { color: colors.text.disabled },
   backLink: { alignItems: 'center', marginTop: spacing.md },
   backLinkText: { fontSize: typography.fontSize.sm, color: colors.text.secondary },
   optionRow: {

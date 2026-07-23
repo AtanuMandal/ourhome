@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, OnDestroy } from '@angular/core';
 import { FormBuilder, Validators, ReactiveFormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -10,6 +10,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { AuthService } from '../../../core/services/auth.service';
 import { LoginOption, LoginMethod } from '../../../core/models/user.model';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select.component';
+import { createResendTimer } from '../../../shared/utils/resend-timer';
 
 type PhoneStep = 'enter-phone' | 'select-account' | 'enter-otp';
 
@@ -23,7 +24,7 @@ type PhoneStep = 'enter-phone' | 'select-account' | 'enter-otp';
   templateUrl: './login.component.html',
   styleUrl: './login.component.scss',
 })
-export class LoginComponent {
+export class LoginComponent implements OnDestroy {
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
@@ -95,6 +96,12 @@ export class LoginComponent {
   readonly phoneStep = signal<PhoneStep>('enter-phone');
   private otpSocietyId = '';
   private otpUserId = '';
+  private readonly resendTimer = createResendTimer(30);
+  readonly resendCooldown = this.resendTimer.remaining;
+
+  ngOnDestroy(): void {
+    this.resendTimer.dispose();
+  }
 
   readonly phoneForm = this.fb.nonNullable.group({
     phone: ['', [Validators.required, Validators.minLength(10)]],
@@ -124,6 +131,7 @@ export class LoginComponent {
         this.otpUserId = res.userId!;
         this.otpSocietyId = res.options[0]?.societyId ?? '';
         this.phoneStep.set('enter-otp');
+        this.resendTimer.start();
       },
       error: (err: HttpErrorResponse) => {
         this.loading.set(false);
@@ -134,6 +142,11 @@ export class LoginComponent {
 
   confirmAccountSelection() {
     // Re-submit with the chosen account so the OTP is generated and sent to that specific user.
+    this.requestPhoneOtp();
+  }
+
+  resendOtp() {
+    if (this.resendCooldown() > 0 || this.loading()) return;
     this.requestPhoneOtp();
   }
 
