@@ -71,4 +71,34 @@ public class LoginIntegrationTests : IntegrationTestBase
 
         result.IsSuccess.Should().BeTrue();
     }
+
+    /// <summary>
+    /// Phone+OTP login is an alternate authentication method, not a password reset — a user who
+    /// already has a password must keep being able to use it after logging in via OTP one or
+    /// more times. Also covers the regression where a second OTP-login request failed with a
+    /// Cosmos "412 Precondition Failed" (see BaseEntity.ETag / CosmosSerializationTests).
+    /// </summary>
+    [Fact]
+    public async Task OtpLogin_RepeatedlyThenTwice_DoesNotAffectExistingPasswordLogin()
+    {
+        var (_, user) = await SeedActiveSocietyWithLoginableUserAsync();
+
+        var firstRequest = await Mediator.Send(new RequestPhoneLoginOtpCommand(user.Phone));
+        firstRequest.IsSuccess.Should().BeTrue();
+
+        var seededUser = await UserRepo.GetByIdAsync(user.Id, user.SocietyId);
+        var firstVerify = await Mediator.Send(new VerifyOtpCommand(user.SocietyId, user.Id, seededUser!.OtpCode!));
+        firstVerify.IsSuccess.Should().BeTrue();
+
+        // Second OTP login for the same user — this is the request that used to 412.
+        var secondRequest = await Mediator.Send(new RequestPhoneLoginOtpCommand(user.Phone));
+        secondRequest.IsSuccess.Should().BeTrue();
+
+        var reseededUser = await UserRepo.GetByIdAsync(user.Id, user.SocietyId);
+        var secondVerify = await Mediator.Send(new VerifyOtpCommand(user.SocietyId, user.Id, reseededUser!.OtpCode!));
+        secondVerify.IsSuccess.Should().BeTrue();
+
+        var passwordLogin = await Mediator.Send(new LoginCommand(user.Email, "secret123"));
+        passwordLogin.IsSuccess.Should().BeTrue();
+    }
 }

@@ -36,6 +36,10 @@ public sealed class FakeNotificationService : INotificationService
     public List<(string Phone, string Message)> SentSms { get; } = [];
     public List<(string UserId, string Title, string Body)> SentPushNotifications { get; } = [];
 
+    // Defaults to "configured" so existing OTP-via-SMS integration tests keep their current
+    // behavior; set to false in a test to exercise the SMS-not-configured email fallback.
+    public bool IsSmsConfigured { get; set; } = true;
+
     public Task SendEmailAsync(string to, string subject, string body, CancellationToken ct = default)
     {
         SentEmails.Add((to, subject, body));

@@ -572,7 +572,7 @@ All export endpoints accept `?format=csv` or `?format=pdf` where applicable. PDF
 
 > 🔜 **Opening Balance configuration** — `PUT /api/societies/{id}/settings` field `openingBalance` (₹) and `openingBalanceDate` so the Cash Flow Running Balance and Annual Summary can show a true cumulative surplus figure.
 
-> 🔜 **Scheduled report delivery** — allow `SUAdmin` to configure a monthly email delivery of the P&L Statement and Cash Flow PDF to a list of committee email addresses (via ACS Email), triggered by the outbox timer function on the 1st of each month.
+> 🔜 **Scheduled report delivery** — allow `SUAdmin` to configure a monthly email delivery of the P&L Statement and Cash Flow PDF to a list of committee email addresses (via the Brevo API), triggered by the outbox timer function on the 1st of each month.
 
 > 🔜 **Income categories beyond maintenance** — a mechanism for `SUAdmin` to record other income (parking fees, hall booking income, interest on FD) so the P&L reflects all society income, not just maintenance fees.
 

@@ -59,7 +59,8 @@ OurHome is a multi-tenant SaaS platform for apartment society management. The ar
 - `PushSubscriptionFunctions` manages browser push subscriptions (save/delete VAPID public key exchange).
 - `INotificationService.SendPushNotificationAsync` sends push payloads to stored subscriptions.
 - SMS notifications go through **Azure Communication Services (ACS)**.
-- Email notifications go through **ACS Email** service.
+- Email notifications go through the **Brevo transactional email API** (`POST https://api.brevo.com/v3/smtp/email`, authenticated with an `api-key` header — `Infrastructure:BrevoApiKey` setting), via `IEmailSender`/`BrevoEmailSender`, registered directly in `Program.cs` as a typed `HttpClient` so the transport is independently dependency-injectable and swappable without touching `INotificationService`'s SMS/push logic.
+- **OTP delivery fallback:** if no SMS provider is configured (`INotificationService.IsSmsConfigured` is false), every OTP-sending path (account creation, resend, email- and phone-based OTP login) sends the OTP to the user's email instead of SMS — see `requirements/UserAndAccess.md`.
 
 ### 9. Clean Architecture + CQRS
 ```

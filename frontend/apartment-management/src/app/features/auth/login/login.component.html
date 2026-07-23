@@ -45,6 +45,10 @@
               <mat-error>Enter the 6-digit OTP</mat-error>
             }
           </mat-form-field>
+
+          <button type="button" class="method-switch" [disabled]="resendCooldown() > 0 || loading()" (click)="resendOtp()">
+            @if (resendCooldown() > 0) { Resend OTP in {{ resendCooldown() }}s } @else { Resend OTP }
+          </button>
         }
 
         <button mat-raised-button color="primary" type="submit"

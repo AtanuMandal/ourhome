@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, OnDestroy } from '@angular/core';
 import { FormBuilder, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -9,6 +9,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { AuthService } from '../../../core/services/auth.service';
 import { LoginOption } from '../../../core/models/user.model';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select.component';
+import { createResendTimer } from '../../../shared/utils/resend-timer';
 
 @Component({
   selector: 'app-verify-otp',
@@ -20,7 +21,7 @@ import { SearchableSelectComponent } from '../../../shared/components/searchable
   templateUrl: './verify-otp.component.html',
   styleUrl: './verify-otp.component.scss',
 })
-export class VerifyOtpComponent {
+export class VerifyOtpComponent implements OnDestroy {
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
@@ -30,6 +31,12 @@ export class VerifyOtpComponent {
   readonly requested = signal(false);
   readonly options = signal<LoginOption[]>([]);
   readonly selected = signal<LoginOption | null>(null);
+  private readonly resendTimer = createResendTimer(30);
+  readonly resendCooldown = this.resendTimer.remaining;
+
+  ngOnDestroy(): void {
+    this.resendTimer.dispose();
+  }
   readonly loginSelectOptions = computed(() =>
     this.options().map(o => ({ value: o.userId, label: this.labelFor(o) }))
   );
@@ -67,12 +74,18 @@ export class VerifyOtpComponent {
           ?? null;
         this.selected.set(selected);
         this.requested.set(true);
+        this.resendTimer.start();
       },
       error: () => {
         this.loading.set(false);
         this.error.set('Unable to start password reset for that email.');
       },
     });
+  }
+
+  resendOtp() {
+    if (this.resendCooldown() > 0 || this.loading()) return;
+    this.requestReset();
   }
 
   submit() {

@@ -84,4 +84,9 @@ form {
   font-size: 13px;
   padding: 12px 0 0;
   cursor: pointer;
+
+  &:disabled {
+    color: var(--text-secondary);
+    cursor: default;
+  }
 }

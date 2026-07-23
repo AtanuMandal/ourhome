@@ -11,7 +11,13 @@ public sealed class InfrastructureSettings
     public string BlobStorageConnectionString { get; set; } = string.Empty;
     public string BlobStorageContainerPrefix { get; set; } = "apartment-management";
     public string EmailSenderAddress { get; set; } = "no-reply@apartmentmgmt.io";
+    public string EmailSenderName { get; set; } = "OurHome";
     public string SmsSenderNumber { get; set; } = string.Empty;
+
+    // Brevo transactional email API (see Infrastructure/Services/BrevoEmailSender.cs) —
+    // POSTs to https://api.brevo.com/v3/smtp/email with this key in the api-key header.
+    // Blank key means email is not configured.
+    public string BrevoApiKey { get; set; } = string.Empty;
     public string EventGridTopicEndpoint { get; set; } = string.Empty;
     public string EventGridTopicKey { get; set; } = string.Empty;
     public string AzureAdB2CTenantId { get; set; } = string.Empty;
