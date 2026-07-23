@@ -64,7 +64,8 @@ public static class MappingExtensions
             apartment.GetPrimaryResidentName(),
             apartment.OwnershipHistory.Select(h => new ApartmentResidentHistoryDto(h.UserId, h.FullName, h.FromUtc, h.ToUtc)).ToList(),
             apartment.TenantHistory.Select(h => new ApartmentResidentHistoryDto(h.UserId, h.FullName, h.FromUtc, h.ToUtc)).ToList(),
-            apartment.CreatedAt);
+            apartment.CreatedAt,
+            apartment.ParkingCarNumbers.Select(p => new ParkingCarNumberDto(p.SlotId, p.CarNumber)).ToList());
 
     public static ApartmentResidentHistoryResponse ToResidentHistoryResponse(this Apartment apartment) =>
         new(

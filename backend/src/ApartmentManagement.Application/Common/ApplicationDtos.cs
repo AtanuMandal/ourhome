@@ -85,10 +85,14 @@ public record ApartmentResponse(
     string Id, string SocietyId, string ApartmentNumber, string BlockName, int FloorNumber,
     int NumberOfRooms, IReadOnlyList<string> ParkingSlots, double CarpetArea, double BuildUpArea, double SuperBuildArea,
     string Status, IReadOnlyList<ApartmentResidentDto> Residents, string? PrimaryResidentName,
-    IReadOnlyList<ApartmentResidentHistoryDto> OwnershipHistory, IReadOnlyList<ApartmentResidentHistoryDto> TenantHistory, DateTime CreatedAt);
+    IReadOnlyList<ApartmentResidentHistoryDto> OwnershipHistory, IReadOnlyList<ApartmentResidentHistoryDto> TenantHistory, DateTime CreatedAt,
+    IReadOnlyList<ParkingCarNumberDto>? ParkingCarNumbers = null);
 
 public record ApartmentResidentHistoryDto(string UserId, string? FullName, DateTime FromUtc, DateTime? ToUtc);
 public record ApartmentResidentDto(string UserId, string UserName, string ResidentType);
+public record ParkingCarNumberDto(string SlotId, string CarNumber);
+public sealed record UpdateApartmentParkingRequest(IReadOnlyList<ParkingCarNumberDto> CarNumbers);
+public sealed record ApartmentDirectoryExportResponse(string FileName, string ContentType, byte[] Content);
 
 public record ChangeApartmentStatusRequest(
     [property: JsonConverter(typeof(JsonStringEnumConverter))] ApartmentStatus Status,

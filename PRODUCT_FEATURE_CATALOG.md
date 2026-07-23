@@ -204,8 +204,8 @@ OurHome is a cloud-hosted, always-on platform that helps housing societies and a
 
 | Role | Access |
 |---|---|
-| SUAdmin | Creates, updates, and deletes apartments; imports via spreadsheet; manages occupancy status |
-| SUUser | Views their own linked apartment's details |
+| SUAdmin | Creates, updates, and deletes apartments; imports via spreadsheet; manages occupancy status; downloads the all-apartments directory report |
+| SUUser | Views their own linked apartment's details; sets the car number for each of their apartment's parking slots |
 | SUSecurity | Views the apartment and resident directory |
 
 **Business Capabilities**
@@ -214,12 +214,15 @@ OurHome is a cloud-hosted, always-on platform that helps housing societies and a
 - Mark units as Vacant, Occupied, or Under Maintenance
 - View the complete ownership and tenancy history of every apartment
 - Guided workflows to transfer ownership or tenancy to a new person — the previous resident and their household members are automatically unlinked
+- A resident sets the car number for each parking slot from "My Apartment" — one text box per slot when the apartment has more than one, on both web and mobile
+- Admin downloads a single CSV report covering every apartment: owner and tenant contact info (name/email/phone), other occupants, area, parking slots with car numbers, and maintenance pending as of today
 
 **Business Rules**
 - The combination of apartment number, block, and floor must be unique within a society — duplicates are rejected
 - An apartment cannot be deleted while it still has active residents linked to it
 - Ownership and tenancy history is never deleted — it is a permanent audit trail
 - The apartment list is always ordered floor-descending, then apartment-number-ascending, consistently across web and mobile
+- Only a resident of the apartment (or SUAdmin) may set its parking car numbers; removing a parking slot automatically drops that slot's car number
 
 **Planned Enhancements**
 - Server-side search and filtering of the apartment list (by block, floor, or status), so large societies can find records quickly instead of loading and filtering the entire list in the browser

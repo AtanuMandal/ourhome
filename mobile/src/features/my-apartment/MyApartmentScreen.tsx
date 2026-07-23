@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSocietyId } from '../../shared/hooks/useSocietyId';
 import { useAuthStore } from '../../store/authStore';
 import { useActiveApartment } from '../../shared/hooks/useActiveApartment';
@@ -30,15 +30,38 @@ export function MyApartmentScreen() {
   const userId = useAuthStore((s) => s.user?.id ?? '');
   const { apartments, activeApartmentId } = useActiveApartment();
   const apartmentId = activeApartmentId ?? apartments[0]?.apartmentId ?? '';
+  const queryClient = useQueryClient();
 
   const [inviteEmail, setInviteEmail] = useState('');
   const [joinApartmentId, setJoinApartmentId] = useState('');
   const [joinResidentType, setJoinResidentType] = useState<'Owner' | 'Tenant'>('Tenant');
+  const [parkingDrafts, setParkingDrafts] = useState<Record<string, string>>({});
 
   const { data: apartment, isLoading } = useQuery({
     queryKey: ['my-apartment', societyId, apartmentId],
     queryFn: () => apartmentsApi.getApartment(societyId, apartmentId),
     enabled: !!societyId && !!apartmentId,
+  });
+
+  useEffect(() => {
+    const bySlot: Record<string, string> = {};
+    for (const entry of apartment?.parkingCarNumbers ?? []) bySlot[entry.slotId] = entry.carNumber;
+    setParkingDrafts(bySlot);
+  }, [apartment]);
+
+  const updateParking = useMutation({
+    mutationFn: () => {
+      const carNumbers = (apartment?.parkingSlots ?? []).map((slotId) => ({
+        slotId,
+        carNumber: parkingDrafts[slotId] ?? '',
+      }));
+      return apartmentsApi.updateParking(societyId, apartmentId, carNumbers);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['my-apartment', societyId, apartmentId] });
+      Alert.alert('Saved', 'Parking updated.');
+    },
+    onError: (e) => Alert.alert('Could not update parking', normalizeError(e)),
   });
 
   const { data: allApartments } = useQuery({
@@ -98,6 +121,33 @@ export function MyApartmentScreen() {
                 <Text style={styles.hint}>No residents recorded.</Text>
               )}
             </View>
+
+            {!!apartment?.parkingSlots?.length && (
+              <>
+                <Text style={styles.section}>Parking</Text>
+                <View style={styles.card}>
+                  {apartment.parkingSlots.map((slotId) => (
+                    <View key={slotId} style={styles.parkingRow}>
+                      <Text style={styles.label}>Car no. — Slot {slotId}</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={parkingDrafts[slotId] ?? ''}
+                        onChangeText={(value) => setParkingDrafts((prev) => ({ ...prev, [slotId]: value }))}
+                        placeholder="KA-01-AB-1234"
+                        autoCapitalize="characters"
+                      />
+                    </View>
+                  ))}
+                  <TouchableOpacity
+                    style={[styles.actionBtn, updateParking.isPending && styles.actionBtnDisabled]}
+                    disabled={updateParking.isPending}
+                    onPress={() => updateParking.mutate()}
+                  >
+                    <Text style={styles.actionBtnText}>Save Parking</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
 
             <Text style={styles.section}>Invite a household member</Text>
             <Text style={styles.hint}>They get an email link to join this apartment directly.</Text>
@@ -169,6 +219,7 @@ const styles = StyleSheet.create({
   residentRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing.xs },
   residentName: { fontSize: typography.fontSize.base, color: colors.text.primary },
   residentType: { fontSize: typography.fontSize.sm, color: colors.text.secondary },
+  parkingRow: { marginBottom: spacing.sm },
   label: { fontSize: typography.fontSize.sm, color: colors.text.secondary, marginTop: spacing.md, marginBottom: spacing.xs },
   input: {
     backgroundColor: colors.surface,

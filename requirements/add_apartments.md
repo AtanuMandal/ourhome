@@ -9,8 +9,8 @@
 
 | Role | Can Do |
 |------|--------|
-| `SUAdmin` | Create, update, delete apartments; import via CSV; change status |
-| `SUUser` | View their linked apartment details via "My Apartment" |
+| `SUAdmin` | Create, update, delete apartments; import via CSV; change status; download the apartment directory report (all apartments — owner/tenant/other occupants, area, parking + car numbers, maintenance pending) |
+| `SUUser` | View their linked apartment details via "My Apartment"; set the car number for each of their apartment's parking slots |
 | `SUSecurity` | View apartment and resident directory |
 
 ---
@@ -23,7 +23,7 @@
 | Block / Building Name | Yes | e.g., "A", "Tower 1" |
 | Floor Number | Yes | Integer |
 | Number of Rooms | Yes | Bedrooms count |
-| Parking Slots | No | Number of allocated parking spaces |
+| Parking Slots | No | Slot identifiers allocated to the apartment (e.g., "P1", "P2") — see "Parking Car Numbers" below for the per-slot car number a resident can set |
 | Carpet Area (sq ft) | No | Used for per-sq-ft maintenance fee calculation |
 | Built-Up Area (sq ft) | No | Used for per-sq-ft maintenance fee calculation |
 | Super Built-Up Area (sq ft) | No | Used for per-sq-ft maintenance fee calculation |
@@ -73,6 +73,24 @@
 
 ---
 
+## Parking Car Numbers
+
+- A resident of the apartment (owner, tenant, family member, or co-occupant) — or a society admin — can set the car number for each of the apartment's parking slots from **My Apartment** (web and mobile).
+- If the apartment has multiple parking slots, one text box is shown per slot, labeled with the slot id (e.g., "Car no. — Slot P1"), so each slot's car can be recorded independently.
+- Leaving a slot's box blank clears that slot's car number; there's no requirement to fill every slot.
+- Editing an apartment's parking slots (`PUT /api/societies/{id}/apartments/{id}`) automatically drops the car number for any slot that was removed, so a stale entry never points at a slot that no longer exists.
+- `PUT /api/societies/{id}/apartments/{id}/parking` — the resident/admin-facing endpoint. Unlike the general apartment update endpoint, this only ever touches car numbers — it never resizes the slot list itself.
+
+---
+
+## Apartment Directory Report
+
+- `SUAdmin` can download a single CSV covering every apartment in the society, with one row per apartment: apartment/block/floor, carpet/built-up/super built-up area, owner name/email/phone, tenant name/email/phone (when the apartment has a tenant), other occupants, each parking slot with its car number, and the maintenance amount pending as of today (sum of non-cancelled charges minus paid charges).
+- `GET /api/societies/{id}/apartments/directory-report` — streams the CSV directly (same pattern as the visitor log export); the endpoint is `SUAdmin`/`HQAdmin`-only.
+- Web: a "Download Report" button on the apartment list downloads the file directly. Mobile: a "Download Apartment Report" link writes the CSV to the device and hands it to the OS share sheet, mirroring the visitor log export.
+
+---
+
 ## Resident History
 
 - `GET /api/societies/{id}/apartments/{id}/resident-history` — returns the complete ownership and tenancy history for the apartment.
@@ -93,6 +111,8 @@
 | `PUT` | `/api/societies/{id}/apartments/{id}/status` | SUAdmin | Change occupancy status |
 | `POST` | `/api/societies/{id}/apartments/import-csv` | SUAdmin | Bulk import from CSV |
 | `GET` | `/api/societies/{id}/apartments/{id}/resident-history` | SUAdmin | Ownership and tenancy history |
+| `PUT` | `/api/societies/{id}/apartments/{id}/parking` | Resident of the apartment, or SUAdmin | Set the car number for each parking slot |
+| `GET` | `/api/societies/{id}/apartments/directory-report` | SUAdmin, HQAdmin | Download the all-apartments CSV (owner/tenant/other occupants, area, parking + car numbers, maintenance pending) |
 
 ---
 
@@ -103,6 +123,9 @@
 - Apartment cannot be deleted while it has active residents.
 - Resident history is never deleted — only superseded by new entries.
 - Apartment list is sorted by floor descending, then apartment number ascending, on backend, web, and mobile.
+- A resident of the apartment (or SUAdmin) can set a car number for each of the apartment's parking slots; slots with no car number are simply omitted, not rejected.
+- Only a resident of the specific apartment (or SUAdmin/HQAdmin) may set its parking car numbers — an unrelated resident is forbidden.
+- The apartment directory report includes every apartment in the society in one CSV, restricted to SUAdmin/HQAdmin.
 
 ---
 

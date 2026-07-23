@@ -1,3 +1,4 @@
+using System.Text;
 using ApartmentManagement.Application.DTOs;
 using ApartmentManagement.Application.Interfaces;
 using ApartmentManagement.Application.Mappings;
@@ -168,6 +169,50 @@ public sealed class UpdateApartmentCommandHandler(
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to update apartment {ApartmentId}", request.ApartmentId);
+            return Result<ApartmentResponse>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+}
+
+// ─── Update Apartment Parking Car Numbers ─────────────────────────────────────
+
+/// <summary>Self-service: a resident of the apartment (owner/tenant/family/co-occupant) — or a
+/// society admin — may set the car number for each of the apartment's parking slots.</summary>
+public record UpdateApartmentParkingCommand(
+    string SocietyId, string ApartmentId, IReadOnlyDictionary<string, string> CarNumbersBySlot)
+    : IRequest<Result<ApartmentResponse>>;
+
+public sealed class UpdateApartmentParkingCommandHandler(
+    IApartmentRepository apartmentRepository,
+    ICurrentUserService currentUserService,
+    ILogger<UpdateApartmentParkingCommandHandler> logger)
+    : IRequestHandler<UpdateApartmentParkingCommand, Result<ApartmentResponse>>
+{
+    public async Task<Result<ApartmentResponse>> Handle(UpdateApartmentParkingCommand request, CancellationToken ct)
+    {
+        try
+        {
+            var apartment = await apartmentRepository.GetByIdAsync(request.ApartmentId, request.SocietyId, ct)
+                ?? throw new NotFoundException("Apartment", request.ApartmentId);
+
+            var isAdmin = currentUserService.IsInRoles("SUAdmin", "HQAdmin");
+            var isResident = apartment.GetResidentsForRead()
+                .Any(resident => string.Equals(resident.UserId, currentUserService.UserId, StringComparison.OrdinalIgnoreCase));
+            if (!isAdmin && !isResident)
+                return Result<ApartmentResponse>.Failure(ErrorCodes.Forbidden,
+                    "Only a resident of this apartment or a society admin can update its parking car numbers.");
+
+            apartment.SetParkingCarNumbers(request.CarNumbersBySlot);
+            var updated = await apartmentRepository.UpdateAsync(apartment, ct);
+            return Result<ApartmentResponse>.Success(updated.ToResponse());
+        }
+        catch (NotFoundException ex)
+        {
+            return Result<ApartmentResponse>.Failure(ErrorCodes.ApartmentNotFound, ex.Message);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to update parking car numbers for apartment {ApartmentId}", request.ApartmentId);
             return Result<ApartmentResponse>.Failure(ErrorCodes.InternalError, ex.Message);
         }
     }
@@ -447,6 +492,99 @@ public sealed class GetApartmentsBySocietyQueryHandler(IApartmentRepository apar
         {
             return Result<PagedResult<ApartmentResponse>>.Failure(ErrorCodes.InternalError, ex.Message);
         }
+    }
+}
+
+// ─── Apartment Directory Report (SUAdmin/HQAdmin export) ──────────────────────
+
+public record GetApartmentDirectoryReportQuery(string SocietyId) : IRequest<Result<ApartmentDirectoryExportResponse>>;
+
+public sealed class GetApartmentDirectoryReportQueryHandler(
+    IApartmentRepository apartmentRepository,
+    IUserRepository userRepository,
+    IMaintenanceChargeRepository maintenanceChargeRepository,
+    ICurrentUserService currentUserService)
+    : IRequestHandler<GetApartmentDirectoryReportQuery, Result<ApartmentDirectoryExportResponse>>
+{
+    public async Task<Result<ApartmentDirectoryExportResponse>> Handle(GetApartmentDirectoryReportQuery request, CancellationToken ct)
+    {
+        try
+        {
+            if (!currentUserService.IsInRoles("SUAdmin", "HQAdmin"))
+                return Result<ApartmentDirectoryExportResponse>.Failure(ErrorCodes.Forbidden,
+                    "Only society admins can download the apartment directory report.");
+
+            var apartments = await apartmentRepository.GetAllAsync(request.SocietyId, ct);
+            var users = await userRepository.GetAllAsync(request.SocietyId, ct);
+            var usersById = users.ToDictionary(u => u.Id, StringComparer.OrdinalIgnoreCase);
+            var charges = await maintenanceChargeRepository.GetAllAsync(request.SocietyId, ct);
+            var chargesByApartment = charges
+                .GroupBy(c => c.ApartmentId, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => (IReadOnlyList<Domain.Entities.MaintenanceCharge>)g.ToList(), StringComparer.OrdinalIgnoreCase);
+
+            var csv = new StringBuilder();
+            csv.AppendLine("Apartment,Block,Floor,Carpet Area (sqft),Build-up Area (sqft),Super Built-up Area (sqft),"
+                + "Owner Name,Owner Email,Owner Phone,Tenant Name,Tenant Email,Tenant Phone,Other Occupants,"
+                + "Parking (Slot: Car No),Maintenance Pending Till Date");
+
+            foreach (var apartment in apartments
+                .OrderBy(a => a.BlockName, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(a => a.ApartmentNumber, StringComparer.OrdinalIgnoreCase))
+            {
+                var residents = apartment.GetResidentsForRead();
+                var owner = residents.FirstOrDefault(r => r.ResidentType == ResidentType.Owner);
+                var tenant = residents.FirstOrDefault(r => r.ResidentType == ResidentType.Tenant);
+                var others = residents.Where(r => r.ResidentType != ResidentType.Owner && r.ResidentType != ResidentType.Tenant).ToList();
+
+                var ownerUser = owner is not null ? usersById.GetValueOrDefault(owner.UserId) : null;
+                var tenantUser = tenant is not null ? usersById.GetValueOrDefault(tenant.UserId) : null;
+
+                var parkingText = string.Join("; ", apartment.ParkingSlots.Select(slot =>
+                {
+                    var carNumber = apartment.ParkingCarNumbers
+                        .FirstOrDefault(p => string.Equals(p.SlotId, slot, StringComparison.OrdinalIgnoreCase))?.CarNumber;
+                    return string.IsNullOrWhiteSpace(carNumber) ? slot : $"{slot}: {carNumber}";
+                }));
+
+                var apartmentCharges = chargesByApartment.GetValueOrDefault(apartment.Id, []);
+                var pendingAmount = apartmentCharges.Where(c => c.Status != PaymentStatus.Cancelled).Sum(c => c.Amount)
+                    - apartmentCharges.Where(c => c.Status == PaymentStatus.Paid).Sum(c => c.Amount);
+
+                csv.AppendLine(string.Join(",",
+                    EscapeCsv(apartment.ApartmentNumber),
+                    EscapeCsv(apartment.BlockName),
+                    apartment.FloorNumber.ToString(),
+                    apartment.CarpetArea.ToString("0.##"),
+                    apartment.BuildUpArea.ToString("0.##"),
+                    apartment.SuperBuildArea.ToString("0.##"),
+                    EscapeCsv(ownerUser?.FullName ?? ""),
+                    EscapeCsv(ownerUser?.Email ?? ""),
+                    EscapeCsv(ownerUser?.Phone ?? ""),
+                    EscapeCsv(tenantUser?.FullName ?? ""),
+                    EscapeCsv(tenantUser?.Email ?? ""),
+                    EscapeCsv(tenantUser?.Phone ?? ""),
+                    EscapeCsv(string.Join("; ", others.Select(o => o.UserName))),
+                    EscapeCsv(parkingText),
+                    pendingAmount.ToString("0.##")));
+            }
+
+            var fileName = $"apartment-directory-{request.SocietyId}-{DateTime.UtcNow:yyyyMMddHHmmss}.csv";
+            return Result<ApartmentDirectoryExportResponse>.Success(
+                new ApartmentDirectoryExportResponse(fileName, "text/csv", Encoding.UTF8.GetBytes(csv.ToString())));
+        }
+        catch (Exception ex)
+        {
+            return Result<ApartmentDirectoryExportResponse>.Failure(ErrorCodes.InternalError, ex.Message);
+        }
+    }
+
+    private static string EscapeCsv(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return string.Empty;
+
+        var escaped = value.Replace("\"", "\"\"");
+        return $"\"{escaped}\"";
     }
 }
 }

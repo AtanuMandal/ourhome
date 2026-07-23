@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
+import { HttpHeaders, HttpResponse } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
@@ -79,5 +80,64 @@ describe('ApartmentListComponent', () => {
     TestBed.createComponent(ApartmentListComponent).detectChanges();
 
     expect(apartmentServiceStub.list).toHaveBeenCalledWith('soc-1', 1, 500);
+  });
+
+  it('downloads the apartment directory report as a file', () => {
+    const blob = new Blob(['csv content'], { type: 'text/csv' });
+    const response = new HttpResponse({
+      body: blob,
+      headers: new HttpHeaders({ 'content-disposition': 'attachment; filename="apartment-directory.csv"' }),
+    });
+    const apartmentServiceStub = {
+      list: jasmine.createSpy().and.returnValue(of({ items: [], totalCount: 0, page: 1, pageSize: 500 })),
+      exportDirectoryReport: jasmine.createSpy().and.returnValue(of(response)),
+    };
+    const authServiceStub = { societyId: () => 'soc-1', isAdmin: () => true };
+    const snackBarStub = { open: jasmine.createSpy() };
+
+    TestBed.configureTestingModule({
+      imports: [ApartmentListComponent, NoopAnimationsModule],
+      providers: [
+        provideRouter([]),
+        { provide: ApartmentService, useValue: apartmentServiceStub },
+        { provide: AuthService, useValue: authServiceStub },
+        { provide: MatSnackBar, useValue: snackBarStub },
+      ],
+    });
+    const fixture = TestBed.createComponent(ApartmentListComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+
+    component.exportDirectoryReport();
+
+    expect(apartmentServiceStub.exportDirectoryReport).toHaveBeenCalledWith('soc-1');
+    expect(component.exportingReport()).toBeFalse();
+  });
+
+  it('shows an error snackbar when downloading the report fails', () => {
+    const apartmentServiceStub = {
+      list: jasmine.createSpy().and.returnValue(of({ items: [], totalCount: 0, page: 1, pageSize: 500 })),
+      exportDirectoryReport: jasmine.createSpy().and.returnValue(throwError(() => new Error('failed'))),
+    };
+    const authServiceStub = { societyId: () => 'soc-1', isAdmin: () => true };
+    const snackBarStub = { open: jasmine.createSpy() };
+
+    TestBed.configureTestingModule({
+      imports: [ApartmentListComponent, NoopAnimationsModule],
+      providers: [
+        provideRouter([]),
+        { provide: ApartmentService, useValue: apartmentServiceStub },
+        { provide: AuthService, useValue: authServiceStub },
+        { provide: MatSnackBar, useValue: snackBarStub },
+      ],
+    });
+    const fixture = TestBed.createComponent(ApartmentListComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+
+    component.exportDirectoryReport();
+
+    expect(component.exportingReport()).toBeFalse();
+    expect(snackBarStub.open).toHaveBeenCalledWith('Unable to download the apartment report. Try again.', 'Dismiss', { duration: 4000 });
   });
 });

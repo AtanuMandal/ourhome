@@ -22,7 +22,14 @@ import { Apartment, BulkImportResult, formatApartmentLabel } from '../../core/mo
             MatProgressBarModule, PageHeaderComponent, StatusChipComponent, LoadingSpinnerComponent, EmptyStateComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <app-page-header title="Apartments"></app-page-header>
+    <app-page-header title="Apartments">
+      @if (isAdmin()) {
+        <button actions mat-stroked-button color="primary" type="button" (click)="exportDirectoryReport()" [disabled]="exportingReport()">
+          <mat-icon>download</mat-icon>
+          {{ exportingReport() ? 'Preparing…' : 'Download Report' }}
+        </button>
+      }
+    </app-page-header>
     <div class="page-content">
       @if (uploading()) { <mat-progress-bar mode="indeterminate"></mat-progress-bar> }
       @if (isAdmin()) {
@@ -122,6 +129,7 @@ export class ApartmentListComponent implements OnInit {
   readonly importResult = signal<BulkImportResult | null>(null);
   readonly isAdmin = this.auth.isAdmin;
   readonly search = signal('');
+  readonly exportingReport = signal(false);
 
   readonly filtered = computed(() => {
     const q = this.search().toLowerCase();
@@ -176,6 +184,34 @@ export class ApartmentListComponent implements OnInit {
         );
       },
       error: () => this.uploading.set(false),
+    });
+  }
+
+  exportDirectoryReport() {
+    const sid = this.auth.societyId();
+    if (!sid) return;
+
+    this.exportingReport.set(true);
+    this.svc.exportDirectoryReport(sid).subscribe({
+      next: response => {
+        this.exportingReport.set(false);
+        const blob = response.body;
+        if (!blob) return;
+
+        const disposition = response.headers.get('content-disposition') ?? '';
+        const match = disposition.match(/filename="?([^"]+)"?/i);
+        const fileName = match?.[1] ?? 'apartment-directory.csv';
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        link.click();
+        URL.revokeObjectURL(url);
+      },
+      error: () => {
+        this.exportingReport.set(false);
+        this.snackBar.open('Unable to download the apartment report. Try again.', 'Dismiss', { duration: 4000 });
+      },
     });
   }
 
