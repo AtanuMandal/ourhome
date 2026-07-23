@@ -14,7 +14,7 @@
     "Infrastructure:EmailSenderAddress": "ranadipm@gmail.com",
     "Infrastructure:EmailSenderName": "Our home",
     "Infrastructure:SmsSenderNumber": "",
-    "Infrastructure:BrevoApiKey": "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",
+    "Infrastructure:BrevoApiKey": "",
     "Infrastructure:JwtSecret": "dev-super-secret-jwt-key-32chars!!",
     "Infrastructure:JwtIssuer": "apartment-management",
     "Infrastructure:JwtAudience": "apartment-management-app",
@@ -23,8 +23,8 @@
     "Infrastructure:AllowTestDataSeeding": "true",
 
     "Infrastructure:VapidSubject": "mailto:dev@localhost",
-    "Infrastructure:VapidPublicKey": "BDpFr-ntg2qHNSHsaOaiBYrJwj9yamAIB4Z1RNsQZWlDPFAsT1FMc44o1oUEwogqQiNvNPQ7NHXH1ovIKxmsoXw",
-    "Infrastructure:VapidPrivateKey": "Fd0hVgat-M8-A4vdTSuRO6qk3iixotODI8pmVvM94WI",
+    "Infrastructure:VapidPublicKey": "",
+    "Infrastructure:VapidPrivateKey": "",
 
     "Infrastructure:OtelExporterOtlpEndpoint": "http://localhost:431",
     "Infrastructure:OtelServiceName": "ourhome-functions",
