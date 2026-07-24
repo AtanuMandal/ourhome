@@ -7,6 +7,7 @@ import {
   Staff,
   StaffAttendance,
   StaffAttendanceReport,
+  UpdateShiftDto,
   UpdateStaffDto,
 } from '../models/staff.model';
 
@@ -20,6 +21,14 @@ export class ShiftService {
 
   create(societyId: string, dto: CreateShiftDto) {
     return this.api.post<Shift>(`societies/${societyId}/shifts`, dto);
+  }
+
+  update(societyId: string, id: string, dto: UpdateShiftDto) {
+    return this.api.put<Shift>(`societies/${societyId}/shifts/${id}`, dto);
+  }
+
+  delete(societyId: string, id: string) {
+    return this.api.delete<boolean>(`societies/${societyId}/shifts/${id}`);
   }
 }
 
@@ -48,6 +57,14 @@ export class StaffService {
 
   deactivate(societyId: string, id: string) {
     return this.api.post<boolean>(`societies/${societyId}/staff/${id}/deactivate`, {});
+  }
+
+  reactivate(societyId: string, id: string) {
+    return this.api.post<boolean>(`societies/${societyId}/staff/${id}/reactivate`, {});
+  }
+
+  delete(societyId: string, id: string) {
+    return this.api.delete<boolean>(`societies/${societyId}/staff/${id}`);
   }
 
   checkIn(societyId: string, id: string) {

@@ -75,4 +75,10 @@ public sealed class Staff : BaseEntity
         IsActive = false;
         TouchUpdatedAt();
     }
+
+    public void Reactivate()
+    {
+        IsActive = true;
+        TouchUpdatedAt();
+    }
 }

@@ -5,7 +5,7 @@
                  (openedChange)="onSidenavOpenedChange($event)" fixedInViewport>
       <div class="side-nav__brand" [class.side-nav__brand--collapsed]="collapsed()">
         @if (!collapsed()) {
-          <img src="assets/branding/logo.png" alt="Aptiq" class="brand-logo">
+          <img [src]="logoUrl() ?? 'assets/branding/logo.png'" alt="Aptiq" class="brand-logo">
         }
         @if (!isMobile()) {
           <button mat-icon-button class="collapse-toggle" (click)="toggleCollapse()"
@@ -64,22 +64,27 @@
       </div>
     </mat-sidenav>
     <mat-sidenav-content class="main-content">
-      @if (isMobile()) {
-        <div class="mobile-topbar">
-          <button mat-icon-button (click)="toggleMobileMenu()" aria-label="Open menu">
-            <mat-icon>menu</mat-icon>
-          </button>
-          <span class="mobile-topbar__title">Aptiq</span>
-        </div>
+      @if (sidenavBackgroundUrl()) {
+        <div class="main-content__bg" [style.background-image]="'url(' + sidenavBackgroundUrl() + ')'"></div>
       }
-      @if (push.shouldPrompt && push.isBrowserSupported) {
-        <div class="notif-banner">
-          <mat-icon class="notif-banner__icon">notifications</mat-icon>
-          <span class="notif-banner__text">Enable notifications to get real-time visitor approval alerts</span>
-          <button mat-stroked-button class="notif-banner__btn" (click)="enableNotifications()">Enable</button>
-        </div>
-      }
-      <router-outlet></router-outlet>
+      <div class="main-content__fg">
+        @if (isMobile()) {
+          <div class="mobile-topbar">
+            <button mat-icon-button (click)="toggleMobileMenu()" aria-label="Open menu">
+              <mat-icon>menu</mat-icon>
+            </button>
+            <span class="mobile-topbar__title">Aptiq</span>
+          </div>
+        }
+        @if (push.shouldPrompt && push.isBrowserSupported) {
+          <div class="notif-banner">
+            <mat-icon class="notif-banner__icon">notifications</mat-icon>
+            <span class="notif-banner__text">Enable notifications to get real-time visitor approval alerts</span>
+            <button mat-stroked-button class="notif-banner__btn" (click)="enableNotifications()">Enable</button>
+          </div>
+        }
+        <router-outlet></router-outlet>
+      </div>
     </mat-sidenav-content>
   </mat-sidenav-container>
   <app-bottom-nav></app-bottom-nav>

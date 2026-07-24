@@ -21,6 +21,7 @@
   }
 
   .main-content {
+    position: relative;
     background: var(--background);
     // No overflow-y: auto here — the window scrolls instead of this div.
     scrollbar-width: none;
@@ -29,6 +30,24 @@
     // On mobile, account for bottom nav
     padding-bottom: var(--bottom-nav-h);
     @media (min-width: 768px) { padding-bottom: 0; }
+
+    // Society background image (see requirements/account_fee_management.md), rendered at 70%
+    // opacity behind the main content — never on the container itself, which would also fade
+    // the page content sitting in front of it. __fg wraps all real content at z-index:1.
+    &__bg {
+      position: absolute;
+      inset: 0;
+      background-size: cover;
+      background-position: center;
+      opacity: 0.7;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    &__fg {
+      position: relative;
+      z-index: 1;
+    }
   }
 }
 

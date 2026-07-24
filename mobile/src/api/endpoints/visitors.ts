@@ -24,10 +24,15 @@ export const visitorsApi = {
       .get<PaginatedResponse<Visitor>>(`/societies/${societyId}/visitors`, { params })
       .then((r) => r.data),
 
-  // Unfiltered landing view in one call: all Pending + CheckedIn plus the N most recent concluded entries.
-  getDefaultView: (societyId: string, recentCount: number) =>
+  // Unfiltered landing view in one call: all Pending + CheckedIn plus the N most recent concluded
+  // entries. Pass `updatedSince` (ISO-8601 UTC) for auto-refresh/delta mode — see
+  // requirements/auto_refresh.md — which returns only records changed since then (server-side
+  // capped to 10 minutes) instead of the full landing view.
+  getDefaultView: (societyId: string, recentCount: number, updatedSince?: string) =>
     api
-      .get<Visitor[]>(`/societies/${societyId}/visitors/default-view`, { params: { recentCount } })
+      .get<Visitor[]>(`/societies/${societyId}/visitors/default-view`, {
+        params: updatedSince ? { recentCount, updatedSince } : { recentCount },
+      })
       .then((r) => r.data),
 
   getVisitor: (societyId: string, id: string) =>

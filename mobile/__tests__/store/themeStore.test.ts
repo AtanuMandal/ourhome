@@ -50,4 +50,34 @@ describe('themeStore', () => {
 
     expect(useThemeStore.getState()).toMatchObject({ themeId: DEFAULT_THEME_ID, status: 'resolved' });
   });
+
+  test('resolveTheme resolves logoUrl/sidenavBackgroundUrl to absolute URLs when the society has uploaded branding images', async () => {
+    (societyApi.getSociety as jest.Mock).mockResolvedValue({
+      themeId: 'ocean',
+      logoUrl: 'files/society-logos/soc-1/abc.png',
+      sidenavBackgroundUrl: 'files/society-backgrounds/soc-1/def.jpg',
+    });
+
+    await useThemeStore.getState().resolveTheme('society-1');
+
+    const { logoUrl, sidenavBackgroundUrl } = useThemeStore.getState();
+    expect(logoUrl?.endsWith('/files/society-logos/soc-1/abc.png')).toBe(true);
+    expect(sidenavBackgroundUrl?.endsWith('/files/society-backgrounds/soc-1/def.jpg')).toBe(true);
+  });
+
+  test('resolveTheme leaves logoUrl/sidenavBackgroundUrl null when the society has not uploaded either', async () => {
+    (societyApi.getSociety as jest.Mock).mockResolvedValue({ themeId: 'ocean' });
+
+    await useThemeStore.getState().resolveTheme('society-1');
+
+    expect(useThemeStore.getState()).toMatchObject({ logoUrl: null, sidenavBackgroundUrl: null });
+  });
+
+  test('resolveTheme clears logoUrl/sidenavBackgroundUrl to null if the fetch fails', async () => {
+    (societyApi.getSociety as jest.Mock).mockRejectedValue(new Error('network error'));
+
+    await useThemeStore.getState().resolveTheme('society-1');
+
+    expect(useThemeStore.getState()).toMatchObject({ logoUrl: null, sidenavBackgroundUrl: null });
+  });
 });

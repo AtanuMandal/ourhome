@@ -39,6 +39,21 @@ function invalidateSosQueries(queryClient: ReturnType<typeof useQueryClient>, so
   void queryClient.invalidateQueries({ queryKey: ['sos-alerts', societyId] });
 }
 
+/**
+ * Status mutations must also update the single-alert cache entry (keyed
+ * 'sos-alert', not 'sos-alerts') — otherwise the SOS trigger card keeps polling
+ * a stale "Triggered" status and offers the False Alarm button again, and the
+ * repeat tap surfaces an "already settled" error even though the first tap worked.
+ */
+function applyAlertUpdate(
+  queryClient: ReturnType<typeof useQueryClient>,
+  societyId: string,
+  alert: SosAlert
+) {
+  queryClient.setQueryData(['sos-alert', societyId, alert.id], alert);
+  invalidateSosQueries(queryClient, societyId);
+}
+
 export function useTriggerSosAlert(societyId: string) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -51,7 +66,7 @@ export function useAcknowledgeSosAlert(societyId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => sosApi.acknowledge(societyId, id),
-    onSuccess: () => invalidateSosQueries(queryClient, societyId),
+    onSuccess: (alert) => applyAlertUpdate(queryClient, societyId, alert),
   });
 }
 
@@ -59,7 +74,7 @@ export function useResolveSosAlert(societyId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => sosApi.resolve(societyId, id),
-    onSuccess: () => invalidateSosQueries(queryClient, societyId),
+    onSuccess: (alert) => applyAlertUpdate(queryClient, societyId, alert),
   });
 }
 
@@ -67,6 +82,6 @@ export function useMarkSosAlertFalseAlarm(societyId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => sosApi.markFalseAlarm(societyId, id),
-    onSuccess: () => invalidateSosQueries(queryClient, societyId),
+    onSuccess: (alert) => applyAlertUpdate(queryClient, societyId, alert),
   });
 }

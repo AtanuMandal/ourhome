@@ -15,8 +15,15 @@ export function useMaintenanceList(
     enabled: !!societyId && enabled,
     // Silently refresh every 10s so a resident's (re)submitted proof, or an admin's approve/deny,
     // shows up on the other party's already-open screen without a manual pull-to-refresh —
-    // matches the visitor list's pattern. Disabled under Jest to avoid leaking open timers.
-    refetchInterval: process.env.NODE_ENV === 'test' ? false : 10_000,
+    // matches the visitor list's pattern. Delta/auto-refresh mode (see
+    // requirements/auto_refresh.md): fetches only charges changed in the window and merges them
+    // into the cached pages instead of re-fetching every loaded page. Disabled under Jest to
+    // avoid leaking open timers.
+    fetchDelta: (updatedSince) =>
+      maintenanceApi
+        .getMaintenanceCharges(societyId, { ...params, updatedSince })
+        .then((r) => r.items),
+    refetchIntervalMs: process.env.NODE_ENV === 'test' ? false : 10_000,
   });
 }
 

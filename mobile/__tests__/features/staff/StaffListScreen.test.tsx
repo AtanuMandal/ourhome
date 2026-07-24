@@ -9,6 +9,8 @@ import type { Staff, StaffAttendance } from '../../../src/api/types';
 const mockCheckIn = jest.fn();
 const mockCheckOut = jest.fn();
 const mockDeactivate = jest.fn();
+const mockReactivate = jest.fn();
+const mockDelete = jest.fn();
 let mockStaffData: Staff[] = [];
 let mockOnDutyData: StaffAttendance[] = [];
 
@@ -24,6 +26,8 @@ jest.mock('../../../src/features/staff/hooks/useStaff', () => ({
   useCheckInStaff: () => ({ mutate: mockCheckIn, isPending: false }),
   useCheckOutStaff: () => ({ mutate: mockCheckOut, isPending: false }),
   useDeactivateStaff: () => ({ mutate: mockDeactivate, isPending: false }),
+  useReactivateStaff: () => ({ mutate: mockReactivate, isPending: false }),
+  useDeleteStaff: () => ({ mutate: mockDelete, isPending: false }),
 }));
 
 jest.mock('@expo/vector-icons', () => {
@@ -67,7 +71,7 @@ describe('StaffListScreen', () => {
     mockOnDutyData = [];
   });
 
-  function setUser(role: 'SUAdmin' | 'SUSecurity') {
+  function setUser(role: 'SUAdmin' | 'SUSecurity' | 'SUUser') {
     useAuthStore.setState({
       user: { id: 'viewer1', societyId: 'soc-1', fullName: 'Viewer', email: 'v@a.com', phone: '1', role, residentType: 'SocietyAdmin', apartmentId: undefined, isVerified: true, isActive: true },
       token: 'tok',
@@ -128,5 +132,94 @@ describe('StaffListScreen', () => {
 
     await waitFor(() => expect(screen.getByText('John Guard')).toBeTruthy());
     expect(screen.getByText('View Attendance Report →')).toBeTruthy();
+  });
+
+  test('SUUser sees the staff name and phone but no Check In/Check Out action', async () => {
+    setUser('SUUser');
+    mockStaffData = [makeStaff({ id: '1', fullName: 'John Guard', phone: '9876543210' })];
+
+    renderScreen();
+
+    await waitFor(() => expect(screen.getByText('John Guard')).toBeTruthy());
+    expect(screen.getByText(/9876543210/)).toBeTruthy();
+    expect(screen.queryByText('Check In')).toBeNull();
+    expect(screen.queryByText('Check Out')).toBeNull();
+  });
+
+  test('SUUser does not see the add-staff FAB, edit, deactivate, or attendance report link', async () => {
+    setUser('SUUser');
+    mockStaffData = [makeStaff({ id: '1', fullName: 'John Guard' })];
+
+    renderScreen();
+
+    await waitFor(() => expect(screen.getByText('John Guard')).toBeTruthy());
+    expect(screen.queryByText('View Attendance Report →')).toBeNull();
+    expect(screen.queryByText('+')).toBeNull();
+    expect(screen.queryByText('✎')).toBeNull();
+    expect(screen.queryByText('🚫')).toBeNull();
+  });
+
+  test('SUUser is shown even when marked on duty, but without a Check Out action', async () => {
+    setUser('SUUser');
+    mockStaffData = [makeStaff({ id: '1', fullName: 'John Guard' })];
+    mockOnDutyData = [{ id: 'a1', societyId: 'soc-1', staffId: '1', staffName: 'John Guard', attendanceDate: '2026-01-01', isLate: false, status: 'CheckedIn' }];
+
+    renderScreen();
+
+    await waitFor(() => expect(screen.getByText('John Guard')).toBeTruthy());
+    expect(screen.queryByText('Check Out')).toBeNull();
+  });
+
+  test('SUUser does not see the delete action', async () => {
+    setUser('SUUser');
+    mockStaffData = [makeStaff({ id: '1', fullName: 'John Guard' })];
+
+    renderScreen();
+
+    await waitFor(() => expect(screen.getByText('John Guard')).toBeTruthy());
+    expect(screen.queryByText('🗑')).toBeNull();
+  });
+
+  test('SUAdmin sees the Manage Shifts link', async () => {
+    setUser('SUAdmin');
+    mockStaffData = [makeStaff({ id: '1', fullName: 'John Guard' })];
+
+    renderScreen();
+
+    await waitFor(() => expect(screen.getByText('John Guard')).toBeTruthy());
+    expect(screen.getByText('Manage Shifts →')).toBeTruthy();
+  });
+
+  test('SUAdmin sees a reactivate action (not deactivate) for a deactivated staff member', async () => {
+    setUser('SUAdmin');
+    mockStaffData = [makeStaff({ id: '1', fullName: 'John Guard', isActive: false })];
+
+    renderScreen();
+
+    await waitFor(() => expect(screen.getByText('John Guard')).toBeTruthy());
+    expect(screen.getByText('✓')).toBeTruthy();
+    expect(screen.queryByText('🚫')).toBeNull();
+  });
+
+  test('tapping reactivate calls the mutation with the staff id', async () => {
+    setUser('SUAdmin');
+    mockStaffData = [makeStaff({ id: '1', fullName: 'John Guard', isActive: false })];
+
+    renderScreen();
+
+    await waitFor(() => expect(screen.getByText('John Guard')).toBeTruthy());
+    fireEvent.press(screen.getByText('✓'));
+
+    expect(mockReactivate).toHaveBeenCalledWith('1', expect.anything());
+  });
+
+  test('SUAdmin sees a delete action for both active and deactivated staff', async () => {
+    setUser('SUAdmin');
+    mockStaffData = [makeStaff({ id: '1', fullName: 'John Guard' })];
+
+    renderScreen();
+
+    await waitFor(() => expect(screen.getByText('John Guard')).toBeTruthy());
+    expect(screen.getByText('🗑')).toBeTruthy();
   });
 });

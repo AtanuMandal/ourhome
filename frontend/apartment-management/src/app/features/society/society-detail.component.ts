@@ -15,6 +15,7 @@ import { SocietyService } from '../../core/services/society.service';
 import { AuthService } from '../../core/services/auth.service';
 import { UserService } from '../../core/services/apartment.service';
 import { Society, SocietyCommittee, SocietyUserAssignment } from '../../core/models/society.model';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-society-detail',
@@ -95,6 +96,50 @@ import { Society, SocietyCommittee, SocietyUserAssignment } from '../../core/mod
         </div>
       } @else {
         <div class="card">
+          <div class="section-title">Branding</div>
+          <div class="section-copy">Shown at the top of every user's sidenav, and as the sidenav's background (70% opacity). Leave unset to use the default.</div>
+          <div class="branding-row">
+            <div class="branding-preview">
+              @if (society()?.logoUrl) {
+                <img [src]="absoluteUrl(society()!.logoUrl!)" alt="Society logo" class="branding-thumb">
+              } @else {
+                <div class="branding-thumb branding-thumb--empty">No logo</div>
+              }
+              <div class="branding-actions">
+                <span>Sidenav logo</span>
+                <button mat-stroked-button type="button" [disabled]="uploadingLogo()" (click)="logoInput.click()">
+                  {{ uploadingLogo() ? 'Uploading…' : (society()?.logoUrl ? 'Change' : 'Upload') }}
+                </button>
+                @if (society()?.logoUrl) {
+                  <button mat-stroked-button color="warn" type="button" [disabled]="uploadingLogo()" (click)="removeLogo()">
+                    Remove
+                  </button>
+                }
+                <input #logoInput type="file" accept="image/*" hidden (change)="onLogoSelected($event)">
+              </div>
+            </div>
+            <div class="branding-preview">
+              @if (society()?.sidenavBackgroundUrl) {
+                <img [src]="absoluteUrl(society()!.sidenavBackgroundUrl!)" alt="Sidenav background" class="branding-thumb">
+              } @else {
+                <div class="branding-thumb branding-thumb--empty">No background</div>
+              }
+              <div class="branding-actions">
+                <span>Sidenav background</span>
+                <button mat-stroked-button type="button" [disabled]="uploadingBackground()" (click)="backgroundInput.click()">
+                  {{ uploadingBackground() ? 'Uploading…' : (society()?.sidenavBackgroundUrl ? 'Change' : 'Upload') }}
+                </button>
+                @if (society()?.sidenavBackgroundUrl) {
+                  <button mat-stroked-button color="warn" type="button" [disabled]="uploadingBackground()" (click)="removeBackgroundImage()">
+                    Remove
+                  </button>
+                }
+                <input #backgroundInput type="file" accept="image/*" hidden (change)="onBackgroundSelected($event)">
+              </div>
+            </div>
+          </div>
+          <mat-divider style="margin:16px 0"></mat-divider>
+
           <form [formGroup]="form" (ngSubmit)="save()" novalidate>
             <mat-form-field appearance="fill" class="full-width">
               <mat-label>Society Name</mat-label>
@@ -236,6 +281,17 @@ import { Society, SocietyCommittee, SocietyUserAssignment } from '../../core/mod
     .nested-card { display:flex; flex-direction:column; gap:8px; }
     .action-row { display:flex; gap:8px; margin-top:16px; }
     .action-row button { flex:1; height:48px; }
+    .branding-row { display:flex; gap:16px; flex-wrap:wrap; margin-top:12px; }
+    .branding-preview { display:flex; align-items:center; gap:12px; }
+    .branding-thumb {
+      width:72px; height:72px; border-radius:8px; object-fit:cover;
+      border:1px solid var(--border); background:#fafafa;
+    }
+    .branding-thumb--empty {
+      display:flex; align-items:center; justify-content:center;
+      font-size:11px; color:var(--text-secondary); text-align:center; padding:4px;
+    }
+    .branding-actions { display:flex; flex-direction:column; gap:4px; font-size:13px; color:var(--text-secondary); }
   `],
 })
 export class SocietyDetailComponent implements OnInit {
@@ -251,6 +307,14 @@ export class SocietyDetailComponent implements OnInit {
   readonly society = signal<Society | null>(null);
   readonly isAdmin = this.auth.isAdmin;
   readonly allUsers = signal<{ email: string; fullName: string }[]>([]);
+  readonly uploadingLogo = signal(false);
+  readonly uploadingBackground = signal(false);
+
+  /** App-relative file paths (e.g. "files/society-logos/...") need the API origin prefixed —
+   * a plain <img> can't attach the JWT header an authenticated request would use. */
+  absoluteUrl(path: string): string {
+    return `${environment.apiBaseUrl}/${path}`;
+  }
 
   readonly form = this.fb.group({
     name: ['', Validators.required],
@@ -319,6 +383,88 @@ export class SocietyDetailComponent implements OnInit {
     if (!this.isAdmin()) return;
     this.patchForm(this.society());
     this.editing.set(true);
+  }
+
+  onLogoSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = ''; // allow re-selecting the same file later
+    if (!file) return;
+
+    const sid = this.auth.societyId();
+    if (!sid) return;
+
+    this.uploadingLogo.set(true);
+    this.svc.uploadLogo(sid, file, file.name).subscribe({
+      next: res => {
+        this.uploadingLogo.set(false);
+        this.society.update(current => current ? { ...current, logoUrl: res.logoUrl } : current);
+        this.snackBar.open('Logo updated.', 'Dismiss', { duration: 3000 });
+      },
+      error: () => {
+        this.uploadingLogo.set(false);
+        this.snackBar.open('Unable to upload the logo. Try again.', 'Dismiss', { duration: 4000 });
+      },
+    });
+  }
+
+  onBackgroundSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+
+    const sid = this.auth.societyId();
+    if (!sid) return;
+
+    this.uploadingBackground.set(true);
+    this.svc.uploadBackgroundImage(sid, file, file.name).subscribe({
+      next: res => {
+        this.uploadingBackground.set(false);
+        this.society.update(current => current ? { ...current, sidenavBackgroundUrl: res.sidenavBackgroundUrl } : current);
+        this.snackBar.open('Sidenav background updated.', 'Dismiss', { duration: 3000 });
+      },
+      error: () => {
+        this.uploadingBackground.set(false);
+        this.snackBar.open('Unable to upload the background image. Try again.', 'Dismiss', { duration: 4000 });
+      },
+    });
+  }
+
+  removeLogo() {
+    const sid = this.auth.societyId();
+    if (!sid) return;
+
+    this.uploadingLogo.set(true);
+    this.svc.removeLogo(sid).subscribe({
+      next: society => {
+        this.uploadingLogo.set(false);
+        this.society.update(current => current ? { ...current, logoUrl: society.logoUrl } : current);
+        this.snackBar.open('Logo removed.', 'Dismiss', { duration: 3000 });
+      },
+      error: () => {
+        this.uploadingLogo.set(false);
+        this.snackBar.open('Unable to remove the logo. Try again.', 'Dismiss', { duration: 4000 });
+      },
+    });
+  }
+
+  removeBackgroundImage() {
+    const sid = this.auth.societyId();
+    if (!sid) return;
+
+    this.uploadingBackground.set(true);
+    this.svc.removeBackgroundImage(sid).subscribe({
+      next: society => {
+        this.uploadingBackground.set(false);
+        this.society.update(current => current ? { ...current, sidenavBackgroundUrl: society.sidenavBackgroundUrl } : current);
+        this.snackBar.open('Sidenav background removed.', 'Dismiss', { duration: 3000 });
+      },
+      error: () => {
+        this.uploadingBackground.set(false);
+        this.snackBar.open('Unable to remove the background image. Try again.', 'Dismiss', { duration: 4000 });
+      },
+    });
   }
 
   cancelEditing() {

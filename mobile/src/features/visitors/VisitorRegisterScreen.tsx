@@ -12,8 +12,11 @@ import {
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSocietyId } from '../../shared/hooks/useSocietyId';
 import { useAuthStore } from '../../store/authStore';
+import { useActiveApartment } from '../../shared/hooks/useActiveApartment';
 import { useRegisterVisitor } from './hooks/useVisitors';
 import { useApartmentList } from '../apartments/hooks/useApartments';
 import { AppHeader } from '../../shared/components/AppHeader';
@@ -43,10 +46,20 @@ const VALIDITY_OPTIONS = [
   { label: '72 hours', value: '72' },
 ];
 
+type VisitorsNav = NativeStackNavigationProp<{
+  VisitorList: undefined;
+  VisitorRegister: undefined;
+  VisitorDetail: { id: string };
+}>;
+
 export function VisitorRegisterScreen() {
+  const navigation = useNavigation<VisitorsNav>();
   const societyId = useSocietyId();
   const role = useAuthStore((s) => s.user?.role ?? '');
-  const myApartmentId = useAuthStore((s) => s.user?.apartmentId ?? '');
+  // Multi-apartment aware: the account-level apartmentId may be absent — follow the
+  // apartment selected in the drawer (falls back to the primary apartment).
+  const { activeApartmentId } = useActiveApartment();
+  const myApartmentId = activeApartmentId ?? '';
   const canSelectApartment = role === 'SUAdmin' || role === 'SUSecurity';
 
   const { mutateAsync: registerVisitor, isPending } = useRegisterVisitor(societyId);
@@ -116,22 +129,29 @@ export function VisitorRegisterScreen() {
       Alert.alert('Error', 'Apartment not found. Please contact admin.');
       return;
     }
+    // Same flow as the web app: a resident registering a visitor for their own
+    // apartment pre-approves the pass (no separate approval step); admin/security
+    // registrations stay Pending until the host resident approves. Validity hours
+    // only apply to pre-approved passes.
+    const isPreApproved = !canSelectApartment;
     try {
-      await registerVisitor({
+      const created = await registerVisitor({
         visitorName: visitorName.trim(),
         visitorPhone: visitorPhone.trim(),
         visitorEmail: visitorEmail.trim() || undefined,
         companyName: companyName.trim() || undefined,
         purpose: purpose.trim(),
         vehicleNumber: vehicleNumber.trim() || undefined,
-        validityHours: validityHours ? Number(validityHours) : undefined,
+        isPreApproved,
+        validityHours: isPreApproved && validityHours ? Number(validityHours) : undefined,
         apartmentId: effectiveApartmentId,
         visitorImageUrl: photoUrl,
       });
-      Alert.alert('Success', 'Visitor registered successfully.');
       setVisitorName(''); setVisitorPhone(''); setVisitorEmail('');
       setCompanyName(''); setPurpose(''); setVehicleNumber('');
       setValidityHours(''); setSelectedApartmentId(''); setPhotoUrl(undefined);
+      // Land on the pass screen (QR + share), exactly like the web post-register view.
+      navigation.replace('VisitorDetail', { id: created.id });
     } catch (e) {
       Alert.alert('Error', normalizeError(e));
     }

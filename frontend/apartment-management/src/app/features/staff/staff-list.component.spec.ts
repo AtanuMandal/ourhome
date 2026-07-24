@@ -23,16 +23,24 @@ describe('StaffListComponent', () => {
     } as Staff;
   }
 
-  function setup(staffList: Staff[], onDuty: StaffAttendance[] = [], serviceOverrides: Partial<Record<string, unknown>> = {}, isAdmin = true) {
+  function setup(
+    staffList: Staff[],
+    onDuty: StaffAttendance[] = [],
+    serviceOverrides: Partial<Record<string, unknown>> = {},
+    isAdmin = true,
+    isSecurity = false,
+  ) {
     const staffServiceStub = {
       list: jasmine.createSpy().and.returnValue(of({ items: staffList, total: staffList.length, page: 1, pageSize: 100 })),
       onDuty: jasmine.createSpy().and.returnValue(of(onDuty)),
       checkIn: jasmine.createSpy().and.returnValue(of({ id: 'a1', status: 'CheckedIn' })),
       checkOut: jasmine.createSpy().and.returnValue(of({ id: 'a1', status: 'CheckedOut' })),
       deactivate: jasmine.createSpy().and.returnValue(of(true)),
+      reactivate: jasmine.createSpy().and.returnValue(of(true)),
+      delete: jasmine.createSpy().and.returnValue(of(true)),
       ...serviceOverrides,
     };
-    const authServiceStub = { societyId: () => 'soc-1', isAdmin: () => isAdmin };
+    const authServiceStub = { societyId: () => 'soc-1', isAdmin: () => isAdmin, isSecurity: () => isSecurity };
     const snackBarStub = { open: jasmine.createSpy() };
 
     TestBed.configureTestingModule({
@@ -110,6 +118,34 @@ describe('StaffListComponent', () => {
     expect(staffServiceStub.deactivate).not.toHaveBeenCalled();
   });
 
+  it('reactivates a deactivated staff member', () => {
+    const { component, staffServiceStub } = setup([staff({ id: '1', fullName: 'John Guard', isActive: false })]);
+
+    component.reactivate(component.items()[0]);
+
+    expect(staffServiceStub.reactivate).toHaveBeenCalledWith('soc-1', '1');
+    expect(component.items()[0].isActive).toBeTrue();
+  });
+
+  it('deletes a staff member when confirmed, removing them from the list', () => {
+    spyOn(window, 'confirm').and.returnValue(true);
+    const { component, staffServiceStub } = setup([staff({ id: '1', fullName: 'John Guard' })]);
+
+    component.deleteStaff(component.items()[0]);
+
+    expect(staffServiceStub.delete).toHaveBeenCalledWith('soc-1', '1');
+    expect(component.items()).toEqual([]);
+  });
+
+  it('does not delete when the user cancels the confirmation', () => {
+    spyOn(window, 'confirm').and.returnValue(false);
+    const { component, staffServiceStub } = setup([staff({ id: '1' })]);
+
+    component.deleteStaff(component.items()[0]);
+
+    expect(staffServiceStub.delete).not.toHaveBeenCalled();
+  });
+
   it('filters staff by name or phone search term', () => {
     const { component } = setup([
       staff({ id: '1', fullName: 'Alice Guard', phone: '1112223333' }),
@@ -121,5 +157,26 @@ describe('StaffListComponent', () => {
 
     component.search.set('444');
     expect(component.filtered().map(s => s.id)).toEqual(['2']);
+  });
+
+  it('does not let a SUUser (read-only) manage attendance, and never fetches on-duty status for them', () => {
+    const { component, staffServiceStub } = setup([staff({ id: '1' })], [], {}, false, false);
+
+    expect(component.canManageAttendance()).toBeFalse();
+    expect(staffServiceStub.onDuty).not.toHaveBeenCalled();
+  });
+
+  it('lets SUSecurity manage attendance and fetches on-duty status', () => {
+    const { component, staffServiceStub } = setup([staff({ id: '1' })], [], {}, false, true);
+
+    expect(component.canManageAttendance()).toBeTrue();
+    expect(staffServiceStub.onDuty).toHaveBeenCalledWith('soc-1');
+  });
+
+  it('lets SUAdmin manage attendance and fetches on-duty status', () => {
+    const { component, staffServiceStub } = setup([staff({ id: '1' })], [], {}, true, false);
+
+    expect(component.canManageAttendance()).toBeTrue();
+    expect(staffServiceStub.onDuty).toHaveBeenCalledWith('soc-1');
   });
 });

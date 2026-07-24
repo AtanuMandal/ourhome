@@ -225,6 +225,35 @@ public class MarkSosAlertFalseAlarmCommandHandlerTests
         result.IsFailure.Should().BeTrue();
         result.ErrorCode.Should().Be(ErrorCodes.Forbidden);
     }
+
+    [Fact]
+    public async Task Handle_WhenAlreadyFalseAlarm_IsIdempotentSuccess()
+    {
+        // A repeat tap from a client showing a stale status must not error — the alert
+        // is already in the requested state.
+        var alert = SosAlert.Create("soc-001", "apt-001", "user-001", "Jane Resident", SosCategory.Other, null);
+        alert.MarkFalseAlarm();
+        _alertRepoMock.Setup(r => r.GetByIdAsync(alert.Id, "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync(alert);
+
+        var result = await CreateHandler().Handle(new MarkSosAlertFalseAlarmCommand("soc-001", alert.Id, "user-001"), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Status.Should().Be("FalseAlarm");
+        _alertRepoMock.Verify(r => r.UpdateAsync(It.IsAny<SosAlert>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_WhenAlreadyResolved_ReturnsAlreadySettled()
+    {
+        var alert = SosAlert.Create("soc-001", "apt-001", "user-001", "Jane Resident", SosCategory.Other, null);
+        alert.Resolve("admin-001", "Society Admin");
+        _alertRepoMock.Setup(r => r.GetByIdAsync(alert.Id, "soc-001", It.IsAny<CancellationToken>())).ReturnsAsync(alert);
+
+        var result = await CreateHandler().Handle(new MarkSosAlertFalseAlarmCommand("soc-001", alert.Id, "user-001"), CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be(ErrorCodes.SosAlertAlreadySettled);
+    }
 }
 
 // ─── GetSosAlertQueryHandler Tests ──────────────────────────────────────────────

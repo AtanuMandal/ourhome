@@ -32,7 +32,7 @@ This module defines the role hierarchy, user lifecycle management, apartment ass
 
 - `SUAdmin` can create `SUUser` and `SUSecurity` users directly.
 - Required fields: full name, email, phone, role, resident type, apartment (for residents).
-- On creation, the user receives an OTP via SMS/email to verify their account before first login.
+- On creation, the user receives an OTP via SMS to verify their account before first login. If no SMS provider is configured, the OTP is sent to the user's email instead — every OTP-sending path (initial creation, resend, email-based OTP login, phone-based OTP login) falls back to email the same way.
 - `SUAdmin` can update user name and phone.
 - `SUAdmin` can activate or deactivate a user account (`POST /societies/{id}/users/{id}/activate` / `deactivate`).
 - Each user has a profile section where they can update their own name, phone, and change their password.
@@ -98,7 +98,7 @@ This module defines the role hierarchy, user lifecycle management, apartment ass
 - `SUUser` **cannot** see admin actions in the Apartments section.
 - `SUUser` viewing the Residents page sees **only other residents' names** — phone numbers and email addresses are **masked/hidden**, e.g. `+91-98XXXXXX10` and `ra***@***.com`, showing just enough to confirm identity without exposing the full contact detail.
   - A resident's **own** record is never masked to themselves, and `SUAdmin`/`SUSecurity` always see full contact details since gate operations and administration depend on it.
-  - ⚠️ **Gap:** Phone and email masking for `SUUser` is a documented requirement but **not yet implemented** in `GetUsersBySocietyQuery`, nor in the single-user `GET /societies/{id}/users/{id}` lookup. `UserResponse` returns full contact details to all callers on both endpoints today.
+  - ✅ **Implemented:** `ApplyContactMasking` masks phone/email in both `GetUsersBySocietyQuery` (list) and the single-user lookup when the viewer is a `SUUser` looking at another resident's record; masking is applied after search so a resident can still find someone by phone/email even though the displayed value is masked.
 - `SUSecurity` can view the resident directory (names and apartment) but has limited access to financial and administrative features.
 - `HQAdmin` and `HQUser` do not have access to individual society-level features (notices, complaints, maintenance, visitors).
 - `HQAdmin` should only be able to create Socity and `HQUser`. They should be able to manage the socity (enable , disable and name address change) , for users they should only be able to manage `HQAdmin` and `HQUser` ( like Create ,enable/Diable )

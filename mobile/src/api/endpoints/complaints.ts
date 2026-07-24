@@ -6,6 +6,10 @@ export interface CreateComplaintRequest {
   category: string;
   priority: 'Low' | 'Medium' | 'High' | 'Critical';
   description: string;
+  // Backend CreateComplaintCommand requires the apartment; the raiser's userId is
+  // also sent (the backend falls back to the JWT claims when these are omitted).
+  apartmentId: string;
+  userId: string;
 }
 
 export interface ResolveComplaintRequest {

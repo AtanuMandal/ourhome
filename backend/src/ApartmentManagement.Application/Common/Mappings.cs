@@ -43,7 +43,9 @@ public static class MappingExtensions
             society.ThemeId,
             society.CreatedAt,
             society.MaxUsersPerApartment,
-            society.VisitorOverstayThresholdHours);
+            society.VisitorOverstayThresholdHours,
+            society.LogoUrl,
+            society.SidenavBackgroundUrl);
 
     public static ApartmentResponse ToResponse(this Apartment apartment) =>
         new(
@@ -62,7 +64,8 @@ public static class MappingExtensions
             apartment.GetPrimaryResidentName(),
             apartment.OwnershipHistory.Select(h => new ApartmentResidentHistoryDto(h.UserId, h.FullName, h.FromUtc, h.ToUtc)).ToList(),
             apartment.TenantHistory.Select(h => new ApartmentResidentHistoryDto(h.UserId, h.FullName, h.FromUtc, h.ToUtc)).ToList(),
-            apartment.CreatedAt);
+            apartment.CreatedAt,
+            apartment.ParkingCarNumbers.Select(p => new ParkingCarNumberDto(p.SlotId, p.CarNumber)).ToList());
 
     public static ApartmentResidentHistoryResponse ToResidentHistoryResponse(this Apartment apartment) =>
         new(
@@ -217,7 +220,9 @@ public static class MappingExtensions
             booking.Status.ToString(),
             booking.AdminNotes,
             booking.Duration.TotalMinutes,
-            booking.CreatedAt);
+            booking.CreatedAt,
+            booking.CancellationRemarks,
+            booking.CancelledByUserId);
 
     public static ComplaintResponse ToResponse(this Complaint complaint) =>
         new(
@@ -282,8 +287,7 @@ public static class MappingExtensions
             log.ValidUntil,
             log.VisitorImageUrl,
             log.IsPassExpired,
-            log.IsOverstaying(overstayThresholdHours ?? Society.DefaultVisitorOverstayThresholdHours),
-            log.IsAutoCheckedOut);
+            log.IsOverstaying(overstayThresholdHours ?? Society.DefaultVisitorOverstayThresholdHours));
 
     public static MaintenanceScheduleDto ToResponse(this MaintenanceSchedule schedule) =>
         new(

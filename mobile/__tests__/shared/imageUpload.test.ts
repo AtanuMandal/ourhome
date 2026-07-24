@@ -1,6 +1,6 @@
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system/legacy';
-import { compressAndUpload, resolveFileUrl } from '../../src/camera/imageUpload';
+import { compressAndUpload, resolveFileUrl, uploadSocietyLogo, uploadSocietyBackgroundImage } from '../../src/camera/imageUpload';
 
 jest.mock('expo-image-manipulator', () => ({
   manipulateAsync: jest.fn(),
@@ -44,5 +44,37 @@ describe('imageUpload', () => {
     const url = resolveFileUrl('files/visitor-images/soc-1/abc.jpg');
     expect(url.endsWith('/files/visitor-images/soc-1/abc.jpg')).toBe(true);
     expect(url.startsWith('http')).toBe(true);
+  });
+
+  test('uploadSocietyLogo posts to the society logo upload endpoint and returns the app-relative path', async () => {
+    (FileSystem.uploadAsync as jest.Mock).mockResolvedValue({
+      status: 201,
+      body: JSON.stringify({ logoUrl: 'files/society-logos/soc-1/abc.png' }),
+    });
+
+    const result = await uploadSocietyLogo('file://original.png', 'soc-1');
+
+    expect(FileSystem.uploadAsync).toHaveBeenCalledWith(
+      expect.stringContaining('/societies/soc-1/logo'),
+      'file://compressed.jpg',
+      expect.objectContaining({ httpMethod: 'POST', fieldName: 'file' })
+    );
+    expect(result).toBe('files/society-logos/soc-1/abc.png');
+  });
+
+  test('uploadSocietyBackgroundImage posts to the society background-image upload endpoint and returns the app-relative path', async () => {
+    (FileSystem.uploadAsync as jest.Mock).mockResolvedValue({
+      status: 201,
+      body: JSON.stringify({ sidenavBackgroundUrl: 'files/society-backgrounds/soc-1/def.jpg' }),
+    });
+
+    const result = await uploadSocietyBackgroundImage('file://original.jpg', 'soc-1');
+
+    expect(FileSystem.uploadAsync).toHaveBeenCalledWith(
+      expect.stringContaining('/societies/soc-1/background-image'),
+      'file://compressed.jpg',
+      expect.objectContaining({ httpMethod: 'POST', fieldName: 'file' })
+    );
+    expect(result).toBe('files/society-backgrounds/soc-1/def.jpg');
   });
 });

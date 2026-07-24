@@ -293,51 +293,6 @@ public sealed class CheckOutVisitorCommandHandler(
     }
 }
 
-/// <summary>
-/// Checks out every visitor platform-wide who has been checked in for more than 24 hours.
-/// Invoked by the AutoCheckoutVisitors timer; the record is flagged as auto-checked-out so
-/// reports can distinguish it from a security-performed checkout.
-/// </summary>
-public record AutoCheckOutOverdueVisitorsCommand() : IRequest<Result<int>>;
-
-public sealed class AutoCheckOutOverdueVisitorsCommandHandler(
-    IVisitorLogRepository visitorRepository,
-    ILogger<AutoCheckOutOverdueVisitorsCommandHandler> logger)
-    : IRequestHandler<AutoCheckOutOverdueVisitorsCommand, Result<int>>
-{
-    public static readonly TimeSpan AutoCheckoutAfter = TimeSpan.FromHours(24);
-
-    public async Task<Result<int>> Handle(AutoCheckOutOverdueVisitorsCommand request, CancellationToken ct)
-    {
-        try
-        {
-            var checkedIn = await visitorRepository.GetCheckedInAcrossSocietiesAsync(ct);
-            var now = DateTime.UtcNow;
-            var cutoff = now - AutoCheckoutAfter;
-            var count = 0;
-
-            // A pre-approved visitor with a still-valid pass was explicitly authorized for that
-            // duration — their pass validity overrides the default 24-hour auto-checkout.
-            foreach (var visitor in checkedIn.Where(v =>
-                v.CheckInTime.HasValue && v.CheckInTime.Value <= cutoff && !v.HasValidPass(now)))
-            {
-                visitor.AutoCheckOut();
-                await visitorRepository.UpdateAsync(visitor, ct);
-                count++;
-            }
-
-            if (count > 0)
-                logger.LogInformation("Auto-checked-out {Count} visitors checked in for more than 24 hours.", count);
-            return Result<int>.Success(count);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to auto-check-out overdue visitors.");
-            return Result<int>.Failure(ErrorCodes.InternalError, ex.Message);
-        }
-    }
-}
-
 public sealed class UploadVisitorImageCommandHandler(
     IFileStorageService fileStorageService,
     ILogger<UploadVisitorImageCommandHandler> logger)
@@ -426,7 +381,11 @@ public record GetVisitorsBySocietyQuery(
     string? Status,
     DateOnly? FromDate,
     DateOnly? ToDate,
-    PaginationParams Pagination)
+    PaginationParams Pagination,
+    /// <summary>Delta/auto-refresh mode (see requirements/auto_refresh.md) — when set, returns
+    /// only visitors created/updated at or after this timestamp (clamped server-side to at most
+    /// 10 minutes ago), unpaginated, instead of the normal paged result.</summary>
+    DateTime? UpdatedSince = null)
     : IRequest<Result<PagedResult<VisitorResponse>>>;
 
 public sealed class GetVisitorsBySocietyQueryHandler(IVisitorLogRepository visitorRepository, ISocietyRepository societyRepository)
@@ -440,8 +399,40 @@ public sealed class GetVisitorsBySocietyQueryHandler(IVisitorLogRepository visit
             var overstayThreshold = society?.VisitorOverstayThresholdHours
                 ?? Domain.Entities.Society.DefaultVisitorOverstayThresholdHours;
 
-            var filtered = VisitorQueryFiltering.FilterVisitors(await visitorRepository.GetAllAsync(request.SocietyId, ct), request)
-                .OrderByDescending(visitor => visitor.CreatedAt)
+            var all = await visitorRepository.GetAllAsync(request.SocietyId, ct);
+
+            if (request.UpdatedSince.HasValue)
+            {
+                // Delta path: only ApartmentId scoping is re-applied here — for a resident it is
+                // security-enforced (their own apartment, set by the caller from the JWT, not
+                // client input) and for an admin it is a stable pick, not something a visitor
+                // record's own state transition can violate. The cosmetic view filters
+                // (Status/Search/ResidentName/date range) are deliberately NOT re-applied: if
+                // they were, a visitor that changed status away from an active Status filter
+                // (e.g. Pending -> CheckedIn while viewing "Pending only") would be filtered out
+                // of the delta before the UpdatedAt check ever ran, so the change would never
+                // reach the client and the stale row would never be evicted. Instead the client
+                // receives every changed record in-partition and re-applies its own active
+                // filter locally when merging (see requirements/auto_refresh.md, "stillVisible").
+                var since = AutoRefreshWindow.Clamp(request.UpdatedSince.Value, DateTime.UtcNow);
+                var scoped = string.IsNullOrWhiteSpace(request.ApartmentId)
+                    ? all
+                    : all.Where(visitor => string.Equals(visitor.HostApartmentId, request.ApartmentId, StringComparison.OrdinalIgnoreCase));
+                var delta = scoped
+                    .Where(visitor => visitor.UpdatedAt >= since)
+                    .OrderByDescending(visitor => visitor.IsOverstaying(overstayThreshold))
+                    .ThenByDescending(visitor => visitor.CreatedAt)
+                    .Select(visitor => visitor.ToResponse(overstayThreshold))
+                    .ToList();
+                return Result<PagedResult<VisitorResponse>>.Success(
+                    new PagedResult<VisitorResponse>(delta, delta.Count, 1, delta.Count));
+            }
+
+            // Overstaying visitors surface first so security sees the red warning immediately,
+            // without having to scroll past the rest of the list.
+            var filtered = VisitorQueryFiltering.FilterVisitors(all, request)
+                .OrderByDescending(visitor => visitor.IsOverstaying(overstayThreshold))
+                .ThenByDescending(visitor => visitor.CreatedAt)
                 .ToList();
 
             var page = request.Pagination.Page < 1 ? 1 : request.Pagination.Page;
@@ -470,7 +461,8 @@ public record GetVisitorsByApartmentQuery(
     string? Status,
     DateOnly? FromDate,
     DateOnly? ToDate,
-    PaginationParams Pagination)
+    PaginationParams Pagination,
+    DateTime? UpdatedSince = null)
     : IRequest<Result<PagedResult<VisitorResponse>>>;
 
 public sealed class GetVisitorsByApartmentQueryHandler(IVisitorLogRepository visitorRepository, ISocietyRepository societyRepository)
@@ -487,7 +479,8 @@ public sealed class GetVisitorsByApartmentQueryHandler(IVisitorLogRepository vis
                 request.Status,
                 request.FromDate,
                 request.ToDate,
-                request.Pagination),
+                request.Pagination,
+                request.UpdatedSince),
             ct);
     }
 }
@@ -507,7 +500,8 @@ public sealed class GetActiveVisitorsQueryHandler(IVisitorLogRepository visitorR
 
             var active = await visitorRepository.GetActiveVisitorsAsync(request.SocietyId, ct);
             var items = active
-                .OrderByDescending(visitor => visitor.CheckInTime ?? visitor.CreatedAt)
+                .OrderByDescending(visitor => visitor.IsOverstaying(overstayThreshold))
+                .ThenByDescending(visitor => visitor.CheckInTime ?? visitor.CreatedAt)
                 .Select(visitor => visitor.ToResponse(overstayThreshold))
                 .ToList();
             return Result<IReadOnlyList<VisitorResponse>>.Success(items);
@@ -519,7 +513,15 @@ public sealed class GetActiveVisitorsQueryHandler(IVisitorLogRepository visitorR
     }
 }
 
-public record GetVisitorDefaultViewQuery(string SocietyId, string? ApartmentId, int RecentCount)
+public record GetVisitorDefaultViewQuery(
+    string SocietyId,
+    string? ApartmentId,
+    int RecentCount,
+    /// <summary>Delta/auto-refresh mode (see requirements/auto_refresh.md) — when set, returns
+    /// only visitors created/updated at or after this timestamp (clamped server-side to at most
+    /// 10 minutes ago), regardless of status, instead of the normal landing-view shape. The
+    /// client merges these into whatever it already has and re-sorts/re-filters locally.</summary>
+    DateTime? UpdatedSince = null)
     : IRequest<Result<IReadOnlyList<VisitorResponse>>>;
 
 /// <summary>
@@ -543,11 +545,25 @@ public sealed class GetVisitorDefaultViewQueryHandler(IVisitorLogRepository visi
                 ? all
                 : all.Where(v => v.HostApartmentId == request.ApartmentId);
 
+            if (request.UpdatedSince.HasValue)
+            {
+                var since = AutoRefreshWindow.Clamp(request.UpdatedSince.Value, DateTime.UtcNow);
+                var delta = scoped
+                    .Where(v => v.UpdatedAt >= since)
+                    .OrderByDescending(v => v.IsOverstaying(overstayThreshold))
+                    .ThenByDescending(v => v.CreatedAt)
+                    .Select(v => v.ToResponse(overstayThreshold))
+                    .ToList();
+                return Result<IReadOnlyList<VisitorResponse>>.Success(delta);
+            }
+
             var ordered = scoped.OrderByDescending(v => v.CreatedAt).ToList();
             var recentCount = request.RecentCount < 1 ? 25 : request.RecentCount;
 
             var items = ordered
                 .Where(v => v.Status is VisitorStatus.Pending or VisitorStatus.CheckedIn)
+                .OrderByDescending(v => v.IsOverstaying(overstayThreshold))
+                .ThenByDescending(v => v.CreatedAt)
                 .Concat(ordered
                     .Where(v => v.Status is not VisitorStatus.Pending and not VisitorStatus.CheckedIn)
                     .Take(recentCount))

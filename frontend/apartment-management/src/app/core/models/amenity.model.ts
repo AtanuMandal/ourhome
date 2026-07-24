@@ -13,6 +13,8 @@ export interface Amenity {
   advanceBookingDays: number;
 }
 
+export type BookingStatus = 'Pending' | 'Approved' | 'Rejected' | 'Cancelled' | 'Completed';
+
 // Matches backend BookingResponse DTO
 export interface AmenityBooking {
   id: string;
@@ -23,10 +25,13 @@ export interface AmenityBooking {
   bookedByApartmentId: string;
   startTime: string;
   endTime: string;
-  status: string;
+  status: BookingStatus | string;
   adminNotes?: string;
   duration: number;
   createdAt: string;
+  // Set when the booking was cancelled — remarks are shown to the booking owner.
+  cancellationRemarks?: string;
+  cancelledByUserId?: string;
 }
 
 export interface AmenityAvailability {

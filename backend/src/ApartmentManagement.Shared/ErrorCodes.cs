@@ -68,6 +68,7 @@ public static class ErrorCodes
     public const string StaffNotFound = "STAFF_NOT_FOUND";
     public const string StaffInactive = "STAFF_INACTIVE";
     public const string ShiftNotFound = "SHIFT_NOT_FOUND";
+    public const string ShiftInUse = "SHIFT_IN_USE";
     public const string StaffAlreadyCheckedIn = "STAFF_ALREADY_CHECKED_IN";
     public const string StaffNotCheckedIn = "STAFF_NOT_CHECKED_IN";
 

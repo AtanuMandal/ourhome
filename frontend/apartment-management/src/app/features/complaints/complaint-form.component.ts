@@ -60,13 +60,13 @@ export class ComplaintFormComponent {
 
   readonly loading = signal(false);
 
-  readonly categoryOptions = (['Plumbing', 'Electrical', 'Cleaning', 'Security', 'Noise', 'Parking', 'Other'] as ComplaintCategory[])
+  readonly categoryOptions = (['Maintenance', 'Security', 'Noise', 'Cleanliness', 'Infrastructure', 'General'] as ComplaintCategory[])
     .map(c => ({ value: c, label: c }));
   readonly priorityOptions = (['Low', 'Medium', 'High', 'Critical'] as ComplaintPriority[])
     .map(p => ({ value: p, label: p }));
 
   readonly form = this.fb.group({
-    category:    ['Plumbing' as ComplaintCategory, Validators.required],
+    category:    ['Maintenance' as ComplaintCategory, Validators.required],
     priority:    ['Medium' as ComplaintPriority, Validators.required],
     title:       ['', Validators.required],
     description: ['', Validators.required],
@@ -79,7 +79,9 @@ export class ComplaintFormComponent {
     this.loading.set(true);
     this.svc.raise(sid, {
       ...this.form.value as any,
-      apartmentId: user.apartmentId ?? '',
+      // Multi-apartment users may have no account-level apartmentId — use the
+      // apartment selected in the sidenav (falls back to the primary apartment).
+      apartmentId: this.auth.selectedApartmentId() ?? '',
       userId:      user.id,
     }).subscribe({
       next: c => { this.loading.set(false); this.router.navigate(['/complaints', c.id]); },

@@ -193,6 +193,7 @@ public static class InfrastructureDependencyInjection
         services.AddScoped<IAuthService, JwtAuthService>();
         services.AddScoped<INotificationService>(sp => new NotificationService(
             sp.GetRequiredService<IOptions<InfrastructureSettings>>(),
+            sp.GetRequiredService<IEmailSender>(),
             sp.GetRequiredService<IPushSubscriptionStore>(),
             sp.GetRequiredService<IMobilePushTokenStore>(),
             sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<NotificationService>>()));

@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useInfiniteList } from '../../../shared/hooks/useInfiniteList';
-import { staffApi, CreateStaffRequest, UpdateStaffRequest, CreateShiftRequest } from '../../../api/endpoints/staff';
+import { staffApi, CreateStaffRequest, UpdateStaffRequest, CreateShiftRequest, UpdateShiftRequest } from '../../../api/endpoints/staff';
 import type { Staff } from '../../../api/types';
 
 export function useStaffList(societyId: string, params?: Record<string, string | number>) {
@@ -19,11 +19,13 @@ export function useStaffMember(societyId: string, id: string) {
   });
 }
 
-export function useOnDutyStaff(societyId: string) {
+// enabled defaults to true; StaffListScreen passes false for a read-only SUUser viewer since
+// GetOnDutyStaff is SUAdmin/SUSecurity-only server-side.
+export function useOnDutyStaff(societyId: string, enabled = true) {
   return useQuery({
     queryKey: ['staff-on-duty', societyId],
     queryFn: () => staffApi.getOnDuty(societyId),
-    enabled: !!societyId,
+    enabled: !!societyId && enabled,
   });
 }
 
@@ -64,6 +66,22 @@ export function useDeactivateStaff(societyId: string) {
   });
 }
 
+export function useReactivateStaff(societyId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => staffApi.reactivateStaff(societyId, id),
+    onSuccess: () => invalidateStaffQueries(queryClient, societyId),
+  });
+}
+
+export function useDeleteStaff(societyId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => staffApi.deleteStaff(societyId, id),
+    onSuccess: () => invalidateStaffQueries(queryClient, societyId),
+  });
+}
+
 export function useCheckInStaff(societyId: string) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -84,6 +102,22 @@ export function useCreateShift(societyId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: CreateShiftRequest) => staffApi.createShift(societyId, data),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['shifts', societyId] }),
+  });
+}
+
+export function useUpdateShift(societyId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UpdateShiftRequest }) => staffApi.updateShift(societyId, id, data),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['shifts', societyId] }),
+  });
+}
+
+export function useDeleteShift(societyId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => staffApi.deleteShift(societyId, id),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['shifts', societyId] }),
   });
 }

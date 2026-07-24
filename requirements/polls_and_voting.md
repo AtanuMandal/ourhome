@@ -3,7 +3,7 @@
 ## Overview
 This module lets `SUAdmin` raise a question to the community and collect structured resident input — from a quick one-tap poll ("should we repaint the gate this month?") to a formal e-voting resolution tied to an Annual General Meeting (AGM). It gives societies a digital paper trail for decisions that today are settled by a show of hands, a WhatsApp thread, or a physical ballot at the AGM.
 
-> 🆕 **New module.** Nothing described below exists in the codebase yet — no `Poll` entity, no voting endpoints, no UI. This document is the specification to build against, written in the same shape as the platform's other feature requirements.
+> ✅ **Implemented.** The `Poll` entity, voting endpoints, AGM sessions, and web + mobile UI (poll list/detail/create, AGM session list/detail/create) are live.
 
 ---
 
@@ -57,7 +57,7 @@ This module lets `SUAdmin` raise a question to the community and collect structu
 
 ---
 
-## API Endpoints (Planned)
+## API Endpoints
 
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|

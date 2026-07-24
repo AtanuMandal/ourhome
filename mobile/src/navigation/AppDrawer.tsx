@@ -1,8 +1,10 @@
 import React from 'react';
+import { View, Image, StyleSheet } from 'react-native';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import type { DrawerContentComponentProps } from '@react-navigation/drawer';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { CustomDrawer } from './CustomDrawer';
+import { useThemeStore } from '../store/themeStore';
 import { DashboardScreen } from '../features/dashboard/DashboardScreen';
 import { ResidentListScreen } from '../features/residents/ResidentListScreen';
 import { ResidentFormScreen } from '../features/residents/ResidentFormScreen';
@@ -19,6 +21,7 @@ import { AmenityFormScreen } from '../features/amenities/AmenityFormScreen';
 import { VisitorListScreen } from '../features/visitors/VisitorListScreen';
 import { VisitorRegisterScreen } from '../features/visitors/VisitorRegisterScreen';
 import { VisitorPassScreen } from '../features/visitors/VisitorPassScreen';
+import { VisitorScanScreen } from '../features/visitors/VisitorScanScreen';
 import { NoticeListScreen } from '../features/notices/NoticeListScreen';
 import { NoticeDetailScreen } from '../features/notices/NoticeDetailScreen';
 import { NoticeCreateScreen } from '../features/notices/NoticeCreateScreen';
@@ -36,6 +39,8 @@ import { ContactUsScreen } from '../features/society/ContactUsScreen';
 import { StaffListScreen } from '../features/staff/StaffListScreen';
 import { StaffFormScreen } from '../features/staff/StaffFormScreen';
 import { StaffAttendanceReportScreen } from '../features/staff/StaffAttendanceReportScreen';
+import { ShiftListScreen } from '../features/staff/ShiftListScreen';
+import { ShiftFormScreen } from '../features/staff/ShiftFormScreen';
 import { SosAlertListScreen } from '../features/sos/SosAlertListScreen';
 import { SosAlertReportScreen } from '../features/sos/SosAlertReportScreen';
 import { PollListScreen } from '../features/polls/PollListScreen';
@@ -60,6 +65,7 @@ type VisitorsParams = {
   VisitorList: undefined;
   VisitorRegister: undefined;
   VisitorDetail: { id: string };
+  VisitorScan: undefined;
 };
 const VS = createNativeStackNavigator<VisitorsParams>();
 function VisitorsStack() {
@@ -68,6 +74,7 @@ function VisitorsStack() {
       <VS.Screen name="VisitorList"     component={VisitorListScreen} />
       <VS.Screen name="VisitorRegister" component={VisitorRegisterScreen} />
       <VS.Screen name="VisitorDetail"   component={VisitorPassScreen} />
+      <VS.Screen name="VisitorScan"     component={VisitorScanScreen} />
     </VS.Navigator>
   );
 }
@@ -170,6 +177,8 @@ type StaffParams = {
   StaffList: undefined;
   StaffForm: { id?: string };
   StaffAttendanceReport: undefined;
+  ShiftList: undefined;
+  ShiftForm: { id?: string };
 };
 const StaffNav = createNativeStackNavigator<StaffParams>();
 function StaffStack() {
@@ -178,6 +187,8 @@ function StaffStack() {
       <StaffNav.Screen name="StaffList" component={StaffListScreen} />
       <StaffNav.Screen name="StaffForm" component={StaffFormScreen} />
       <StaffNav.Screen name="StaffAttendanceReport" component={StaffAttendanceReportScreen} />
+      <StaffNav.Screen name="ShiftList" component={ShiftListScreen} />
+      <StaffNav.Screen name="ShiftForm" component={ShiftFormScreen} />
     </StaffNav.Navigator>
   );
 }
@@ -243,39 +254,59 @@ function renderDrawer(props: DrawerContentComponentProps) {
 }
 
 export function AppDrawer() {
+  // Society background image (see requirements/account_fee_management.md) — sits behind the
+  // main content area (the screens themselves, to the right of the drawer), on its own
+  // absolutely-positioned layer at 70% opacity, never on the screens' own containers.
+  const sidenavBackgroundUrl = useThemeStore((s) => s.sidenavBackgroundUrl);
+
   return (
-    <Drawer.Navigator
-      drawerContent={renderDrawer}
-      screenOptions={{
-        headerShown: false,
-        drawerType: 'slide',
-        drawerStyle: { backgroundColor: colors.surface, width: 280 },
-        overlayColor: 'rgba(0,0,0,0.4)',
-        swipeEdgeWidth: 40,
-      }}
-    >
-      <Drawer.Screen name="Dashboard"       component={DashboardScreen} />
-      <Drawer.Screen name="Residents"       component={ResidentsStack} />
-      <Drawer.Screen name="Apartments"      component={ApartmentsStack} />
-      <Drawer.Screen name="MyApartment"     component={MyApartmentScreen} />
-      <Drawer.Screen name="Rewards"         component={RewardsScreen} />
-      <Drawer.Screen name="Services"        component={ServicesStack} />
-      <Drawer.Screen name="SocietySettings" component={SocietySettingsScreen} />
-      <Drawer.Screen name="Visitors"        component={VisitorsStack} />
-      <Drawer.Screen name="Notices"         component={NoticesStack} />
-      <Drawer.Screen name="Complaints"      component={ComplaintsStack} />
-      <Drawer.Screen name="Maintenance"     component={MaintenanceScreen} />
-      <Drawer.Screen name="FinancialReport" component={FinancialReportScreen} />
-      <Drawer.Screen name="VendorPayments"  component={VendorPaymentListScreen} />
-      <Drawer.Screen name="Amenities"       component={AmenitiesStack} />
-      <Drawer.Screen name="Staff"           component={StaffStack} />
-      <Drawer.Screen name="SosAlerts"       component={SosStack} />
-      <Drawer.Screen name="Polls"           component={PollStack} />
-      <Drawer.Screen name="Committee"       component={CommitteeScreen} />
-      <Drawer.Screen name="ContactUs"       component={ContactUsScreen} />
-      <Drawer.Screen name="HqSocieties"     component={HqSocietiesStack} />
-      <Drawer.Screen name="HqUsers"         component={HqUserListScreen} />
-      <Drawer.Screen name="Profile"         component={ProfileScreen} />
-    </Drawer.Navigator>
+    <View style={styles.container}>
+      {sidenavBackgroundUrl && (
+        <Image source={{ uri: sidenavBackgroundUrl }} style={styles.backgroundImage} resizeMode="cover" />
+      )}
+      <Drawer.Navigator
+        drawerContent={renderDrawer}
+        screenOptions={{
+          headerShown: false,
+          drawerType: 'slide',
+          drawerStyle: { backgroundColor: colors.surface, width: 280 },
+          overlayColor: 'rgba(0,0,0,0.4)',
+          swipeEdgeWidth: 40,
+          sceneStyle: sidenavBackgroundUrl ? { backgroundColor: 'transparent' } : undefined,
+        }}
+      >
+        <Drawer.Screen name="Dashboard"       component={DashboardScreen} />
+        <Drawer.Screen name="Residents"       component={ResidentsStack} />
+        <Drawer.Screen name="Apartments"      component={ApartmentsStack} />
+        <Drawer.Screen name="MyApartment"     component={MyApartmentScreen} />
+        <Drawer.Screen name="Rewards"         component={RewardsScreen} />
+        <Drawer.Screen name="Services"        component={ServicesStack} />
+        <Drawer.Screen name="SocietySettings" component={SocietySettingsScreen} />
+        <Drawer.Screen name="Visitors"        component={VisitorsStack} />
+        <Drawer.Screen name="Notices"         component={NoticesStack} />
+        <Drawer.Screen name="Complaints"      component={ComplaintsStack} />
+        <Drawer.Screen name="Maintenance"     component={MaintenanceScreen} />
+        <Drawer.Screen name="FinancialReport" component={FinancialReportScreen} />
+        <Drawer.Screen name="VendorPayments"  component={VendorPaymentListScreen} />
+        <Drawer.Screen name="Amenities"       component={AmenitiesStack} />
+        <Drawer.Screen name="Staff"           component={StaffStack} />
+        <Drawer.Screen name="SosAlerts"       component={SosStack} />
+        <Drawer.Screen name="Polls"           component={PollStack} />
+        <Drawer.Screen name="Committee"       component={CommitteeScreen} />
+        <Drawer.Screen name="ContactUs"       component={ContactUsScreen} />
+        <Drawer.Screen name="HqSocieties"     component={HqSocietiesStack} />
+        <Drawer.Screen name="HqUsers"         component={HqUserListScreen} />
+        <Drawer.Screen name="Profile"         component={ProfileScreen} />
+      </Drawer.Navigator>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  backgroundImage: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    opacity: 0.7,
+  },
+});

@@ -69,7 +69,7 @@ export class ComplaintDetailComponent implements OnInit {
   resolve() {
     const sid = this.auth.societyId()!;
     const id  = this.item()!.id;
-    this.svc.resolve(sid, id, { resolutionNotes: 'Resolved by admin' }).subscribe({
+    this.svc.resolve(sid, id, { status: 'Resolved', notes: 'Resolved by admin' }).subscribe({
       next: c => this.item.set(c),
     });
   }

@@ -42,7 +42,15 @@ public record SocietyResponse(
     string ThemeId,
     DateTime CreatedAt,
     int MaxUsersPerApartment = Domain.Entities.Society.DefaultMaxUsersPerApartment,
-    int VisitorOverstayThresholdHours = Domain.Entities.Society.DefaultVisitorOverstayThresholdHours);
+    int VisitorOverstayThresholdHours = Domain.Entities.Society.DefaultVisitorOverstayThresholdHours,
+    /// <summary>Null when no logo has been uploaded — clients show their default branding.</summary>
+    string? LogoUrl = null,
+    /// <summary>Null when no background has been uploaded — clients show their default sidenav/drawer background.</summary>
+    string? SidenavBackgroundUrl = null);
+
+public record SocietyLogoUploadResponse(string LogoUrl);
+
+public record SocietyBackgroundImageUploadResponse(string SidenavBackgroundUrl);
 
 /// <summary>
 /// Platform-level occupancy snapshot for HQAdmin/HQUser — deliberately excludes any financial data
@@ -77,10 +85,14 @@ public record ApartmentResponse(
     string Id, string SocietyId, string ApartmentNumber, string BlockName, int FloorNumber,
     int NumberOfRooms, IReadOnlyList<string> ParkingSlots, double CarpetArea, double BuildUpArea, double SuperBuildArea,
     string Status, IReadOnlyList<ApartmentResidentDto> Residents, string? PrimaryResidentName,
-    IReadOnlyList<ApartmentResidentHistoryDto> OwnershipHistory, IReadOnlyList<ApartmentResidentHistoryDto> TenantHistory, DateTime CreatedAt);
+    IReadOnlyList<ApartmentResidentHistoryDto> OwnershipHistory, IReadOnlyList<ApartmentResidentHistoryDto> TenantHistory, DateTime CreatedAt,
+    IReadOnlyList<ParkingCarNumberDto>? ParkingCarNumbers = null);
 
 public record ApartmentResidentHistoryDto(string UserId, string? FullName, DateTime FromUtc, DateTime? ToUtc);
 public record ApartmentResidentDto(string UserId, string UserName, string ResidentType);
+public record ParkingCarNumberDto(string SlotId, string CarNumber);
+public sealed record UpdateApartmentParkingRequest(IReadOnlyList<ParkingCarNumberDto> CarNumbers);
+public sealed record ApartmentDirectoryExportResponse(string FileName, string ContentType, byte[] Content);
 
 public record ChangeApartmentStatusRequest(
     [property: JsonConverter(typeof(JsonStringEnumConverter))] ApartmentStatus Status,
@@ -463,7 +475,10 @@ public record AmenityResponse(
 public record BookingResponse(
     string Id, string SocietyId, string AmenityId, string AmenityName,
     string BookedByUserId, string BookedByApartmentId, DateTime StartTime, DateTime EndTime,
-    string Status, string? AdminNotes, double Duration, DateTime CreatedAt);
+    string Status, string? AdminNotes, double Duration, DateTime CreatedAt,
+    string? CancellationRemarks = null, string? CancelledByUserId = null);
+
+public record CancelBookingRequest(string? Remarks);
 
 public record AvailabilitySlot(DateTime Start, DateTime End, bool IsAvailable);
 
@@ -518,8 +533,7 @@ public record VisitorResponse(
     string? VisitorImageUrl = null,
     bool IsPassExpired = false,
     // True when the visitor is checked in past the society's overstay threshold — shown in red in lists.
-    bool IsOverstay = false,
-    bool IsAutoCheckedOut = false);
+    bool IsOverstay = false);
 
 public sealed record CheckInVisitorRequest(string PassCode);
 
@@ -572,6 +586,8 @@ public record AddReviewRequest(int Rating, string Comment);
 // ─── Staff Attendance ─────────────────────────────────────────────────────────
 
 public sealed record CreateShiftRequest(string Name, TimeSpan StartTime, TimeSpan EndTime, int GraceMinutes = 30);
+
+public sealed record UpdateShiftRequest(string Name, TimeSpan StartTime, TimeSpan EndTime, int GraceMinutes);
 
 public record ShiftResponse(string Id, string SocietyId, string Name, TimeSpan StartTime, TimeSpan EndTime, int GraceMinutes);
 

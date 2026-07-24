@@ -1,9 +1,13 @@
 import api from '../client';
-import type { Amenity, AmenityBooking } from '../types';
+import type { Amenity, AmenityBooking, PaginatedResponse } from '../types';
 
 export interface BookAmenityRequest {
   amenityId: string;
   apartmentId: string;
+  /**
+   * Society wall-clock time (YYYY-MM-DDTHH:mm), NOT UTC: the backend compares the
+   * time of day against the amenity's operating hours.
+   */
   startTime: string;
   endTime: string;
 }
@@ -41,5 +45,27 @@ export const amenitiesApi = {
   createBooking: (societyId: string, data: BookAmenityRequest) =>
     api
       .post<AmenityBooking>(`/societies/${societyId}/amenity-bookings`, data)
+      .then((r) => r.data),
+
+  // Admins receive every booking in the society; residents receive their own.
+  getBookings: (societyId: string, params?: { page?: number; pageSize?: number }) =>
+    api
+      .get<PaginatedResponse<AmenityBooking>>(`/societies/${societyId}/amenity-bookings`, { params })
+      .then((r) => r.data),
+
+  // Owner cancels own booking; admin cancels any booking (remarks required, shown to owner).
+  cancelBooking: (societyId: string, bookingId: string, remarks?: string) =>
+    api
+      .post<AmenityBooking>(`/societies/${societyId}/amenity-bookings/${bookingId}/cancel`, { remarks: remarks ?? null })
+      .then((r) => r.data),
+
+  approveBooking: (societyId: string, bookingId: string, adminNotes?: string) =>
+    api
+      .post<AmenityBooking>(`/societies/${societyId}/amenity-bookings/${bookingId}/approve`, { adminNotes: adminNotes ?? null })
+      .then((r) => r.data),
+
+  rejectBooking: (societyId: string, bookingId: string, adminNotes?: string) =>
+    api
+      .post<AmenityBooking>(`/societies/${societyId}/amenity-bookings/${bookingId}/reject`, { adminNotes: adminNotes ?? null })
       .then((r) => r.data),
 };

@@ -1,5 +1,5 @@
 import api from '../client';
-import type { Apartment, PaginatedResponse } from '../types';
+import type { Apartment, PaginatedResponse, ParkingCarNumber } from '../types';
 
 // Matches backend CreateApartmentDto
 export interface CreateApartmentRequest {
@@ -75,5 +75,16 @@ export const apartmentsApi = {
   getResidentHistory: (societyId: string, id: string) =>
     api
       .get<ApartmentResidentHistoryResponse>(`/societies/${societyId}/apartments/${id}/resident-history`)
+      .then((r) => r.data),
+
+  updateParking: (societyId: string, id: string, carNumbers: ParkingCarNumber[]) =>
+    api.put<Apartment>(`/societies/${societyId}/apartments/${id}/parking`, { carNumbers }).then((r) => r.data),
+
+  exportDirectory: (societyId: string) =>
+    api
+      .get<string>(`/societies/${societyId}/apartments/directory-report`, {
+        responseType: 'text',
+        transformResponse: [(data: string) => data],
+      })
       .then((r) => r.data),
 };

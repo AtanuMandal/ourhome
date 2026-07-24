@@ -7,6 +7,7 @@ import {
   BulkImportResult,
   ChangeApartmentStatusDto,
   CreateApartmentDto,
+  ParkingCarNumber,
   UpdateApartmentDto
 } from '../models/apartment.model';
 import { User, InviteLink, InviteTokenValidation } from '../models/user.model';
@@ -47,6 +48,14 @@ export class ApartmentService {
     const formData = new FormData();
     formData.append('file', file, file.name);
     return this.api.postForm<BulkImportResult>(`societies/${societyId}/apartments/import-csv`, formData);
+  }
+
+  updateParking(societyId: string, id: string, carNumbers: ParkingCarNumber[]) {
+    return this.api.put<Apartment>(`societies/${societyId}/apartments/${id}/parking`, { carNumbers });
+  }
+
+  exportDirectoryReport(societyId: string) {
+    return this.api.download(`societies/${societyId}/apartments/directory-report`);
   }
 }
 

@@ -240,4 +240,81 @@ public class AmenityBookingTests
         // Assert
         booking.Duration.Should().Be(TimeSpan.FromHours(2));
     }
+
+    [Fact]
+    public void Cancel_WithRemarks_StoresRemarksAndCanceller()
+    {
+        // Arrange
+        var now = DateTime.UtcNow;
+        var booking = CreateBooking(now.AddHours(1), now.AddHours(2));
+
+        // Act
+        booking.Cancel("  Pool closed for maintenance  ", "admin-001");
+
+        // Assert
+        booking.Status.Should().Be(BookingStatus.Cancelled);
+        booking.CancellationRemarks.Should().Be("Pool closed for maintenance");
+        booking.CancelledByUserId.Should().Be("admin-001");
+    }
+
+    [Fact]
+    public void Cancel_WithoutRemarks_LeavesRemarksNull()
+    {
+        // Arrange
+        var now = DateTime.UtcNow;
+        var booking = CreateBooking(now.AddHours(1), now.AddHours(2));
+
+        // Act
+        booking.Cancel();
+
+        // Assert
+        booking.Status.Should().Be(BookingStatus.Cancelled);
+        booking.CancellationRemarks.Should().BeNull();
+        booking.CancelledByUserId.Should().BeNull();
+    }
+
+    [Fact]
+    public void Cancel_ApprovedBooking_Succeeds()
+    {
+        // Arrange
+        var now = DateTime.UtcNow;
+        var booking = CreateBooking(now.AddHours(1), now.AddHours(2));
+        booking.Approve();
+
+        // Act
+        booking.Cancel("Change of plans", "user-001");
+
+        // Assert
+        booking.Status.Should().Be(BookingStatus.Cancelled);
+    }
+
+    [Fact]
+    public void Cancel_RejectedBooking_Throws()
+    {
+        // Arrange
+        var now = DateTime.UtcNow;
+        var booking = CreateBooking(now.AddHours(1), now.AddHours(2));
+        booking.Reject();
+
+        // Act
+        var act = () => booking.Cancel();
+
+        // Assert
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void Cancel_AlreadyCancelledBooking_Throws()
+    {
+        // Arrange
+        var now = DateTime.UtcNow;
+        var booking = CreateBooking(now.AddHours(1), now.AddHours(2));
+        booking.Cancel();
+
+        // Act
+        var act = () => booking.Cancel();
+
+        // Assert
+        act.Should().Throw<InvalidOperationException>();
+    }
 }

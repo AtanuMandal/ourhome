@@ -74,9 +74,14 @@ export class BookingFormComponent implements OnInit {
     this.svc.book(sid, {
       amenityId:   this.amenityId,
       userId:      user.id,
-      apartmentId: user.apartmentId ?? '',
-      startTime:   new Date(v.startTime!).toISOString(),
-      endTime:     new Date(v.endTime!).toISOString(),
+      // Multi-apartment users may have no account-level apartmentId — use the
+      // apartment selected in the sidenav (falls back to the primary apartment).
+      apartmentId: this.auth.selectedApartmentId() ?? '',
+      // Send society wall-clock time, NOT UTC: the backend compares the time of day
+      // against the amenity's operating hours, so converting to UTC would shift a
+      // 9 AM booking to 3:30 AM and fail the operating-hours check.
+      startTime:   v.startTime!,
+      endTime:     v.endTime!,
     }).subscribe({
       next: () => { this.loading.set(false); this.router.navigate(['/amenities']); },
       error: () => this.loading.set(false),

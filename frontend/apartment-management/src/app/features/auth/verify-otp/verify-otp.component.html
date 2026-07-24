@@ -53,6 +53,10 @@
           }
         </mat-form-field>
 
+        <button type="button" class="method-switch" [disabled]="resendCooldown() > 0 || loading()" (click)="resendOtp()">
+          @if (resendCooldown() > 0) { Resend OTP in {{ resendCooldown() }}s } @else { Resend OTP }
+        </button>
+
         <mat-form-field appearance="fill" class="full-width">
           <mat-label>New Password</mat-label>
           <mat-icon matPrefix>lock</mat-icon>

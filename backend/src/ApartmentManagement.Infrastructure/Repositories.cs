@@ -268,13 +268,6 @@ public class VisitorLogRepository(CosmosClient client, string dbName, ILogger<Vi
             .WithParameter("@code", passCode);
         return (await ExecuteCrossPartitionQueryAsync(q, ct)).FirstOrDefault();
     }
-
-    public async Task<IReadOnlyList<VisitorLog>> GetCheckedInAcrossSocietiesAsync(CancellationToken ct = default)
-    {
-        var q = new QueryDefinition("SELECT * FROM c WHERE c.status = @status")
-            .WithParameter("@status", VisitorStatus.CheckedIn.ToString());
-        return await ExecuteCrossPartitionQueryAsync(q, ct);
-    }
 }
 
 public class MaintenanceScheduleRepository(CosmosClient client, string dbName, ILogger<MaintenanceScheduleRepository> logger)

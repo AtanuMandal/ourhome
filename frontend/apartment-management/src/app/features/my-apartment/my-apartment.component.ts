@@ -15,7 +15,7 @@ import { LoadingSpinnerComponent } from '../../shared/components/loading-spinner
 import { AuthService } from '../../core/services/auth.service';
 import { UserService, ApartmentService } from '../../core/services/apartment.service';
 import { User } from '../../core/models/user.model';
-import { Apartment, formatApartmentLabel } from '../../core/models/apartment.model';
+import { Apartment, ParkingCarNumber, formatApartmentLabel } from '../../core/models/apartment.model';
 
 @Component({
   selector: 'app-my-apartment',
@@ -61,6 +61,26 @@ import { Apartment, formatApartmentLabel } from '../../core/models/apartment.mod
                     Send Invite Link
                   </button>
                 </div>
+
+                @if (apartmentSlots(apt.apartmentId).length) {
+                  <mat-divider style="margin:12px 0"></mat-divider>
+                  <div class="parking-title">Parking</div>
+                  <div class="parking-grid">
+                    @for (slot of apartmentSlots(apt.apartmentId); track slot) {
+                      <mat-form-field appearance="outline" class="parking-field">
+                        <mat-label>Car no. — Slot {{ slot }}</mat-label>
+                        <input matInput [ngModel]="parkingValue(apt.apartmentId, slot)"
+                               (ngModelChange)="setParkingValue(apt.apartmentId, slot, $event)"
+                               placeholder="KA-01-AB-1234">
+                      </mat-form-field>
+                    }
+                  </div>
+                  <button mat-stroked-button color="primary" type="button"
+                          (click)="saveParking(apt.apartmentId)"
+                          [disabled]="savingParking() === apt.apartmentId">
+                    Save Parking
+                  </button>
+                }
               </div>
             }
           </div>
@@ -117,6 +137,9 @@ import { Apartment, formatApartmentLabel } from '../../core/models/apartment.mod
     .apt-type { font-size:12px; color:var(--primary-light); font-weight:600; }
     .invite-row { display:flex; align-items:flex-start; gap:8px; flex-wrap:wrap; }
     .invite-email-field { width:220px; }
+    .parking-title { font-size:13px; font-weight:600; margin-bottom:8px; }
+    .parking-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:8px; width:100%; }
+    .parking-field { width:100%; }
     .pending-card { background:#fff8e1; border:1px solid #ffe082; }
     .pending-info { display:flex; gap:12px; padding:6px 0; font-size:14px;
       .label { color:var(--text-secondary); font-size:13px; width:100px; } }
@@ -146,6 +169,11 @@ export class MyApartmentComponent implements OnInit {
   );
   private readonly allApartments = signal<Apartment[]>([]); // full list for name lookups
 
+  readonly savingParking = signal<string | null>(null);
+  // apartmentId -> slotId -> car number being edited (seeded from each linked apartment's
+  // already-saved parkingCarNumbers once loaded, see ngOnInit).
+  private readonly parkingDrafts = signal<Record<string, Record<string, string>>>({});
+
   readonly joinForm = this.fb.group({
     apartmentId: ['', Validators.required],
     residentType: ['Owner' as 'Owner' | 'Tenant', Validators.required],
@@ -174,9 +202,55 @@ export class MyApartmentComponent implements OnInit {
         this.allApartments.set(apartments.items);
         const linked = new Set((user.apartments ?? []).map(a => a.apartmentId));
         this.apartments.set(apartments.items.filter(a => !linked.has(a.id)));
+        this.seedParkingDrafts(apartments.items);
         this.loading.set(false);
       },
       error: () => this.loading.set(false),
+    });
+  }
+
+  private seedParkingDrafts(apartments: Apartment[]) {
+    const drafts: Record<string, Record<string, string>> = {};
+    for (const apt of apartments) {
+      const bySlot: Record<string, string> = {};
+      for (const entry of apt.parkingCarNumbers ?? []) bySlot[entry.slotId] = entry.carNumber;
+      drafts[apt.id] = bySlot;
+    }
+    this.parkingDrafts.set(drafts);
+  }
+
+  /** The parking slot ids defined on this apartment (empty if it has none, or hasn't loaded yet). */
+  apartmentSlots(apartmentId: string): string[] {
+    return this.allApartments().find(a => a.id === apartmentId)?.parkingSlots ?? [];
+  }
+
+  parkingValue(apartmentId: string, slotId: string): string {
+    return this.parkingDrafts()[apartmentId]?.[slotId] ?? '';
+  }
+
+  setParkingValue(apartmentId: string, slotId: string, value: string) {
+    this.parkingDrafts.update(drafts => ({
+      ...drafts,
+      [apartmentId]: { ...drafts[apartmentId], [slotId]: value },
+    }));
+  }
+
+  saveParking(apartmentId: string) {
+    const sid = this.auth.societyId();
+    if (!sid) return;
+
+    const slots = this.apartmentSlots(apartmentId);
+    const draft = this.parkingDrafts()[apartmentId] ?? {};
+    const carNumbers: ParkingCarNumber[] = slots.map(slotId => ({ slotId, carNumber: draft[slotId] ?? '' }));
+
+    this.savingParking.set(apartmentId);
+    this.apartmentSvc.updateParking(sid, apartmentId, carNumbers).subscribe({
+      next: updated => {
+        this.allApartments.update(list => list.map(a => a.id === apartmentId ? updated : a));
+        this.savingParking.set(null);
+        this.snackBar.open('Parking updated.', 'Dismiss', { duration: 3000 });
+      },
+      error: () => this.savingParking.set(null),
     });
   }
 

@@ -48,6 +48,21 @@ jest.mock('@expo/vector-icons', () => {
   return { MaterialIcons: (props: Record<string, unknown>) => <Text>{String(props.name)}</Text> };
 });
 
+// useActiveApartment issues a TanStack profile query; mock it to follow the auth
+// store's account-level apartmentId so these tests need no QueryClientProvider.
+jest.mock('../../../src/shared/hooks/useActiveApartment', () => ({
+  useActiveApartment: () => {
+    const { useAuthStore: store } = require('../../../src/store/authStore');
+    const user = store.getState().user;
+    return {
+      apartments: user?.apartments ?? [],
+      activeApartmentId: user?.apartmentId ?? null,
+      activeResidentType: user?.residentType,
+      setSelectedApartment: jest.fn(),
+    };
+  },
+}));
+
 const initialMetrics = {
   frame: { x: 0, y: 0, width: 0, height: 0 },
   insets: { top: 0, left: 0, right: 0, bottom: 0 },
@@ -107,6 +122,35 @@ describe('VisitorListScreen — approve/deny visibility', () => {
 
     await waitFor(() => expect(screen.getByText('Jane Visitor')).toBeTruthy());
     expect(screen.getByText('Approve')).toBeTruthy();
+  });
+
+  // Regression: mobile's Deny gate used to be role-only (SUAdmin/SUSecurity), unlike the web
+  // app's canModerate(visitor) which also lets the host resident deny their own visitor.
+  test('the host resident also sees Deny for their own visitor', async () => {
+    useAuthStore.setState({
+      user: { id: 'res1', societyId: 'soc-1', fullName: 'Resident', email: 'r@a.com', phone: '1', role: 'SUUser', residentType: 'Owner', apartmentId: 'apt-999', isVerified: true, isActive: true },
+      token: 'tok',
+      isAuthenticated: true,
+    });
+
+    renderScreen();
+
+    await waitFor(() => expect(screen.getByText('Jane Visitor')).toBeTruthy());
+    expect(screen.getByText('Deny')).toBeTruthy();
+  });
+
+  test('a resident does NOT see Deny for a visitor hosted by a different apartment', async () => {
+    useAuthStore.setState({
+      user: { id: 'res2', societyId: 'soc-1', fullName: 'Other Resident', email: 'o@a.com', phone: '1', role: 'SUUser', residentType: 'Owner', apartmentId: 'apt-1', isVerified: true, isActive: true },
+      token: 'tok',
+      isAuthenticated: true,
+    });
+
+    renderScreen();
+
+    await waitFor(() => expect(screen.getByText('Jane Visitor')).toBeTruthy());
+    expect(screen.queryByText('Deny')).toBeNull();
+    expect(screen.queryByText('Approve')).toBeNull();
   });
 });
 

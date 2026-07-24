@@ -41,21 +41,30 @@ export class MaintenanceService {
     return this.api.deleteWithBody<boolean>(`societies/${societyId}/maintenance/schedules/${scheduleId}`, dto);
   }
 
-  listCharges(societyId: string, filters: MaintenanceChargeFilters = {}) {
+  /**
+   * Pass `updatedSince` (ISO-8601 UTC) for auto-refresh/delta mode — see
+   * requirements/auto_refresh.md — which returns only charges changed since then (server-side
+   * capped to 10 minutes) instead of the full paged result.
+   */
+  listCharges(societyId: string, filters: MaintenanceChargeFilters = {}, updatedSince?: string) {
+    const query = this.toQuery(filters);
+    if (updatedSince) query['updatedSince'] = updatedSince;
     return this.api.getPaged<MaintenanceCharge>(
       `societies/${societyId}/maintenance/charges`,
       filters.page ?? 1,
       filters.pageSize ?? 100,
-      this.toQuery(filters)
+      query
     );
   }
 
-  getApartmentHistory(societyId: string, apartmentId: string, filters: MaintenanceChargeFilters = {}) {
+  getApartmentHistory(societyId: string, apartmentId: string, filters: MaintenanceChargeFilters = {}, updatedSince?: string) {
+    const query = this.toQuery(filters);
+    if (updatedSince) query['updatedSince'] = updatedSince;
     return this.api.getPaged<MaintenanceCharge>(
       `societies/${societyId}/apartments/${apartmentId}/maintenance/charges`,
       filters.page ?? 1,
       filters.pageSize ?? 100,
-      this.toQuery(filters)
+      query
     );
   }
 
@@ -90,7 +99,8 @@ export class MaintenanceService {
   }
 
   getChargeGrid(societyId: string, filters: MaintenanceGridFilters) {
-    return this.api.get<MaintenanceChargeGrid>(`societies/${societyId}/maintenance/grid`, this.toGridQuery(filters));
+    const query = this.toGridQuery(filters);
+    return this.api.get<MaintenanceChargeGrid>(`societies/${societyId}/maintenance/grid`, query);
   }
 
   createPenaltyCharge(societyId: string, dto: CreateMaintenancePenaltyChargeDto) {

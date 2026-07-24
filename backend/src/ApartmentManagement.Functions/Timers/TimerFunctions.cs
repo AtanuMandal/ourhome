@@ -127,22 +127,6 @@ public class TimerFunctions(
         }
     }
 
-    /// <summary>Runs every 30 minutes — checks out visitors who have been checked in for more than 24 hours.</summary>
-    [Function("AutoCheckOutOverdueVisitors")]
-    public async Task AutoCheckOutOverdueVisitors(
-        [TimerTrigger("0 */30 * * * *")] TimerInfo timer, CancellationToken ct)
-    {
-        logger.LogInformation("AutoCheckOutOverdueVisitors timer triggered");
-        try
-        {
-            await mediator.Send(new AutoCheckOutOverdueVisitorsCommand(), ct);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Error in AutoCheckOutOverdueVisitors timer");
-        }
-    }
-
     /// <summary>Runs every 30 minutes — reminds residents who haven't voted as a poll's closesAt approaches.</summary>
     [Function("SendPollVotingReminders")]
     public async Task SendPollVotingReminders(

@@ -1,5 +1,6 @@
 using ApartmentManagement.Application.Commands.Apartment;
 using ApartmentManagement.Application.DTOs;
+using ApartmentManagement.Application.Interfaces;
 using ApartmentManagement.Application.Queries.Apartment;
 using ApartmentManagement.Functions.Helpers;
 using ApartmentManagement.Shared.Models;
@@ -10,7 +11,7 @@ using Microsoft.Azure.Functions.Worker;
 
 namespace ApartmentManagement.Functions.Http;
 
-public class ApartmentFunctions(ISender mediator)
+public class ApartmentFunctions(ISender mediator, ICurrentUserService currentUser)
 {
     [Function("CreateApartment")]
     public async Task<IActionResult> CreateApartment(
@@ -61,6 +62,37 @@ public class ApartmentFunctions(ISender mediator)
         if (command is null) return HttpHelpers.MissingBody();
         var result = await mediator.Send(command with { SocietyId = societyId, ApartmentId = id }, ct);
         return result.ToActionResult();
+    }
+
+    [Function("UpdateApartmentParking")]
+    public async Task<IActionResult> UpdateApartmentParking(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "put", Route = "societies/{societyId}/apartments/{id}/parking")] HttpRequest req,
+        string societyId, string id, CancellationToken ct)
+    {
+        if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
+
+        var body = await req.DeserializeAsync<UpdateApartmentParkingRequest>(ct);
+        if (body is null) return HttpHelpers.MissingBody();
+
+        var carNumbersBySlot = body.CarNumbers.ToDictionary(c => c.SlotId, c => c.CarNumber, StringComparer.OrdinalIgnoreCase);
+        var result = await mediator.Send(new UpdateApartmentParkingCommand(societyId, id, carNumbersBySlot), ct);
+        return result.ToActionResult();
+    }
+
+    [Function("ExportApartmentDirectory")]
+    public async Task<IActionResult> ExportApartmentDirectory(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "societies/{societyId}/apartments/directory-report")] HttpRequest req,
+        string societyId, CancellationToken ct)
+    {
+        if (!currentUser.IsAuthenticated) return new UnauthorizedResult();
+
+        var result = await mediator.Send(new GetApartmentDirectoryReportQuery(societyId), ct);
+        if (!result.IsSuccess || result.Value is null) return result.ToActionResult();
+
+        return new FileContentResult(result.Value.Content, result.Value.ContentType)
+        {
+            FileDownloadName = result.Value.FileName
+        };
     }
 
     [Function("DeleteApartment")]

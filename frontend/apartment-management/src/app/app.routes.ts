@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authGuard, guestGuard, adminGuard, visitorGuard, staffGuard, hqGuard } from './core/guards/auth.guard';
+import { authGuard, guestGuard, adminGuard, visitorGuard, hqGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
   { path: '', redirectTo: '/dashboard', pathMatch: 'full' },
@@ -72,7 +72,9 @@ export const routes: Routes = [
 
   {
     path: 'staff',
-    canActivate: [staffGuard],
+    // Read-only roster (name/phone) for every society role, including SUUser — mutating
+    // actions (add/edit/deactivate/attendance report) are gated per-child-route below.
+    canActivate: [visitorGuard],
     loadChildren: () => import('./features/staff/staff.routes').then(m => m.STAFF_ROUTES),
   },
 

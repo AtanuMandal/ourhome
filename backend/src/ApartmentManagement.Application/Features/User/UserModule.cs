@@ -13,6 +13,25 @@ using Microsoft.Extensions.Logging;
 namespace ApartmentManagement.Application.Commands.User
 {
 
+/// <summary>Sends an OTP via SMS when an SMS provider is configured; otherwise falls back to
+/// the user's email, so a user is never left without any way to receive the code just because
+/// no SMS provider (e.g. ACS SMS) is set up.</summary>
+file static class OtpDelivery
+{
+    public static async Task SendAsync(
+        INotificationService notificationService, string? phone, string? email, string otpMessage, CancellationToken ct)
+    {
+        if (notificationService.IsSmsConfigured && !string.IsNullOrWhiteSpace(phone))
+        {
+            await notificationService.SendSmsAsync(phone, otpMessage, ct);
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(email))
+            await notificationService.SendEmailAsync(email, "Your OTP", otpMessage, ct);
+    }
+}
+
 // ─── Create User ──────────────────────────────────────────────────────────────
 
 public record CreateUserCommand(
@@ -105,9 +124,8 @@ public sealed class CreateUserCommandHandler(
                 userNeedsUpdate = true;
             }
 
-            if (!string.IsNullOrWhiteSpace(created.Phone))
-                await notificationService.SendSmsAsync(created.Phone,
-                    $"Your OTP for apartment management system is: {created.OtpCode}", ct);
+            await OtpDelivery.SendAsync(notificationService, created.Phone, created.Email,
+                $"Your OTP for apartment management system is: {created.OtpCode}", ct);
 
             var persistedUser = userNeedsUpdate
                 ? await userRepository.UpdateAsync(created, ct)
@@ -571,7 +589,7 @@ public sealed class SendOtpCommandHandler(
             user.GenerateOtp();
             await userRepository.UpdateAsync(user, ct);
 
-            await notificationService.SendSmsAsync(user.Phone,
+            await OtpDelivery.SendAsync(notificationService, user.Phone, user.Email,
                 $"Your OTP is: {user.OtpCode}. Valid for 10 minutes.", ct);
 
             return Result<bool>.Success(true);
@@ -657,7 +675,7 @@ public sealed class RequestOtpByEmailCommandHandler(
             user.GenerateOtp();
             await userRepository.UpdateAsync(user, ct);
 
-            await notificationService.SendSmsAsync(user.Phone,
+            await OtpDelivery.SendAsync(notificationService, user.Phone, user.Email,
                 $"Your OTP is: {user.OtpCode}. Valid for 10 minutes.", ct);
 
             return Result<RequestOtpByEmailResponse>.Success(new RequestOtpByEmailResponse(user.Id));
@@ -767,7 +785,7 @@ public sealed class RequestPhoneLoginOtpCommandHandler(
 
             selected.GenerateOtp();
             await userRepository.UpdateAsync(selected, ct);
-            await notificationService.SendSmsAsync(selected.Phone,
+            await OtpDelivery.SendAsync(notificationService, selected.Phone, selected.Email,
                 $"Your OTP is: {selected.OtpCode}. Valid for 10 minutes.", ct);
 
             return Result<PhoneLoginOtpResponse>.Success(new PhoneLoginOtpResponse(false, selected.Id, selectedOption));

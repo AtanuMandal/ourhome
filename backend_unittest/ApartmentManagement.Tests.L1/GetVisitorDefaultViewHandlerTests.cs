@@ -81,6 +81,32 @@ public class GetVisitorDefaultViewQueryHandlerTests
     }
 
     [Fact]
+    public async Task Handle_OverstayingCheckedInVisitor_IsSortedBeforeNewerRecords()
+    {
+        // Arrange — an overstaying visitor (checked in 10 hours ago, past the 5-hour default
+        // threshold) must surface before a visitor created moments ago, even though it's older.
+        var now = DateTime.UtcNow;
+        var overstaying = CreateVisitor("Overstaying Guest", VisitorStatus.CheckedIn, now.AddHours(-10));
+        typeof(VisitorLog).GetProperty(nameof(VisitorLog.CheckInTime))!.SetValue(overstaying, now.AddHours(-10));
+        var recentPending = CreateVisitor("Recent Pending", VisitorStatus.Pending, now);
+
+        _visitorRepoMock
+            .Setup(r => r.GetAllAsync("soc-001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<VisitorLog> { recentPending, overstaying });
+
+        var handler = CreateHandler();
+
+        // Act
+        var result = await handler.Handle(
+            new GetVisitorDefaultViewQuery("soc-001", null, RecentCount: 25), CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value![0].VisitorName.Should().Be("Overstaying Guest");
+        result.Value![0].IsOverstay.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task Handle_NonPositiveRecentCount_FallsBackToDefaultOf25()
     {
         // Arrange — 30 concluded entries; an unset/invalid recentCount must not return them all.

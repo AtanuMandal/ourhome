@@ -21,10 +21,11 @@ The complaints module allows residents to raise complaints about issues within t
 - Any authenticated resident (`SUUser`) can submit a complaint with:
   - **Title** (required)
   - **Description** (required)
-  - **Category** — one of: `Maintenance`, `Security`, `Noise`, `Cleanliness`, `Infrastructure`, `General`
-  - **Priority** — `Low`, `Medium`, `High`
+  - **Category** — one of: `Maintenance`, `Security`, `Noise`, `Cleanliness`, `Infrastructure`, `General` (legacy values `Parking`/`Other` remain readable for complaints stored before the category list was consolidated)
+  - **Priority** — `Low`, `Medium`, `High`, `Critical`
   - **Attachment URLs** — photos or documents uploaded separately via file upload
 - Complaint is created with status `Open`.
+- The raiser's user id and apartment are stamped server-side from the JWT when the client omits them — multi-apartment residents raise against the apartment selected in the app.
 - The resident can view all their own complaints and their current status.
 
 ### 2. Complaint Status Lifecycle
@@ -62,8 +63,8 @@ Open → InProgress → Resolved → Closed
 - ⚠️ **Gap:** **No HTTP endpoint is exposed** for feedback submission. `ComplaintFunctions.cs` has no route for `AddComplaintFeedbackCommand`. Residents currently cannot submit feedback via the API.
 
 ### 7. Resolution Time Tracking
-- Timestamps are stored for `CreatedAt` and each status change.
-- ⚠️ **Gap:** No dedicated `ResolvedAt` field or resolution-duration calculation; resolution time must be derived by diffing timestamps manually. No admin report endpoint for average resolution times.
+- Timestamps are stored for `CreatedAt` and each status change; a dedicated `ResolvedAt` field is set when the complaint is resolved.
+- ⚠️ **Gap:** No admin report endpoint for average resolution times or complaint volume trends.
 
 ### 8. Service Requests
 - Service requests follow the same complaint flow with a `ServiceRequest` category or via the Local Service Providers module (see `local_service_providers.md`).

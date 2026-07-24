@@ -1,3 +1,4 @@
+using ApartmentManagement.Application.Interfaces;
 using ApartmentManagement.Infrastructure;
 using ApartmentManagement.Infrastructure.Services;
 using FluentAssertions;
@@ -12,6 +13,7 @@ public class MobilePushTokenHandlerTests
     private readonly Mock<IMobilePushTokenStore> _mobilePushTokenStoreMock = new();
     private readonly Mock<IPushSubscriptionStore> _pushSubscriptionStoreMock = new();
     private readonly Mock<IOptions<InfrastructureSettings>> _settingsMock = new();
+    private readonly Mock<IEmailSender> _emailSenderMock = new();
     private readonly Mock<ILogger<NotificationService>> _loggerMock = new();
 
     public MobilePushTokenHandlerTests()
@@ -20,7 +22,7 @@ public class MobilePushTokenHandlerTests
     }
 
     private NotificationService CreateService() =>
-        new(_settingsMock.Object, _pushSubscriptionStoreMock.Object,
+        new(_settingsMock.Object, _emailSenderMock.Object, _pushSubscriptionStoreMock.Object,
             _mobilePushTokenStoreMock.Object, _loggerMock.Object);
 
     [Fact]

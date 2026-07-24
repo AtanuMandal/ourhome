@@ -8,12 +8,14 @@ import {
   RefreshControl,
   StyleSheet,
   Alert,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSocietyId } from '../../shared/hooks/useSocietyId';
 import { useAuthStore } from '../../store/authStore';
+import { useActiveApartment } from '../../shared/hooks/useActiveApartment';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { useVisitorList, useVisitorDefaultView, useApproveVisitor, useDenyVisitor, useCheckOutVisitor, useCheckInVisitorByPass } from './hooks/useVisitors';
@@ -23,6 +25,7 @@ import { useDebounce } from '../../shared/hooks/useDebounce';
 import { AppHeader } from '../../shared/components/AppHeader';
 import { StatusChip } from '../../shared/components/StatusChip';
 import { EmptyState } from '../../shared/components/EmptyState';
+import { resolveFileUrl } from '../../camera/imageUpload';
 import { SearchableSelect } from '../../shared/components/SearchableSelect';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
@@ -30,7 +33,7 @@ import { spacing } from '../../theme/spacing';
 import { formatDateTime } from '../../shared/utils/date';
 import type { Visitor } from '../../api/types';
 
-type VisitorsNav = NativeStackNavigationProp<{ VisitorList: undefined; VisitorRegister: undefined; VisitorDetail: { id: string } }>;
+type VisitorsNav = NativeStackNavigationProp<{ VisitorList: undefined; VisitorRegister: undefined; VisitorDetail: { id: string }; VisitorScan: undefined }>;
 
 const STATUS_OPTIONS = [
   { label: 'All', value: '' },
@@ -45,9 +48,14 @@ export function VisitorListScreen() {
   const navigation = useNavigation<VisitorsNav>();
   const societyId = useSocietyId();
   const role = useAuthStore((s) => s.user?.role ?? '');
-  const myApartmentId = useAuthStore((s) => s.user?.apartmentId ?? '');
+  // Multi-apartment aware: host-approval rights follow the apartment selected in the drawer.
+  const { activeApartmentId } = useActiveApartment();
+  const myApartmentId = activeApartmentId ?? '';
 
-  const canModerate = role === 'SUAdmin' || role === 'SUSecurity';
+  // SUAdmin/SUSecurity manage every visitor; a resident (SUUser) additionally manages visitors
+  // hosted by their own apartment — matches the web app's canModerate(visitor) (see
+  // visitor-list.component.ts). Check-out stays role-only (canManageVisitors), never host-only.
+  const canManageVisitors = role === 'SUAdmin' || role === 'SUSecurity';
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -74,6 +82,8 @@ export function VisitorListScreen() {
   const defaultView = useVisitorDefaultView(societyId, isDefaultView);
 
   const data = isDefaultView ? (defaultView.data ?? []) : filteredList.data;
+  // Backend already sorts overstaying visitors to the top of the list — this just drives the banner count.
+  const overstayCount = data.filter((v) => v.isOverstay === true).length;
   const isLoading = isDefaultView ? defaultView.isLoading : filteredList.isLoading;
   const hasNextPage = isDefaultView ? false : filteredList.hasNextPage;
   const fetchNextPage = isDefaultView ? async () => undefined : filteredList.fetchNextPage;
@@ -123,9 +133,16 @@ export function VisitorListScreen() {
     return item.hostApartmentId === myApartmentId;
   }, [myApartmentId]);
 
+  const canDeny = useCallback((item: Visitor): boolean => {
+    if (item.status !== 'Pending') return false;
+    // SUAdmin/SUSecurity may deny any visitor; a resident may deny one hosted by their own
+    // apartment even though they can't deny anyone else's.
+    return canManageVisitors || item.hostApartmentId === myApartmentId;
+  }, [canManageVisitors, myApartmentId]);
+
   const canCheckOut = useCallback((item: Visitor): boolean => {
-    return canModerate && item.status === 'CheckedIn';
-  }, [canModerate]);
+    return canManageVisitors && item.status === 'CheckedIn';
+  }, [canManageVisitors]);
 
   const renderItem = useCallback(({ item }: { item: Visitor }) => {
     return (
@@ -134,6 +151,17 @@ export function VisitorListScreen() {
         onPress={() => navigation.navigate('VisitorDetail', { id: item.id })}
       >
         <View style={styles.itemTop}>
+          {item.visitorImageUrl ? (
+            <Image
+              source={{ uri: resolveFileUrl(item.visitorImageUrl) }}
+              style={styles.avatarImage}
+              accessibilityLabel={`Photo of ${item.visitorName}`}
+            />
+          ) : (
+            <View style={styles.avatarFallback}>
+              <Text style={styles.avatarFallbackText}>{item.visitorName?.[0] ?? '?'}</Text>
+            </View>
+          )}
           <View style={styles.itemLeft}>
             <Text style={[styles.visitorName, item.isOverstay === true && styles.visitorNameOverstay]}>
               {item.visitorName}
@@ -155,7 +183,7 @@ export function VisitorListScreen() {
           <StatusChip status={item.status} />
         </View>
 
-        {(canApprove(item) || canCheckOut(item) || (canModerate && item.status === 'Pending')) && (
+        {(canApprove(item) || canDeny(item) || canCheckOut(item)) && (
           <View style={styles.actions}>
             {canApprove(item) && (
               <TouchableOpacity
@@ -165,7 +193,7 @@ export function VisitorListScreen() {
                 <Text style={styles.actionBtnText}>Approve</Text>
               </TouchableOpacity>
             )}
-            {(canModerate && item.status === 'Pending') && (
+            {canDeny(item) && (
               <TouchableOpacity
                 style={[styles.actionBtn, styles.denyBtn]}
                 onPress={(e) => { e.stopPropagation(); deny(item.id); }}
@@ -185,7 +213,7 @@ export function VisitorListScreen() {
         )}
       </TouchableOpacity>
     );
-  }, [navigation, canApprove, canCheckOut, canModerate, approve, deny, checkOut]);
+  }, [navigation, canApprove, canDeny, canCheckOut, approve, deny, checkOut]);
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -210,7 +238,7 @@ export function VisitorListScreen() {
           <TouchableOpacity onPress={() => setShowMoreFilters((v) => !v)}>
             <Text style={styles.filterActionText}>{showMoreFilters ? 'Hide filters' : 'More filters'}</Text>
           </TouchableOpacity>
-          {canModerate && (
+          {canManageVisitors && (
             <TouchableOpacity onPress={() => void handleExportCsv()} disabled={exporting}>
               <Text style={styles.filterActionText}>{exporting ? 'Exporting…' : 'Export CSV'}</Text>
             </TouchableOpacity>
@@ -218,7 +246,7 @@ export function VisitorListScreen() {
         </View>
         {showMoreFilters && (
           <View style={styles.moreFilters}>
-            {canModerate && (
+            {canManageVisitors && (
               <TextInput
                 style={styles.searchInput}
                 placeholder="Resident name"
@@ -248,7 +276,7 @@ export function VisitorListScreen() {
           </View>
         )}
       </View>
-      {canModerate && (
+      {canManageVisitors && (
         <View style={styles.gateRow}>
           <TextInput
             style={[styles.searchInput, styles.gateInput]}
@@ -266,10 +294,24 @@ export function VisitorListScreen() {
           >
             <Text style={styles.gateBtnText}>{isVerifyingPass ? 'Verifying…' : 'Verify & Check In'}</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.gateBtn}
+            accessibilityLabel="Scan visitor pass QR code"
+            onPress={() => navigation.navigate('VisitorScan')}
+          >
+            <Text style={styles.gateBtnText}>📷 Scan</Text>
+          </TouchableOpacity>
         </View>
       )}
       {isDefaultView && (
         <Text style={styles.hint}>Showing pending and checked-in visitors plus the 10 most recent. Search or filter for more.</Text>
+      )}
+      {overstayCount > 0 && (
+        <View style={styles.overstayBanner}>
+          <Text style={styles.overstayBannerText}>
+            ⚠ {overstayCount} visitor{overstayCount === 1 ? '' : 's'} overstaying the allowed time — flagged in red below.
+          </Text>
+        </View>
       )}
       <FlatList
         data={data}
@@ -360,6 +402,18 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xs,
     backgroundColor: colors.surface,
   },
+  overstayBanner: {
+    backgroundColor: 'rgba(211, 47, 47, 0.1)',
+    borderLeftWidth: 4,
+    borderLeftColor: colors.error,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  overstayBannerText: {
+    fontSize: typography.fontSize.sm,
+    color: colors.error,
+    fontWeight: typography.fontWeight.semibold,
+  },
   item: {
     padding: spacing.md,
     backgroundColor: colors.surface,
@@ -381,8 +435,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
+    gap: spacing.sm,
   },
   itemLeft: { flex: 1, marginRight: spacing.sm },
+  avatarImage: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  avatarFallback: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarFallbackText: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text.secondary,
+  },
   visitorName: {
     fontSize: typography.fontSize.base,
     fontWeight: typography.fontWeight.semibold,

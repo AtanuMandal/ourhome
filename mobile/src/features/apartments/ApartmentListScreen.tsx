@@ -7,10 +7,13 @@ import {
   TouchableOpacity,
   RefreshControl,
   StyleSheet,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import { useAuthStore } from '../../store/authStore';
 import { useSocietyId } from '../../shared/hooks/useSocietyId';
 import { useApartmentList } from './hooks/useApartments';
@@ -18,6 +21,8 @@ import { useDebounce } from '../../shared/hooks/useDebounce';
 import { AppHeader } from '../../shared/components/AppHeader';
 import { StatusChip } from '../../shared/components/StatusChip';
 import { EmptyState } from '../../shared/components/EmptyState';
+import { apartmentsApi } from '../../api/endpoints/apartments';
+import { normalizeError } from '../../shared/utils/errors';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing } from '../../theme/spacing';
@@ -35,10 +40,29 @@ export function ApartmentListScreen() {
   const societyId = useSocietyId();
   const isAdmin = useAuthStore((s) => s.user?.role === 'SUAdmin');
   const [search, setSearch] = useState('');
+  const [exporting, setExporting] = useState(false);
   const debouncedSearch = useDebounce(search);
 
   const { data, isLoading, fetchNextPage, hasNextPage, refetch } =
     useApartmentList(societyId, debouncedSearch ? { search: debouncedSearch } : undefined);
+
+  // The apartment directory report as CSV, written to cache and handed to the OS share
+  // sheet — mobile's counterpart of the web app's "Download Report" download.
+  async function handleExportDirectory(): Promise<void> {
+    setExporting(true);
+    try {
+      const csv = await apartmentsApi.exportDirectory(societyId);
+      const uri = `${FileSystem.cacheDirectory}apartment-directory.csv`;
+      await FileSystem.writeAsStringAsync(uri, csv);
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, { mimeType: 'text/csv', dialogTitle: 'Apartment directory report' });
+      }
+    } catch (e) {
+      Alert.alert('Could not export the apartment report', normalizeError(e));
+    } finally {
+      setExporting(false);
+    }
+  }
 
   const sortedData = useMemo(
     () =>
@@ -81,6 +105,11 @@ export function ApartmentListScreen() {
           onChangeText={setSearch}
         />
       </View>
+      {isAdmin && (
+        <TouchableOpacity style={styles.reportLink} onPress={handleExportDirectory} disabled={exporting}>
+          <Text style={styles.reportLinkText}>{exporting ? 'Preparing report…' : 'Download Apartment Report →'}</Text>
+        </TouchableOpacity>
+      )}
       <FlatList
         data={sortedData}
         keyExtractor={(item) => item.id}
@@ -127,6 +156,8 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.base,
     color: colors.text.primary,
   },
+  reportLink: { paddingHorizontal: spacing.md, paddingBottom: spacing.sm, backgroundColor: colors.surface },
+  reportLinkText: { color: colors.primary, fontSize: typography.fontSize.sm, fontWeight: typography.fontWeight.semibold },
   item: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -181,7 +181,7 @@ describe('VisitorListComponent — default pending + recent approved/denied view
 
     expect(component.isDefaultFilterState()).toBeTrue();
     expect(visitorServiceStub.defaultView).toHaveBeenCalledTimes(1);
-    expect(visitorServiceStub.defaultView).toHaveBeenCalledWith('soc-1', component.recordCount());
+    expect(visitorServiceStub.defaultView).toHaveBeenCalledWith('soc-1', component.recordCount(), undefined);
     expect(visitorServiceStub.list).not.toHaveBeenCalled();
     expect(component.items().map(v => v.id).sort()).toEqual(['a1', 'c1', 'd1', 'p1', 'p2'].sort());
   });
@@ -192,7 +192,7 @@ describe('VisitorListComponent — default pending + recent approved/denied view
 
     component.onRecordCountChange(50);
 
-    expect(visitorServiceStub.defaultView).toHaveBeenCalledWith('soc-1', 50);
+    expect(visitorServiceStub.defaultView).toHaveBeenCalledWith('soc-1', 50, undefined);
     localStorage.removeItem('ourhome-visitor-list-record-count');
   });
 
@@ -294,22 +294,26 @@ describe('VisitorListComponent — silent background auto-refresh', () => {
     expect(component.backgroundRefreshing()).toBeFalse();
   });
 
-  it('a background refresh returning identical data leaves the rendered list untouched (no flicker)', () => {
-    const { component } = setup();
+  it('a background refresh with an empty delta leaves the rendered list untouched (no flicker)', () => {
+    const { component, visitorServiceStub } = setup();
     const itemsBefore = component.items();
 
+    // An empty delta means nothing was created/updated in the last 10 minutes (see
+    // requirements/auto_refresh.md) — the signal must not be written, so Angular re-renders
+    // nothing.
+    visitorServiceStub.defaultView.and.returnValue(of([]));
     component.loadVisitors(true);
 
-    // Same payload — the signal is never written, so Angular re-renders nothing.
     expect(component.items()).toBe(itemsBefore);
     expect(component.recentlyUpdatedIds().size).toBe(0);
   });
 
-  it('a background refresh highlights only the rows that changed, not the unchanged ones', () => {
+  it('a background refresh highlights only the rows present in the delta, not existing unchanged rows', () => {
     const { component, visitorServiceStub } = setup();
 
-    // v1 is unchanged; v2 is a new arrival.
-    visitorServiceStub.defaultView.and.returnValue(of([makeVisitor('v1', 'Pending'), makeVisitor('v2', 'Pending')]));
+    // v1 already exists from the initial load; a real delta response never re-sends unchanged
+    // records, so the background refresh here only returns v2, the new arrival.
+    visitorServiceStub.defaultView.and.returnValue(of([makeVisitor('v2', 'Pending')]));
     component.loadVisitors(true);
 
     expect(component.items().length).toBe(2);
@@ -330,6 +334,51 @@ describe('VisitorListComponent — silent background auto-refresh', () => {
     } finally {
       jasmine.clock().uninstall();
     }
+  });
+});
+
+describe('VisitorListComponent — overstay warning', () => {
+  function makeVisitor(id: string, isOverstay = false): Visitor {
+    return { id, status: 'CheckedIn', hostApartmentId: 'apt-1', visitorName: `Visitor ${id}`, createdAt: '2026-01-01T00:00:00Z', isOverstay } as Visitor;
+  }
+
+  function setup(items: Visitor[]) {
+    const visitorServiceStub = {
+      list: jasmine.createSpy().and.returnValue(of({ items: [], total: 0, page: 1, pageSize: 100 })),
+      defaultView: jasmine.createSpy().and.returnValue(of(items)),
+    };
+    const authServiceStub = {
+      societyId: () => 'soc-1',
+      isAdmin: () => true,
+      isSecurity: () => false,
+      canManageVisitors: () => true,
+      user: () => ({ role: 'SUAdmin', apartmentId: '' }),
+    };
+    const activatedRouteStub = { snapshot: { queryParamMap: convertToParamMap({}) } };
+
+    TestBed.configureTestingModule({
+      imports: [VisitorListComponent, NoopAnimationsModule],
+      providers: [
+        provideRouter([]),
+        { provide: VisitorService, useValue: visitorServiceStub },
+        { provide: AuthService, useValue: authServiceStub },
+        { provide: ActivatedRoute, useValue: activatedRouteStub },
+      ],
+    });
+
+    const fixture = TestBed.createComponent(VisitorListComponent);
+    fixture.detectChanges();
+    return fixture.componentInstance;
+  }
+
+  it('counts zero overstaying visitors when none are flagged', () => {
+    const component = setup([makeVisitor('v1'), makeVisitor('v2')]);
+    expect(component.overstayCount()).toBe(0);
+  });
+
+  it('counts only the visitors flagged as overstaying — no auto-checkout involved', () => {
+    const component = setup([makeVisitor('v1', true), makeVisitor('v2'), makeVisitor('v3', true)]);
+    expect(component.overstayCount()).toBe(2);
   });
 });
 
